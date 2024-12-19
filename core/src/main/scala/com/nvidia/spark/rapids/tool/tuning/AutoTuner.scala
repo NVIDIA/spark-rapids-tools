@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.profiling
+package com.nvidia.spark.rapids.tool.tuning
 
 import java.io.{BufferedReader, InputStreamReader, IOException}
 import java.util
@@ -28,6 +28,7 @@ import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.profiling._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}

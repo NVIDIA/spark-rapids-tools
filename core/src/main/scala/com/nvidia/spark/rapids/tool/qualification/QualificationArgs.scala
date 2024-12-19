@@ -16,6 +16,7 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.PlatformNames
+import com.nvidia.spark.rapids.tool.tuning.QualificationAutoTunerConfigsProvider
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 

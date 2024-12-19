@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
-import com.nvidia.spark.rapids.tool.tuning.TunerContext
+import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl

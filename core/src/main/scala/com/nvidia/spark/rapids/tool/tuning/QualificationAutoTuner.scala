@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.qualification
+package com.nvidia.spark.rapids.tool.tuning
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
-import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, AutoTunerConfigsProvider, ClusterProperties, DriverLogInfoProvider}
-
+import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
 
 /**
  * Implementation of the `AutoTuner` designed the Qualification Tool. This class can be used to

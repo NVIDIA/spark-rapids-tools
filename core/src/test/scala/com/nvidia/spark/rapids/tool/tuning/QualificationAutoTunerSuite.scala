@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.qualification
+package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
-import com.nvidia.spark.rapids.tool.profiling.{BaseAutoTunerSuite, Profiler}
+import com.nvidia.spark.rapids.tool.profiling.Profiler
 
 /**
  * Suite to test the Qualification Tool's AutoTuner

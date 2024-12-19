@@ -20,8 +20,7 @@ import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform, ToolTextFileWriter}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, DataSourceProfileResult, Profiler}
-import com.nvidia.spark.rapids.tool.qualification.QualificationAutoTunerConfigsProvider
+import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, Profiler}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging

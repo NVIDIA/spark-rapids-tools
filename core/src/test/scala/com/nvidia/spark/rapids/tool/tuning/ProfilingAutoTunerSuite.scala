@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,133 +14,22 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.profiling
+package com.nvidia.spark.rapids.tool.tuning
 
-import java.util
-
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, PlatformFactory, PlatformNames, T4Gpu}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import com.nvidia.spark.rapids.tool.profiling.{DriverLogUnsupportedOperators, Profiler}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
-import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
-case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
-  extends BaseDriverLogInfoProvider(None) {
-  override def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = unsupportedOps
-}
-
-class AppInfoProviderMockTest(val maxInput: Double,
-    val spilledMetrics: Seq[Long],
-    val jvmGCFractions: Seq[Double],
-    val propsFromLog: mutable.Map[String, String],
-    val sparkVersion: Option[String],
-    val rapidsJars: Seq[String],
-    val distinctLocationPct: Double,
-    val redundantReadSize: Long,
-    val meanInput: Double,
-    val meanShuffleRead: Double,
-    val shuffleStagesWithPosSpilling: Set[Long],
-    val shuffleSkewStages: Set[Long]) extends AppSummaryInfoBaseProvider {
-  override def isAppInfoAvailable = true
-  override def getMaxInput: Double = maxInput
-  override def getMeanInput: Double = meanInput
-  override def getMeanShuffleRead: Double = meanShuffleRead
-  override def getSpilledMetrics: Seq[Long] = spilledMetrics
-  override def getJvmGCFractions: Seq[Double] = jvmGCFractions
-  override def getRapidsProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSparkProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSystemProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSparkVersion: Option[String] = sparkVersion
-  override def getRapidsJars: Seq[String] = rapidsJars
-  override def getDistinctLocationPct: Double = distinctLocationPct
-  override def getRedundantReadSize: Long = redundantReadSize
-  override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
-  override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
-}
-
-abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  val defaultSparkVersion = "3.1.1"
-
-  val defaultDataprocProps: mutable.Map[String, String] = {
-    mutable.LinkedHashMap[String, String](
-      "spark.dynamicAllocation.enabled" -> "true",
-      "spark.driver.maxResultSize" -> "7680m",
-      "spark.driver.memory" -> "15360m",
-      "spark.executor.cores" -> "16",
-      "spark.executor.instances" -> "2",
-      "spark.executor.resource.gpu.amount" -> "1",
-      "spark.executor.memory" -> "26742m",
-      "spark.executor.memoryOverhead" -> "7372m",
-      "spark.executorEnv.OPENBLAS_NUM_THREADS" -> "1",
-      "spark.extraListeners" -> "com.google.cloud.spark.performance.DataprocMetricsListener",
-      "spark.rapids.memory.pinnedPool.size" -> "2048m",
-      "spark.scheduler.mode" -> "FAIR",
-      "spark.sql.cbo.enabled" -> "true",
-      "spark.sql.adaptive.enabled" -> "true",
-      "spark.ui.port" -> "0",
-      "spark.yarn.am.memory" -> "640m"
-    )
-  }
-
-  protected final def buildWorkerInfoAsString(
-      customProps: Option[mutable.Map[String, String]] = None,
-      numCores: Option[Int] = Some(32),
-      systemMemory: Option[String] = Some("122880MiB"),
-      numWorkers: Option[Int] = Some(4),
-      gpuCount: Option[Int] = None,
-      gpuMemory: Option[String] = None,
-      gpuDevice: Option[String] = None): String = {
-    val gpuWorkerProps = new GpuWorkerProps(
-      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-    val cpuSystem = new SystemClusterProps(
-      numCores.getOrElse(0), systemMemory.getOrElse(""), numWorkers.getOrElse(0))
-    val systemProperties = customProps match {
-      case None => mutable.Map[String, String]()
-      case Some(newProps) => newProps
-    }
-    val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
-    val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
-    // set the options to convert the object into formatted yaml content
-    val options = new DumperOptions()
-    options.setIndent(2)
-    options.setPrettyFlow(true)
-    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-    val yaml = new Yaml(options)
-    val rawString = yaml.dump(clusterProps)
-    // Skip the first line as it contains "the name of the class"
-    rawString.split("\n").drop(1).mkString("\n")
-  }
-
-  protected def getMockInfoProvider(maxInput: Double,
-      spilledMetrics: Seq[Long],
-      jvmGCFractions: Seq[Double],
-      propsFromLog: mutable.Map[String, String],
-      sparkVersion: Option[String],
-      rapidsJars: Seq[String] = Seq(),
-      distinctLocationPct: Double = 0.0,
-      redundantReadSize: Long = 0,
-      meanInput: Double = 0.0,
-      meanShuffleRead: Double = 0.0,
-      shuffleStagesWithPosSpilling: Set[Long] = Set(),
-      shuffleSkewStages: Set[Long] = Set()): AppSummaryInfoBaseProvider = {
-    new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
-      shuffleStagesWithPosSpilling, shuffleSkewStages)
-  }
-}
-
 /**
- * Suite to test the Qualification Tool's AutoTuner
+ * Suite to test the Profiling Tool's AutoTuner
  */
-class ProfilerAutoTunerSuite extends BaseAutoTunerSuite {
+class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   /**
    * Helper method to build a worker info string with GPU properties
@@ -334,7 +223,7 @@ class ProfilerAutoTunerSuite extends BaseAutoTunerSuite {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo,
-      getGpuAppMockInfoProvider, platform)
+        getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -395,7 +284,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -459,7 +348,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -532,7 +421,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -597,7 +486,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -656,7 +545,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -708,7 +597,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -766,7 +655,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -810,7 +699,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -906,7 +795,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
@@ -963,7 +852,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
@@ -1024,7 +913,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
@@ -1069,7 +958,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1144,7 +1033,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1210,7 +1099,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       Some(defaultSparkVersion))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1285,7 +1174,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1363,8 +1252,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo,
-      getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
-        Some(defaultSparkVersion)), platform)
+        getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
+          Some(defaultSparkVersion)), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1438,7 +1327,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1507,7 +1396,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1563,7 +1452,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo,
-      getGpuAppMockInfoWithJars(rapidsJars), platform)
+        getGpuAppMockInfoWithJars(rapidsJars), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     Profiler.getAutoTunerResultsAsString(properties, comments)
   }
@@ -1725,7 +1614,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1796,7 +1685,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1839,7 +1728,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(databricksWorkerInfo,
-      getGpuAppMockInfoProvider, platform)
+        getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
@@ -1888,7 +1777,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1940,8 +1829,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1976,7 +1865,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
-      getGpuAppMockInfoProvider, PlatformFactory.createInstance(), driverInfoProvider)
+        getGpuAppMockInfoProvider, PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2020,8 +1909,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance())
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance())
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2048,8 +1937,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2093,7 +1982,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2133,10 +2022,10 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
   }
 
   private def testPartitionConfigurations(
-      inputSize: Double,
-      shuffleRead: Double,
-      gpuDevice: GpuDevice,
-      expectedLines: Seq[String]): Unit = {
+                                           inputSize: Double,
+                                           shuffleRead: Double,
+                                           gpuDevice: GpuDevice,
+                                           expectedLines: Seq[String]): Unit = {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
@@ -2166,7 +2055,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedLines.forall(line => autoTunerOutput.contains(line)),
@@ -2233,7 +2122,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2280,7 +2169,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+        infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     // Assert shuffle manager string for DB 11.3 tag
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
@@ -2294,7 +2183,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       Some("3.3.0"), Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+        infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }
@@ -2331,7 +2220,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2404,7 +2293,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2466,7 +2355,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2537,7 +2426,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2607,7 +2496,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2675,7 +2564,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(emrWorkerInfo, infoProvider,
-      platform)
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit

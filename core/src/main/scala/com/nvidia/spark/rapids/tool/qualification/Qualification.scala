@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
-import com.nvidia.spark.rapids.tool.tuning.TunerContext
+import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
