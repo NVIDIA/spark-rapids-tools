@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
 import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics._
@@ -79,7 +80,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    * @return sequence of JobAggTaskMetricsProfileResult that contains only Job Ids
    */
   def aggregateSparkMetricsByJob(index: Int): Seq[JobAggTaskMetricsProfileResult] = {
-    val jobRows = app.jobIdToInfo.flatMap { case (id, jc) =>
+    app.jobIdToInfo.flatMap { case (id, jc) =>
       if (jc.stageIds.isEmpty) {
         None
       } else {
@@ -126,8 +127,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             perJobRec.swWriteTimeSum))
         }
       }
-    }
-    jobRows.toSeq
+    }(breakOut)
   }
 
   private case class AverageStageInfo(avgDuration: Double, avgShuffleReadBytes: Double)
@@ -163,7 +163,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
           avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason)
       }
-    }.toSeq
+    }(breakOut)
   }
 
   /**
@@ -172,7 +172,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    * @return sequence of SQLTaskAggMetricsProfileResult
    */
   def aggregateSparkMetricsBySql(index: Int): Seq[SQLTaskAggMetricsProfileResult] = {
-    val sqlRows = app.sqlIdToInfo.flatMap { case (sqlId, sqlCase) =>
+    app.sqlIdToInfo.flatMap { case (sqlId, sqlCase) =>
       if (app.sqlIdToStages.contains(sqlId)) {
         val stagesInSQL = app.sqlIdToStages(sqlId)
         // TODO: Should we only consider successful tasks?
@@ -229,8 +229,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       } else {
         None
       }
-    }
-    sqlRows.toSeq
+    }(breakOut)
   }
 
   /**
@@ -241,7 +240,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   def aggregateIOMetricsBySql(
       sqlMetricsAggs: Seq[SQLTaskAggMetricsProfileResult]): Seq[IOAnalysisProfileResult] = {
-    val sqlIORows = sqlMetricsAggs.map { sqlAgg =>
+    sqlMetricsAggs.map { sqlAgg =>
       IOAnalysisProfileResult(sqlAgg.appIndex,
         app.appId,
         sqlAgg.sqlId,
@@ -253,8 +252,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sqlAgg.memoryBytesSpilledSum,
         sqlAgg.srTotalBytesReadSum,
         sqlAgg.swBytesWrittenSum)
-    }
-    sqlIORows
+    }(breakOut)
   }
 
   /**
@@ -289,7 +287,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    * @return a sequence of SQLDurationExecutorTimeProfileResult or Empty if None.
    */
   def aggregateDurationAndCPUTimeBySql(index: Int): Seq[SQLDurationExecutorTimeProfileResult] = {
-    val sqlRows = app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
+    app.sqlIdToInfo.map { case (sqlId, sqlCase) =>
       // First, build the SQLIssues string by retrieving the potential issues from the
       // app.sqlIDtoProblematic map.
       val sqlIssues = if (app.sqlIDtoProblematic.contains(sqlId)) {
@@ -301,8 +299,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       SQLDurationExecutorTimeProfileResult(index, app.appId, sqlCase.rootExecutionID,
         sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
         app.getAppDuration.orElse(Option(0L)), sqlIssues, sqlCase.sqlCpuTimePercent)
-    }
-    sqlRows.toSeq
+    }(breakOut)
   }
 
   /**
@@ -338,7 +335,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           .getOrElse(sm.stageInfo.stageId, emptyDiagnosticMetrics)
           .withDefaultValue(zeroAccumProfileResults)
       val srTotalBytesMetrics =
-        AppSparkMetricsAnalyzer.getStatistics(tasksInStage.map(_.sr_totalBytesRead))
+        StatisticsMetrics.createFromArr(tasksInStage.map(_.sr_totalBytesRead)(breakOut))
 
       StageDiagnosticResult(index,
         app.getAppName,
@@ -359,7 +356,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         diagnosticMetricsMap(SW_WRITE_TIME_METRIC),
         diagnosticMetricsMap(GPU_SEMAPHORE_WAIT_METRIC),
         nodeNames)
-    }.toSeq
+    }(breakOut)
   }
 
   /**
@@ -453,27 +450,6 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.swRecordsWrittenSum,
         perStageRec.swWriteTimeSum)
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
-    }
-  }
-}
-
-
-object AppSparkMetricsAnalyzer  {
-  /**
-   * Given an input iterable, returns its min, median, max and sum.
-   */
-  def getStatistics(arr: Iterable[Long]): StatisticsMetrics = {
-    if (arr.isEmpty) {
-      StatisticsMetrics(0L, 0L, 0L, 0L)
-    } else {
-      val sortedArr = arr.toSeq.sorted
-      val len = sortedArr.size
-      val med = if (len % 2 == 0) {
-        (sortedArr(len / 2) + sortedArr(len / 2 - 1)) / 2
-      } else {
-        sortedArr(len / 2)
-      }
-      StatisticsMetrics(sortedArr.head, med, sortedArr(len - 1), sortedArr.sum)
     }
   }
 }
