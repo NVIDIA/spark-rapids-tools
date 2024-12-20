@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.store
+package com.nvidia.spark.rapids.tool.analysis.util
+
+import org.apache.spark.sql.rapids.tool.store.TaskModel
 
 /**
- * Accumulator Meta Reference
- * This maintains the reference to the metadata associated with an accumulable
- * @param id - Accumulable id
- * @param name - Reference to the accumulator name
+ * Accumulator for Job Aggregates.
+ * This is an optimization to avoid using the Scala collections API on each field for the entire
+ * number of tasks/stages in a Job.
  */
-case class AccumMetaRef(id: Long, name: AccumNameRef) {
-  def getName(): String = name.value
-}
-
-object AccumMetaRef {
-  val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
-  def apply(id: Long, name: Option[String]): AccumMetaRef =
-    new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
+case class JobAggAccum() extends TaskMetricsAccumRec {
+  override def addRecord(rec: TaskModel): Unit = {
+    throw new UnsupportedOperationException(
+      "Not implemented: JobAggAccum accepts only cached records")
+  }
 }
