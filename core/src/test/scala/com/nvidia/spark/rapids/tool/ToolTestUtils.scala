@@ -144,12 +144,13 @@ object ToolTestUtils extends Logging {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(logs)
     var index: Int = 1
+    val platform = PlatformFactory.createInstance(appArgs.platform())
     for (path <- appArgs.eventlog()) {
       val eventLogInfo = EventLogPathProcessor
         .getEventLogInfo(path, RapidsToolsConfUtil.newHadoopConf())
-      assert(eventLogInfo.size >= 1, s"event log not parsed as expected $path")
+      assert(eventLogInfo.nonEmpty, s"event log not parsed as expected $path")
       apps += new ApplicationInfo(RapidsToolsConfUtil.newHadoopConf(),
-        eventLogInfo.head._1, index)
+        eventLogInfo.head._1, index, platform)
       index += 1
     }
     apps
