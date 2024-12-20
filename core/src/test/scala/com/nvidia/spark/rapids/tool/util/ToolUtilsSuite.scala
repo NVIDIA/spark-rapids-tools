@@ -24,13 +24,13 @@ import scala.concurrent.duration._
 import scala.xml.XML
 
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
+import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
-
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, InPlaceMedianArrView, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 class ToolUtilsSuite extends FunSuite with Logging {
   test("get page links of a url") {
@@ -207,6 +207,27 @@ class ToolUtilsSuite extends FunSuite with Logging {
       val actualTXTContent = FSUtils.readFileContentAsUTF8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
       actualTXTContent should equal (expectedTXTContent)
+    }
+  }
+
+  test("Finding median of arrays") {
+    val testSet: Map[String, (Array[Long], Long)] = Map(
+      "All same values" -> (Array[Long](5, 5, 5, 5) -> 5L),
+      "Odd number of values [9, 7, 5, 3, 1]" -> (Array[Long](9, 7, 5, 3, 1) -> 5L),
+      "Even number of values [11, 9, 7, 5, 3, 1]" -> (Array[Long](11, 9, 7, 5, 3, 1) -> 6),
+      "Even number of values(2) [15, 13, 11, 9, 7, 5, 3, 1]" ->
+        (Array[Long](15, 13, 11, 9, 7, 5, 3, 1) -> 8),
+      "Even number of values(3) [3, 13, 11, 9, 7, 5, 15, 1]" ->
+        (Array[Long](3, 13, 11, 9, 7, 5, 15, 1) -> 8),
+      "Single element" -> (Array[Long](1) -> 1),
+      "Two elements" -> (Array[Long](1, 2).reverse -> 1)
+    )
+    for ((desc, (arr, expectedMedian)) <- testSet) {
+      val actualMedian =
+        InPlaceMedianArrView.findMedianInPlace(arr)(InPlaceMedianArrView.chooseMidpointPivotInPlace)
+      actualMedian shouldBe expectedMedian withClue s"Failed for $desc. " +
+        s"Expected: $expectedMedian, " +
+        s"Actual: $actualMedian"
     }
   }
 
