@@ -17,12 +17,13 @@
 import os
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools.storagelib import LocalPath
+from spark_rapids_tools_distributed.jar_cmd_args import JarCmdArgs
 
 
 @dataclass
@@ -38,6 +39,8 @@ class RapidsJobPropContainer(JSONPropertiesContainer):
             self.props['sparkConfArgs'] = {}
         if self.get_value_silent('platformArgs') is None:
             self.props['platformArgs'] = {}
+        if self.get_value_silent('distributedToolsConfigs') is None:
+            self.props['distributedToolsConfigs'] = {}
 
     def get_jar_file(self):
         return self.get_value('rapidsArgs', 'jarFile')
@@ -47,6 +50,9 @@ class RapidsJobPropContainer(JSONPropertiesContainer):
 
     def get_rapids_args(self):
         return self.get_value('rapidsArgs', 'jarArgs')
+
+    def get_distribution_tools_configs(self):
+        return self.get_value('distributedToolsConfigs')
 
 
 @dataclass
@@ -90,10 +96,10 @@ class RapidsJob:
         rapids_arguments.extend(extra_rapids_args)
         return rapids_arguments
 
-    def _build_submission_cmd(self) -> list:
+    def _build_submission_cmd(self) -> Union[list, JarCmdArgs]:
         raise NotImplementedError
 
-    def _submit_job(self, cmd_args: list) -> str:
+    def _submit_job(self, cmd_args: Union[list, JarCmdArgs]) -> str:
         raise NotImplementedError
 
     def _print_job_output(self, job_output: str):
@@ -124,13 +130,6 @@ class RapidsJob:
         finally:
             self._cleanup_temp_log4j_files()
         return job_output
-
-
-@dataclass
-class RapidsLocalJob(RapidsJob):
-    """
-    Implementation of a RAPIDS job that runs local on a machine.
-    """
 
     def _get_hadoop_classpath(self) -> Optional[str]:
         """
@@ -202,6 +201,13 @@ class RapidsLocalJob(RapidsJob):
                 vm_args.append(val)
         return vm_args
 
+
+@dataclass
+class RapidsLocalJob(RapidsJob):
+    """
+    Implementation of a RAPIDS job that runs local on a machine.
+    """
+
     def _build_submission_cmd(self) -> list:
         # env vars are added later as a separate dictionary
         classpath_arr = self._build_classpath()
@@ -218,3 +224,32 @@ class RapidsLocalJob(RapidsJob):
         out_std = self.exec_ctxt.platform.cli.run_sys_cmd(cmd=cmd_args,
                                                           env_vars=env_args)
         return out_std
+
+
+@dataclass
+class RapidsDistributedJob(RapidsJob):
+    """
+    Implementation of a RAPIDS job that runs distributed on a cluster.
+    """
+
+    def _build_submission_cmd(self) -> JarCmdArgs:
+        classpath_arr = self._build_classpath()
+        hadoop_cp = self._get_hadoop_classpath()
+        jvm_args_arr = self._build_jvm_args()
+        jar_main_class = self.prop_container.get_jar_main_class()
+        jar_output_dir_args = self._get_persistent_rapids_args()
+        extra_rapids_args = self.prop_container.get_rapids_args()
+        return JarCmdArgs(jvm_args_arr, classpath_arr, hadoop_cp, jar_main_class,
+                          jar_output_dir_args, extra_rapids_args)
+
+    def _build_classpath(self) -> List[str]:
+        """
+        Only the Spark RAPIDS Tools JAR file is needed for the classpath.
+        Assumption: Each worker node should have the Spark Jars pre-installed.
+        TODO: Ship the Spark JARs to the cluster to avoid version mismatch issues.
+        """
+        return ['-cp', self.prop_container.get_jar_file()]
+
+    def _submit_job(self, cmd_args: JarCmdArgs) -> None:
+        # TODO: Support for submitting the Tools JAR to a Spark cluster
+        raise NotImplementedError('Distributed job submission is not yet supported')

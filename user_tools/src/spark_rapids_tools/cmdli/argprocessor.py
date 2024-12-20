@@ -29,8 +29,10 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
+from ..configuration.submission.distributed_config import DistributedToolsConfig
+from ..configuration.submission.local_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
-from ..enums import QualFilterApp, CspEnv, QualEstimationModel
+from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
 from ..tools.autotuner import AutoTunerPropMgr
 from ..utils.util import dump_tool_usage, Utilities
@@ -372,6 +374,9 @@ class ToolUserArgModel(AbsToolUserArgModel):
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
 
+    def load_tools_config_internal(self) -> ToolsConfig:
+        return LocalToolsConfig.load_from_file(self.tools_config_path)
+
     def load_tools_config(self) -> None:
         """
         Load the tools config file if it is provided. It creates a ToolsConfig object and sets it
@@ -382,7 +387,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
         if self.tools_config_path is not None:
             # the CLI provides a tools config file
             try:
-                self.p_args['toolArgs']['toolsConfig'] = ToolsConfig.load_from_file(self.tools_config_path)
+                self.p_args['toolArgs']['toolsConfig'] = self.load_tools_config_internal()
             except ValidationError as ve:
                 # If required, we can dump the expected specification by appending
                 # 'ToolsConfig.get_schema()' to the error message
@@ -470,6 +475,7 @@ class QualifyUserArgModel(ToolUserArgModel):
     """
     filter_apps: Optional[QualFilterApp] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
+    submission_mode: Optional[SubmissionMode] = None
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
@@ -487,6 +493,7 @@ class QualifyUserArgModel(ToolUserArgModel):
             self.p_args['toolArgs']['estimationModelArgs'] = QualEstimationModel.create_default_model_args(def_model)
         else:
             self.p_args['toolArgs']['estimationModelArgs'] = self.estimation_model_args
+        self.submission_mode = self.submission_mode or SubmissionMode.get_default()
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'QualifyUserArgModel':
@@ -496,6 +503,13 @@ class QualifyUserArgModel(ToolUserArgModel):
 
     def is_concurrent_submission(self) -> bool:
         return self.p_args['toolArgs']['estimationModelArgs']['xgboostEnabled']
+
+    def load_tools_config_internal(self) -> ToolsConfig:
+        # Override the method to load the tools config file based on the submission mode
+        config_class = (
+            DistributedToolsConfig if self.submission_mode == SubmissionMode.DISTRIBUTED else LocalToolsConfig
+        )
+        return config_class.load_from_file(self.tools_config_path)
 
     def build_tools_args(self) -> dict:
         # At this point, if the platform is still none, then we can set it to the default value
@@ -532,7 +546,8 @@ class QualifyUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs']
+            'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
+            'submissionMode': self.submission_mode
         }
         return wrapped_args
 
