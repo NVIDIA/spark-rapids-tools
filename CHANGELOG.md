@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v24.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.0)
+Generated on 2024-12-20
+### User Tools
+
+- Make '--platform' argument mandatory in qualification and profiling CLI to prevent incorrect behavior ([#1463](https://github.com/NVIDIA/spark-rapids-tools/pull/1463))
+
+### Core
+
+- Skip processing apps with invalid platform and spark runtime configurations ([#1421](https://github.com/NVIDIA/spark-rapids-tools/pull/1421))
+- Improve implementation of finding median in StatisticsMetrics ([#1474](https://github.com/NVIDIA/spark-rapids-tools/pull/1474))
+- Optimize implementation of getAggregateRawMetrics in core-tools ([#1468](https://github.com/NVIDIA/spark-rapids-tools/pull/1468))
+- Adding Spark 3.5.2 support in auto tuner for EMR ([#1466](https://github.com/NVIDIA/spark-rapids-tools/pull/1466))
+- Mark RunningWindowFunction as supported in Qual tool ([#1465](https://github.com/NVIDIA/spark-rapids-tools/pull/1465))
+- Deduplicate calls to aggregateSparkMetricsBySql ([#1464](https://github.com/NVIDIA/spark-rapids-tools/pull/1464))
+
+### Miscellaneous
+
+- Follow Up: Make '--platform' argument mandatory in CLI ([#1473](https://github.com/NVIDIA/spark-rapids-tools/pull/1473))
+
+
+<br/>
+
 ## Release [v24.10.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.10.3)
 Generated on 2024-12-13
 ### User Tools
