@@ -117,7 +117,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * @return         A seq of task IDs corresponding to the given stage ID.
    */
   private def getStageTaskIds(stageId: Int): Seq[Long] = {
-    app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId).toSet.toSeq
+    app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId)(breakOut).distinct
   }
 
   /**
@@ -125,15 +125,15 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    *
    * @param accumInfo AccumInfo object containing the task updates map.
    * @param stageId   The stage ID for which task updates need to be retrived.
-   * @return A sorted sequence of task update values (`Long`) corresponding to the tasks
+   * @return An array of task update values (`Long`) corresponding to the tasks
    *         in the specified stage.
    */
   private def filterAccumTaskUpdatesForStage(accumInfo: AccumInfo, stageTaskIds: Seq[Long])
-      : Seq[Long] = {
+      : Array[Long] = {
     stageTaskIds.collect {
       case taskId if accumInfo.taskUpdatesMap.contains(taskId) =>
         accumInfo.taskUpdatesMap(taskId)
-    }.toSeq.sorted
+    }(breakOut)
   }
 
   /**
@@ -419,23 +419,15 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           val accumInfo = app.accumManager.accumInfoMap.getOrElse(
             sqlAccum.accumulatorId, emptyAccumInfo)
 
-          // Retrieve and sort task updates correspond to the current stage
+          // Retrieve task updates correspond to the current stage
           val filteredTaskUpdates = filterAccumTaskUpdatesForStage(accumInfo, stageTaskIds)
 
           // Compute the metric's statistics and store the results if available
-          if (filteredTaskUpdates.nonEmpty) {
-            val min = filteredTaskUpdates.head
-            val max = filteredTaskUpdates.last
-            val sum = filteredTaskUpdates.sum
-            val median = if (filteredTaskUpdates.size % 2 == 0) {
-              val mid = filteredTaskUpdates.size / 2
-              (filteredTaskUpdates(mid) + filteredTaskUpdates(mid - 1)) / 2
-            } else {
-              filteredTaskUpdates(filteredTaskUpdates.size / 2)
-            }
-
-            val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
-            metricNameToStatistics(metricKey) = StatisticsMetrics(min, median, max, sum)
+          StatisticsMetrics.createOptionalFromArr(filteredTaskUpdates) match {
+            case Some(stat) =>
+              val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
+              metricNameToStatistics(metricKey) = stat
+            case _ => ()
           }
         }
 
@@ -478,11 +470,12 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
       accumInfo.stageValuesMap.keys.flatMap( stageId => {
-        val stageTaskIds: Set[Long] =
-          app.taskManager.getAllTasksStageAttempt(stageId).map(_.taskId)(breakOut)
+        // Retrieve task updates correspond to the current stage
+        val filteredTaskUpdates =
+          filterAccumTaskUpdatesForStage(accumInfo, getStageTaskIds(stageId))
+
         // Get the task updates that belong to that stage
-        StatisticsMetrics.createOptionalFromArr(
-          accumInfo.taskUpdatesMap.filterKeys(stageTaskIds).map(_._2)(breakOut)) match {
+        StatisticsMetrics.createOptionalFromArr(filteredTaskUpdates) match {
           case Some(stat) =>
             // Reuse AccumProfileResults to avoid generating allocating new objects
             val accumProfileResults = AccumProfileResults(
