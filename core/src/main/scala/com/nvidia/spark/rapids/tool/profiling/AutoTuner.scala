@@ -760,6 +760,7 @@ class AutoTuner(
         }
       } else if (sparkVersion.contains("amzn")) {
         sparkVersion match {
+          case ver if ver.contains("3.5.2") => "352"
           case ver if ver.contains("3.5.1") => "351"
           case ver if ver.contains("3.5.0") => "350"
           case ver if ver.contains("3.4.1") => "341"

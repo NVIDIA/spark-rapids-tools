@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
+import com.nvidia.spark.rapids.tool.Platform
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
@@ -28,7 +29,7 @@ import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, ToolsPlanGraph}
 
 object ToolUtils extends Logging {
   // List of recommended file-encodings on the GPUs.
@@ -440,6 +441,12 @@ case class IncorrectAppStatusException(
 case class UnsupportedMetricNameException(metricName: String)
     extends AppEventlogProcessException(
       s"Unsupported metric name found in the event log: $metricName")
+
+case class UnsupportedSparkRuntimeException(
+    platform: Platform,
+    sparkRuntime: SparkRuntime.SparkRuntime)
+    extends AppEventlogProcessException(
+     s"Platform '${platform.platformName}' does not support the runtime '$sparkRuntime'")
 
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.

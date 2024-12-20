@@ -136,12 +136,15 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  private def runQualificationTest(eventLogs: Array[String], expectFileName: String = "",
+  private def runQualificationTest(eventLogs: Array[String],
+      expectFileName: String = "", platformName: String = PlatformNames.DEFAULT,
       shouldReturnEmpty: Boolean = false, expectPerSqlFileName: Option[String] = None,
       expectedStatus: Option[StatusReportCounts] = None): Unit = {
     TrampolineUtil.withTempDir { outpath =>
       val qualOutputPrefix = "rapids_4_spark_qualification_output"
       val outputArgs = Array(
+        "--platform",
+        platformName,
         "--output-directory",
         outpath.getAbsolutePath())
 
@@ -1762,7 +1765,8 @@ class QualificationSuite extends BaseTestSuite {
     val logFiles = Array(s"$logDir/nds_q88_photon_db_13_3.zstd")  // photon event log
     // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
     val expectedStatus = Some(StatusReportCounts(1, 0, 0, 0))
-    runQualificationTest(logFiles, expectedStatus = expectedStatus)
+    runQualificationTest(logFiles, platformName = PlatformNames.DATABRICKS_AWS,
+      expectedStatus = expectedStatus)
   }
 
   test("process multiple attempts of the same app ID and skip lower attempts") {

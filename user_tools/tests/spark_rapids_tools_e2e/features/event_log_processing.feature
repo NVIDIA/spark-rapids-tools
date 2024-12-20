@@ -16,6 +16,7 @@ Feature: Event Log Processing
 
   @test_id_ELP_0001
   Scenario Outline: Tool spark_rapids runs with different types of event logs
+    Given platform is "<platform>"
     When spark-rapids tool is executed with "<event_logs>" eventlogs
     Then stderr contains the following
       """
@@ -25,12 +26,13 @@ Feature: Event Log Processing
     And return code is "0"
 
     Examples:
-      | event_logs                         | expected_stderr                                                                                                       | processed_apps_count |
-      | invalid_path_eventlog              | process.failure.count = 1;invalid_path_eventlog not found, skipping!                                                  | 0                    |
-      | gpu_eventlog.zstd                  | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              | 0                    |
-      | photon_eventlog.zstd               | process.success.count = 1;                                                                                            | 1                    |
-      | streaming_eventlog.zstd            | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! | 0                    |
-      | incorrect_app_status_eventlog.zstd | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    | 0                    |
+      | platform 		| event_logs                         | expected_stderr                                                                                                       | processed_apps_count |
+      | onprem   		| invalid_path_eventlog              | process.failure.count = 1;invalid_path_eventlog not found, skipping!                                                  | 0                    |
+      | onprem   		| gpu_eventlog.zstd                  | process.skipped.count = 1;GpuEventLogException: Cannot parse event logs from GPU run: skipping this file              | 0                    |
+      | onprem   		| streaming_eventlog.zstd            | process.skipped.count = 1;StreamingEventLogException: Encountered Spark Structured Streaming Job: skipping this file! | 0                    |
+      | onprem   		| incorrect_app_status_eventlog.zstd | process.NA.count = 1;IncorrectAppStatusException: Application status is incorrect. Missing AppInfo                    | 0                    |
+      | onprem  		| photon_eventlog.zstd               | process.skipped.count = 1;UnsupportedSparkRuntimeException: Platform 'onprem' does not support the runtime 'PHOTON'   | 0                    |
+      | databricks-aws  | photon_eventlog.zstd               | process.success.count = 1;                                                                                            | 1                    |
 
   @test_id_ELP_0002
   Scenario: Qualification tool JAR crashes

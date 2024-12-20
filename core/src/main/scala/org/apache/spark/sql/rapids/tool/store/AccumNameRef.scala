@@ -42,7 +42,7 @@ case class AccumNameRef(value: String) {
 object AccumNameRef {
   // Dummy AccNameRef to represent None accumulator names. This is an optimization to avoid
   // storing an option[string] for all accumulable names which leads to "get-or-else" everywhere.
-  private val EMPTY_ACC_NAME_REF: AccumNameRef = new AccumNameRef("N/A")
+  val EMPTY_ACC_NAME_REF: AccumNameRef = new AccumNameRef("N/A")
   // A global table to store reference to all accumulator names. The map is accessible by all
   // threads (different applications) running in parallel. This avoids duplicate work across
   // different threads.
