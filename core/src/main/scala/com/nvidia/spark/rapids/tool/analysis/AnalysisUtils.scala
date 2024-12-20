@@ -27,10 +27,86 @@ object StageAccumDiagnosticMetrics {
   val GPU_SEMAPHORE_WAIT_METRIC = "gpuSemaphoreWait"
 
   /**
-   * Get all diagnostic metrics
+   * Set of all diagnostic metrics
    */
-  def getAllDiagnosticMetrics: Set[String] = Set(MEMORY_SPILLED_METRIC,
+  lazy val allDiagnosticMetrics: Set[String] = Set(MEMORY_SPILLED_METRIC,
     DISK_SPILLED_METRIC, INPUT_BYTES_READ_METRIC, OUTPUT_BYTES_WRITTEN_METRIC,
     SW_TOTAL_BYTES_METRIC, SR_FETCH_WAIT_TIME_METRIC, SW_WRITE_TIME_METRIC,
     GPU_SEMAPHORE_WAIT_METRIC)
+}
+
+object IOAccumDiagnosticMetrics {
+  // Metric keys to support variations in metric naming
+  val OUTPUT_ROWS_METRIC_KEY = "output rows"
+  val SCAN_TIME_METRIC_KEY = "scan time"
+  val OUTPUT_BATCHES_METRIC_KEY = "output batches"
+  val BUFFER_TIME_METRIC_KEY = "buffer time"
+  val SHUFFLE_WRITE_TIME_METRIC_KEY = "shuffle write time"
+  val FETCH_WAIT_TIME_METRIC_KEY = "fetch wait time"
+  val GPU_DECODE_TIME_METRIC_KEY = "GPU decode time"
+
+  val OUTPUT_ROW_METRIC_NAMES = Set(
+    "number of output rows", // common across all Spark eventlogs
+    "output rows", // only in GPU eventlogs
+    "join output rows" // only in GPU eventlogs
+  )
+
+  val SCAN_TIME_METRIC_NAMES = Set(
+    "scan time" // common across all Spark eventlogs
+  )
+
+  val OUTPUT_BATCHES_METRIC_NAMES = Set(
+    "number of output batches", // only in Photon eventlogs
+    "output columnar batches" // only in GPU eventlogs
+  )
+
+  val BUFFER_TIME_METRIC_NAMES = Set(
+    "buffer time" // common across all Spark eventlogs
+  )
+
+  val SHUFFLE_WRITE_TIME_METRIC_NAMES = Set(
+    "shuffle write time", // common across all Spark eventlogs
+    "rs. shuffle write time" // only in GPU eventlogs
+  )
+
+  val FETCH_WAIT_TIME_METRIC_NAMES = Set(
+    "fetch wait time" // common across all Spark eventlogs
+  )
+
+  val GPU_DECODE_TIME_METRIC_NAMES = Set(
+    "GPU decode time" // only in GPU eventlogs
+  )
+
+  private val metricNamesToKeyMap: Map[Set[String], String] = Map(
+    OUTPUT_ROW_METRIC_NAMES -> OUTPUT_ROWS_METRIC_KEY,
+    SCAN_TIME_METRIC_NAMES -> SCAN_TIME_METRIC_KEY,
+    OUTPUT_BATCHES_METRIC_NAMES -> OUTPUT_BATCHES_METRIC_KEY,
+    BUFFER_TIME_METRIC_NAMES -> BUFFER_TIME_METRIC_KEY,
+    SHUFFLE_WRITE_TIME_METRIC_NAMES -> SHUFFLE_WRITE_TIME_METRIC_KEY,
+    FETCH_WAIT_TIME_METRIC_NAMES -> FETCH_WAIT_TIME_METRIC_KEY,
+    GPU_DECODE_TIME_METRIC_NAMES -> GPU_DECODE_TIME_METRIC_KEY)
+
+  /**
+   * Set of all IO diagnostic metrics names
+   */
+  lazy val allIODiagnosticMetrics: Set[String] = metricNamesToKeyMap.keys.flatten.toSet
+
+  /**
+   * Check if a metric name belongs to IO diagnostic metrics
+   */
+  def isIODiagnosticMetricName(metric: String): Boolean = {
+    allIODiagnosticMetrics.contains(metric)
+  }
+
+  /**
+   * Normalize a metric name to its IO diagnostic metric constant because we want to
+   * support variations in metric naming, e.g. "join output rows", "number of output rows"
+   * are different names for output rows metric.
+   */
+  def normalizeToIODiagnosticMetricKey(metric: String): String = {
+    // input metric is already known to be an IO diagnostic metric
+    metricNamesToKeyMap.collectFirst {
+      case (names, key) if names.contains(metric) => key
+    }.get
+  }
 }
