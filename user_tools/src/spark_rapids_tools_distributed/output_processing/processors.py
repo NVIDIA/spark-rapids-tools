@@ -19,7 +19,7 @@ import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import List
+from typing import Dict, List
 
 import pandas as pd
 import pyarrow
@@ -66,7 +66,7 @@ class MergeOutputProcessor(OutputProcessor):
     """
     Abstract class to process files and merge output from multiple executors.
     """
-    combined_data_dict: dict[str, List] = field(default_factory=dict, init=False)
+    combined_data_dict: Dict[str, List] = field(default_factory=dict, init=False)
     pattern: str = field(default=None, init=False)
 
     @staticmethod
