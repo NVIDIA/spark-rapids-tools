@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
-import com.nvidia.spark.rapids.tool.analysis.IOAccumDiagnosticMetrics._
+import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 

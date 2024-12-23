@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.analysis
+package com.nvidia.spark.rapids.tool.analysis.util
 
 object StageAccumDiagnosticMetrics {
   val MEMORY_SPILLED_METRIC = "internal.metrics.memoryBytesSpilled"

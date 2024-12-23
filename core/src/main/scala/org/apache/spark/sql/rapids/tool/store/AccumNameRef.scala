@@ -18,7 +18,7 @@ package org.apache.spark.sql.rapids.tool.store
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics.allDiagnosticMetrics
+import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics.allDiagnosticMetrics
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 import org.apache.spark.sql.rapids.tool.util.StringUtils
