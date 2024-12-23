@@ -421,7 +421,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           val accumInfo = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
 
           val metricStats: Option[StatisticsMetrics] =
-            if (accumInfo.isEmpty || !accumInfo.stageValuesMap.contains(stageId)) {
+            if (accumInfo.isEmpty || !accumInfo.get.stageValuesMap.contains(stageId)) {
               None
             } else if (stageIdsSize == 1) {
               Some(StatisticsMetrics(sqlAccum.min, sqlAccum.median, sqlAccum.max, sqlAccum.total))

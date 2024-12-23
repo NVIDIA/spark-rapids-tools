@@ -77,19 +77,19 @@ object IOAccumDiagnosticMetrics {
     "GPU decode time" // only in GPU eventlogs
   )
 
-  private val metricNamesToKeyMap: Map[Set[String], String] = Map(
-    OUTPUT_ROW_METRIC_NAMES -> OUTPUT_ROWS_METRIC_KEY,
-    SCAN_TIME_METRIC_NAMES -> SCAN_TIME_METRIC_KEY,
-    OUTPUT_BATCHES_METRIC_NAMES -> OUTPUT_BATCHES_METRIC_KEY,
-    BUFFER_TIME_METRIC_NAMES -> BUFFER_TIME_METRIC_KEY,
-    SHUFFLE_WRITE_TIME_METRIC_NAMES -> SHUFFLE_WRITE_TIME_METRIC_KEY,
-    FETCH_WAIT_TIME_METRIC_NAMES -> FETCH_WAIT_TIME_METRIC_KEY,
-    GPU_DECODE_TIME_METRIC_NAMES -> GPU_DECODE_TIME_METRIC_KEY)
+  private val metricNamesToKeyMap: Map[String, String] = (
+    OUTPUT_ROW_METRIC_NAMES.map(_ -> OUTPUT_ROWS_METRIC_KEY) ++
+    SCAN_TIME_METRIC_NAMES.map(_ -> SCAN_TIME_METRIC_KEY) ++
+    OUTPUT_BATCHES_METRIC_NAMES.map(_ -> OUTPUT_BATCHES_METRIC_KEY) ++
+    BUFFER_TIME_METRIC_NAMES.map(_ -> BUFFER_TIME_METRIC_KEY) ++
+    SHUFFLE_WRITE_TIME_METRIC_NAMES.map(_ -> SHUFFLE_WRITE_TIME_METRIC_KEY) ++
+    FETCH_WAIT_TIME_METRIC_NAMES.map(_ -> FETCH_WAIT_TIME_METRIC_KEY) ++
+    GPU_DECODE_TIME_METRIC_NAMES.map(_ -> GPU_DECODE_TIME_METRIC_KEY)).toMap
 
   /**
    * Set of all IO diagnostic metrics names
    */
-  lazy val allIODiagnosticMetrics: Set[String] = metricNamesToKeyMap.keys.flatten.toSet
+  lazy val allIODiagnosticMetrics: Set[String] = metricNamesToKeyMap.keys.toSet
 
   /**
    * Check if a metric name belongs to IO diagnostic metrics
@@ -105,8 +105,6 @@ object IOAccumDiagnosticMetrics {
    */
   def normalizeToIODiagnosticMetricKey(metric: String): String = {
     // input metric is already known to be an IO diagnostic metric
-    metricNamesToKeyMap.collectFirst {
-      case (names, key) if names.contains(metric) => key
-    }.get
+    metricNamesToKeyMap(metric)
   }
 }
