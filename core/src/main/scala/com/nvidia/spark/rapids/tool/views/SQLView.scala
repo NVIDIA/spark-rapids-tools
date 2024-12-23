@@ -116,7 +116,7 @@ object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
 
   override def sortView(
       rows: Seq[IODiagnosticResult]): Seq[IODiagnosticResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
+    rows.sortBy(cols => (cols.appIndex, -cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
   }
 
   override def getRawView(app: AppBase, index: Int): Seq[IODiagnosticResult] = {

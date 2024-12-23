@@ -76,16 +76,33 @@ case class JobInfoProfileResult(
     sqlID: Option[Long],
     startTime: Long,
     endTime: Option[Long]) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "jobID", "stageIds", "sqlID", "startTime", "endTime")
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "jobID",
+      "stageIds",
+      "sqlID",
+      "startTime",
+      "endTime")
+  }
+
   override def convertToSeq: Seq[String] = {
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, stageIdStr, sqlID.map(_.toString).getOrElse(null),
-      startTime.toString, endTime.map(_.toString).getOrElse(null))
+    Seq(appIndex.toString,
+      jobID.toString,
+      stageIdStr,
+      sqlID.map(_.toString).getOrElse(null),
+      startTime.toString,
+      endTime.map(_.toString).getOrElse(null))
   }
+
   override def convertToCSVSeq: Seq[String] = {
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, StringUtils.reformatCSVString(stageIdStr),
-      sqlID.map(_.toString).getOrElse(null), startTime.toString,
+    Seq(appIndex.toString,
+      jobID.toString,
+      StringUtils.reformatCSVString(stageIdStr),
+      sqlID.map(_.toString).getOrElse(null),
+      startTime.toString,
       endTime.map(_.toString).getOrElse(null))
   }
 }
@@ -216,7 +233,7 @@ case class SQLAccumProfileResults(
     max: Long,
     total: Long,
     metricType: String,
-    stageIds: String) extends ProfileResult {
+    stageIds: Set[Int]) extends ProfileResult {
 
   override val outputHeaders = {
     Seq("appIndex",
@@ -245,7 +262,7 @@ case class SQLAccumProfileResults(
       max.toString,
       total.toString,
       metricType,
-      stageIds)
+      stageIds.mkString(","))
   }
 
   override def convertToCSVSeq: Seq[String] = {
@@ -260,7 +277,7 @@ case class SQLAccumProfileResults(
       max.toString,
       total.toString,
       StringUtils.reformatCSVString(metricType),
-      StringUtils.reformatCSVString(stageIds))
+      StringUtils.reformatCSVString(stageIds.mkString(",")))
   }
 }
 
