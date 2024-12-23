@@ -17,6 +17,7 @@
 import os
 import pathlib
 import re
+import shutil
 import ssl
 import sys
 import textwrap
@@ -349,3 +350,49 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
+
+    @classmethod
+    def parse_memory_size_in_gb(cls, memory_str: str) -> float:
+        """
+        Helper function to convert JVM memory string to float in gigabytes.
+        E.g. '512m' -> 0.5, '2g' -> 2.0
+        """
+        if not memory_str or len(memory_str) < 2:
+            raise ValueError("Memory size string must include a value and a unit (e.g., '512m', '2g').")
+
+        unit = memory_str[-1].lower()
+        size_value = float(memory_str[:-1])
+
+        if unit == 'g':
+            return size_value
+        if unit == 'm':
+            return size_value / 1024  # Convert MB to GB
+        if unit == 'k':
+            return size_value / (1024 ** 2)  # Convert KB to GB
+
+        raise ValueError(f'Invalid memory unit {unit} in memory size: {memory_str}')
+
+    @staticmethod
+    def archive_directory(source_folder: str, base_name: str, archive_format: str = 'zip') -> str:
+        """
+        Archives the specified directory, keeping the directory at the top level in the
+        archived file.
+
+        Example:
+        source_folder = '/path/to/directory'
+        base_name = '/path/to/archived_directory'
+        archive_format = 'zip'
+
+        The above example will create a zip file at '/path/to/archived_directory.zip'
+        with 'directory' at the top level.
+
+        :param source_folder: Path to the directory to be zipped.
+        :param base_name: Base name for the zipped file (without any format extension).
+        :param archive_format: Format of the zipped file (default is 'zip').
+        :return: Path to the zipped file.
+        """
+        # Create the zip file with the directory at the top level
+        return shutil.make_archive(base_name=base_name,
+                                   format=archive_format,
+                                   root_dir=os.path.dirname(source_folder),
+                                   base_dir=os.path.basename(source_folder))
