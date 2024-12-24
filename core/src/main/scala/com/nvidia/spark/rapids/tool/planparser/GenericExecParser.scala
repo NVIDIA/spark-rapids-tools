@@ -91,7 +91,8 @@ class GenericExecParser(
     ExecInfo(
       node,
       sqlID,
-      node.name,
+      // Remove trailing spaces from node name if any
+      node.name.trim,
       "",
       speedupFactor,
       duration,

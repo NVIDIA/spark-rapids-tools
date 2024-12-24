@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.store
+package com.nvidia.spark.rapids.tool.analysis.util
+
+import com.nvidia.spark.rapids.tool.profiling.StageAggTaskMetricsProfileResult
 
 /**
- * Accumulator Meta Reference
- * This maintains the reference to the metadata associated with an accumulable
- * @param id - Accumulable id
- * @param name - Reference to the accumulator name
+ * Accumulator for Stage Aggregates.
+ * This is an optimization to avoid using the Scala collections API on each field for the entire
+ * number of tasks in a Stage.
  */
-case class AccumMetaRef(id: Long, name: AccumNameRef) {
-  def getName(): String = name.value
-}
-
-object AccumMetaRef {
-  val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
-  def apply(id: Long, name: Option[String]): AccumMetaRef =
-    new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
+case class StageAggAccum() extends TaskMetricsAccumRec {
+  override def addRecord(rec: StageAggTaskMetricsProfileResult): Unit = {
+    throw new UnsupportedOperationException("Not implemented: Cannot use cached results to" +
+      "calculate stage aggregates")
+  }
 }

@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.rapids.tool.store
+package com.nvidia.spark.rapids.tool.planparser.ops
 
 /**
- * Accumulator Meta Reference
- * This maintains the reference to the metadata associated with an accumulable
- * @param id - Accumulable id
- * @param name - Reference to the accumulator name
+ * Represents a reference to an expression operator that is stored in the ExecInfo expressions
+ * @param opRef the opRef to wrap
+ * @param count the count of that expression within the exec.
  */
-case class AccumMetaRef(id: Long, name: AccumNameRef) {
-  def getName(): String = name.value
-}
+case class ExprOpRef(opRef: OpRef, count: Int = 1) extends OpRefWrapperBase(opRef)
 
-object AccumMetaRef {
-  val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
-  def apply(id: Long, name: Option[String]): AccumMetaRef =
-    new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
+object ExprOpRef extends OpRefWrapperBaseTrait[ExprOpRef] {
+  def fromRawExprSeq(exprArr: Seq[String]): Seq[ExprOpRef] = {
+    exprArr.groupBy(identity)
+      .mapValues(expr => ExprOpRef(OpRef.fromExpr(expr.head), expr.size)).values.toSeq
+  }
 }

@@ -21,7 +21,7 @@ import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.planparser.ops.{OperatorRefBase, OpRef, UnsupportedExprOpRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OperatorRefTrait, OpRef, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.planparser.photon.{PhotonPlanParser, PhotonStageExecParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -75,7 +75,7 @@ object UnsupportedReasons extends Enumeration {
 case class UnsupportedExecSummary(
     sqlId: Long,
     execId: Long,
-    execRef: OperatorRefBase,
+    execRef: OperatorRefTrait,
     opType: OpTypes.OpType,
     reason: UnsupportedReasons.UnsupportedReason,
     opAction: OpActions.OpAction) {
@@ -89,8 +89,6 @@ case class UnsupportedExecSummary(
   val unsupportedOperatorCSVFormat: String = execRef.getOpNameCSV
 
   val details: String = UnsupportedReasons.reportUnsupportedReason(reason)
-
-  def isExpression: Boolean = execRef.isInstanceOf[UnsupportedExprOpRef]
 }
 
 case class ExecInfo(
@@ -110,7 +108,7 @@ case class ExecInfo(
     dataSet: Boolean,
     udf: Boolean,
     shouldIgnore: Boolean,
-    expressions: Seq[OpRef]) {
+    expressions: Seq[ExprOpRef]) {
 
   private def childrenToString = {
     val str = children.map { c =>
@@ -139,10 +137,6 @@ case class ExecInfo(
 
   def setStages(stageIDs: Set[Int]): Unit = {
     stages = stageIDs
-  }
-
-  def appendToStages(stageIDs: Set[Int]): Unit = {
-    stages ++= stageIDs
   }
 
   def setShouldRemove(value: Boolean): Unit = {
@@ -286,7 +280,7 @@ object ExecInfo {
       udf,
       shouldIgnore,
       // convert array of string expressions to OpRefs
-      expressions = expressions.map(OpRef.fromExpr)
+      expressions = ExprOpRef.fromRawExprSeq(expressions)
     )
   }
 
@@ -351,7 +345,7 @@ case class PlanInfo(
     sqlID: Long,
     sqlDesc: String,
     execInfo: Seq[ExecInfo]) {
-  def getUnsupportedExpressions: Seq[OperatorRefBase] = {
+  def getUnsupportedExpressions: Seq[OperatorRefTrait] = {
     execInfo.flatMap { e =>
       if (e.isClusterNode) {
         // wholeStageCodeGen does not have expressions/unsupported-expressions
@@ -489,8 +483,8 @@ object SQLPlanParser extends Logging {
       case "AggregateInPandas" | "ArrowEvalPython" | "AQEShuffleRead" | "CartesianProduct"
            | "Coalesce" | "CollectLimit" | "CustomShuffleReader" | "FlatMapGroupsInPandas"
            | "GlobalLimit" | "LocalLimit" | "InMemoryTableScan" | "MapInPandas"
-           | "PythonMapInArrow" | "MapInArrow" | "Range" | "Sample" | "Union"
-           | "WindowInPandas" =>
+           | "PythonMapInArrow" | "MapInArrow" | "Range" | "RunningWindowFunction"
+           | "Sample" | "Union" | "WindowInPandas" =>
         GenericExecParser(node, checker, sqlID, app = Some(app)).parse
       case "BatchScan" =>
         BatchScanExecParser(node, checker, sqlID, app).parse
@@ -727,21 +721,21 @@ object SQLPlanParser extends Logging {
   }
 
   private def getAllFunctionNames(regPattern: Regex, expr: String,
-      groupInd: Int = 1, isAggr: Boolean = true): Set[String] = {
+      groupInd: Int = 1, isAggr: Boolean = true): Array[String] = {
     // Returns all matches in an expression. This can be used when the SQL expression is not
     // tokenized.
     val newExpr = processSpecialFunctions(expr)
 
     // first get all the functionNames
     val exprss =
-      regPattern.findAllMatchIn(newExpr).map(_.group(groupInd)).toSet
+      regPattern.findAllMatchIn(newExpr).map(_.group(groupInd)).toSeq
 
     // For aggregate expressions we want to process the results to remove the prefix
     // DB: remove the "^partial_" and "^finalmerge_" prefixes
     // TODO:
     //    for performance sake, we can turn off the aggregate processing by enabling it only
     //    when needed. However, for now, we always do this processing until we are confident we know
-    //    the correct place to turn on/off that flag.we can use the argument isAgg only when needed
+    //    the correct place to turn on/off that flag. We can use the argument isAgg only when needed
     val results = if (isAggr) {
       exprss.collect {
         case func =>
@@ -750,7 +744,7 @@ object SQLPlanParser extends Logging {
     } else {
       exprss
     }
-    results.filterNot(ignoreExpression(_))
+    results.filterNot(ignoreExpression(_)).toArray
   }
 
   def parseProjectExpressions(exprStr: String): Array[String] = {
@@ -758,7 +752,7 @@ object SQLPlanParser extends Logging {
     // This is to split the string such that only function names are extracted. The pattern is
     // such that function name is succeeded by `(`. We use regex to extract all the function names
     // below:
-    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr)
   }
 
   // This parser is used for SortAggregateExec, HashAggregateExec and ObjectHashAggregateExec
@@ -792,7 +786,7 @@ object SQLPlanParser extends Logging {
         }
       }
     }
-    parsedExpressions.distinct.toArray
+    parsedExpressions.toArray
   }
 
   def parseWindowExpressions(exprStr:String): Array[String] = {
@@ -828,7 +822,7 @@ object SQLPlanParser extends Logging {
         }
       }
     }
-    parsedExpressions.distinct.toArray
+    parsedExpressions.toArray
   }
 
   def parseWindowGroupLimitExpressions(exprStr: String): Array[String] = {
@@ -858,10 +852,10 @@ object SQLPlanParser extends Logging {
     //  - Some values can be NULLs. That's why we cannot limit the extract to the first row.
     //  - Nested brackets/parenthesis makes it challenging to use regex that contains
     //    brackets/parenthesis to extract expressions.
-    // The implementation Use regex to extract all function names and return distinct set of
+    // The implementation Use regex to extract all function names and return a list of
     // function names.
     // This implementation is 1 line implementation, but it can be a memory/time bottleneck.
-    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr)
   }
 
   def parseTakeOrderedExpressions(exprStr: String): Array[String] = {
@@ -889,7 +883,7 @@ object SQLPlanParser extends Logging {
         }
       }
     }
-    parsedExpressions.distinct.toArray
+    parsedExpressions.toArray
   }
 
   def parseGenerateExpressions(exprStr: String): Array[String] = {
@@ -897,11 +891,11 @@ object SQLPlanParser extends Logging {
     // 1. Generate explode(arrays#1306), [id#1304], true, [col#1426]
     // 2. Generate json_tuple(values#1305, Zipcode, ZipCodeType, City), [id#1304],
     // false, [c0#1407, c1#1408, c2#1409]
-    getAllFunctionNames(functionPrefixPattern, exprStr).toArray
+    getAllFunctionNames(functionPrefixPattern, exprStr)
   }
 
   private def addFunctionNames(exprs: String, parsedExpressions: ArrayBuffer[String]): Unit = {
-    val functionNames = getAllFunctionNames(functionPrefixPattern, exprs).toArray
+    val functionNames = getAllFunctionNames(functionPrefixPattern, exprs)
     functionNames.foreach(parsedExpressions += _)
   }
 
@@ -946,7 +940,7 @@ object SQLPlanParser extends Logging {
     val isSortMergeSupported = !(isSortMergeJoin &&
         joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition))
 
-    (parsedExpressions.distinct.toArray, equiJoinSupportedTypes(buildSide, joinType)
+    (parsedExpressions.toArray, equiJoinSupportedTypes(buildSide, joinType)
         && isSortMergeSupported)
   }
 
@@ -1054,7 +1048,7 @@ object SQLPlanParser extends Logging {
         }
       }
     }
-    parsedExpressions.distinct.toArray
+    parsedExpressions.toArray
   }
 
   def parseFilterExpressions(exprStr: String): Array[String] = {
@@ -1109,7 +1103,7 @@ object SQLPlanParser extends Logging {
     processedExpr = nonBinaryOperatorsRegEx.replaceAllIn(processedExpr, " ")
 
     // Step-4: remove remaining parentheses '(', ')' and commas if we had functionCalls
-    if (!functionMatches.isEmpty) {
+    if (functionMatches.nonEmpty) {
       // remove ","
       processedExpr = processedExpr.replaceAll(",", " ")
     }
@@ -1147,7 +1141,6 @@ object SQLPlanParser extends Logging {
           logDebug(s"Unrecognized Token - $token")
       }
     }
-
-    parsedExpressions.distinct.toArray
+    parsedExpressions.toArray
   }
 }
