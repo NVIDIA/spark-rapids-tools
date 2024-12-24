@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.profiling._
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef}
+import java.util.concurrent.TimeUnit
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -426,8 +427,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.durationMax,
         perStageRec.durationMin,
         perStageRec.durationAvg,
-        perStageRec.executorCPUTimeSum,
-        perStageRec.executorDeserializeCpuTimeSum,
+        TimeUnit.NANOSECONDS.toMillis(perStageRec.executorCPUTimeSum),
+        TimeUnit.NANOSECONDS.toMillis(perStageRec.executorDeserializeCpuTimeSum),
         perStageRec.executorDeserializeTimeSum,
         perStageRec.executorRunTimeSum,
         perStageRec.inputBytesReadSum,
@@ -448,7 +449,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.srTotalBytesReadSum,
         perStageRec.swBytesWrittenSum,
         perStageRec.swRecordsWrittenSum,
-        perStageRec.swWriteTimeSum)
+        TimeUnit.NANOSECONDS.toMillis(perStageRec.swWriteTimeSum))
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
   }
