@@ -400,7 +400,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    */
   def generateIODiagnosticAccums(): Seq[IODiagnosticResult] = {
     // Transform the diagnostic metrics map into a sequence of results
-    IODiagnosticMetricsMap.toSeq.flatMap { case ((sqlId, nodeId), sqlAccums) =>
+    IODiagnosticMetricsMap.flatMap { case ((sqlId, nodeId), sqlAccums) =>
       // Process each stage ID and compute diagnostic results
       val stageIds = sqlAccums.head.stageIds
       stageIds.flatMap { stageId =>
@@ -459,7 +459,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             metricNameToStatistics(GPU_DECODE_TIME_METRIC_KEY)))
         }
       }
-    }.toSeq
+    }(breakOut)
   }
 
   /**
