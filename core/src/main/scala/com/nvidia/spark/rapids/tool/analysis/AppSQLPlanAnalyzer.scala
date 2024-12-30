@@ -402,6 +402,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     // Transform the diagnostic metrics map into a sequence of results
     IODiagnosticMetricsMap.flatMap { case ((sqlId, nodeId), sqlAccums) =>
       // Process each stage ID and compute diagnostic results
+      // TODO: currently if stage IDs is empty, the result is skipped
       val stageIds = sqlAccums.head.stageIds
       stageIds.flatMap { stageId =>
         val stageTaskIds = getStageTaskIds(stageId)
