@@ -70,11 +70,11 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
     val (recommendations, comments) =
       autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.
-    // There are two ways we can that:
+    // There are two ways we can do that:
     // 1- Combine them from the beginning; Or
     // 2- At the end, get the union of the two properties.
     // The 2nd needs more effort but it favourite because it keeps two separate lists.
-    // Otherwise, it is difficult to do separate them logically.
+    // Otherwise, it is difficult to separate them logically.
     val combinedProps = autoTuner.combineSparkProperties(recommendations)
     val resultRecord = TuningResult(appInfoProvider.getAppID, recommendations,
       comments, Option(combinedProps))

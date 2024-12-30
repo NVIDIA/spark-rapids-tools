@@ -1464,7 +1464,7 @@ trait AutoTunerConfigsProvider extends Logging {
 
 /**
  * Provides configuration settings for the Profiling Tool's AutoTuner. This object is as a concrete
- * implementation of the `AutoTunerConfigsProvider` interface,
+ * implementation of the `AutoTunerConfigsProvider` interface.
  */
 object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
   def createAutoTunerInstance(
