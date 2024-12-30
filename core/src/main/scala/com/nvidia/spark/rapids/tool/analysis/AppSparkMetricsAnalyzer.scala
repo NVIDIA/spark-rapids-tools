@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
+import java.util.concurrent.TimeUnit
+
 import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
@@ -27,7 +29,6 @@ import com.nvidia.spark.rapids.tool.profiling._
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef}
-import java.util.concurrent.TimeUnit
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
