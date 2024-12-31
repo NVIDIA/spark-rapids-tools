@@ -264,6 +264,112 @@ class RecommendationEntry(val name: String,
   }
 }
 
+// scalastyle:off line.size.limit
+/**
+ * Resolves the appropriate RapidsShuffleManager class name based on Spark or Databricks version.
+ *
+ * Note:
+ * - Supported RapidsShuffleManagers: https://docs.nvidia.com/spark-rapids/user-guide/latest/additional-functionality/rapids-shuffle.html#rapids-shuffle-manager
+ * - Version mappings need to be updated as new versions are supported.
+ * - This can be extended to support more version mappings (e.g. Cloudera).
+ */
+// scalastyle:on line.size.limit
+object ShuffleManagerResolver {
+  // Databricks version to RapidsShuffleManager version mapping.
+  private val DatabricksVersionMap = Map(
+    "11.3" -> "330db",
+    "12.3" -> "332db",
+    "13.3" -> "341db"
+  )
+
+  // Spark version to RapidsShuffleManager version mapping.
+  private val SparkVersionMap = Map(
+    "3.2.0" -> "320",
+    "3.2.1" -> "321",
+    "3.2.2" -> "322",
+    "3.2.3" -> "323",
+    "3.2.4" -> "324",
+    "3.3.0" -> "330",
+    "3.3.1" -> "331",
+    "3.3.2" -> "332",
+    "3.3.3" -> "333",
+    "3.3.4" -> "334",
+    "3.4.0" -> "340",
+    "3.4.1" -> "341",
+    "3.4.2" -> "342",
+    "3.4.3" -> "343",
+    "3.5.0" -> "350",
+    "3.5.1" -> "351",
+    "4.0.0" -> "400"
+  )
+
+  def buildShuffleManagerClassName(smVersion: String): String = {
+    s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
+  }
+
+  def commentForUnsupportedVersion(sparkVersion: String): String = {
+    s"Could not recommend RapidsShuffleManager as the provided version " +
+      s"$sparkVersion is not supported."
+  }
+
+  def commentForMissingVersion: String = {
+    "Could not recommend RapidsShuffleManager as neither Spark nor Databricks version is provided."
+  }
+
+  /**
+   * Internal method to determine the appropriate RapidsShuffleManager class name based on the
+   * provided databricks or spark version.
+   *
+   * Example:
+   * sparkVersion: "3.2.0-amzn-1"
+   * versionMap: {"3.2.0" -> "320", "3.2.1" -> "321"}
+   * Then, smVersion: "320"
+   *
+   * sparkVersion: "13.3-ml-1"
+   * versionMap: {"11.3" -> "330db", "12.3" -> "332db", "13.3" -> "341db"}
+   * Then, smVersion: "341db"
+   *
+   * sparkVersion: "3.1.2"
+   * versionMap: {"3.2.0" -> "320", "3.2.1" -> "321"}
+   * Then, smVersion: None
+   *
+   * @return Either an error message (Left) or the RapidsShuffleManager class name (Right)
+   */
+  private def getClassNameInternal(
+      versionMap: Map[String, String], sparkVersion: String): Either[String, String] = {
+    val smVersionOpt = versionMap.collectFirst {
+      case (key, value) if sparkVersion.contains(key) => value
+    }
+    smVersionOpt match {
+      case Some(smVersion) =>
+        Right(buildShuffleManagerClassName(smVersion))
+      case None =>
+        Left(commentForUnsupportedVersion(sparkVersion))
+    }
+  }
+
+  /**
+   * Determines the appropriate RapidsShuffleManager class name based on the provided versions.
+   * Databricks version takes precedence over Spark version. If a valid class name is not found,
+   * an error message is returned.
+   *
+   * @param dbVersion Databricks version.
+   * @param sparkVersion Spark version.
+   * @return Either an error message (Left) or the RapidsShuffleManager class name (Right)
+   */
+  def getClassName(
+      dbVersion: Option[String], sparkVersion: Option[String]): Either[String, String] = {
+    (dbVersion, sparkVersion) match {
+      case (Some(dbVer), _) =>
+        getClassNameInternal(DatabricksVersionMap, dbVer)
+      case (None, Some(sparkVer)) =>
+        getClassNameInternal(SparkVersionMap, sparkVer)
+      case _ =>
+        Left(commentForMissingVersion)
+    }
+  }
+}
+
 /**
  * AutoTuner module that uses event logs and worker's system properties to recommend Spark
  * RAPIDS configuration based on heuristics.
@@ -717,9 +823,11 @@ class AutoTuner(
   def calculateJobLevelRecommendations(): Unit = {
     // TODO - do we do anything with 200 shuffle partitions or maybe if its close
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
-   getShuffleManagerClassName match  {
-      case Some(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
-      case None => appendComment("Could not define the Spark Version")
+    getShuffleManagerClassName match {
+      case Right(smClassName) =>
+        appendRecommendation("spark.shuffle.manager", smClassName)
+      case Left(errMessage) =>
+        appendComment(errMessage)
     }
     appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
     recommendFileCache()
@@ -752,31 +860,13 @@ class AutoTuner(
       }
   }
 
-  def getShuffleManagerClassName() : Option[String] = {
-    appInfoProvider.getSparkVersion.map { sparkVersion =>
-      val shuffleManagerVersion = sparkVersion.filterNot("().".toSet)
-      val dbVersion = getPropertyValue(
-        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY).getOrElse("")
-      val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
-        dbVersion match {
-          case ver if ver.contains("10.4") => "321db"
-          case ver if ver.contains("11.3") => "330db"
-          case _ => "332db"
-        }
-      } else if (sparkVersion.contains("amzn")) {
-        sparkVersion match {
-          case ver if ver.contains("3.5.2") => "352"
-          case ver if ver.contains("3.5.1") => "351"
-          case ver if ver.contains("3.5.0") => "350"
-          case ver if ver.contains("3.4.1") => "341"
-          case ver if ver.contains("3.4.0") => "340"
-          case _ => "332"
-        }
-      } else {
-        shuffleManagerVersion
-      }
-      "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
-    }
+  /**
+   * Resolves the RapidsShuffleManager class name based on the Spark or Databricks version.
+   * If a valid class name is not found an error message is appended as a comment.
+   */
+  def getShuffleManagerClassName: Either[String, String] = {
+    val dbVersion = getPropertyValue(DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY)
+    ShuffleManagerResolver.getClassName(dbVersion, appInfoProvider.getSparkVersion)
   }
 
   /**
