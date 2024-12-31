@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.ClusterProperties
+import com.nvidia.spark.rapids.tool.tuning.ClusterProperties
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}

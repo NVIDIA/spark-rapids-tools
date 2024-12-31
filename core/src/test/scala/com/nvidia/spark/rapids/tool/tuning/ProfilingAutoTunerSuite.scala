@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,84 +14,27 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.profiling
+package com.nvidia.spark.rapids.tool.tuning
 
-import java.util
-
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, PlatformFactory, PlatformNames, T4Gpu}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterPropertiesFromContent
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import com.nvidia.spark.rapids.tool.profiling.{DriverLogUnsupportedOperators, Profiler}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
-import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
 
-case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
-  extends BaseDriverLogInfoProvider(None) {
-  override def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = unsupportedOps
-}
+/**
+ * Suite to test the Profiling Tool's AutoTuner
+ */
+class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
-class AppInfoProviderMockTest(val maxInput: Double,
-    val spilledMetrics: Seq[Long],
-    val jvmGCFractions: Seq[Double],
-    val propsFromLog: mutable.Map[String, String],
-    val sparkVersion: Option[String],
-    val rapidsJars: Seq[String],
-    val distinctLocationPct: Double,
-    val redundantReadSize: Long,
-    val meanInput: Double,
-    val meanShuffleRead: Double,
-    val shuffleStagesWithPosSpilling: Set[Long],
-    val shuffleSkewStages: Set[Long]) extends AppSummaryInfoBaseProvider {
-  override def isAppInfoAvailable = true
-  override def getMaxInput: Double = maxInput
-  override def getMeanInput: Double = meanInput
-  override def getMeanShuffleRead: Double = meanShuffleRead
-  override def getSpilledMetrics: Seq[Long] = spilledMetrics
-  override def getJvmGCFractions: Seq[Double] = jvmGCFractions
-  override def getRapidsProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSparkProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSystemProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
-  override def getSparkVersion: Option[String] = sparkVersion
-  override def getRapidsJars: Seq[String] = rapidsJars
-  override def getDistinctLocationPct: Double = distinctLocationPct
-  override def getRedundantReadSize: Long = redundantReadSize
-  override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
-  override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
-}
-
-class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
-
-  val defaultSparkVersion = "3.1.1"
-
-  val defaultDataprocProps: mutable.Map[String, String] = {
-    mutable.LinkedHashMap[String, String](
-      "spark.dynamicAllocation.enabled" -> "true",
-      "spark.driver.maxResultSize" -> "7680m",
-      "spark.driver.memory" -> "15360m",
-      "spark.executor.cores" -> "16",
-      "spark.executor.instances" -> "2",
-      "spark.executor.resource.gpu.amount" -> "1",
-      "spark.executor.memory" -> "26742m",
-      "spark.executor.memoryOverhead" -> "7372m",
-      "spark.executorEnv.OPENBLAS_NUM_THREADS" -> "1",
-      "spark.extraListeners" -> "com.google.cloud.spark.performance.DataprocMetricsListener",
-      "spark.rapids.memory.pinnedPool.size" -> "2048m",
-      "spark.scheduler.mode" -> "FAIR",
-      "spark.sql.cbo.enabled" -> "true",
-      "spark.sql.adaptive.enabled" -> "true",
-      "spark.ui.port" -> "0",
-      "spark.yarn.am.memory" -> "640m"
-    )
-  }
-
-  private def buildWorkerInfoAsString(
+  /**
+   * Helper method to build a worker info string with GPU properties
+   */
+  protected def buildGpuWorkerInfoAsString(
       customProps: Option[mutable.Map[String, String]] = None,
       numCores: Option[Int] = Some(32),
       systemMemory: Option[String] = Some("122880MiB"),
@@ -99,25 +42,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       gpuCount: Option[Int] = Some(2),
       gpuMemory: Option[String] = Some(GpuDevice.DEFAULT.getMemory),
       gpuDevice: Option[String] = Some(GpuDevice.DEFAULT.toString)): String = {
-    val gpuWorkerProps = new GpuWorkerProps(
-      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-    val cpuSystem = new SystemClusterProps(
-      numCores.getOrElse(0), systemMemory.getOrElse(""), numWorkers.getOrElse(0))
-    val systemProperties = customProps match {
-      case None => mutable.Map[String, String]()
-      case Some(newProps) => newProps
-    }
-    val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
-    val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
-    // set the options to convert the object into formatted yaml content
-    val options = new DumperOptions()
-    options.setIndent(2)
-    options.setPrettyFlow(true)
-    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-    val yaml = new Yaml(options)
-    val rawString = yaml.dump(clusterProps)
-    // Skip the first line as it contains "the name of the class"
-    rawString.split("\n").drop(1).mkString("\n")
+    buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers,
+      gpuCount, gpuMemory,gpuDevice)
   }
 
   private def getGpuAppMockInfoProvider: AppSummaryInfoBaseProvider = {
@@ -134,32 +60,17 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
       Some(defaultSparkVersion), rapidsJars)
   }
 
-  private def getMockInfoProvider(maxInput: Double,
-      spilledMetrics: Seq[Long],
-      jvmGCFractions: Seq[Double],
-      propsFromLog: mutable.Map[String, String],
-      sparkVersion: Option[String],
-      rapidsJars: Seq[String] = Seq(),
-      distinctLocationPct: Double = 0.0,
-      redundantReadSize: Long = 0,
-      meanInput: Double = 0.0,
-      meanShuffleRead: Double = 0.0,
-      shuffleStagesWithPosSpilling: Set[Long] = Set(),
-      shuffleSkewStages: Set[Long] = Set()): AppSummaryInfoBaseProvider = {
-    new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
-      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
-      shuffleStagesWithPosSpilling, shuffleSkewStages)
-  }
-
   test("verify 3.2.0+ auto conf setting") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some("3.2.0"), Seq())
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -223,7 +134,8 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   test("Load non-existing cluster properties") {
     val platform = PlatformFactory.createInstance(clusterProperties = None)
-    val autoTuner = AutoTuner.buildAutoTuner(getGpuAppMockInfoProvider, platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTuner(getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -263,8 +175,9 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("Load cluster properties with CPU cores 0") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(0))
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(0))
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -304,11 +217,13 @@ class AutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
   }
 
   test("Load cluster properties with memory to cores ratio to small") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(8), Some("14000MiB"))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo,
-      getGpuAppMockInfoProvider, platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo,
+        getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -321,8 +236,9 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
   }
 
   test("Load cluster properties with CPU memory missing") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), None)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), None)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -362,11 +278,13 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
   }
 
   test("Load cluster properties with CPU memory 0") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), Some("0m"))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("0m"))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -424,11 +342,13 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
   }
 
   test("Load cluster properties with number of workers 0") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -477,8 +397,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- Number of workers is missing. Setting default to 1.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -494,12 +414,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(0))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -536,8 +458,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU count is missing. Setting default to 1.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -557,12 +479,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo =
-      buildWorkerInfoAsString(Some(sparkProps), Some(32), Some("122880MiB"), Some(4), Some(2), None)
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
+      Some("122880MiB"), Some(4), Some(2), None)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -591,8 +515,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -614,12 +538,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
       "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0M"))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -644,8 +570,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -664,12 +590,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), None)
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -699,8 +627,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to $T4Gpu.
           |- GPU memory is missing. Setting default to ${T4Gpu.getMemory}.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -720,12 +648,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -755,19 +685,21 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to $T4Gpu.
           |- GPU memory is missing. Setting default to ${T4Gpu.getMemory}.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
 
   test("Test executor memory on CSP where executor/cpu ratio is small") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(8), Some("15360MiB"),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("15360MiB"),
       Some(4), Some(1))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults =
@@ -809,8 +741,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     assert(expectedResults == autoTunerOutput)
   }
@@ -829,7 +761,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps))
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -855,13 +787,15 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
@@ -884,7 +818,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps))
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -910,20 +844,22 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
   }
 
   test("test AutoTuner with empty sparkProperties") {
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None)
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -969,13 +905,15 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-      platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedResults == autoTunerOutput)
@@ -1011,14 +949,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1048,8 +988,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |- file.encoding should be [UTF-8] because GPU only supports the charset when using some expressions.
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -1084,14 +1024,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1121,8 +1063,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1148,14 +1090,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.plugins" -> "com.nvidia.spark.WrongPlugin0, com.nvidia.spark.WrongPlugin1",
         "spark.rapids.memory.pinnedPool.size" -> "5g",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1191,8 +1135,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1221,14 +1165,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "false",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1264,8 +1210,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1299,13 +1245,15 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo,
-      getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
-        Some(defaultSparkVersion)), platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo,
+        getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
+          Some(defaultSparkVersion)), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1333,8 +1281,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(autoTunerOutput == expectedResults)
@@ -1370,14 +1318,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1406,8 +1356,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1437,14 +1387,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1473,8 +1425,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1494,11 +1446,13 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(sparkProps))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo,
-      getGpuAppMockInfoWithJars(rapidsJars), platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo,
+        getGpuAppMockInfoWithJars(rapidsJars), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     Profiler.getAutoTunerResultsAsString(properties, comments)
   }
@@ -1506,6 +1460,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
   test("Multiple RAPIDS jars trigger a comment") {
     // 1. The Autotuner should warn the users that they have multiple jars defined in the classPath
     // 2. Compare the output
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -1531,9 +1486,10 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.multiple")} [23.06.0, 23.02.1]
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.multiple")} [23.06.0, 23.02.1]
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     val rapidsJarsArr = Seq("rapids-4-spark_2.12-23.06.0-SNAPSHOT.jar",
       "rapids-4-spark_2.12-23.02.1.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
@@ -1579,7 +1535,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- A newer RAPIDS Accelerator for Apache Spark plugin is available:
           |  $pluginJarMvnURl
           |  Version used in application is $jarVer.
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
@@ -1619,7 +1575,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.shuffle.partitions' was not set.
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$latestRelease.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
@@ -1649,14 +1605,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion), Seq(), 40.0, 200000000000L)
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1688,8 +1646,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |- Enable file cache only if Spark local disks bandwidth is > 1 GB/s and you have sufficient disk space available to fit both cache and normal Spark temporary data.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1718,14 +1676,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion), Seq(), 40.0, 2000000L)
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1754,19 +1714,21 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
 
   test("test recommendations for databricks-aws platform argument") {
-    val databricksWorkerInfo = buildWorkerInfoAsString()
-    val clusterPropsOpt = loadClusterPropertiesFromContent(databricksWorkerInfo)
+    val databricksWorkerInfo = buildGpuWorkerInfoAsString()
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(databricksWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      getGpuAppMockInfoProvider, platform)
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(databricksWorkerInfo,
+        getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
@@ -1806,14 +1768,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1840,8 +1804,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1862,10 +1826,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           "to force onto GPU.")
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
-    val workerInfo = buildWorkerInfoAsString(Some(customProps))
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+    val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(workerInfo,
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1876,7 +1841,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |
           |Comments:
           |- 'spark.rapids.sql.incompatibleDateFormats.enabled' was not set.
-          |- ${AutoTuner.commentForExperimentalConfig("spark.rapids.sql.incompatibleDateFormats.enabled")}
+          |- ${ProfilingAutoTunerConfigsProvider.commentForExperimentalConfig("spark.rapids.sql.incompatibleDateFormats.enabled")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1897,9 +1862,10 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           "to force onto GPU.")
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
-    val workerInfo = buildWorkerInfoAsString(Some(customProps))
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      getGpuAppMockInfoProvider, PlatformFactory.createInstance(), driverInfoProvider)
+    val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(workerInfo,
+        getGpuAppMockInfoProvider, PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1926,9 +1892,9 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).
           |- Could not infer the cluster configuration, recommendations are generated using default values!
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
-          |- ${AutoTuner.commentForExperimentalConfig("spark.rapids.sql.incompatibleDateFormats.enabled")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.commentForExperimentalConfig("spark.rapids.sql.incompatibleDateFormats.enabled")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -1940,10 +1906,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.executor.memory" -> "47222m",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.task.resource.gpu.amount" -> "0.0625")
-    val workerInfo = buildWorkerInfoAsString(Some(customProps))
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance())
+    val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(workerInfo,
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance())
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1967,10 +1934,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "expression Literal 1700518632630000 produces an unsupported type TimestampType")
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
-    val workerInfo = buildWorkerInfoAsString(Some(customProps))
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(workerInfo,
-      AppSummaryInfoBaseProvider.fromAppInfo(None),
-      PlatformFactory.createInstance(), driverInfoProvider)
+    val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(workerInfo,
+        AppSummaryInfoBaseProvider.fromAppInfo(None),
+        PlatformFactory.createInstance(), driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2005,14 +1973,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.concurrentGpuTasks" -> "4",
         "spark.sql.adaptive.enabled" -> "true",
         "spark.sql.adaptive.autoBroadcastJoinThreshold" -> "500mb")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2043,19 +2013,19 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionNum' was not set.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > 100m could lead to performance\n  regression. Should be set to a lower number.
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
 
   private def testPartitionConfigurations(
-      inputSize: Double,
-      shuffleRead: Double,
-      gpuDevice: GpuDevice,
-      expectedLines: Seq[String]): Unit = {
+                                           inputSize: Double,
+                                           shuffleRead: Double,
+                                           gpuDevice: GpuDevice,
+                                           expectedLines: Seq[String]): Unit = {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
@@ -2076,14 +2046,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(gpuDevice.getMemory), Some(gpuDevice.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(defaultSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedLines.forall(line => autoTunerOutput.contains(line)),
@@ -2141,14 +2113,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2178,36 +2152,38 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
   }
 
   test("test shuffle manager version for databricks") {
-    val databricksWorkerInfo = buildWorkerInfoAsString(None)
+    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
         DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> "11.3.x-gpu-ml-scala2.12"),
       Some("3.3.0"), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(databricksWorkerInfo,
+        infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     // Assert shuffle manager string for DB 11.3 tag
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330db.RapidsShuffleManager")
   }
 
   test("test shuffle manager version for non-databricks") {
-    val databricksWorkerInfo = buildWorkerInfoAsString(None)
+    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some("3.3.0"), Seq())
-    val autoTuner = AutoTuner.buildAutoTunerFromProps(databricksWorkerInfo,
-      infoProvider, PlatformFactory.createInstance())
+    val autoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(databricksWorkerInfo,
+        infoProvider, PlatformFactory.createInstance())
     val smVersion = autoTuner.getShuffleManagerClassName()
     assert(smVersion.get == "com.nvidia.spark.rapids.spark330.RapidsShuffleManager")
   }
@@ -2235,14 +2211,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
         "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
       logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2275,8 +2253,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -2305,15 +2283,17 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.sql.adaptive.coalescePartitions.minPartitionNum" -> "1",
         "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark311.RapidsShuffleManager")
-    val dataprocWorkerInfo = buildWorkerInfoAsString(Some(customProps), Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
       logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
       shuffleSkewStages = Set(1))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2345,11 +2325,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.shuffle.partitions' was not set.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in
           |  stages with spilling. Increasing shuffle partitions is not recommended in this
           |  case since keys will still hash to the same task.
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -2366,14 +2346,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.executor.instances" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer"
       )
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2416,8 +2398,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -2435,14 +2417,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" -> "org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator"
       )
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2484,8 +2468,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -2503,14 +2487,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" -> ""
       )
-    val dataprocWorkerInfo = buildWorkerInfoAsString(None, Some(32),
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(defaultSparkVersion))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2552,8 +2538,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- ${AutoTuner.classPathComments("rapids.jars.missing")}
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
@@ -2569,14 +2555,16 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1"
       )
-    val emrWorkerInfo = buildWorkerInfoAsString(None, Some(32),
+    val emrWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some("3.4.1-amzn-1"))
-    val clusterPropsOpt = loadClusterPropertiesFromContent(emrWorkerInfo)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(emrWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTunerFromProps(emrWorkerInfo, infoProvider,
-      platform)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(emrWorkerInfo, infoProvider,
+        platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2620,7 +2608,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- ${AutoTuner.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
     assert(expectedResults == autoTunerOutput)
