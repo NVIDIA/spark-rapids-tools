@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import java.util.concurrent.TimeUnit
-
 import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
@@ -428,8 +426,8 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.durationMax,
         perStageRec.durationMin,
         perStageRec.durationAvg,
-        TimeUnit.NANOSECONDS.toMillis(perStageRec.executorCPUTimeSum),
-        TimeUnit.NANOSECONDS.toMillis(perStageRec.executorDeserializeCpuTimeSum),
+        perStageRec.executorCPUTimeSum,  // converted to milliseconds by the aggregator
+        perStageRec.executorDeserializeCpuTimeSum,  // converted to milliseconds by the aggregator
         perStageRec.executorDeserializeTimeSum,
         perStageRec.executorRunTimeSum,
         perStageRec.inputBytesReadSum,
@@ -450,7 +448,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.srTotalBytesReadSum,
         perStageRec.swBytesWrittenSum,
         perStageRec.swRecordsWrittenSum,
-        TimeUnit.NANOSECONDS.toMillis(perStageRec.swWriteTimeSum))
+        perStageRec.swWriteTimeSum)  // converted to milliseconds by the aggregator
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
     }
   }

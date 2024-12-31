@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.analysis.util
 
+import java.util.concurrent.TimeUnit
+
 import com.nvidia.spark.rapids.tool.profiling.StageAggTaskMetricsProfileResult
 
 import org.apache.spark.sql.rapids.tool.store.TaskModel
@@ -42,6 +44,12 @@ class AggAccumHelper {
     val resRec = createStageAccumRecord()
     taskRecords.foreach(resRec.addRecord)
     resRec.finalizeAggregation()
+    // convert the nanoseconds units to milliseconds for stage level.
+    // This helps to avoid overflow when aggregating across multiple stages on the level of SQL/Job.
+    resRec.executorCPUTimeSum = TimeUnit.NANOSECONDS.toMillis(resRec.executorCPUTimeSum)
+    resRec.executorDeserializeCpuTimeSum =
+      TimeUnit.NANOSECONDS.toMillis(resRec.executorDeserializeCpuTimeSum)
+    resRec.swWriteTimeSum = TimeUnit.NANOSECONDS.toMillis(resRec.swWriteTimeSum)
     resRec
   }
 

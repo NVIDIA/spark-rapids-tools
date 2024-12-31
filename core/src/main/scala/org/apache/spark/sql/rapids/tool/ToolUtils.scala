@@ -112,16 +112,33 @@ object ToolUtils extends Logging {
     df.showString(numRows, 0)
   }
 
-  // given to duration values, calculate a human readable percent
-  // rounded to 2 decimal places. ie 39.12%
-  def calculateDurationPercent(first: Long, total: Long): Double = {
-    val firstDec = BigDecimal.decimal(first)
-    val totalDec = BigDecimal.decimal(total)
-    if (firstDec == 0 || totalDec == 0) {
+  /**
+   * Calculate the duration percent given the numerator and total values.
+   * This is used to calculate the CPURatio which represents the percentage of CPU time to
+   * the runTime.
+   * There is an implicit check to ensure that the denominator is not zero. If it is, then the
+   * ratio will be set to 0.
+   * There is an option to force the cap to 100% if the calculated value is greater
+   * than the total. This is possible to happen because the tasks CPUTime is measured in
+   * nanoseconds, while the runtTime is measured in milliseconds. This leads to a loss of precision
+   * causing the total percentage to exceed 100%.
+   * @param numerator the numerator value.
+   * @param total the total value.
+   * @param forceCap if true, then the value is capped at 100%.
+   * @return the calculated percentage.
+   */
+  def calculateDurationPercent(numerator: Long, total: Long, forceCap: Boolean = true): Double = {
+    if (numerator == 0 || total == 0) {
       0.toDouble
     } else {
-      val res = (firstDec / totalDec) * 100
-      formatDoubleValue(res, 2)
+      val numeratorDec = BigDecimal.decimal(numerator)
+      val totalDec = BigDecimal.decimal(total)
+      val res = formatDoubleValue((numeratorDec / totalDec) * 100, 2)
+      if (forceCap) {
+        math.min(res, 100)
+      } else {
+        res
+      }
     }
   }
 
