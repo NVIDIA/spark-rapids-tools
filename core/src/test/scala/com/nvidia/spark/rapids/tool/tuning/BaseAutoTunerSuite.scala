@@ -68,7 +68,10 @@ class AppInfoProviderMockTest(val maxInput: Double,
  */
 abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
-  val defaultSparkVersion = "3.1.1"
+  // Default Spark version
+  val defaultSparkVersion = "3.2.0"
+  // Default RapidsShuffleManager version
+  val defaultSmVersion: String = defaultSparkVersion.filterNot(_ == '.')
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
