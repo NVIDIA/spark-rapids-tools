@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import scala.collection.mutable
+
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
 import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
 
@@ -29,7 +31,16 @@ class QualificationAutoTuner(
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider)
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-    QualificationAutoTunerConfigsProvider)
+    QualificationAutoTunerConfigsProvider) {
+
+  /**
+   * List of recommendations for which the Qualification AutoTuner skips calculations and only
+   * depend on default values.
+   */
+  override protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet(
+    "spark.sql.shuffle.partitions"
+  )
+}
 
 /**
  * Provides configuration settings for the Qualification Tool's AutoTuner
