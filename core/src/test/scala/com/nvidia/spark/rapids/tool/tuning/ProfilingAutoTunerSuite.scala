@@ -50,14 +50,14 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
-      Some(defaultSparkVersion), Seq())
+      Some(testSparkVersion), Seq())
   }
 
   private def getGpuAppMockInfoWithJars(rapidsJars: Seq[String]): AppSummaryInfoBaseProvider = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
-      Some(defaultSparkVersion), rapidsJars)
+      Some(testSparkVersion), rapidsJars)
   }
 
   test("verify 3.2.0+ auto conf setting") {
@@ -143,7 +143,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |
@@ -185,7 +185,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |
@@ -246,7 +246,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       s"""|
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |
@@ -300,7 +300,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -368,7 +368,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -441,7 +441,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=64
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.shuffle.partitions=200
@@ -479,7 +479,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
@@ -538,7 +538,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625",
       "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
@@ -593,7 +593,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -652,7 +652,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -724,7 +724,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -768,7 +768,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -826,7 +826,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -889,7 +889,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -945,7 +945,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.task.resource.gpu.amount" -> "0.0625")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -967,7 +967,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1023,7 +1023,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.task.resource.gpu.amount" -> "0.0625")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1043,7 +1043,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1112,7 +1112,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
         platform)
@@ -1132,7 +1132,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
@@ -1184,7 +1184,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1208,7 +1208,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
@@ -1254,7 +1254,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1270,7 +1270,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(dataprocWorkerInfo,
         getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
-          Some(defaultSparkVersion)), platform)
+          Some(testSparkVersion)), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1328,7 +1328,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1339,7 +1339,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1398,7 +1398,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1409,7 +1409,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1462,7 +1462,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.0625")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -1618,7 +1618,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-          s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1629,7 +1629,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion), Seq(), 40.0, 200000000000L)
+      Some(testSparkVersion), Seq(), 40.0, 200000000000L)
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1690,7 +1690,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-          s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1701,7 +1701,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion), Seq(), 40.0, 2000000L)
+      Some(testSparkVersion), Seq(), 40.0, 2000000L)
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1773,7 +1773,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
       "spark.task.resource.gpu.amount" -> "0.0625")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1794,7 +1794,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1897,7 +1897,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |Spark Properties:
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.sql.shuffle.partitions=200
           |
@@ -1999,7 +1999,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2022,7 +2022,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
@@ -2072,7 +2072,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(gpuDevice.getMemory), Some(gpuDevice.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(defaultSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
+      Some(testSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2129,7 +2129,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager",
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -2140,7 +2140,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
-      Some(defaultSparkVersion))
+      Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2235,11 +2235,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m",
         "spark.shuffle.manager" ->
-          s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager")
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager")
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
-      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1))
+      logEventsProps, Some(testSparkVersion), shuffleStagesWithPosSpilling = Set(1))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2308,11 +2308,11 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m",
         "spark.shuffle.manager" ->
-          s"com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager")
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager")
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
-      logEventsProps, Some(defaultSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
+      logEventsProps, Some(testSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
       shuffleSkewStages = Set(1))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
@@ -2375,7 +2375,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(defaultSparkVersion))
+      logEventsProps, Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2399,7 +2399,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -2446,7 +2446,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(defaultSparkVersion))
+      logEventsProps, Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2470,7 +2470,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -2516,7 +2516,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(defaultSparkVersion))
+      logEventsProps, Some(testSparkVersion))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -2540,7 +2540,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$defaultSmVersion.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m

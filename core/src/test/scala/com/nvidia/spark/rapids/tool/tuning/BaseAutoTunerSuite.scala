@@ -27,6 +27,7 @@ import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.ToolUtils
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
@@ -68,10 +69,10 @@ class AppInfoProviderMockTest(val maxInput: Double,
  */
 abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
-  // Default Spark version
-  val defaultSparkVersion = "3.5.1"
-  // Default RapidsShuffleManager version
-  val defaultSmVersion: String = defaultSparkVersion.filterNot(_ == '.')
+  // Spark runtime version used for testing
+  def testSparkVersion: String = ToolUtils.sparkRuntimeVersion
+  // RapidsShuffleManager version used for testing
+  def testSmVersion: String = testSparkVersion.filterNot(_ == '.')
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
