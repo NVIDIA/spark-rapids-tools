@@ -345,7 +345,7 @@ class AutoTuner(
   // Note that the recommendations will be computed anyway to avoid breaking dependencies.
   private val skippedRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // list of recommendations having the calculations disabled, and only depend on default values
-  private val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
+  protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
 
@@ -1032,10 +1032,10 @@ class AutoTuner(
     val lookup = "spark.sql.shuffle.partitions"
     var shufflePartitions =
       getPropertyValue(lookup).getOrElse(autoTunerConfigsProvider.DEF_SHUFFLE_PARTITIONS).toInt
-    val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
 
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
+      val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
       if (shuffleStagesWithPosSpilling.nonEmpty) {
         val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
         if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {

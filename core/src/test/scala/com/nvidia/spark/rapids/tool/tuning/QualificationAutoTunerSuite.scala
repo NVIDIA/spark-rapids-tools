@@ -27,6 +27,18 @@ import com.nvidia.spark.rapids.tool.profiling.Profiler
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
   /**
+   * Default Spark properties to be used when building the Qualification AutoTuner
+   */
+  private val defaultSparkProps: mutable.Map[String, String] = {
+    mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "32",
+      "spark.executor.instances" -> "1",
+      "spark.executor.memory" -> "80g",
+      "spark.executor.instances" -> "1"
+    )
+  }
+
+  /**
    * Helper method to build a worker info string with CPU properties
    */
   protected def buildCpuWorkerInfoAsString(
@@ -37,15 +49,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers)
   }
 
-  test("test AutoTuner for Qualification sets batch size to 1GB") {
-    // mock the properties loaded from eventLog
-    val logEventsProps: mutable.Map[String, String] =
-      mutable.LinkedHashMap[String, String](
-        "spark.executor.cores" -> "32",
-        "spark.executor.instances" -> "1",
-        "spark.executor.memory" -> "80g",
-        "spark.executor.instances" -> "1"
-      )
+  /**
+   * Helper method to return an instance of the Qualification AutoTuner with default properties
+   */
+  private def buildDefaultAutoTuner(
+      logEventsProps: mutable.Map[String, String] = defaultSparkProps): AutoTuner = {
     val workerInfo = buildCpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -53,13 +61,28 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = QualificationAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    val autoTuner = QualificationAutoTunerConfigsProvider.buildAutoTunerFromProps(
+    QualificationAutoTunerConfigsProvider.buildAutoTunerFromProps(
       workerInfo, infoProvider, platform)
+  }
+
+  test("test AutoTuner for Qualification sets batch size to 1GB") {
+    val autoTuner = buildDefaultAutoTuner()
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults = Seq(
         "--conf spark.rapids.sql.batchSizeBytes=1073741824",
         "- 'spark.rapids.sql.batchSizeBytes' was not set."
+    )
+    assert(expectedResults.forall(autoTunerOutput.contains))
+  }
+
+  test("test AutoTuner for Qualification sets shuffle partitions to 200") {
+    val autoTuner = buildDefaultAutoTuner()
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    val expectedResults = Seq(
+      "--conf spark.sql.shuffle.partitions=200",
+      "- 'spark.sql.shuffle.partitions' was not set."
     )
     assert(expectedResults.forall(autoTunerOutput.contains))
   }
