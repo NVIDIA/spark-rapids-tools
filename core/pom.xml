@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Copyright (c) 2021-2024, NVIDIA CORPORATION.
+  Copyright (c) 2021-2025, NVIDIA CORPORATION.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -70,66 +70,6 @@
         </developer>
     </developers>
     <profiles>
-        <profile>
-            <id>release311</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>311</value>
-                </property>
-            </activation>
-            <properties>
-                <buildver>311</buildver>
-                <spark.version>${spark311.version}</spark.version>
-                <delta.core.version>${delta10x.version}</delta.core.version>
-                <hadoop.version>3.3.6</hadoop.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>release312</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>312</value>
-                </property>
-            </activation>
-            <properties>
-                <buildver>312</buildver>
-                <spark.version>${spark312.version}</spark.version>
-                <delta.core.version>${delta10x.version}</delta.core.version>
-                <hadoop.version>3.3.6</hadoop.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>release313</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>313</value>
-                </property>
-            </activation>
-            <properties>
-                <buildver>313</buildver>
-                <spark.version>${spark313.version}</spark.version>
-                <delta.core.version>${delta10x.version}</delta.core.version>
-                <hadoop.version>3.3.6</hadoop.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>release314</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>314</value>
-                </property>
-            </activation>
-            <properties>
-                <buildver>314</buildver>
-                <spark.version>${spark314.version}</spark.version>
-                <delta.core.version>${delta10x.version}</delta.core.version>
-                <hadoop.version>3.3.6</hadoop.version>
-            </properties>
-        </profile>
         <profile>
             <id>release320</id>
             <activation>

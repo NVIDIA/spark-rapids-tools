@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val workerInfo = buildCpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps,  Some(defaultSparkVersion))
+      logEventsProps,  Some(testSparkVersion))
     val clusterPropsOpt = QualificationAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)

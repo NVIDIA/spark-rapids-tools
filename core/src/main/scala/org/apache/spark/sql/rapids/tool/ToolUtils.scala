@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,18 +46,17 @@ object ToolUtils extends Logging {
 
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.
-  private val lookupVersions = Map(
-    "311" -> new ComparableVersion("3.1.1"), // default build version
+  private val lookupVersionsMap = Map(
     "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
     "330" -> new ComparableVersion("3.3.0"), // used to check for memoryOverheadFactor
     "331" -> new ComparableVersion("3.3.1"),
-    "340" -> new ComparableVersion("3.4.0"),  // introduces jsonProtocolChanges
-    "350" -> new ComparableVersion("3.5.0")  // introduces windowGroupLimit
+    "340" -> new ComparableVersion("3.4.0"), // introduces jsonProtocolChanges
+    "350" -> new ComparableVersion("3.5.0")  // default build version, introduces windowGroupLimit
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
   // extend the support runtime for different platforms such as Databricks.
-  lazy val sparkRuntimeVersion = {
+  lazy val sparkRuntimeVersion: String = {
     org.apache.spark.SPARK_VERSION
   }
 
@@ -78,8 +77,8 @@ object ToolUtils extends Logging {
     compareVersions(refVersion, sparkRuntimeVersion) == 0
   }
 
-  def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
-    val lookupVersionObj = lookupVersions.get(lookupVersion).get
+  private def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
+    val lookupVersionObj = lookupVersionsMap(lookupVersion)
     val currVersionObj = new ComparableVersion(currVersion)
     currVersionObj.compareTo(lookupVersionObj)
   }

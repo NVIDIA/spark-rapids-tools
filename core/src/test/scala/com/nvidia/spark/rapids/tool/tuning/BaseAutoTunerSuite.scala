@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.rapids.tool.ToolUtils
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
@@ -68,7 +69,10 @@ class AppInfoProviderMockTest(val maxInput: Double,
  */
 abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
-  val defaultSparkVersion = "3.1.1"
+  // Spark runtime version used for testing
+  def testSparkVersion: String = ToolUtils.sparkRuntimeVersion
+  // RapidsShuffleManager version used for testing
+  def testSmVersion: String = testSparkVersion.filterNot(_ == '.')
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
