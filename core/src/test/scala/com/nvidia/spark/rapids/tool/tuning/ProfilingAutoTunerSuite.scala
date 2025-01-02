@@ -2191,14 +2191,15 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       autoTuner: AutoTuner,
       expectedSmVersion: String): Unit = {
     autoTuner.getShuffleManagerClassName match {
-      case Right(smVersion) =>
-        assert(smVersion == ShuffleManagerResolver.buildShuffleManagerClassName(expectedSmVersion))
+      case Right(smClassName) =>
+        assert(smClassName ==
+          ShuffleManagerResolver.buildShuffleManagerClassName(expectedSmVersion))
       case Left(comment) =>
         fail(s"Expected valid RapidsShuffleManager but got comment: $comment")
     }
   }
 
-  test("test shuffle manager version for supported databricks") {
+  test("test shuffle manager version for supported databricks version") {
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
@@ -2213,7 +2214,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330db")
   }
 
-  test("test shuffle manager version for supported non-databricks") {
+  test("test shuffle manager version for supported spark version") {
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
@@ -2226,7 +2227,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330")
   }
 
-  test("test shuffle manager version for supported custom version") {
+  test("test shuffle manager version for supported custom spark version") {
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
@@ -2247,14 +2248,14 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       autoTuner: AutoTuner,
       sparkVersion: String): Unit = {
     autoTuner.getShuffleManagerClassName match {
-      case Right(smVersion) =>
-        fail(s"Expected error comment but got valid RapidsShuffleManager with version $smVersion")
+      case Right(smClassName) =>
+        fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
         assert(comment == ShuffleManagerResolver.commentForUnsupportedVersion(sparkVersion))
     }
   }
 
-  test("test shuffle manager version for unsupported databricks") {
+  test("test shuffle manager version for unsupported databricks version") {
     val databricksVersion = "9.1.x-gpu-ml-scala2.12"
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -2269,7 +2270,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
   }
 
-  test("test shuffle manager version for unsupported non-databricks") {
+  test("test shuffle manager version for unsupported spark version") {
     val sparkVersion = "3.1.2"
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -2282,7 +2283,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, sparkVersion)
   }
 
-  test("test shuffle manager version for unsupported custom version") {
+  test("test shuffle manager version for unsupported custom spark version") {
     val customSparkVersion = "3.1.2-custom"
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -2306,8 +2307,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
         infoProvider, PlatformFactory.createInstance())
     // Verify that the shuffle manager is not recommended for missing Spark version
     autoTuner.getShuffleManagerClassName match {
-      case Right(smVersion) =>
-        fail(s"Expected error comment but got valid RapidsShuffleManager with version $smVersion")
+      case Right(smClassName) =>
+        fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
         assert(comment == ShuffleManagerResolver.commentForMissingVersion)
     }
