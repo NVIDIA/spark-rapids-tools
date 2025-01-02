@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
 abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   // Default Spark version
-  val defaultSparkVersion = "3.2.0"
+  val defaultSparkVersion = "3.5.1"
   // Default RapidsShuffleManager version
   val defaultSmVersion: String = defaultSparkVersion.filterNot(_ == '.')
 
