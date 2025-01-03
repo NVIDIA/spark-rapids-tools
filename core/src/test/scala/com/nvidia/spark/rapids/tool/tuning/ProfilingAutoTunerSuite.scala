@@ -2192,8 +2192,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       expectedSmVersion: String): Unit = {
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
-        assert(smClassName ==
-          ProfilingAutoTunerConfigsProvider.buildShuffleManagerClassName(expectedSmVersion))
+        assert(smClassName == ProfilingAutoTunerConfigsProvider
+          .buildShuffleManagerClassName(expectedSmVersion))
       case Left(comment) =>
         fail(s"Expected valid RapidsShuffleManager but got comment: $comment")
     }
@@ -2254,8 +2254,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
-        assert(comment ==
-          ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(sparkVersion))
+        assert(comment == ProfilingAutoTunerConfigsProvider
+          .shuffleManagerCommentForUnsupportedVersion(sparkVersion))
     }
   }
 
