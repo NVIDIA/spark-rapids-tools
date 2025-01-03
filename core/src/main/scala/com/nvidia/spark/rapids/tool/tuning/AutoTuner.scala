@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,6 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
@@ -717,9 +716,9 @@ class AutoTuner(
   def calculateJobLevelRecommendations(): Unit = {
     // TODO - do we do anything with 200 shuffle partitions or maybe if its close
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
-   getShuffleManagerClassName match  {
-      case Some(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
-      case None => appendComment("Could not define the Spark Version")
+    getShuffleManagerClassName match {
+      case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
+      case Left(comment) => appendComment(comment)
     }
     appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
     recommendFileCache()
@@ -752,30 +751,30 @@ class AutoTuner(
       }
   }
 
-  def getShuffleManagerClassName() : Option[String] = {
-    appInfoProvider.getSparkVersion.map { sparkVersion =>
-      val shuffleManagerVersion = sparkVersion.filterNot("().".toSet)
-      val dbVersion = getPropertyValue(
-        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY).getOrElse("")
-      val finalShuffleVersion : String = if (dbVersion.nonEmpty) {
-        dbVersion match {
-          case ver if ver.contains("10.4") => "321db"
-          case ver if ver.contains("11.3") => "330db"
-          case _ => "332db"
+  /**
+   * Resolves the RapidsShuffleManager class name based on the Spark version.
+   * If a valid class name is not found, an error message is returned.
+   *
+   * Example:
+   * sparkVersion: "3.2.0-amzn-1"
+   * return: Right("com.nvidia.spark.rapids.spark320.RapidsShuffleManager")
+   *
+   * sparkVersion: "3.1.2"
+   * return: Left("Cannot recommend RAPIDS Shuffle Manager for unsupported '3.1.2' version.")
+   *
+   * @return Either an error message (Left) or the RapidsShuffleManager class name (Right)
+   */
+  def getShuffleManagerClassName: Either[String, String] = {
+    appInfoProvider.getSparkVersion match {
+      case Some(sparkVersion) =>
+        platform.getShuffleManagerVersion(sparkVersion) match {
+          case Some(smVersion) =>
+            Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
+          case None =>
+            Left(autoTunerConfigsProvider.shuffleManagerComments("unsupported")(sparkVersion))
         }
-      } else if (sparkVersion.contains("amzn")) {
-        sparkVersion match {
-          case ver if ver.contains("3.5.2") => "352"
-          case ver if ver.contains("3.5.1") => "351"
-          case ver if ver.contains("3.5.0") => "350"
-          case ver if ver.contains("3.4.1") => "341"
-          case ver if ver.contains("3.4.0") => "340"
-          case _ => "332"
-        }
-      } else {
-        shuffleManagerVersion
-      }
-      "com.nvidia.spark.rapids.spark" + finalShuffleVersion + ".RapidsShuffleManager"
+      case None =>
+        Left(autoTunerConfigsProvider.shuffleManagerComments("missing")(""))
     }
   }
 
@@ -1344,6 +1343,19 @@ trait AutoTunerConfigsProvider extends Logging {
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
 
+  private val shuffleManagerDocUrl = "https://docs.nvidia.com/spark-rapids/user-guide/latest/" +
+    "additional-functionality/rapids-shuffle.html#rapids-shuffle-manager"
+
+  val shuffleManagerComments: Map[String, String => String] = Map(
+    "unsupported" -> ((sparkVersion: String) =>
+      s"Cannot recommend RAPIDS Shuffle Manager for unsupported '$sparkVersion' version.\n" +
+        "  To enable RAPIDS Shuffle Manager, use a supported Spark version and set \n" +
+        "  'spark.shuffle.manager' to a valid RAPIDS Shuffle Manager version. \n" +
+        s"  See supported versions: $shuffleManagerDocUrl."),
+    "missing" -> (_ =>
+      "Could not recommend RapidsShuffleManager as Spark version cannot be determined.")
+  )
+
   /**
    * Abstract method to create an instance of the AutoTuner.
    */
@@ -1459,6 +1471,10 @@ trait AutoTunerConfigsProvider extends Logging {
       case Some(sparkMaster) if sparkMaster.startsWith("spark:") => false
       case _ => true
     }
+  }
+
+  def buildShuffleManagerClassName(smVersion: String): String = {
+    s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
   }
 }
 

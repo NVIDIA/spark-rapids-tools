@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -138,6 +138,39 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   protected val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
     SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS
   )
+
+  // scalastyle:off line.size.limit
+  // Supported Spark version to RapidsShuffleManager version mapping.
+  // Reference: https://docs.nvidia.com/spark-rapids/user-guide/latest/additional-functionality/rapids-shuffle.html#rapids-shuffle-manager
+  // scalastyle:on line.size.limit
+  val supportedShuffleManagerVersionMap: Array[(String, String)] = Array(
+    "3.2.0" -> "320",
+    "3.2.1" -> "321",
+    "3.2.2" -> "322",
+    "3.2.3" -> "323",
+    "3.2.4" -> "324",
+    "3.3.0" -> "330",
+    "3.3.1" -> "331",
+    "3.3.2" -> "332",
+    "3.3.3" -> "333",
+    "3.3.4" -> "334",
+    "3.4.0" -> "340",
+    "3.4.1" -> "341",
+    "3.4.2" -> "342",
+    "3.4.3" -> "343",
+    "3.5.0" -> "350",
+    "3.5.1" -> "351"
+  )
+
+  /**
+   * Determine the appropriate RapidsShuffleManager version based on the
+   * provided spark version.
+   */
+  def getShuffleManagerVersion(sparkVersion: String): Option[String] = {
+    supportedShuffleManagerVersionMap.collectFirst {
+      case (supportedVersion, smVersion) if sparkVersion.contains(supportedVersion) => smVersion
+    }
+  }
 
   /**
    * Checks if the given runtime is supported by the platform.
@@ -536,6 +569,13 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memoryOverhead"
+  )
+
+  // Supported Databricks version to RapidsShuffleManager version mapping.
+  override val supportedShuffleManagerVersionMap: Array[(String, String)] = Array(
+    "11.3" -> "330db",
+    "12.2" -> "332db",
+    "13.3" -> "341db"
   )
 
   override def createClusterInfo(coresPerExecutor: Int,
