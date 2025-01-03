@@ -771,10 +771,10 @@ class AutoTuner(
           case Some(smVersion) =>
             Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
           case None =>
-            Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(sparkVersion))
+            Left(autoTunerConfigsProvider.shuffleManagerComments("unsupported")(sparkVersion))
         }
       case None =>
-        Left(autoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
+        Left(autoTunerConfigsProvider.shuffleManagerComments("missing")(""))
     }
   }
 
@@ -1346,6 +1346,16 @@ trait AutoTunerConfigsProvider extends Logging {
   private val shuffleManagerDocUrl = "https://docs.nvidia.com/spark-rapids/user-guide/latest/" +
     "additional-functionality/rapids-shuffle.html#rapids-shuffle-manager"
 
+  val shuffleManagerComments: Map[String, String => String] = Map(
+    "unsupported" -> ((sparkVersion: String) =>
+      s"Cannot recommend RAPIDS Shuffle Manager for unsupported '$sparkVersion' version.\n" +
+        "  To enable RAPIDS Shuffle Manager, use a supported Spark version and set \n" +
+        "  'spark.shuffle.manager' to a valid RAPIDS Shuffle Manager version. \n" +
+        s"  See supported versions: $shuffleManagerDocUrl."),
+    "missing" -> (_ =>
+      "Could not recommend RapidsShuffleManager as Spark version cannot be determined.")
+  )
+
   /**
    * Abstract method to create an instance of the AutoTuner.
    */
@@ -1465,17 +1475,6 @@ trait AutoTunerConfigsProvider extends Logging {
 
   def buildShuffleManagerClassName(smVersion: String): String = {
     s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
-  }
-
-  def shuffleManagerCommentForUnsupportedVersion(sparkVersion: String): String = {
-    s"Cannot recommend RAPIDS Shuffle Manager for unsupported '$sparkVersion' version.\n" +
-     "  To enable RAPIDS Shuffle Manager, set 'spark.shuffle.manager' to a value\n" +
-     "  from the supported versions. \n" +
-    s"  See supported versions: $shuffleManagerDocUrl."
-  }
-
-  def shuffleManagerCommentForMissingVersion: String = {
-    "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
   }
 }
 
