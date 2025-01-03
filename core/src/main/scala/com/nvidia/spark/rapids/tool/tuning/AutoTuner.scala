@@ -302,13 +302,16 @@ object ShuffleManagerResolver {
     "3.5.1" -> "351"
   )
 
+  private val shuffleManagerDocUrl = "https://docs.nvidia.com/spark-rapids/user-guide/latest/" +
+    "additional-functionality/rapids-shuffle.html#rapids-shuffle-manager"
+
   def buildShuffleManagerClassName(smVersion: String): String = {
     s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
   }
 
   def commentForUnsupportedVersion(sparkVersion: String): String = {
-    s"Could not recommend RapidsShuffleManager as the provided version " +
-      s"$sparkVersion is not supported."
+    s"Cannot recommend RAPIDS Shuffle Manager for unsupported \'$sparkVersion\' version.\n" +
+    s"  See supported versions: $shuffleManagerDocUrl."
   }
 
   def commentForMissingVersion: String = {
