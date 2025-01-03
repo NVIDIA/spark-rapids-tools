@@ -27,8 +27,6 @@ case class WindowGroupLimitParser(
     sqlID: Long) extends ExecParser {
 
   val fullExecName: String = node.name + "Exec"
-  // row_number() is currently not supported by the plugin (v24.04)
-  // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
   val supportedRankingExprs = Set("rank", "dense_rank", "row_number")
 
   private def validateRankingExpr(rankingExprs: Array[String]): Boolean = {

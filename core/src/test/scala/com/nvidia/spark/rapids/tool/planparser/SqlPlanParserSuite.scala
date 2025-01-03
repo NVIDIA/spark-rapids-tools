@@ -1810,12 +1810,12 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
 
   runConditionalTest("WindowGroupLimit expression rank is supported",
     execsSupportedSparkGTE350) {
-    runWindowGroupLimitTest("RANK", 73)
+    runWindowGroupLimitTest("RANK", skipSqlID = 73)
   }
 
   runConditionalTest("WindowGroupLimit expression row_number is supported",
     execsSupportedSparkGTE350) {
-    runWindowGroupLimitTest("ROW_NUMBER", 76)
+    runWindowGroupLimitTest("ROW_NUMBER", skipSqlID = 76)
   }
 
   runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",
