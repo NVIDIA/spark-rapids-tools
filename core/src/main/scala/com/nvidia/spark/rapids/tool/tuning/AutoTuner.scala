@@ -1468,8 +1468,10 @@ trait AutoTunerConfigsProvider extends Logging {
   }
 
   def shuffleManagerCommentForUnsupportedVersion(sparkVersion: String): String = {
-    s"Cannot recommend RAPIDS Shuffle Manager for unsupported \'$sparkVersion\' version.\n" +
-      s"  See supported versions: $shuffleManagerDocUrl."
+    s"Cannot recommend RAPIDS Shuffle Manager for unsupported '$sparkVersion' version.\n" +
+     "  To enable RAPIDS Shuffle Manager, set 'spark.shuffle.manager' to a value\n" +
+     "  from the supported versions. \n" +
+    s"  See supported versions: $shuffleManagerDocUrl."
   }
 
   def shuffleManagerCommentForMissingVersion: String = {
