@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ case class WindowGroupLimitParser(
   val fullExecName: String = node.name + "Exec"
   // row_number() is currently not supported by the plugin (v24.04)
   // Ref: https://github.com/NVIDIA/spark-rapids/pull/10500
-  val supportedRankingExprs = Set("rank", "dense_rank")
+  val supportedRankingExprs = Set("rank", "dense_rank", "row_number")
 
   private def validateRankingExpr(rankingExprs: Array[String]): Boolean = {
     rankingExprs.length == 1 && supportedRankingExprs.contains(rankingExprs.head)

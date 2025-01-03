@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1761,24 +1761,29 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
   }
 
-  runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
+  /**
+   * Helper method to run tests for WindowGroupLimit expressions
+   * @param windowExpr the expression to be evaluated (i.e., rank, row_number).
+   * @param skipSqlID the SQL ID to skip the stage verification.
+   */
+  def runWindowGroupLimitTest(windowExpr: String, skipSqlID: Long): Unit = {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
+    val tbl_name = s"foobar_tbl_test_$windowExpr"
+    val appName = s"WindowGroupLimitExecTest_$windowExpr"
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
-          withTable(spark, tbl_name) {
-            spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-            val query =
-              s"""
-              SELECT foo, bar FROM (
-                  SELECT foo, bar,
-                      RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
-                  FROM $tbl_name)
-              WHERE rank <= 2"""
-            spark.sql(query)
-          }
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, appName) { spark =>
+        withTable(spark, tbl_name) {
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+          val query =
+            s"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    $windowExpr() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
+          spark.sql(query)
         }
+      }
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
@@ -1787,7 +1792,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       // Note that the generated plan, there are skipped stages that causes some execs to appear
       // without their relevant stages. so we skip the stage verification here.
       verifyExecToStageMapping(parsedPlans.toSeq, app, Some( planInfo =>
-        if (planInfo.sqlID == 73) {
+        if (planInfo.sqlID == skipSqlID) {
           // Nodes should not have any stages
           val allExecInfos = planInfo.execInfo.flatMap { e =>
             e.children.getOrElse(Seq.empty) :+ e
@@ -1803,53 +1808,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     }
   }
 
-  runConditionalTest("row_number in WindowGroupLimitExec is not supported",
+  runConditionalTest("WindowGroupLimit expression rank is supported",
     execsSupportedSparkGTE350) {
-    val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
-    TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
-        withTable(spark, tbl_name) {
-          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-          val query =
-            s"""
-            SELECT foo, bar FROM (
-                SELECT foo, bar,
-                    ROW_NUMBER() OVER (PARTITION BY foo ORDER BY bar) as rank
-                FROM $tbl_name)
-            WHERE rank <= 2"""
-          spark.sql(query)
-        }
-      }
-      val pluginTypeChecker = new PluginTypeChecker()
-      val app = createAppFromEventlog(eventLog)
-      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-      }
-      // Note that the generated plan, there are skipped stages that causes some execs to appear
-      // without their relevant stages. so we skip the stage verification here.
-      verifyExecToStageMapping(parsedPlans.toSeq, app, Some( planInfo =>
-        if (planInfo.sqlID == 76) {
-          // Nodes should not have any stages
-          val allExecInfos = planInfo.execInfo.flatMap { e =>
-            e.children.getOrElse(Seq.empty) :+ e
-          }
-          // exclude all stages higher than 8 because those ones belong to a skipped stage
-          allExecInfos.filter(_.nodeId <= 8).forall(_.stages.nonEmpty)
-        })
-      )
-      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-      val windowExecNotSupportedExprs = allExecInfo.filter(
-        _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-      windowExecNotSupportedExprs.head.getOpName shouldEqual "row_number"
-      windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
-          "Ranking function row_number is not supported in WindowGroupLimitExec"
-      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-      // We should have two WindowGroupLimitExec operators (Partial and Final) which are
-      // not supported due to unsupported expression.
-      assertSizeAndNotSupported(2, windowGroupLimitExecs)
-    }
+    runWindowGroupLimitTest("RANK", 73)
+  }
+
+  runConditionalTest("WindowGroupLimit expression row_number is supported",
+    execsSupportedSparkGTE350) {
+    runWindowGroupLimitTest("ROW_NUMBER", 76)
   }
 
   runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",
