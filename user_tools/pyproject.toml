@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,55 +23,66 @@ authors = [
 ]
 description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.9,<3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    # numpy-1.24.4 is the latest version to support python3.8. P.S: does not support python-3.12+
-    "numpy<=1.24.4",
+    # numpy-2.0.0 supports python [3.9, 3.13]. numpy2.1.0 drooped support for Python 3.9.
+    "numpy>=2.0.0",
+    # For moustache templates
     "chevron==0.14.0",
     "fastprogress==1.0.3",
-    "fastcore==1.7.10",
-    "fire>=0.5.0",
-    "pandas==1.4.3",
-    "pyYAML>=6.0,<=7.0",
+    "fastcore==1.7.28",
+    # Python [3.9, 3.13]
+    "fire==0.7.0",
+    # pandas python [3.9, 3.12]
+    "pandas==2.2.3",
+    # pyYaml-6.0.2 supports python[3.9, 3.13]
+    "pyYAML>=6.0.2",
     # This is used to resolve env-variable in yaml files. It requires netween 5.0 and 6.0
     "pyaml-env==1.2.1",
-    "tabulate==0.8.10",
-    "importlib-resources==5.10.2",
-    "requests==2.31.0",
-    "packaging>=23.0",
-    "certifi==2024.7.4",
-    "idna==3.4",
-    "urllib3==1.26.19",
-    "beautifulsoup4==4.11.2",
-    "pygments==2.15.0",
-    # used to apply validator on objects and models. "2.9.2" contains from_json method.
-    "pydantic==2.9.2",
-    # used to help pylint understand pydantic
-    "pylint-pydantic==0.3.0",
+    "tabulate==0.9.0",
+    # Supports Python 3.9+
+    "importlib-resources==6.5.0",
+    # supports python [3.9, 3.12]
+    "requests==2.32.3",
+    # Supports Python [3.9, 3.13]
+    "packaging==24.2",
+    # supports python[3.8, 3.13]
+    "certifi==2024.12.14",
+    # supports python[3.9, 3.13]
+    "urllib3==2.3.0",
+    # Used as a syntax highlighter for the CLI STDOUT. Python [3.9, 3.12]
+    "pygments==2.18.0",
+    # used to apply validator on objects and models.
+    # "2.9.2" contains from_json method.
+    # Python [3.9, 3.13]
+    "pydantic==2.10.4",
+    # used to help pylint understand pydantic. Python [3.9, 3.12]
+    "pylint-pydantic==0.3.4",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
-    # pin to 16.1.0 which works for both numpy-1.0 and numpy-2.0
-    "pyarrow==16.1.0",
+    # pin to 18.1.0 which supports python [3.9, 3.13]
+    "pyarrow==18.1.0",
     # used for ADLS filesystem implementation
-    # Issue-568: use 12.17.0 as the new 12.18.0 causes an error in runtime
-    "azure-storage-blob==12.17.0",
-    "adlfs==2023.4.0",
+    # Python [3.9, 3.12]
+    "azure-storage-blob==12.24.0",
+    # used for ADLS filesystem implementation. Python [3.9, 3.13]
+    "adlfs==2024.12.0",
     # used for spinner animation
     "progress==1.6",
-    # used for model estimations
-    "xgboost==2.0.3",
-    # used for model interpretability
-    "shap==0.44.1",
+    # used for model estimations python [3.9-3.11]
+    "xgboost==2.1.3",
+    # used for model interpretability. python [3.9, 3.12]
+    "shap==0.46.0",
     # used for retrieving available memory on the host
-    "psutil==5.9.8"
+    "psutil==6.1.1"
 ]
 dynamic=["entry-points", "version"]
 
@@ -95,8 +106,10 @@ test = [
     "tox", 'pytest', 'cli_test_helpers', 'behave',
     # use flak-8 plugin for pydantic
     'flake8-pydantic',
-    # use pylint specific version
-    'pylint==3.2.7',
+    # Use pylint for static code analysis.
+    # Latest version to drop Python 3.8 is 3.27.
+    # Set specific version to avoid breaking test with newer pylint releases. Python [3.9-3.13]
+    'pylint==3.3.3'
 ]
 qualx = [
     "holoviews",
