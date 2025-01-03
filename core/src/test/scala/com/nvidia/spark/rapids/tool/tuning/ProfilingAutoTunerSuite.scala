@@ -2193,48 +2193,51 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
         assert(smClassName ==
-          ShuffleManagerResolver.buildShuffleManagerClassName(expectedSmVersion))
+          ProfilingAutoTunerConfigsProvider.buildShuffleManagerClassName(expectedSmVersion))
       case Left(comment) =>
         fail(s"Expected valid RapidsShuffleManager but got comment: $comment")
     }
   }
 
   test("test shuffle manager version for supported databricks version") {
+    val databricksVersion = "11.3.x-gpu-ml-scala2.12"
     val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
-        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> "11.3.x-gpu-ml-scala2.12"),
-      Some("3.3.0"), Seq())
+        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
+      Some(databricksVersion), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(databricksWorkerInfo,
-        infoProvider, PlatformFactory.createInstance())
+        infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     // Assert shuffle manager string for DB 11.3 tag
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330db")
   }
 
   test("test shuffle manager version for supported spark version") {
-    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
+    val sparkVersion = "3.3.0"
+    val workerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
-      Some("3.3.0"), Seq())
+      Some(sparkVersion), Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+      .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported Spark v3.3.0
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330")
   }
 
   test("test shuffle manager version for supported custom spark version") {
-    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
+    val customSparkVersion = "3.3.0-custom"
+    val workerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
-      Some("3.3.0-custom"), Seq())
+      Some(customSparkVersion), Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+      .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported custom Spark v3.3.0
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330")
@@ -2251,7 +2254,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
-        assert(comment == ShuffleManagerResolver.commentForUnsupportedVersion(sparkVersion))
+        assert(comment ==
+          ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(sparkVersion))
     }
   }
 
@@ -2266,51 +2270,51 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(databricksWorkerInfo,
-        infoProvider, PlatformFactory.createInstance())
+        infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
   }
 
   test("test shuffle manager version for unsupported spark version") {
     val sparkVersion = "3.1.2"
-    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
+    val workerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(sparkVersion), Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+      .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, sparkVersion)
   }
 
   test("test shuffle manager version for unsupported custom spark version") {
     val customSparkVersion = "3.1.2-custom"
-    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
+    val workerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(customSparkVersion), Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+      .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, customSparkVersion)
   }
 
   test("test shuffle manager version for missing spark version") {
-    val databricksWorkerInfo = buildGpuWorkerInfoAsString(None)
+    val workerInfo = buildGpuWorkerInfoAsString(None)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       None, Seq())
     val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+      .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Verify that the shuffle manager is not recommended for missing Spark version
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
-        assert(comment == ShuffleManagerResolver.commentForMissingVersion)
+        assert(comment == ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
     }
   }
 
