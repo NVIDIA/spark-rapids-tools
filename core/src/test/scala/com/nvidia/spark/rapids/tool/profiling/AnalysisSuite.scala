@@ -67,30 +67,135 @@ case class TestStageDiagnosticResult(
     gpuSemaphoreWaitSum: Long,
     nodeNames: Seq[String])
 
+case class TestIODiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    sqlId: Long,
+    stageId: Long,
+    duration: Long,
+    nodeId: Long,
+    nodeName: String,
+    outputRowsMin: Long,
+    outputRowsMed: Long,
+    outputRowsMax: Long,
+    outputRowsSum: Long,
+    scanTimeMin: Long,
+    scanTimeMed: Long,
+    scanTimeMax: Long,
+    scanTimeSum: Long,
+    outputBatchesMin: Long,
+    outputBatchesMed: Long,
+    outputBatchesMax: Long,
+    outputBatchesSum: Long,
+    bufferTimeMin: Long,
+    bufferTimeMed: Long,
+    bufferTimeMax: Long,
+    bufferTimeSum: Long,
+    shuffleWriteTimeMin: Long,
+    shuffleWriteTimeMed: Long,
+    shuffleWriteTimeMax: Long,
+    shuffleWriteTimeSum: Long,
+    fetchWaitTimeMin: Long,
+    fetchWaitTimeMed: Long,
+    fetchWaitTimeMax: Long,
+    fetchWaitTimeSum: Long,
+    gpuDecodeTimeMin: Long,
+    gpuDecodeTimeMed: Long,
+    gpuDecodeTimeMax: Long,
+    gpuDecodeTimeSum: Long)
+
 class AnalysisSuite extends FunSuite {
 
   private def createTestStageDiagnosticResult(diagnosticsResults: Seq[StageDiagnosticResult]):
       Seq[TestStageDiagnosticResult] = {
     def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
     def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
+    diagnosticsResults.map { result =>
+      TestStageDiagnosticResult(
+        result.appIndex,
+        result.appName,
+        result.appId,
+        result.stageId,
+        result.duration,
+        result.numTasks,
+        bytesToMB(result.memoryBytesSpilled.min),
+        bytesToMB(result.memoryBytesSpilled.median),
+        bytesToMB(result.memoryBytesSpilled.max),
+        bytesToMB(result.memoryBytesSpilled.total),
+        bytesToMB(result.diskBytesSpilled.min),
+        bytesToMB(result.diskBytesSpilled.median),
+        bytesToMB(result.diskBytesSpilled.max),
+        bytesToMB(result.diskBytesSpilled.total),
+        result.inputBytesRead.min,
+        result.inputBytesRead.median,
+        result.inputBytesRead.max,
+        result.inputBytesRead.total,
+        result.outputBytesWritten.min,
+        result.outputBytesWritten.median,
+        result.outputBytesWritten.max,
+        result.outputBytesWritten.total,
+        result.srTotalBytesReadMin,
+        result.srTotalBytesReadMed,
+        result.srTotalBytesReadMax,
+        result.srTotalBytesReadSum,
+        result.swBytesWritten.min,
+        result.swBytesWritten.median,
+        result.swBytesWritten.max,
+        result.swBytesWritten.total,
+        nanoToMilliSec(result.srFetchWaitTime.min),
+        nanoToMilliSec(result.srFetchWaitTime.median),
+        nanoToMilliSec(result.srFetchWaitTime.max),
+        nanoToMilliSec(result.srFetchWaitTime.total),
+        nanoToMilliSec(result.swWriteTime.min),
+        nanoToMilliSec(result.swWriteTime.median),
+        nanoToMilliSec(result.swWriteTime.max),
+        nanoToMilliSec(result.swWriteTime.total),
+        result.gpuSemaphoreWait.total,
+        result.nodeNames)
+    }
+  }
+
+  private def createTestIODiagnosticResult(diagnosticsResults: Seq[IODiagnosticResult]):
+      Seq[TestIODiagnosticResult] = {
     diagnosticsResults.map {result =>
-      TestStageDiagnosticResult(result.appIndex, result.appName, result.appId, result.stageId,
-        result.duration, result.numTasks, bytesToMB(result.memoryBytesSpilled.min),
-        bytesToMB(result.memoryBytesSpilled.median), bytesToMB(result.memoryBytesSpilled.max),
-        bytesToMB(result.memoryBytesSpilled.total), bytesToMB(result.diskBytesSpilled.min),
-        bytesToMB(result.diskBytesSpilled.median), bytesToMB(result.diskBytesSpilled.max),
-        bytesToMB(result.diskBytesSpilled.total), result.inputBytesRead.min,
-        result.inputBytesRead.median, result.inputBytesRead.max, result.inputBytesRead.total,
-        result.outputBytesWritten.min, result.outputBytesWritten.median,
-        result.outputBytesWritten.max, result.outputBytesWritten.total,
-        result.srTotalBytesReadMin, result.srTotalBytesReadMed, result.srTotalBytesReadMax,
-        result.srTotalBytesReadSum, result.swBytesWritten.min, result.swBytesWritten.median,
-        result.swBytesWritten.max, result.swBytesWritten.total,
-        nanoToMilliSec(result.srFetchWaitTime.min), nanoToMilliSec(result.srFetchWaitTime.median),
-        nanoToMilliSec(result.srFetchWaitTime.max), nanoToMilliSec(result.srFetchWaitTime.total),
-        nanoToMilliSec(result.swWriteTime.min), nanoToMilliSec(result.swWriteTime.median),
-        nanoToMilliSec(result.swWriteTime.max), nanoToMilliSec(result.swWriteTime.total),
-        result.gpuSemaphoreWait.total, result.nodeNames)
+      TestIODiagnosticResult(
+        result.appIndex,
+        result.appName,
+        result.appId,
+        result.sqlId,
+        result.stageId,
+        result.duration,
+        result.nodeId,
+        result.nodeName,
+        result.outputRows.min,
+        result.outputRows.med,
+        result.outputRows.max,
+        result.outputRows.total,
+        result.scanTime.min,
+        result.scanTime.med,
+        result.scanTime.max,
+        result.scanTime.total,
+        result.outputBatches.min,
+        result.outputBatches.med,
+        result.outputBatches.max,
+        result.outputBatches.total,
+        result.bufferTime.min,
+        result.bufferTime.med,
+        result.bufferTime.max,
+        result.bufferTime.total,
+        result.shuffleWriteTime.min,
+        result.shuffleWriteTime.med,
+        result.shuffleWriteTime.max,
+        result.shuffleWriteTime.total,
+        result.fetchWaitTime.min,
+        result.fetchWaitTime.med,
+        result.fetchWaitTime.max,
+        result.fetchWaitTime.total,
+        result.gpuDecodeTime.min,
+        result.gpuDecodeTime.med,
+        result.gpuDecodeTime.max,
+        result.gpuDecodeTime.total)
     }
   }
 
@@ -143,8 +248,8 @@ class AnalysisSuite extends FunSuite {
       platformName = PlatformNames.DATABRICKS_AWS)
   }
 
-  test("test stage-level diagnostic aggregation simple") {
-    val expectFile = "rapids_join_eventlog_stagediagnosticmetricsagg_expectation.csv"
+  test("test stage-level diagnostic metrics") {
+    val expectFile = "rapids_join_eventlog_stagediagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
@@ -155,11 +260,27 @@ class AnalysisSuite extends FunSuite {
     collect.getSQLToStage
     collect.getStageLevelMetrics
 
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps)
     import org.apache.spark.sql.functions._
     import sparkSession.implicits._
-    val actualDf = createTestStageDiagnosticResult(aggResults.stageDiagnostics).toDF.
+    val actualDf = createTestStageDiagnosticResult(diagnosticResults.stageDiagnostics).toDF.
       withColumn("nodeNames", concat_ws(",", col("nodeNames")))
+    compareMetrics(actualDf, expectFile)
+  }
+
+  test("test IO diagnostic metrics") {
+    val expectFile = "rapids_join_eventlog_iodiagnosticmetrics_expectation.csv"
+    val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    assert(apps.size == logs.size)
+
+    val collect = new CollectInformation(apps)
+    // Computes IO diagnostic metrics mapping which is later used in getIODiagnosticMetrics
+    collect.getSQLPlanMetrics
+    val diagnosticResults = collect.getIODiagnosticMetrics
+
+    import sparkSession.implicits._
+    val actualDf = createTestIODiagnosticResult(diagnosticResults).toDF
     compareMetrics(actualDf, expectFile)
   }
 
