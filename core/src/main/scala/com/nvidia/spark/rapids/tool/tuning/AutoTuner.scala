@@ -422,11 +422,11 @@ class AutoTuner(
    * Returns None if the platform doesn't support specific instance types.
    */
   private def configureGPURecommendedInstanceType(): Unit = {
-    val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
-    if (gpuClusterRec.isDefined) {
-      appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
-      if (gpuClusterRec.get.numExecutors > 0) {
-        appendRecommendation("spark.executor.instances", gpuClusterRec.get.numExecutors)
+    platform.createRecommendedGpuClusterInfo(getAllProperties.toMap)
+    platform.recommendedClusterInfo.foreach { gpuClusterRec =>
+      appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
+      if (gpuClusterRec.numExecutors > 0) {
+        appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
       }
     }
   }
