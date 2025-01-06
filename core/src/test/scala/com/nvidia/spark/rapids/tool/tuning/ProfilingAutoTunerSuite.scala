@@ -2254,8 +2254,8 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
-        assert(comment ==
-          ProfilingAutoTunerConfigsProvider.shuffleManagerComments("unsupported")(sparkVersion))
+        assert(comment == ProfilingAutoTunerConfigsProvider
+          .shuffleManagerCommentForUnsupportedVersion(sparkVersion))
     }
   }
 
@@ -2314,8 +2314,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
       case Left(comment) =>
-        assert(comment ==
-          ProfilingAutoTunerConfigsProvider.shuffleManagerComments("missing")(""))
+        assert(comment == ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
     }
   }
 
