@@ -121,6 +121,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties]) extends Logging {
   val platformName: String
   val defaultGpuDevice: GpuDevice
+  val sparkVersionLabel: String = "Spark version"
 
   // It's not deal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
@@ -170,6 +171,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     supportedShuffleManagerVersionMap.collectFirst {
       case (supportedVersion, smVersion) if sparkVersion.contains(supportedVersion) => smVersion
     }
+  }
+
+  /**
+   * Identify the latest supported Spark and RapidsShuffleManager version for the platform.
+   */
+  lazy val latestSupportedShuffleManagerInfo: (String, String) = {
+    supportedShuffleManagerVersionMap.maxBy(_._1)
   }
 
   /**
@@ -555,6 +563,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val sparkVersionLabel: String = "Databricks runtime"
   override def isPlatformCSP: Boolean = true
 
   override val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(

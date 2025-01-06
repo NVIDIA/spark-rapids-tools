@@ -771,7 +771,8 @@ class AutoTuner(
           case Some(smVersion) =>
             Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
           case None =>
-            Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(sparkVersion))
+            Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(
+              sparkVersion, platform))
         }
       case None =>
         Left(autoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
@@ -1467,11 +1468,17 @@ trait AutoTunerConfigsProvider extends Logging {
     s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
   }
 
-  def shuffleManagerCommentForUnsupportedVersion(sparkVersion: String): String = {
-    s"Cannot recommend RAPIDS Shuffle Manager for unsupported '$sparkVersion' version.\n" +
-     "  To enable RAPIDS Shuffle Manager, set 'spark.shuffle.manager' to a value\n" +
-     "  from the supported versions. \n" +
-    s"  See supported versions: $shuffleManagerDocUrl."
+  def shuffleManagerCommentForUnsupportedVersion(
+      sparkVersion: String, platform: Platform): String = {
+    val (latestSparkVersion, latestSmVersion)  = platform.latestSupportedShuffleManagerInfo
+    // scalastyle:off line.size.limit
+    s"""
+       |Cannot recommend RAPIDS Shuffle Manager for unsupported ${platform.sparkVersionLabel}: '$sparkVersion'.
+       |To enable RAPIDS Shuffle Manager, use a supported ${platform.sparkVersionLabel} (e.g., '$latestSparkVersion')
+       |and set: '--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$latestSmVersion.RapidsShuffleManager'.
+       |See supported versions: $shuffleManagerDocUrl.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+    // scalastyle:on line.size.limit
   }
 
   def shuffleManagerCommentForMissingVersion: String = {
