@@ -51,7 +51,7 @@ trait ClusterConfigurationStrategy {
 
   protected def getNumExecutors: Int
   protected def getNumExecsPerNode: Int
-  protected def getMemoryPerNodeMb: Long
+  protected def getMemoryPerNodeMb(numExecPerNode: Int): Long
   protected def getNumGpusPerNode: Int
   protected def getCoresPerExec: Int
 
@@ -70,12 +70,13 @@ trait ClusterConfigurationStrategy {
       val recommendedNumExecutors =
         Math.ceil(totalCoreCount.toDouble / recommendedCoresPerExec).toInt
       val recommendedNumExecPerNode = Math.min(maxGpusSupported, recommendedNumExecutors)
+      val recommendedMemoryPerNodeMb = getMemoryPerNodeMb(recommendedNumExecPerNode)
 
       Some(RecommendedClusterConfig(
         numExecutors = recommendedNumExecutors,
         numExecsPerNode = recommendedNumExecPerNode,
         coresPerExec = recommendedCoresPerExec,
-        memoryPerNodeMb = getMemoryPerNodeMb))
+        memoryPerNodeMb = recommendedMemoryPerNodeMb))
     }
   }
 }
@@ -98,7 +99,7 @@ class ClusterPropertyBasedStrategy(
     1
   }
 
-  override protected def getMemoryPerNodeMb: Long = {
+  override protected def getMemoryPerNodeMb(numExecPerNode: Int): Long = {
     StringUtils.convertToMB(clusterProperties.system.getMemory)
   }
 
@@ -140,10 +141,10 @@ class EventLogBasedStrategy(
     }
   }
 
-  override protected def getMemoryPerNodeMb: Long = {
+  override protected def getMemoryPerNodeMb(numExecPerNode: Int): Long = {
     val heapMemMB = clusterInfoFromEventLog.executorHeapMemory
     val overheadMemMB = Platform.getExecutorOverheadMemoryMB(sparkProperties)
-    (heapMemMB + overheadMemMB) * getNumExecsPerNode
+    (heapMemMB + overheadMemMB) * numExecPerNode
   }
 
   override protected def getNumGpusPerNode: Int = {
