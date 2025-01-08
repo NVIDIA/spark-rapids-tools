@@ -25,10 +25,11 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
  * Represents the configuration for a recommended cluster.
  */
 case class RecommendedClusterConfig(
-    numExecutors: Int,
-    numExecsPerNode: Int,
-    coresPerExec: Int,
-    memoryPerNodeMb: Long) {
+  numExecutors: Int,
+  numExecsPerNode: Int,
+  coresPerExec: Int,
+  memoryPerNodeMb: Long // For onprem or cases where a matching CSP instance type is unavailable
+) {
 
   def coresPerNode: Int = {
     coresPerExec * numExecsPerNode
@@ -42,34 +43,50 @@ case class RecommendedClusterConfig(
 /**
  * Base trait for different cluster configuration strategies.
  */
-trait ClusterConfigurationStrategy {
-  protected val numGpus: Int
-  protected val maxGpusSupported: Int
-  protected val sparkProperties: Map[String, String]
-
+abstract class ClusterConfigurationStrategy(maxGpusSupported: Int) {
   private val MIN_CORES_PER_EXEC = 16
 
-  protected def getNumExecutors: Int
-  protected def getNumExecsPerNode: Int
+  // Returns the initial number of executors to be used for the app.
+  protected def getInitialNumExecutors: Int
+  // Returns the initial number of cores per executor to be used for the app.
+  protected def getInitialCoresPerExec: Int
+  // For onprem or cases where a matching CSP instance type is unavailable,
+  // Returns the memory per node
   protected def getMemoryPerNodeMb(numExecPerNode: Int): Long
-  protected def getNumGpusPerNode: Int
-  protected def getCoresPerExec: Int
+
+  /**
+   * Helper function to limit the value within the specified range
+   */
+  private final def limit(value: Int, min: Int, max: Int): Int = {
+    Math.max(min, Math.min(max, value))
+  }
 
   /**
    * Generates the recommended cluster configuration based on the strategy.
+   *
+   * Logic:
+   * 1. Calculate the initial number of executors and cores per executor.
+   * 2. Calculate the total core count by multiplying initial cores per executor
+   *    by the initial number of executors.
+   * 3. Determine the recommended cores per executor, limit it within the
+   *    bounds of `MIN_CORES_PER_EXEC` and `totalCoresCount`.
+   * 4. Calculate the recommended number of executors by dividing the total core count
+   *    by the recommended cores per executor.
+   * 5. Limit the number of executors per node to the maximum supported GPUs.
    */
   final def getRecommendedConfig: Option[RecommendedClusterConfig] = {
-    val numExecutors = getNumExecutors
-    if (numExecutors <= 0) {
+    val initialNumExecutors = getInitialNumExecutors
+    if (initialNumExecutors <= 0) {
       None
     } else {
-      val coresPerExec = getCoresPerExec
-      val totalCoreCount = coresPerExec * numExecutors
-      val minCoresPerExec = Math.max(coresPerExec, MIN_CORES_PER_EXEC)
-      val recommendedCoresPerExec = Math.min(minCoresPerExec, totalCoreCount)
+      val initialCoresPerExec = getInitialCoresPerExec
+      val totalCoresCount = initialCoresPerExec * initialNumExecutors
+      val recommendedCoresPerExec = limit(initialCoresPerExec, MIN_CORES_PER_EXEC, totalCoresCount)
       val recommendedNumExecutors =
-        Math.ceil(totalCoreCount.toDouble / recommendedCoresPerExec).toInt
+        Math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt
       val recommendedNumExecPerNode = Math.min(maxGpusSupported, recommendedNumExecutors)
+      // Memory per node is needed for onprem or cases where a matching CSP instance type
+      // is unavailable
       val recommendedMemoryPerNodeMb = getMemoryPerNodeMb(recommendedNumExecPerNode)
 
       Some(RecommendedClusterConfig(
@@ -86,29 +103,32 @@ trait ClusterConfigurationStrategy {
  */
 class ClusterPropertyBasedStrategy(
     clusterProperties: ClusterProperties,
-    val numGpus: Int,
-    val maxGpusSupported: Int,
-    val sparkProperties: Map[String, String]) extends ClusterConfigurationStrategy {
+    maxGpusSupported: Int) extends ClusterConfigurationStrategy(maxGpusSupported) {
 
-  override protected def getNumExecutors: Int = {
-    val numWorkers = Math.max(1, clusterProperties.system.numWorkers)
-    numGpus * numWorkers
+  // Calculate the number of GPUs per node based on the cluster properties
+  private val numGpusPerNode: Int = {
+    val gpuOption = clusterProperties.getGpu
+    val numGpusPerNode = if (!gpuOption.isEmpty && gpuOption.getCount > 0) {
+      gpuOption.getCount
+    } else {
+      // if the cluster properties do not specify GPU count, assume 1 GPU per node
+      1
+    }
+    Math.min(numGpusPerNode, maxGpusSupported)
   }
 
-  override protected def getNumExecsPerNode: Int = {
-    1
+  override protected def getInitialNumExecutors: Int = {
+    val numWorkers = Math.max(1, clusterProperties.system.numWorkers)
+    numGpusPerNode * numWorkers
+  }
+
+  override protected def getInitialCoresPerExec: Int = {
+    val coresPerGpu = clusterProperties.system.getNumCores.toDouble / numGpusPerNode
+    Math.ceil(coresPerGpu).toInt
   }
 
   override protected def getMemoryPerNodeMb(numExecPerNode: Int): Long = {
     StringUtils.convertToMB(clusterProperties.system.getMemory)
-  }
-
-  override protected def getNumGpusPerNode: Int = {
-    Math.min(1, maxGpusSupported)
-  }
-
-  override protected def getCoresPerExec: Int = {
-    clusterProperties.system.getNumCores / getNumGpusPerNode
   }
 }
 
@@ -116,12 +136,11 @@ class ClusterPropertyBasedStrategy(
  * Strategy for cluster configuration based on cluster information from event log.
  */
 class EventLogBasedStrategy(
-    clusterInfoFromEventLog: ExistingClusterInfo,
-    val numGpus: Int,
-    val maxGpusSupported: Int,
-    val sparkProperties: Map[String, String]) extends ClusterConfigurationStrategy {
+  clusterInfoFromEventLog: ExistingClusterInfo,
+  sparkProperties: Map[String, String],
+  maxGpusSupported: Int) extends ClusterConfigurationStrategy(maxGpusSupported) {
 
-  override protected def getNumExecutors: Int = {
+  override protected def getInitialNumExecutors: Int = {
     val dynamicAllocationEnabled = Platform.isDynamicAllocationEnabled(sparkProperties)
     val execInstFromProps = sparkProperties.get("spark.executor.instances")
 
@@ -132,27 +151,14 @@ class EventLogBasedStrategy(
     }
   }
 
-  override protected def getNumExecsPerNode: Int = {
-    if (clusterInfoFromEventLog.numExecsPerNode == -1) {
-      maxGpusSupported
-    }
-    else {
-      clusterInfoFromEventLog.numExecsPerNode
-    }
+  override protected def getInitialCoresPerExec: Int = {
+    clusterInfoFromEventLog.coresPerExecutor
   }
 
   override protected def getMemoryPerNodeMb(numExecPerNode: Int): Long = {
     val heapMemMB = clusterInfoFromEventLog.executorHeapMemory
     val overheadMemMB = Platform.getExecutorOverheadMemoryMB(sparkProperties)
     (heapMemMB + overheadMemMB) * numExecPerNode
-  }
-
-  override protected def getNumGpusPerNode: Int = {
-    Math.max(numGpus, Math.min(getNumExecsPerNode, maxGpusSupported))
-  }
-
-  override protected def getCoresPerExec: Int = {
-    clusterInfoFromEventLog.coresPerExecutor
   }
 }
 
@@ -163,17 +169,15 @@ object ClusterConfigurationStrategy {
   def getStrategy(
       clusterProperties: Option[ClusterProperties],
       clusterInfoFromEventLog: Option[ExistingClusterInfo],
-      numGpus: Int,
       maxGpusSupported: Int,
       sparkProperties: Map[String, String]): Option[ClusterConfigurationStrategy] = {
     if (clusterProperties.isDefined) {
       // Use strategy based on cluster properties
-      Some(new ClusterPropertyBasedStrategy(
-        clusterProperties.get, numGpus, maxGpusSupported, sparkProperties))
+      Some(new ClusterPropertyBasedStrategy(clusterProperties.get, maxGpusSupported))
     } else if (clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
-      Some(new EventLogBasedStrategy(
-        clusterInfoFromEventLog.get, numGpus, maxGpusSupported, sparkProperties))
+      Some(new EventLogBasedStrategy(clusterInfoFromEventLog.get, sparkProperties,
+        maxGpusSupported))
     } else {
       // Neither cluster properties are defined nor cluster information from event log is available
       None

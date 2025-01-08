@@ -454,17 +454,6 @@ class AutoTuner(
   }
 
   /**
-   * Calculates the available memory for each executor on the worker based on the number of
-   * executors per node and the memory.
-   * Assumption - cluster properties were updated to have a default values if missing.
-   */
-  private def calcAvailableMemPerExec(): Double = {
-    val memMBPerNode = platform.recommendedNodeInstanceInfo.map(_.memoryMB).getOrElse(0L)
-    val gpusPerExec = platform.getNumGPUsPerNode
-    Math.max(0, memMBPerNode / gpusPerExec)
-  }
-
-  /**
    * Recommendation for initial heap size based on certain amount of memory per core.
    * Note that we will later reduce this if needed for off heap memory.
    */
@@ -686,7 +675,8 @@ class AutoTuner(
       appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
-      val availableMemPerExec = calcAvailableMemPerExec()
+      val availableMemPerExec =
+        platform.recommendedNodeInstanceInfo.map(_.getMemoryPerExec).getOrElse(0.0)
       val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
         val availableMemPerExecExpr = () => availableMemPerExec
         val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
@@ -1176,12 +1166,11 @@ class AutoTuner(
       if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
         GpuDevice.createInstance(clusterProps.gpu.getName)
           .foreach(platform.setGpuDevice)
-        platform.setNumGpus(clusterProps.gpu.getCount)
       }
       // configured GPU recommended instance type NEEDS to happen before any of the other
       // recommendations as they are based on
       // the instance type
-      configureGPURecommendedInstanceType
+      configureGPURecommendedInstanceType()
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
