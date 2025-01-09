@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -71,8 +71,9 @@ abstract class BenchmarkBase {
     val firstBest = results.head.bestMs
     val nameLen = Math.max(40, results.map(_.caseName.length).max)
     printStream.printf(s"%-${nameLen}s %14s %14s %11s %20s %18s %18s %18s %18s %10s\n",
-      "Benchmark :", "Best Time(ms)", "Avg Time(ms)", "Stdev(ms)","Avg GC Time(ms)",
-      "Avg GC Count", "Stdev GC Count","Max GC Time(ms)","Max GC Count", "Relative")
+      "Benchmark :", "Best Time(ms)", "Avg Time(ms)", "Stdev(ms)", "Avg GC Time(ms)",
+      "Avg GC Count", "Stdev GC Count", "Max GC Time(ms)", "Max GC Count", "Relative")
+    // scalastyle:off println
     printStream.println("-" * (nameLen + 160))
     results.foreach { result =>
       printStream.printf(s"%-${nameLen}s %14s %14s %11s %20s %18s %18s %18s %18s %10s\n",
@@ -88,6 +89,7 @@ abstract class BenchmarkBase {
         "%3.2fX" format (firstBest / result.bestMs))
     }
     printStream.println()
+    // scalastyle:on println
   }
 
   /**
@@ -99,17 +101,17 @@ abstract class BenchmarkBase {
   private def printSystemInformation(warmUpIterations: Int, iterations: Int,
       inputArgs: String ): Unit = {
     val jvmInfo = RuntimeUtil.getJVMOSInfo
-    output.get.printf(s"%-26s :   %s \n","JVM Name", jvmInfo("jvm.name"))
-    output.get.printf(s"%-26s :   %s \n","Java Version", jvmInfo("jvm.version"))
-    output.get.printf(s"%-26s :   %s \n","OS Name", jvmInfo("os.name"))
-    output.get.printf(s"%-26s :   %s \n","OS Version", jvmInfo("os.version"))
-    output.get.printf(s"%-26s :   %s MB \n","MaxHeapMemory",
+    output.get.printf(s"%-26s :   %s \n", "JVM Name", jvmInfo("jvm.name"))
+    output.get.printf(s"%-26s :   %s \n", "Java Version", jvmInfo("jvm.version"))
+    output.get.printf(s"%-26s :   %s \n", "OS Name", jvmInfo("os.name"))
+    output.get.printf(s"%-26s :   %s \n", "OS Version", jvmInfo("os.version"))
+    output.get.printf(s"%-26s :   %s MB \n", "MaxHeapMemory",
       (Runtime.getRuntime.maxMemory()/1024/1024).toString)
-    output.get.printf(s"%-26s :   %s \n","Total Warm Up Iterations",
+    output.get.printf(s"%-26s :   %s \n", "Total Warm Up Iterations",
       warmUpIterations.toString)
-    output.get.printf(s"%-26s :   %s \n","Total Runtime Iterations",
+    output.get.printf(s"%-26s :   %s \n", "Total Runtime Iterations",
       iterations.toString)
-    output.get.printf(s"%-26s :   %s \n \n","Input Arguments", inputArgs)
+    output.get.printf(s"%-26s :   %s \n \n", "Input Arguments", inputArgs)
   }
 
   /**

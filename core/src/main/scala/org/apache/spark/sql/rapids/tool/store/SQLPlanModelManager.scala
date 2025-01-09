@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -66,8 +66,8 @@ class SQLPlanModelManager {
    * @param physicalDescription String representation of the physical plan for the new version.
    */
   def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
-    //TODO: in future we should pass more arguments to this method to capture the common information
-    //      of an SqlPlan (i.e., startTime,..etc))
+    // TODO: in future we should pass more arguments to this method to capture the common
+    //  information of an SqlPlan (i.e., startTime,..etc))
     val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelWithDSCaching(id))
     planModel.addPlan(planInfo, physicalDescription)
   }

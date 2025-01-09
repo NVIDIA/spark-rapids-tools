@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,7 @@ object QualificationInfoUtils extends Logging {
   def generateFriendsDataset(spark: SparkSession): Dataset[RapidsFriends] = {
     import spark.implicits._
     val df = spark.sparkContext.parallelize(
-      Seq.fill(1000){(randomAlpha(10), randomAlpha(5), randomInt)})
+      Seq.fill(1000) {(randomAlpha(10), randomAlpha(5), randomInt)})
       .toDF("name", "friend", "age")
     df.as[RapidsFriends]
   }
@@ -96,7 +96,7 @@ object QualificationInfoUtils extends Logging {
     TrampolineUtil.withTempPath { jsonOutFile =>
       val ageFunc = udf(parseAge)
       val ds = generateFriendsDataset(spark)
-      ds.withColumn("ageCategory",ageFunc(col("age")))
+      ds.withColumn("ageCategory", ageFunc(col("age")))
       val dsAge = ds.filter(d => d.age > 25).map(d => (d.friend, d.age))
       dsAge.write.json(jsonOutFile.getCanonicalPath)
     }
@@ -147,13 +147,17 @@ object QualificationInfoUtils extends Logging {
    */
   def main(args: Array[String]): Unit = {
     if (args.length == 0) {
+      // scalastyle:off println
       println(s"ERROR: must specify a logType dataset, udfds, dsAndDf or udffunc")
+      // scalastyle:on println
       System.exit(1)
     }
     val logType = args(0)
     if (logType != "dataset" && logType != "udfds" && logType != "udffunc"
         && logType != "dsAndDf") {
+      // scalastyle:off println
       println(s"ERROR: logType must be one of: dataset, udfds, dsAndDf or udffunc")
+      // scalastyle:on println
       System.exit(1)
     }
     val eventDir = if (args.length > 1) args(1) else "/tmp/spark-eventLogTest"
@@ -179,7 +183,9 @@ object QualificationInfoUtils extends Logging {
       genjoinDataFrameOpEventLog(spark)
       genjoinDataFrameOpEventLog(spark)
     } else {
+      // scalastyle:off println
       println(s"ERROR: Invalid log type specified: $logType")
+      // scalastyle:on println
       System.exit(1)
     }
     spark.stop()

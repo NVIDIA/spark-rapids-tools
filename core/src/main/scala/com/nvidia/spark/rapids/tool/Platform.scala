@@ -432,7 +432,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   /**
    * Attempts to get the instance type based on the core and gpu requirements.
    */
-  def getInstanceByResources(cores:Int, numGpus: Int): Option[InstanceInfo] = None
+  def getInstanceByResources(cores: Int, numGpus: Int): Option[InstanceInfo] = None
 
   /**
    * Recommend a GPU Instance type to use for this application.
@@ -452,7 +452,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       // we could put on a node.
       if (origClusterNumExecsPerNode == -1) {
         maxGpusSupported
-      }  else {
+      } else {
         origClusterNumExecsPerNode
       }
     } else {
@@ -611,7 +611,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DatabricksPlatform(gpuDevice, clusterProperties)
   with Logging {
-  override val platformName: String =  PlatformNames.DATABRICKS_AWS
+  override val platformName: String = PlatformNames.DATABRICKS_AWS
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def getInstanceByResources(
@@ -665,7 +665,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC
+  override val platformName: String = PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
@@ -694,7 +694,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DataprocPlatform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC_SL
+  override val platformName: String = PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
@@ -702,13 +702,13 @@ class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DataprocPlatform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC_GKE
+  override val platformName: String = PlatformNames.DATAPROC_GKE
   override def isPlatformCSP: Boolean = true
 }
 
 class EmrPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.EMR
+  override val platformName: String = PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def isPlatformCSP: Boolean = true
@@ -755,7 +755,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.ONPREM
+  override val platformName: String = PlatformNames.ONPREM
   // Note we don't have an speedup factor file for onprem l4's but we want auto tuner
   // to use L4.
   override val defaultGpuDevice: GpuDevice = L4Gpu

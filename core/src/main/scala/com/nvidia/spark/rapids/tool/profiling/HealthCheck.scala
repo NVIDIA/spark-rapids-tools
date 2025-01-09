@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
     ProfRemovedExecutorView.getRawView(apps)
   }
 
-  //Function to list all *possible* not-supported plan nodes if GPU Mode=on
+  // Function to list all *possible* not-supported plan nodes if GPU Mode=on
   def getPossibleUnsupportedSQLPlan: Seq[UnsupportedOpsProfileResult] = {
     val res = apps.flatMap { app =>
       app.planMetricProcessor.unsupportedSQLPlan.map { unsup =>

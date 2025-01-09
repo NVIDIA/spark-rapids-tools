@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,7 +60,7 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
-  private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
+  private lazy val eventProcessor = new QualificationEventProcessor(this, perSqlOnly)
 
   /**
    * Important system properties that should be retained. We also include
@@ -485,7 +485,7 @@ class QualificationAppInfo(
   def aggregateStats(): Option[QualificationSummaryInfo] = {
     appMetaData.map { info =>
       val appDuration = calculateAppDuration().getOrElse(0L)
-      //calculateAppDuration(info.startTime).getOrElse(0L)
+      // calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
       // TODO - what about incomplete, do we want to change those?
@@ -754,9 +754,9 @@ class QualificationAppInfo(
       }
 
       // Consider stageInfo to have below string as an example
-      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
-      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
-      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
+      // org.apache.spark.rdd.RDD.first(RDD.scala:1463)
+      // org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
+      // org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
       val splitString = stageInfoDetails.split("\n")
 
       // filteredString = org.apache.spark.ml.feature.PCA.fit
