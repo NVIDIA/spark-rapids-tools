@@ -277,7 +277,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parquet = allExecInfo.filter(_.exec.contains("Scan parquet"))
     val text = allExecInfo.filter(_.exec.contains("Scan text"))
     val csv = allExecInfo.filter(_.exec.contains("Scan csv"))
-    assertSizeAndNotSupported(2, json)
+    assertSizeAndSupported(2, json)
     assertSizeAndNotSupported(1, text)
     for (t <- Seq(parquet, csv)) {
       assertSizeAndSupported(1, t)
@@ -300,7 +300,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val orc = allExecInfo.filter(_.exec.contains("BatchScan orc"))
     val parquet = allExecInfo.filter(_.exec.contains("BatchScan parquet"))
     val csv = allExecInfo.filter(_.exec.contains("BatchScan csv"))
-    assertSizeAndNotSupported(3, json)
+    assertSizeAndSupported(3, json)
     assertSizeAndSupported(1, csv)
     for (t <- Seq(orc, parquet)) {
       assertSizeAndSupported(2, t)
@@ -1150,6 +1150,103 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
           // flatten should be part of ProjectExec
           df2.select(flatten(df2("value")))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("MonthsBetween is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq(("2024-12-01", "2024-01-01"), ("2024-12-01", "2023-12-01"),
+            ("2024-12-01", "2024-12-01")).toDF("date1", "date2")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // months_between should be part of ProjectExec
+          df2.select(months_between(df2("date1"), df2("date2")))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("TruncDate is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val df1 = Seq("2024-12-15", "2024-01-10", "2023-11-05").toDF("date")
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // trunc should be part of ProjectExec
+          df2.select(trunc(df2("date"), "month"))
+        }
+        val pluginTypeChecker = new PluginTypeChecker()
+        val app = createAppFromEventlog(eventLog)
+        assert(app.sqlPlans.size == 2)
+        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
+        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+        assert(wholeStages.size == 1)
+        assert(wholeStages.forall(_.duration.nonEmpty))
+        val allChildren = wholeStages.flatMap(_.children).flatten
+        val projects = allChildren.filter(_.exec == "Project")
+        assertSizeAndSupported(1, projects)
+      }
+    }
+  }
+
+  test("TruncTimestamp is supported in ProjectExec") {
+    TrampolineUtil.withTempDir { parquetoutputLoc =>
+      TrampolineUtil.withTempDir { eventLogDir =>
+        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
+          "ProjectExprsSupported") { spark =>
+          import spark.implicits._
+          val data = Seq("2024-12-15 14:30:45",
+            "2024-01-10 08:15:00",
+            "2023-11-05 20:45:30").toDF("timestamp")
+          val df1 = data.withColumn("timestamp", to_timestamp(col("timestamp")))
+          // write df1 to parquet to transform LocalTableScan to ProjectExec
+          df1.write.parquet(s"$parquetoutputLoc/testtext")
+          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
+          // date_trunc should be part of ProjectExec
+          df2.select(date_trunc("month", df2("timestamp")))
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
