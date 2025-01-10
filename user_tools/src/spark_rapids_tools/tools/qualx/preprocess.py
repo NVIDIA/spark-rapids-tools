@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -810,7 +810,7 @@ def load_csv_files(
 
     if not app_info.empty:
         app_info['appName'] = app_name
-        app_info['sparkVersion'].fillna('Unknown', inplace=True)
+        app_info.fillna({'sparkVersion': 'Unknown'}, inplace=True)
 
     # Get jar versions:
     cudf_version = '-'
