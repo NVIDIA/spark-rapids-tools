@@ -810,7 +810,7 @@ def load_csv_files(
 
     if not app_info.empty:
         app_info['appName'] = app_name
-        app_info['sparkVersion'].fillna('Unknown', inplace=True)
+        app_info.fillna({'sparkVersion': 'Unknown'}, inplace=True)
 
     # Get jar versions:
     cudf_version = '-'
