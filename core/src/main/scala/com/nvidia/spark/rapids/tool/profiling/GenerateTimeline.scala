@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ class TimelineTaskInfo(val stageId: Int, val taskId: Long,
 
 class TimelineStageInfo(val stageId: Int,
     startTime: Long,
-    endTime:Long,
+    endTime: Long,
     val duration: Long) extends TimelineTiming(startTime, endTime)
 
 class TimelineJobInfo(val jobId: Int,
@@ -279,7 +279,7 @@ object GenerateTimeline {
       .flatMap(_.taskUpdatesMap.values).sum
 
     val semMetricsMs = app.accumManager.accumInfoMap.flatMap {
-        case (_,accumInfo: AccumInfo)
+        case (_, accumInfo: AccumInfo)
             if accumInfo.infoRef.name == AccumNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
             Some(accumInfo.taskUpdatesMap.values.sum)
         case _ => None

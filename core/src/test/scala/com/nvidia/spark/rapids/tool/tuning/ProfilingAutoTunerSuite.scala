@@ -43,7 +43,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       gpuMemory: Option[String] = Some(GpuDevice.DEFAULT.getMemory),
       gpuDevice: Option[String] = Some(GpuDevice.DEFAULT.toString)): String = {
     buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers,
-      gpuCount, gpuMemory,gpuDevice)
+      gpuCount, gpuMemory, gpuDevice)
   }
 
   private def getGpuAppMockInfoProvider: AppSummaryInfoBaseProvider = {
@@ -2212,7 +2212,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       .buildAutoTunerFromProps(databricksWorkerInfo,
         infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     // Assert shuffle manager string for DB 11.3 tag
-    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330db")
+    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330db")
   }
 
   test("test shuffle manager version for supported spark version") {
@@ -2226,7 +2226,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported Spark v3.3.0
-    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330")
+    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330")
   }
 
   test("test shuffle manager version for supported custom spark version") {
@@ -2240,7 +2240,7 @@ We recommend using nodes/workers with more memory. Need at least 7796MB memory."
       .buildAutoTunerFromProps(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported custom Spark v3.3.0
-    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion="330")
+    verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330")
   }
 
   /**

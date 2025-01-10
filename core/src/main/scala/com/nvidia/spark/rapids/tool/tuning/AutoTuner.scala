@@ -843,7 +843,7 @@ class AutoTuner(
       getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes")
     if (appInfoProvider.getMeanInput <
       autoTunerConfigsProvider.AQE_INPUT_SIZE_BYTES_THRESHOLD) {
-      if(advisoryPartitionSizeProperty.isEmpty) {
+      if (advisoryPartitionSizeProperty.isEmpty) {
         // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
         // scaling until it is full and 128m makes the GPU more full, but too large can be
         // slightly problematic because this is the compressed shuffle size
@@ -1470,7 +1470,7 @@ trait AutoTunerConfigsProvider extends Logging {
 
   def shuffleManagerCommentForUnsupportedVersion(
       sparkVersion: String, platform: Platform): String = {
-    val (latestSparkVersion, latestSmVersion)  = platform.latestSupportedShuffleManagerInfo
+    val (latestSparkVersion, latestSmVersion) = platform.latestSupportedShuffleManagerInfo
     // scalastyle:off line.size.limit
     s"""
        |Cannot recommend RAPIDS Shuffle Manager for unsupported ${platform.sparkVersionLabel}: '$sparkVersion'.

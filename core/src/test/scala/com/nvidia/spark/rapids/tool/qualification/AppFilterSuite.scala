@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,23 +62,23 @@ class AppFilterSuite extends BaseTestSuite {
   }
 
   test("time period minute parsing fail") {
-    testTimePeriod(msMinAgo(16), "10min", failFilter=true)
+    testTimePeriod(msMinAgo(16), "10min", failFilter = true)
   }
 
   test("time period hour parsing fail") {
-    testTimePeriod(msHoursAgo(10), "8h", failFilter=true)
+    testTimePeriod(msHoursAgo(10), "8h", failFilter = true)
   }
 
   test("time period day parsing fail") {
-    testTimePeriod(msDaysAgo(40), "38d", failFilter=true)
+    testTimePeriod(msDaysAgo(40), "38d", failFilter = true)
   }
 
   test("time period week parsing fail") {
-    testTimePeriod(msWeeksAgo(2), "1w", failFilter=true)
+    testTimePeriod(msWeeksAgo(2), "1w", failFilter = true)
   }
 
   test("time period month parsing fail") {
-    testTimePeriod(msMonthsAgo(8), "7m", failFilter=true)
+    testTimePeriod(msMonthsAgo(8), "7m", failFilter = true)
   }
 
   private def testTimePeriod(eventLogTime: Long, startTimePeriod: String,
@@ -559,7 +559,7 @@ class AppFilterSuite extends BaseTestSuite {
 
   test("App Name Regex match with all user name") {
     testAppNameRegexAndUserName(appsWithAppNameRegexAndUserNameToTest,
-      "10-newest", "[Nn].*", "user", "all" ,7)
+      "10-newest", "[Nn].*", "user", "all", 7)
   }
 
   test("App Name Regex match with user name match") {
@@ -569,7 +569,7 @@ class AppFilterSuite extends BaseTestSuite {
 
   test("App Name Regex exclude with user name match") {
     testAppNameRegexAndUserName(appsWithAppNameRegexAndUserNameToTest,
-      "10-newest", "[^Nn].*", "user3", "all",0)
+      "10-newest", "[^Nn].*", "user3", "all", 0)
   }
 
   test("App Name partial with username match") {
@@ -657,7 +657,7 @@ class AppFilterSuite extends BaseTestSuite {
   test("Test disjunction no appName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       filterCriteria("10-newest") ++
-          startTimePeriod("2w") ++ userName("user3"),      6, "any")
+          startTimePeriod("2w") ++ userName("user3"), 6, "any")
   }
 
   test("Test disjunction no startTime") {
@@ -832,7 +832,7 @@ class AppFilterSuite extends BaseTestSuite {
     Array("--application-name", appName)
   }
 
-  def matchFileName(appName:String): Array[String] = {
+  def matchFileName(appName: String): Array[String] = {
     Array("--match-event-logs", appName)
   }
 

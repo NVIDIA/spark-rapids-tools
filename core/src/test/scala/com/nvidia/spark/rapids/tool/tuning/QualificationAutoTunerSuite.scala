@@ -57,7 +57,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val workerInfo = buildCpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps,  Some(testSparkVersion))
+      logEventsProps, Some(testSparkVersion))
     val clusterPropsOpt = QualificationAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)

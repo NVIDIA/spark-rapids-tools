@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -162,7 +162,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     // Some SQL function names have backquotes(`) around their names,
     // so we remove them before saving.
     readOperators(source, "exprs", true).map(
-      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
+      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ", ""), x._2))
   }
 
   def readUnsupportedOpsByDefaultReasons: Map[String, String] = {
@@ -170,7 +170,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     val unsupportedExecsBydefault = readOperators(execsSource, "execs", false)
     val exprsSource = UTF8Source.fromResource(SUPPORTED_EXPRS_FILE)
     val unsupportedExprsByDefault = readOperators(exprsSource, "exprs", false).map(
-      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ",""), x._2))
+      x => (x._1.toLowerCase.replaceAll("\\`", "").replaceAll(" ", ""), x._2))
     unsupportedExecsBydefault ++ unsupportedExprsByDefault
   }
 
@@ -222,13 +222,13 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   // In the notes section of the supported csv files, it specifies reason for why it is not
   // supported by default. We use this information to propagate it unsupported operators
   // csv file.
-  private def processOperatorLine(cols: Array[String], operatorType:String,
+  private def processOperatorLine(cols: Array[String], operatorType: String,
       isSupported: Boolean): Seq[(String, String)] = {
     operatorType match {
       case "exprs" if isSupported =>
         // Logic for supported expressions
         val exprName = Seq((cols(0), cols(1)))
-        val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE ){
+        val sqlFuncNames = if (cols(2).nonEmpty && cols(2) != NONE) {
           // There are addidtional checks for Expressions. In physical plan, SQL function name is
           // printed instead of expression name. We have to save both expression name and
           // SQL function name(if there is one) so that we don't miss the expression while

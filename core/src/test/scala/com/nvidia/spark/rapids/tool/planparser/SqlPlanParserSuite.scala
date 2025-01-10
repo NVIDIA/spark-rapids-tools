@@ -69,7 +69,11 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           } else {
             l
           }
-        ).foreach(modifiedLine => pWriter.println(modifiedLine))
+        ).foreach { modifiedLine =>
+          // scalastyle:off println
+          pWriter.println(modifiedLine)
+          // scalastyle:on println
+        }
       } finally {
         bufferedSource.close()
         pWriter.close()
@@ -169,14 +173,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         "spark-events-qualification/db_subExecution_id.zstd")
     val app = createAppFromEventlog(eventlog)
     // Get sum of durations of all the sqlIds. It contains duplicate values
-     val totalSqlDuration = app.sqlIdToInfo.values.map(x=> x.duration.getOrElse(0L)).sum
+     val totalSqlDuration = app.sqlIdToInfo.values.map(x => x.duration.getOrElse(0L)).sum
 
     // This is to group the sqlIds based on the rootExecutionId. So that we can verify the
     // subExecutionId to rootExecutionId mapping.
      val rootIdToSqlId = app.sqlIdToInfo.groupBy { case (_, info) =>
       info.rootExecutionID
     }
-    assert(rootIdToSqlId(Some(5L)).keySet == Set(5,6,7,8,9,10))
+    assert(rootIdToSqlId(Some(5L)).keySet == Set(5, 6, 7, 8, 9, 10))
 
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(
@@ -1381,7 +1385,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
       val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
       val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
-      val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+      val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
       actualExpressions should ===(expected)
     }
   }
@@ -1437,7 +1441,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "EqualTo" -> 4, // EqualTo comes from the = operator
       "Not" -> 2).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
     val rawExpressions = SQLPlanParser.parseFilterExpressions(exprString)
-    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
     actualExpressions should ===(expected)
   }
 
@@ -1458,7 +1462,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "trim" -> 1,
       "unbase64" -> 4).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
     val rawExpressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
     actualExpressions should ===(expected)
   }
 
@@ -1528,7 +1532,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           //      +- FileScan parquet [] Batched: true, DataFilters: [], Format: Parquet, Location:
           //         InMemoryFileIndex(1 paths)[file:/tmp_folder/T/toolTest..., PartitionFilters: []
           //         PushedFilters: [], ReadSchema: struct<>
-          df2.selectExpr("current_database()","current_database() as my_db")
+          df2.selectExpr("current_database()", "current_database() as my_db")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
-      case customReason @ _  => customReason.toString
+      case customReason @ _ => customReason.toString
     }
   }
 }
@@ -163,7 +163,7 @@ case class ExecInfo(
         OpActions.IgnoreNoPerf
       } else if (shouldIgnore) {
         OpActions.IgnorePerf
-      } else  {
+      } else {
         OpActions.Triage
       }
     }
@@ -296,7 +296,7 @@ object ExecInfo {
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
-      unsupportedExecReason:String = "",
+      unsupportedExecReason: String = "",
       unsupportedExprs: Seq[UnsupportedExprOpRef] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
@@ -660,7 +660,7 @@ object SQLPlanParser extends Logging {
     maxDuration
   }
 
-  private def ignoreExpression(expr:String): Boolean = {
+  private def ignoreExpression(expr: String): Boolean = {
     ignoreExpressions.contains(expr.toLowerCase)
   }
 
@@ -789,7 +789,7 @@ object SQLPlanParser extends Logging {
     parsedExpressions.toArray
   }
 
-  def parseWindowExpressions(exprStr:String): Array[String] = {
+  def parseWindowExpressions(exprStr: String): Array[String] = {
     val parsedExpressions = ArrayBuffer[String]()
     // [sum(cast(level#30 as bigint)) windowspecdefinition(device#29, id#28 ASC NULLS FIRST,
     // specifiedwindowframe(RangeFrame, unboundedpreceding$(), currentrow$())) AS sum#35L,

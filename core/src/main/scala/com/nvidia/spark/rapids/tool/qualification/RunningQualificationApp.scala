@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ class RunningQualificationApp(
     perSqlOnly: Boolean = false,
     pluginTypeChecker: PluginTypeChecker = new PluginTypeChecker(),
     platform: Platform = PlatformFactory.createInstance())
-  extends QualificationAppInfo(None, None, pluginTypeChecker, reportSqlLevel=false,
+  extends QualificationAppInfo(None, None, pluginTypeChecker, reportSqlLevel = false,
     perSqlOnly, platform = platform) {
   // note we don't use the per sql reporting providing by QualificationAppInfo so we always
   // send down false for it

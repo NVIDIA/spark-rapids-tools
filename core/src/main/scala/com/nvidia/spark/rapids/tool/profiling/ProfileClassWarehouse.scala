@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -203,7 +203,7 @@ class SQLExecutionInfoClass(
 }
 
 case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
-    nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
+    nodeName: String, accumulatorId: Long, name: String, min: Long, median: Long,
     max: Long, total: Long, metricType: String, stageIds: String) extends ProfileResult {
   override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
     "name", "min", "median", "max", "total", "metricType", "stageIds")
@@ -310,7 +310,7 @@ case class AppInfoProfileResults(appIndex: Int, appName: String,
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, appName, appId.getOrElse(""),
-      sparkUser,  startTime.toString, endTimeToStr, durToStr,
+      sparkUser, startTime.toString, endTimeToStr, durToStr,
       durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString)
   }
   override def convertToCSVSeq: Seq[String] = {
@@ -1105,7 +1105,7 @@ case class WholeStageCodeGenResults(
   }
 }
 
-case class RecommendedPropertyResult(property: String, value: String){
+case class RecommendedPropertyResult(property: String, value: String) {
   override def toString: String = "--conf %s=%s".format(property, value)
 }
 

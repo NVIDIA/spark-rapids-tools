@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ Benchmarker class for running various benchmarks.
   val iterations: ScallopOption[Int] = opt[Int](short = 'i', default = Some(5),
     descr = "Total iterations to run excluding warmup (for avg time calculation)." +
       " Default is 5 iterations", validate = _ > 0)
-  val warmupIterations: ScallopOption[Int] = opt[Int](short = 'w' ,
+  val warmupIterations: ScallopOption[Int] = opt[Int](short = 'w',
     default = Some(3), descr = "Total number of warmup iterations to run. Can take " +
       "any input >=0. Warm up is important for benchmarking to ensure initial " +
       "JVM operations do not skew the result ( classloading etc. )", validate = _ >= 0)
