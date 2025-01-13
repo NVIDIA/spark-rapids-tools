@@ -227,7 +227,9 @@ def compute_accuracy(
     return scores
 
 
-def compute_precision_recall(results: pd.DataFrame, y: str, y_preds: Dict[str, str], threshold: float):
+def compute_precision_recall(
+    results: pd.DataFrame, y: str, y_preds: Dict[str, str], threshold: float
+) -> Tuple[Dict[str, float], Dict[str, float]]:
     """Compute precision and recall from a dataframe using a threshold for identifying true positives.
 
     Parameters
@@ -255,7 +257,6 @@ def compute_precision_recall(results: pd.DataFrame, y: str, y_preds: Dict[str, s
     for name, y_pred in y_preds.items():
         tp = sum((results[y_pred] >= threshold) & (results[y] >= threshold))
         fp = sum((results[y_pred] >= threshold) & (results[y] < threshold))
-        # tn = sum((results[y_pred] < threshold) & (results[y] < threshold))
         fn = sum((results[y_pred] < threshold) & (results[y] >= threshold))
 
         precision[name] = tp / (tp + fp) if (tp + fp) > 0 else np.nan
