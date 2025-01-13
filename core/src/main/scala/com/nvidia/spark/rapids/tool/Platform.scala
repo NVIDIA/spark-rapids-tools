@@ -65,6 +65,12 @@ case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int) 
   }
 }
 
+object InstanceInfo {
+    def createDefaultInstance(cores: Int, memoryMB: Long, numGpus: Int): InstanceInfo = {
+      InstanceInfo(cores, memoryMB, "N/A", numGpus)
+    }
+}
+
 // This is meant to be temporary mapping to figure out instance type based
 // on the number of GPUs and cores.  Eventually this should be read from files
 // generated based on CSP instance information.
@@ -139,6 +145,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
   // overall final recommended cluster configuration
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
+
+  // Default recommendation based on NDS benchmarks (note: this could be platform specific)
+  def recommendedCoresPerExec = 16
+  // Default number of GPUs to use, currently we do not support multiple GPUs per node
+  def recommendedGpusPerNode = 1
+  def defaultNumGpus: Int = 1
+
   // Default runtime for the platform
   val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
   // Set of supported runtimes for the platform
@@ -267,6 +280,72 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
+  def getExecutorHeapMemoryMB(sparkProperties: Map[String, String]): Long = {
+    // Potentially enhance this to handle if no config then check the executor
+    // added or resource profile added events for the heap size
+    val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
+    if (executorMemoryFromConf.isDefined) {
+      StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"))
+    } else {
+      val sparkMasterConf = sparkProperties.get("spark.master")
+      sparkMasterConf match {
+        case None => 0L
+        case Some(sparkMaster) =>
+          if (sparkMaster.contains("yarn")) {
+            StringUtils.convertToMB("1g")
+          } else if (sparkMaster.contains("k8s")) {
+            StringUtils.convertToMB("1g")
+          } else if (sparkMaster.startsWith("spark:")) {
+            // would be the entire node memory by default
+            0L
+          } else {
+            // local mode covered here - do we want to handle specifically?
+            0L
+          }
+      }
+    }
+  }
+
+  def getExecutorOverheadMemoryMB(sparkProperties: Map[String, String]): Long = {
+    val executorMemoryOverheadFromConf = sparkProperties.get("spark.executor.memoryOverhead")
+    val execMemOverheadFactorFromConf = sparkProperties.get("spark.executor.memoryOverheadFactor")
+    val execHeapMemoryMB = getExecutorHeapMemoryMB(sparkProperties)
+    if (executorMemoryOverheadFromConf.isDefined) {
+      StringUtils.convertToMB(executorMemoryOverheadFromConf.get)
+    } else if (execHeapMemoryMB > 0) {
+      if (execMemOverheadFactorFromConf.isDefined) {
+        (execHeapMemoryMB * execMemOverheadFactorFromConf.get.toDouble).toLong
+      } else {
+        val sparkMasterConf = sparkProperties.get("spark.master")
+        sparkMasterConf match {
+          case None => 0L
+          case Some(sparkMaster) =>
+            if (sparkMaster.contains("yarn")) {
+              // default is 10%
+              (execHeapMemoryMB * 0.1).toLong
+            } else if (sparkMaster.contains("k8s")) {
+              val k8sOverheadFactor = sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
+              if (k8sOverheadFactor.isDefined) {
+                (execHeapMemoryMB * k8sOverheadFactor.get.toDouble).toLong
+              } else {
+                // For JVM-based jobs this value will default to 0.10 and 0.40 for non-JVM jobs
+                // TODO - We can't tell above by any property... do we try to parse submit cli?
+                (execHeapMemoryMB * 0.1).toLong
+              }
+            } else if (sparkMaster.startsWith("spark:")) {
+              // would be the entire node memory by default, we don't know and user doesn't
+              // need to specify
+              0L
+            } else {
+              0L
+            }
+        }
+      }
+    } else {
+      0L
+    }
+  }
+
   def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,
       numExecs: Int,
@@ -274,7 +353,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorHeapMem = Platform.getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -320,7 +399,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = Map.empty
 
   /**
-   * Attempts to get the instance type based on the core and gpu requirements.
+   * Get the instance type based on the core and gpu requirements.
    * Case A: Find the exact instance type based on the required resources.
    * Case B: If the exact instance type is not found, find the instance type with the smallest
    *         combined GPU and core count that meets the requirements.
@@ -341,27 +420,22 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       if (suitableInstances.isEmpty) {
         None
       } else {
-        val optimalKey = suitableInstances.keys.minBy { case (gpus, cores) =>
+        val optimalNumGpusAndCoresPair = suitableInstances.keys.minBy { case (gpus, cores) =>
           gpus + cores
         }
-        suitableInstances.get(optimalKey)
+        suitableInstances.get(optimalNumGpusAndCoresPair)
       }
     }.getOrElse {
       // C. For onprem or cases where a matching CSP instance type is unavailable
-
-      // It's possible if a cpu run was used, it could run with multiple executors, but
-      // if the platform doesn't support multiple GPUs per node then we could recommend
-      // different number of nodes. We have to take this into account for cores and memory
-      // calculations.
-      logDebug(s"Creating default instance info: " +
+      logDebug(s"Could not find a matching instance with requiredGpus=$requiredGpus," +
+        s" requiredCores=$requiredCores. Falling back to create a default instance info: \n" +
         s"coresPerExec=${recommendedClusterConfig.coresPerExec}, " +
         s"memoryPerNodeMb=${recommendedClusterConfig.memoryPerNodeMb}, " +
         s"numGpusPerNode=${recommendedClusterConfig.numGpusPerNode}")
-      InstanceInfo(
-        cores=recommendedClusterConfig.coresPerExec,
-        memoryMB=recommendedClusterConfig.memoryPerNodeMb,
-        name=PlatformNames.ONPREM,
-        numGpus=recommendedClusterConfig.numGpusPerNode)
+      InstanceInfo.createDefaultInstance(
+        cores = recommendedClusterConfig.coresPerExec,
+        memoryMB = recommendedClusterConfig.memoryPerNodeMb,
+        numGpus = recommendedClusterConfig.numGpusPerNode)
     }
   }
 
@@ -370,7 +444,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * cluster properties (either provided explicitly by the user or
    * inferred from the event log).
    *
-   * @param sparkProperties A map of Spark properties.
+   * @param sparkProperties A map of Spark properties (combined from application and
+   *                        cluster properties)
    * @return Optional `RecommendedClusterInfo` containing the GPU cluster configuration
    *         recommendation.
    */
@@ -379,10 +454,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
-      clusterProperties = clusterProperties,
-      clusterInfoFromEventLog = clusterInfoFromEventLog,
-      maxGpusSupported = maxGpusSupported,
-      sparkProperties = sparkProperties)
+      platform = this, sparkProperties = sparkProperties)
 
     configurationStrategyOpt match {
       case Some(strategy) =>
@@ -392,7 +464,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           case Some(clusterConfig) =>
             val recommendedNodeInstance = getInstanceByResources(clusterConfig)
             val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
-            val numWorkerNodes = if (vendor == PlatformNames.ONPREM) {
+            val numWorkerNodes = if (!isPlatformCSP) {
               // For on-prem, we do not have the concept of worker nodes.
               -1
             } else {
@@ -407,7 +479,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               vendor = vendor,
               coresPerExecutor = clusterConfig.coresPerExec,
               numWorkerNodes = numWorkerNodes,
-              numGpus = recommendedNodeInstance.numGpus,
+              numGpusPerNode = recommendedNodeInstance.numGpus,
               numExecutors = clusterConfig.numExecutors,
               gpuDevice = getGpuOrDefault.toString,
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
@@ -470,7 +542,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
-    val executorHeapMem = Platform.getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -548,7 +620,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
       systemProperties: Map[String, String]): ExistingClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorHeapMem = Platform.getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs,
       numWorkerNodes, executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -592,73 +664,6 @@ object Platform {
         dynamicAllocationMin, dynamicAllocationInit)
     } else {
       DynamicAllocationInfo(dynamicAllocationEnabled, "N/A", "N/A", "N/A")
-    }
-  }
-
-  def getExecutorHeapMemoryMB(sparkProperties: Map[String, String]): Long = {
-    // Potentially enhance this to handle if no config then check the executor
-    // added or resource profile added events for the heap size
-    val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
-    if (executorMemoryFromConf.isDefined) {
-      StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"))
-    } else {
-      val sparkMasterConf = sparkProperties.get("spark.master")
-      sparkMasterConf match {
-        case None => 0L
-        case Some(sparkMaster) =>
-          if (sparkMaster.contains("yarn")) {
-            StringUtils.convertToMB("1g")
-          } else if (sparkMaster.contains("k8s")) {
-            StringUtils.convertToMB("1g")
-          } else if (sparkMaster.startsWith("spark:")) {
-            // would be the entire node memory by default
-            0L
-          } else {
-            // local mode covered here - do we want to handle specifically?
-            0L
-          }
-      }
-    }
-  }
-
-
-  def getExecutorOverheadMemoryMB(sparkProperties: Map[String, String]): Long = {
-    val executorMemoryOverheadFromConf = sparkProperties.get("spark.executor.memoryOverhead")
-    val execMemOverheadFactorFromConf = sparkProperties.get("spark.executor.memoryOverheadFactor")
-    val execHeapMemoryMB = getExecutorHeapMemoryMB(sparkProperties)
-    if (executorMemoryOverheadFromConf.isDefined) {
-      StringUtils.convertToMB(executorMemoryOverheadFromConf.get)
-    } else if (execHeapMemoryMB > 0) {
-      if (execMemOverheadFactorFromConf.isDefined) {
-        (execHeapMemoryMB * execMemOverheadFactorFromConf.get.toDouble).toLong
-      } else {
-        val sparkMasterConf = sparkProperties.get("spark.master")
-        sparkMasterConf match {
-          case None => 0L
-          case Some(sparkMaster) =>
-            if (sparkMaster.contains("yarn")) {
-              // default is 10%
-              (execHeapMemoryMB * 0.1).toLong
-            } else if (sparkMaster.contains("k8s")) {
-              val k8sOverheadFactor = sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
-              if (k8sOverheadFactor.isDefined) {
-                (execHeapMemoryMB * k8sOverheadFactor.get.toDouble).toLong
-              } else {
-                // For JVM-based jobs this value will default to 0.10 and 0.40 for non-JVM jobs
-                // TODO - We can't tell above by any property... do we try to parse submit cli?
-                (execHeapMemoryMB * 0.1).toLong
-              }
-            } else if (sparkMaster.startsWith("spark:")) {
-              // would be the entire node memory by default, we don't know and user doesn't
-              // need to specify
-              0L
-            } else {
-              0L
-            }
-        }
-      }
-    } else {
-      0L
     }
   }
 }

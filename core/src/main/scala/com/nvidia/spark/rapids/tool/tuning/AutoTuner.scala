@@ -358,9 +358,10 @@ class AutoTuner(
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
-  def getAllProperties: collection.Map[String, String] = {
-    // the app properties override the cluster properties
-    clusterProps.getSoftwareProperties.asScala ++ appInfoProvider.getAllProperties
+  private lazy val getAllProperties: collection.Map[String, String] = {
+    // the cluster properties override the app properties as
+    // it is provided by the user.
+    appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
   }
 
   def initRecommendations(): Unit = {
