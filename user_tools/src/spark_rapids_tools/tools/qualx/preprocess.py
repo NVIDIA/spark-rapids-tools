@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -615,7 +615,7 @@ def extract_raw_features(
             ['input_bytesRead_sum', 'input_bytesRead_cache']
         ].max(axis=1)
         full_tbl = full_tbl.drop(columns=['input_bytesRead_cache'])
-        full_tbl['cache_hit_ratio'].fillna(0.0, inplace=True)
+        full_tbl.fillna({'cache_hit_ratio': 0.0}, inplace=True)
     else:
         full_tbl['cache_hit_ratio'] = 0.0
 
@@ -810,7 +810,7 @@ def load_csv_files(
 
     if not app_info.empty:
         app_info['appName'] = app_name
-        app_info['sparkVersion'].fillna('Unknown', inplace=True)
+        app_info.fillna({'sparkVersion': 'Unknown'}, inplace=True)
 
     # Get jar versions:
     cudf_version = '-'
@@ -1162,7 +1162,8 @@ def load_qual_csv(
     qual_csv = [os.path.join(q, csv_filename) for q in qual_dirs]
     df = None
     if qual_csv:
-        df = pd.concat([pd.read_csv(f) for f in qual_csv])
+        dfs = [pd.read_csv(f) for f in qual_csv]
+        df = pd.concat([df for df in dfs if not df.empty])
         if cols:
             df = df[cols]
     return df

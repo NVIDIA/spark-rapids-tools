@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,7 +77,7 @@ class AppFilterImpl(
     val apps: Seq[AppFilterReturnParameters] = appsForFiltering.asScala.toSeq
 
     appArgs match {
-      case profileArgs:ProfileArgs =>
+      case profileArgs: ProfileArgs =>
         filterEventLogsInternal(apps, profileArgs)
       case qualificationArgs: QualificationArgs =>
         filterEventLogsInternal(apps, qualificationArgs)
@@ -274,7 +274,7 @@ class AppFilterImpl(
     val startAppInfo = new FilterAppInfo(path, hadoopConf)
     val appInfo = AppFilterReturnParameters(startAppInfo, path)
     if (!startAppInfo.isAppMetaDefined) {
-      logWarning("Cannot process file due to missing start event: " + path) 
+      logWarning("Cannot process file due to missing start event: " + path)
     } else {
       appsForFiltering.add(appInfo)
     }

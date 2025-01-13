@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -555,9 +555,9 @@ class Qualification(RapidsJarTool):
                 # Rename the source column to the destination column
                 result_df.rename(columns={src_col: dst_col}, errors='ignore', inplace=True)
             # if the qualx does not have a speedup value, default to 1.0
-            result_df['Estimated GPU Speedup'].fillna(1.0, inplace=True)
+            result_df.fillna({'Estimated GPU Speedup': 1.0}, inplace=True)
             # if the qualx does not have a duration value, default to App Duration
-            result_df['Estimated GPU Duration'].fillna(result_df['App Duration'], inplace=True)
+            result_df.fillna({'Estimated GPU Duration': result_df['App Duration']}, inplace=True)
         # We need to be careful about other columns that depend on remapped columns
         result_df['Estimated GPU Time Saved'] = result_df['App Duration'] - result_df['Estimated GPU Duration']
         return result_df

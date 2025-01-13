@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.analysis.util
 
-import java.util.concurrent.TimeUnit
-
 import com.nvidia.spark.rapids.tool.profiling.StageAggTaskMetricsProfileResult
 
 /**
@@ -43,7 +41,7 @@ case class StageAggPhoton(
       // Re-calculate the photon specific fields only if the accumulator has tasks.
       // Otherwise, leave it as 0.
       if (shuffleWriteValues.nonEmpty) {
-        swWriteTimeSum = TimeUnit.NANOSECONDS.toMillis(shuffleWriteValues.sum)
+        swWriteTimeSum = shuffleWriteValues.sum
       }
       if (peakMemValues.nonEmpty) {
         peakExecutionMemoryMax = peakMemValues.max

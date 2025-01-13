@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,12 +37,12 @@ class MemoryMetricsTracker {
   }
 
   def getTotalGCCount: Long = {
-    val (newGcCount:Long, _) = getCurrentGCMetrics
+    val (newGcCount: Long, _) = getCurrentGCMetrics
     newGcCount - startGCMetrics._1
   }
 
   def getTotalGCTime: Long = {
-    val (_, newGcTime:Long) = getCurrentGCMetrics
+    val (_, newGcTime: Long) = getCurrentGCMetrics
     newGcTime - startGCMetrics._2
   }
 }

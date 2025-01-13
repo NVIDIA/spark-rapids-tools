@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -186,11 +186,13 @@ class ConsoleProgressBar(
       ""
     }
     val consoleLine = header + bar + tailer
+    // scalastyle:off println
     if (inlinePBEnabled) {
       System.out.print(CR + consoleLine + CR)
     } else {
       System.out.println(consoleLine)
     }
+    // scalastyle:on println
     lastUpdateTime = now
     lastUpdatedCount = currentCount
     lastProgressBar = consoleLine

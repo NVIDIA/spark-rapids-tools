@@ -17,7 +17,7 @@ The wrapper improves end-user experience within the following dimensions:
 
 ## Getting started
 
-Set up a Python environment with a version between 3.8 and 3.11
+Set up a Python environment with a version between 3.9 and 3.12
 
 1. Run the project in a virtual environment. Note, .venv is the directory created to put
    the virtual env in, so modify if you want a different location.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -196,15 +196,15 @@ class AnalysisSuite extends FunSuite {
     val sqlAggDurCpu = aggResults.sqlDurAggs
     val resultExpectation = new File(expRoot, expectFile)
     val schema = new StructType()
-      .add("appIndex",IntegerType,true)
-      .add("appID",StringType,true)
-      .add("rootsqlID",LongType,true)
-      .add("sqlID",LongType,true)
-      .add("sqlDuration",LongType,true)
-      .add("containsDataset",BooleanType,true)
-      .add("appDuration",LongType,true)
-      .add("potentialProbs",StringType,true)
-      .add("executorCpuTime",DoubleType,true)
+      .add("appIndex", IntegerType, true)
+      .add("appID", StringType, true)
+      .add("rootsqlID", LongType, true)
+      .add("sqlID", LongType, true)
+      .add("sqlDuration", LongType, true)
+      .add("containsDataset", BooleanType, true)
+      .add("appDuration", LongType, true)
+      .add("potentialProbs", StringType, true)
+      .add("executorCpuTime", DoubleType, true)
     val actualDf = sqlAggDurCpu.toDF
 
     val dfExpect = sparkSession.read.option("header", "true").option("nullValue", "-")

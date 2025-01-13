@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.ClusterProperties
+import com.nvidia.spark.rapids.tool.tuning.ClusterProperties
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
@@ -121,6 +121,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties]) extends Logging {
   val platformName: String
   val defaultGpuDevice: GpuDevice
+  val sparkVersionLabel: String = "Spark version"
 
   // It's not deal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
@@ -138,6 +139,46 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   protected val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
     SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS
   )
+
+  // scalastyle:off line.size.limit
+  // Supported Spark version to RapidsShuffleManager version mapping.
+  // Reference: https://docs.nvidia.com/spark-rapids/user-guide/latest/additional-functionality/rapids-shuffle.html#rapids-shuffle-manager
+  // scalastyle:on line.size.limit
+  val supportedShuffleManagerVersionMap: Array[(String, String)] = Array(
+    "3.2.0" -> "320",
+    "3.2.1" -> "321",
+    "3.2.2" -> "322",
+    "3.2.3" -> "323",
+    "3.2.4" -> "324",
+    "3.3.0" -> "330",
+    "3.3.1" -> "331",
+    "3.3.2" -> "332",
+    "3.3.3" -> "333",
+    "3.3.4" -> "334",
+    "3.4.0" -> "340",
+    "3.4.1" -> "341",
+    "3.4.2" -> "342",
+    "3.4.3" -> "343",
+    "3.5.0" -> "350",
+    "3.5.1" -> "351"
+  )
+
+  /**
+   * Determine the appropriate RapidsShuffleManager version based on the
+   * provided spark version.
+   */
+  def getShuffleManagerVersion(sparkVersion: String): Option[String] = {
+    supportedShuffleManagerVersionMap.collectFirst {
+      case (supportedVersion, smVersion) if sparkVersion.contains(supportedVersion) => smVersion
+    }
+  }
+
+  /**
+   * Identify the latest supported Spark and RapidsShuffleManager version for the platform.
+   */
+  lazy val latestSupportedShuffleManagerInfo: (String, String) = {
+    supportedShuffleManagerVersionMap.maxBy(_._1)
+  }
 
   /**
    * Checks if the given runtime is supported by the platform.
@@ -391,7 +432,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   /**
    * Attempts to get the instance type based on the core and gpu requirements.
    */
-  def getInstanceByResources(cores:Int, numGpus: Int): Option[InstanceInfo] = None
+  def getInstanceByResources(cores: Int, numGpus: Int): Option[InstanceInfo] = None
 
   /**
    * Recommend a GPU Instance type to use for this application.
@@ -411,7 +452,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       // we could put on a node.
       if (origClusterNumExecsPerNode == -1) {
         maxGpusSupported
-      }  else {
+      } else {
         origClusterNumExecsPerNode
       }
     } else {
@@ -522,6 +563,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val sparkVersionLabel: String = "Databricks runtime"
   override def isPlatformCSP: Boolean = true
 
   override val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
@@ -536,6 +578,13 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memoryOverhead"
+  )
+
+  // Supported Databricks version to RapidsShuffleManager version mapping.
+  override val supportedShuffleManagerVersionMap: Array[(String, String)] = Array(
+    "11.3" -> "330db",
+    "12.2" -> "332db",
+    "13.3" -> "341db"
   )
 
   override def createClusterInfo(coresPerExecutor: Int,
@@ -562,7 +611,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DatabricksPlatform(gpuDevice, clusterProperties)
   with Logging {
-  override val platformName: String =  PlatformNames.DATABRICKS_AWS
+  override val platformName: String = PlatformNames.DATABRICKS_AWS
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def getInstanceByResources(
@@ -616,7 +665,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC
+  override val platformName: String = PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
@@ -645,7 +694,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DataprocPlatform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC_SL
+  override val platformName: String = PlatformNames.DATAPROC_SL
   override val defaultGpuDevice: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
@@ -653,13 +702,13 @@ class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties])
   extends DataprocPlatform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.DATAPROC_GKE
+  override val platformName: String = PlatformNames.DATAPROC_GKE
   override def isPlatformCSP: Boolean = true
 }
 
 class EmrPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.EMR
+  override val platformName: String = PlatformNames.EMR
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def isPlatformCSP: Boolean = true
@@ -706,7 +755,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val platformName: String =  PlatformNames.ONPREM
+  override val platformName: String = PlatformNames.ONPREM
   // Note we don't have an speedup factor file for onprem l4's but we want auto tuner
   // to use L4.
   override val defaultGpuDevice: GpuDevice = L4Gpu

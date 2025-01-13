@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,7 +90,7 @@ class SQLPlanVersion(
           readSchema,
           ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_DATA_FILTERS, meta),
           ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PARTITION_FILTERS, meta),
-          fromFinalPlan=isFinal))
+          fromFinalPlan = isFinal))
       } else {
         None
       }
@@ -116,7 +116,7 @@ class SQLPlanVersion(
         res.schema,
         res.dataFilters,
         res.partitionFilters,
-        fromFinalPlan=isFinal)
+        fromFinalPlan = isFinal)
     }
   }
 

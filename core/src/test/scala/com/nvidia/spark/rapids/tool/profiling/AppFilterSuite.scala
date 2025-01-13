@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,23 +62,23 @@ class AppFilterSuite extends BaseTestSuite {
   }
 
   test("time period minute parsing fail") {
-    testTimePeriod(msMinAgo(16), "10min", failFilter=true)
+    testTimePeriod(msMinAgo(16), "10min", failFilter = true)
   }
 
   test("time period hour parsing fail") {
-    testTimePeriod(msHoursAgo(10), "8h", failFilter=true)
+    testTimePeriod(msHoursAgo(10), "8h", failFilter = true)
   }
 
   test("time period day parsing fail") {
-    testTimePeriod(msDaysAgo(40), "38d", failFilter=true)
+    testTimePeriod(msDaysAgo(40), "38d", failFilter = true)
   }
 
   test("time period week parsing fail") {
-    testTimePeriod(msWeeksAgo(2), "1w", failFilter=true)
+    testTimePeriod(msWeeksAgo(2), "1w", failFilter = true)
   }
 
   test("time period month parsing fail") {
-    testTimePeriod(msMonthsAgo(8), "7m", failFilter=true)
+    testTimePeriod(msMonthsAgo(8), "7m", failFilter = true)
   }
 
   private def testTimePeriod(eventLogTime: Long, startTimePeriod: String,
@@ -124,7 +124,7 @@ class AppFilterSuite extends BaseTestSuite {
     appTime: Long, uniqueId: Int)
 
   private val appsWithFsAndStartTimeToTest = Array(
-    TestEventLogFSAndAppStartInfo("app-ndshours18", msHoursAgo(16),msHoursAgo(18), 1),
+    TestEventLogFSAndAppStartInfo("app-ndshours18", msHoursAgo(16), msHoursAgo(18), 1),
     TestEventLogFSAndAppStartInfo("app-ndsweeks2", msWeeksAgo(2), msWeeksAgo(2), 1),
     TestEventLogFSAndAppStartInfo("app-nds86-1", msDaysAgo(3), msDaysAgo(4), 1),
     TestEventLogFSAndAppStartInfo("app-nds86-2", msDaysAgo(13), msWeeksAgo(2), 2))

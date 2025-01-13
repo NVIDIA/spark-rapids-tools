@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -333,7 +333,7 @@ local:
           columns:
             - 'stageId'
             - 'SQL Nodes(IDs)'
-        spillThresholdBytes: !ENV ${RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD:10737418240}
+        spillThresholdBytes: !ENV ${RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD:1099511627776}
         allowedExecs:
           - 'Aggregate'
           - 'Join'

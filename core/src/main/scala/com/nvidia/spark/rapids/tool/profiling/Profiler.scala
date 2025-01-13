@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, Platform, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -421,9 +421,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // assumptions made in the code
     if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
-      val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-      val clusterPropsOpt = loadClusterProps(workerInfoPath)
-      val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider,
+      val workerInfoPath = appArgs.workerInfo
+        .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
+      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
+      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider,
         PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt), driverInfoProvider)
 
       // The autotuner allows skipping some properties,

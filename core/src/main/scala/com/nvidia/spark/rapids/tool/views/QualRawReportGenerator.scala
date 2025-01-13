@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,14 @@ package com.nvidia.spark.rapids.tool.views
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
 /**
  * This object generates the raw metrics view for the qualification tool. It is used to generate
  * the CSV files without applying any heuristics or estimation.
  */
-object QualRawReportGenerator {
+object QualRawReportGenerator extends Logging {
 
   private def constructLabelsMaps(
       aggRawResult: AggRawMetricsResult): Map[String, Seq[ProfileResult]] = {
@@ -110,7 +111,7 @@ object QualRawReportGenerator {
       pWriter.write(QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
     } catch {
       case e: Exception =>
-        println(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")
+        logError(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")
     } finally {
       pWriter.close()
     }
