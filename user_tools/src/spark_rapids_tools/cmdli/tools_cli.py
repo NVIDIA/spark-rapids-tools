@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,10 +35,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
     """
 
     def qualification(self,
-                      *,  # force named arguments
-                      platform: str,
                       eventlogs: str = None,
                       cluster: str = None,
+                      platform: str = None,
                       output_folder: str = None,
                       filter_apps: str = None,
                       custom_model_file: str = None,
@@ -56,8 +55,6 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The cmd will process each app individually, but will group apps with the same name into the
         same output row after averaging duration metrics accordingly.
 
-        :param platform: Defines one of the following: "onprem", "emr", "dataproc", "dataproc-gke",
-               "databricks-aws", and "databricks-azure".
         :param eventlogs: Event log filenames or CSP storage directories containing event logs
                 (comma separated).
 
@@ -65,6 +62,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 cluster name on the CSP.
         :param cluster: The CPU cluster on which the Spark application(s) were executed.
                Name or ID (for databricks platforms) of cluster or path to cluster-properties.
+        :param platform: Defines one of the following: "onprem", "emr", "dataproc", "dataproc-gke",
+               "databricks-aws", and "databricks-azure".
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
                 or remote cloud storage url. If missing, the wrapper downloads the latest rapids-4-spark-tools_*.jar
@@ -90,8 +89,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
         """
-        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
+        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
         filter_apps = Utils.get_value_or_pop(filter_apps, rapids_options, 'f')
@@ -109,9 +108,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         if estimation_model_args is None:
             return None
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
-                                                         platform=platform,
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
+                                                         platform=platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
                                                          jvm_heap_size=jvm_heap_size,
@@ -128,10 +127,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         return None
 
     def profiling(self,
-                  *,  # force named arguments
-                  platform: str,
                   eventlogs: str = None,
                   cluster: str = None,
+                  platform: str = None,
                   driverlog: str = None,
                   output_folder: str = None,
                   tools_jar: str = None,
@@ -148,14 +146,14 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The tool also will recommend setting for the application assuming that the job will be able
         to use all the cluster resources (CPU and GPU) when it is running.
 
-        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
-                and "databricks-azure".
         :param eventlogs: Event log filenames or cloud storage directories
                 containing event logs (comma separated). If missing, the wrapper reads the Spark's
                 property `spark.eventLog.dir` defined in the `cluster`.
         :param cluster: The cluster on which the Spark applications were executed. The argument
                 can be a cluster name or ID (for databricks platforms) or a valid path to the cluster's
                 properties file (json format) generated by the CSP SDK.
+        :param platform: defines one of the following "onprem", "emr", "dataproc", "databricks-aws",
+                and "databricks-azure".
         :param driverlog: Valid path to the GPU driver log file.
         :param output_folder: path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. The path is a local filesystem,
@@ -175,9 +173,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options
         """
-        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
+        platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
         driverlog = Utils.get_value_or_pop(driverlog, rapids_options, 'd')
         output_folder = Utils.get_value_or_pop(output_folder, rapids_options, 'o')
         tools_jar = Utils.get_value_or_pop(tools_jar, rapids_options, 't')
@@ -186,9 +184,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
             ToolLogging.enable_debug_mode()
         init_environment('prof')
         prof_args = AbsToolUserArgModel.create_tool_args('profiling',
-                                                         platform=platform,
                                                          eventlogs=eventlogs,
                                                          cluster=cluster,
+                                                         platform=platform,
                                                          driverlog=driverlog,
                                                          jvm_heap_size=jvm_heap_size,
                                                          jvm_threads=jvm_threads,
