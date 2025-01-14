@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@ readonly CURRENT_FILE_PATH=$(realpath "${0}")
 readonly HDFS_SCRIPTS_DIR=$(dirname "${CURRENT_FILE_PATH}")
 readonly VERIFY_HDFS_SERVICES_MAX_RETRY=3
 readonly VERIFY_HDFS_SERVICES_SLEEP_SEC=5
+readonly WGET_TIMEOUT_SEC=1800 # 30 minutes
 
 load_common_scripts() {
   local scripts_dir=$(dirname "${HDFS_SCRIPTS_DIR}")
@@ -107,19 +108,19 @@ verify_checksum() {
 # Function to download and extract Hadoop
 download_and_extract_hadoop() {
     echo "Downloading and extracting Hadoop..."
-    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
+    local hadoop_url="https://archive.apache.org/dist/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local hadoop_tar_file="${E2E_TEST_TMP_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local checksum_url="${hadoop_url}.sha512"
     local checksum_file="${hadoop_tar_file}.sha512"
 
     if [ ! -f "${hadoop_tar_file}" ]; then
-        wget -O "${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
+        wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
     fi
 
     # Verify checksum and re-download if needed
-    wget -O "${checksum_file}" "${checksum_url}" || err "Failed to download checksum file."
+    wget --timeout=${WGET_TIMEOUT_SEC} -O"${checksum_file}" "${checksum_url}" || err "Failed to download checksum file."
     if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then
-        wget -O "${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
+        wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
         if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then
             err "Checksum verification failed after re-downloading. Exiting..."
         fi
