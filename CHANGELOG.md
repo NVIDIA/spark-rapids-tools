@@ -1,6 +1,32 @@
 
 <br/>
 
+## Release [v24.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.1)
+Generated on 2025-01-14
+### User Tools
+
+- Add compute_precision_recall utility function ([#1500](https://github.com/NVIDIA/spark-rapids-tools/pull/1500))
+- Fix additional FutureWarning issues ([#1499](https://github.com/NVIDIA/spark-rapids-tools/pull/1499))
+- Qualx model updates from weekly KPI run 2025-01-10 ([#1495](https://github.com/NVIDIA/spark-rapids-tools/pull/1495))
+- Fix future warnings for pandas>=2.2 ([#1494](https://github.com/NVIDIA/spark-rapids-tools/pull/1494))
+- Pin scikit-learn dependency for shap ([#1491](https://github.com/NVIDIA/spark-rapids-tools/pull/1491))
+- Make spill heuristic 1 TB by default ([#1488](https://github.com/NVIDIA/spark-rapids-tools/pull/1488))
+- Support Python 3.9-3.12 ([#1486](https://github.com/NVIDIA/spark-rapids-tools/pull/1486))
+- Update models for latest code/datasets ([#1485](https://github.com/NVIDIA/spark-rapids-tools/pull/1485))
+
+### Core
+
+- Improve scalastyle rules to detect spaces ([#1493](https://github.com/NVIDIA/spark-rapids-tools/pull/1493))
+- Improve shuffle manager recommendation in AutoTuner with version validation ([#1483](https://github.com/NVIDIA/spark-rapids-tools/pull/1483))
+- Support group-limit optimization for ROW_NUMBER in Qualification ([#1487](https://github.com/NVIDIA/spark-rapids-tools/pull/1487))
+-  Bump minimum Spark version to 3.2.0 and improve AutoTuner unit tests for multiple Spark versions  ([#1482](https://github.com/NVIDIA/spark-rapids-tools/pull/1482))
+- Fix inconsistent shuffle write time sum results in Profiler output ([#1450](https://github.com/NVIDIA/spark-rapids-tools/pull/1450))
+- Refine Qualification AutoTuner recommendations for shuffle partitions for CPU event logs ([#1479](https://github.com/NVIDIA/spark-rapids-tools/pull/1479))
+- Split AutoTuner for Profiling and Qualification and Override BATCH_SIZE_BYTES ([#1471](https://github.com/NVIDIA/spark-rapids-tools/pull/1471))
+
+
+<br/>
+
 ## Release [v24.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.0)
 Generated on 2024-12-20
 ### User Tools
