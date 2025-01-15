@@ -140,4 +140,21 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages)
   }
+
+  /**
+   * Helper method to compare the expected results with the actual output from the AutoTuner.
+   *
+   * In case of a mismatch, displays the complete output, which is useful for updating the
+   * expected results.
+   */
+  protected def compareOutput(expectedResults: String, autoTunerOutput: String): Unit = {
+    val outputsMatch = expectedResults == autoTunerOutput
+    assert(outputsMatch,
+      s"""|=== Expected ===
+          |$expectedResults
+          |
+          |=== Actual ===
+          |$autoTunerOutput
+          |""".stripMargin)
+  }
 }

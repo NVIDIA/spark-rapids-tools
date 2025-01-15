@@ -358,9 +358,10 @@ class AutoTuner(
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
-  def getAllProperties: collection.Map[String, String] = {
-    // the app properties override the cluster properties
-    clusterProps.getSoftwareProperties.asScala ++ appInfoProvider.getAllProperties
+  private lazy val getAllProperties: collection.Map[String, String] = {
+    // the cluster properties override the app properties as
+    // it is provided by the user.
+    appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
   }
 
   def initRecommendations(): Unit = {
@@ -422,11 +423,11 @@ class AutoTuner(
    * Returns None if the platform doesn't support specific instance types.
    */
   private def configureGPURecommendedInstanceType(): Unit = {
-    val gpuClusterRec = platform.getGPUInstanceTypeRecommendation(getAllProperties.toMap)
-    if (gpuClusterRec.isDefined) {
-      appendRecommendation("spark.executor.cores", gpuClusterRec.get.coresPerExecutor)
-      if (gpuClusterRec.get.numExecutors > 0) {
-        appendRecommendation("spark.executor.instances", gpuClusterRec.get.numExecutors)
+    platform.createRecommendedGpuClusterInfo(getAllProperties.toMap)
+    platform.recommendedClusterInfo.foreach { gpuClusterRec =>
+      appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
+      if (gpuClusterRec.numExecutors > 0) {
+        appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
       }
     }
   }
@@ -451,17 +452,6 @@ class AutoTuner(
    */
   def calcGpuConcTasks(): Long = {
     Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS, platform.getGpuOrDefault.getGpuConcTasks)
-  }
-
-  /**
-   * Calculates the available memory for each executor on the worker based on the number of
-   * executors per node and the memory.
-   * Assumption - cluster properties were updated to have a default values if missing.
-   */
-  private def calcAvailableMemPerExec(): Double = {
-    val memMBPerNode = platform.recommendedNodeInstanceInfo.map(_.memoryMB).getOrElse(0L)
-    val gpusPerExec = platform.getNumGPUsPerNode
-    Math.max(0, memMBPerNode / gpusPerExec)
   }
 
   /**
@@ -686,7 +676,8 @@ class AutoTuner(
       appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
-      val availableMemPerExec = calcAvailableMemPerExec()
+      val availableMemPerExec =
+        platform.recommendedNodeInstanceInfo.map(_.getMemoryPerExec).getOrElse(0.0)
       val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
         val availableMemPerExecExpr = () => availableMemPerExec
         val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
@@ -1176,12 +1167,11 @@ class AutoTuner(
       if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
         GpuDevice.createInstance(clusterProps.gpu.getName)
           .foreach(platform.setGpuDevice)
-        platform.setNumGpus(clusterProps.gpu.getCount)
       }
       // configured GPU recommended instance type NEEDS to happen before any of the other
       // recommendations as they are based on
       // the instance type
-      configureGPURecommendedInstanceType
+      configureGPURecommendedInstanceType()
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
