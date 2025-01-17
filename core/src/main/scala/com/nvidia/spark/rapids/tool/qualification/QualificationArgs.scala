@@ -16,7 +16,7 @@
 package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.PlatformNames
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner
+import com.nvidia.spark.rapids.tool.tuning.QualificationAutoTunerConfigsProvider
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -195,7 +195,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "File path containing the system information of a worker node. It is assumed " +
         "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
         "./worker_info.yaml",
-      default = Some(AutoTuner.DEFAULT_WORKER_INFO_PATH))
+      default = Some(QualificationAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH))
   val clusterReport: ScallopOption[Boolean] =
     toggle("cluster-report",
       default = Some(true),

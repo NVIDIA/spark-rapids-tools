@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ case class DBGraphSQLMetricStub(m: Mirror)
   extends GraphReflectionEntry[org.apache.spark.sql.execution.ui.SQLPlanMetric](
     m, "org.apache.spark.sql.execution.ui.SQLPlanMetric") {
   // DataBricks has different constructor of the sparkPlanGraphNode
-  //Array(final java.lang.String name, final long accumulatorId,
+  // Array(final java.lang.String name, final long accumulatorId,
   // final java.lang.String metricType, final boolean experimental)
 
   // for 10.4 it is only one constructor with 3 arguments.

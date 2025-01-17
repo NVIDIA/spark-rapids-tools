@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map}
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
-import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
+import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
@@ -42,7 +42,8 @@ import org.apache.spark.util.Utils
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging
+    val hadoopConf: Option[Configuration],
+    val platform: Option[Platform] = None) extends Logging
   with ClusterTagPropHandler
   with AccumToStageRetriever {
 
@@ -354,7 +355,7 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  def findPotentialIssues(desc: String): Set[String] =  {
+  def findPotentialIssues(desc: String): Set[String] = {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
@@ -481,6 +482,7 @@ abstract class AppBase(
   protected def postCompletion(): Unit = {
     registerAttemptId()
     calculateAppDuration()
+    validateSparkRuntime()
   }
 
   /**
@@ -490,6 +492,20 @@ abstract class AppBase(
   def processEvents(): Unit = {
     processEventsInternal()
     postCompletion()
+  }
+
+  /**
+   * Validates if the spark runtime (parsed from event log) is supported by the platform.
+   * If the runtime is not supported, an `UnsupportedSparkRuntimeException`
+   * is thrown.
+   */
+  private def validateSparkRuntime(): Unit = {
+    val parsedRuntime = getSparkRuntime
+    platform.foreach { p =>
+      require(p.isRuntimeSupported(parsedRuntime),
+        throw UnsupportedSparkRuntimeException(p, parsedRuntime)
+      )
+    }
   }
 }
 

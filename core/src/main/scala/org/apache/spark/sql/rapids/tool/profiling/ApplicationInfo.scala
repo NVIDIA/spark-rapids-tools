@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package org.apache.spark.sql.rapids.tool.profiling
 
 import scala.collection.Map
 
-import com.nvidia.spark.rapids.tool.EventLogInfo
+import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
 import org.apache.hadoop.conf.Configuration
 
@@ -41,6 +41,7 @@ class SparkPlanInfoWithStage(
   import SparkPlanInfoWithStage._
 
   def debugEquals(other: Any, depth: Int = 0): Boolean = {
+    // scalastyle:off println
     System.err.println(s"${" " * depth}DOES $this == $other?")
     other match {
       case o: SparkPlanInfo =>
@@ -68,6 +69,7 @@ class SparkPlanInfoWithStage(
         System.err.println(s"${" " * depth}NOT EQUAL WRONG TYPE")
         false
     }
+    // scalastyle:on println
   }
 
   override def toString: String = {
@@ -157,7 +159,7 @@ object SparkPlanInfoWithStage {
     "HashAggregate" -> "Aggregate",
     "SortAggregate" -> "Aggregate",
     "GpuHashAggregate" -> "Aggregate",
-    "RunningWindow" -> "Window", //GpuWindow and Window are already covered
+    "RunningWindow" -> "Window", // GpuWindow and Window are already covered
     "GpuRunningWindow" -> "Window")
 
   private def isShuffledTopN(info: SparkPlanInfoWithStage): Boolean = {
@@ -184,10 +186,11 @@ object SparkPlanInfoWithStage {
 class ApplicationInfo(
     hadoopConf: Configuration,
     eLogInfo: EventLogInfo,
-    val index: Int)
-  extends AppBase(Some(eLogInfo), Some(hadoopConf)) with Logging {
+    val index: Int,
+    platform: Platform = PlatformFactory.createInstance())
+  extends AppBase(Some(eLogInfo), Some(hadoopConf), Some(platform)) with Logging {
 
-  private lazy val eventProcessor =  new EventsProcessor(this)
+  private lazy val eventProcessor = new EventsProcessor(this)
 
   // Process all events
   processEvents()

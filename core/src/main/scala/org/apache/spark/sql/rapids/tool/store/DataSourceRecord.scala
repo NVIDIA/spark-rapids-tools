@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ case class NonFinalDataSourceCase(
     partitionFilters: String) extends DataSourceRecord {
 
   override def isFromFinalPlan: Boolean = false
-  override def comments: String =  DataSourceRecord.COMMENT_NON_FINAL_PLAN
+  override def comments: String = DataSourceRecord.COMMENT_NON_FINAL_PLAN
 }
 
 case class FinalDataSourceCase(
@@ -57,12 +57,12 @@ case class FinalDataSourceCase(
     partitionFilters: String) extends DataSourceRecord {
 
   override def isFromFinalPlan: Boolean = true
-  override def comments: String =  DataSourceRecord.COMMENT_FINAL_PLAN
+  override def comments: String = DataSourceRecord.COMMENT_FINAL_PLAN
 }
 
 object DataSourceRecord {
-  val COMMENT_NON_FINAL_PLAN="isFinalPlan=false"
-  val COMMENT_FINAL_PLAN="isFinalPlan=true"
+  val COMMENT_NON_FINAL_PLAN = "isFinalPlan=false"
+  val COMMENT_FINAL_PLAN = "isFinalPlan=true"
 
   def apply(
       sqlID: Long,

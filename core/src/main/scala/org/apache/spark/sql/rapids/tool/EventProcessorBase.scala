@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -131,7 +131,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkListenerLogStart(
       app: T,
-      event: SparkListenerLogStart): Unit  = {
+      event: SparkListenerLogStart): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.handleLogStartForCachedProps(event)
   }
@@ -174,7 +174,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     val SparkListenerDriverAccumUpdates(sqlID, accumUpdates) = event
     accumUpdates.foreach { accum =>
       val driverAccum = DriverAccumCase(sqlID, accum._1, accum._2)
-      val arrBuf =  app.driverAccumMap.getOrElseUpdate(accum._1,
+      val arrBuf = app.driverAccumMap.getOrElseUpdate(accum._1,
         ArrayBuffer[DriverAccumCase]())
       arrBuf += driverAccum
     }
@@ -202,7 +202,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
 
   def doSparkRapidsBuildInfoEvent(
       app: T,
-      event: SparkRapidsBuildInfoEvent): Unit  = {
+      event: SparkRapidsBuildInfoEvent): Unit = {
     logDebug("Processing event: " + event.getClass)
     app.sparkRapidsBuildInfo = event
   }

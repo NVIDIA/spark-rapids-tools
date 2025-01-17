@@ -16,89 +16,46 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import scala.util.{Failure, Success, Try}
+import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform, ToolTextFileWriter}
-import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AutoTuner, DataSourceProfileResult, Profiler}
-import org.apache.hadoop.conf.Configuration
-
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
+import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
 
 /**
- * Implementation of the AutoTuner for Qualification.
- * @param appInfoProvider Provider of the qualification analysis data
- * @param tunerContext Container which holds the arguments passed to the AutoTuner execution
+ * Implementation of the `AutoTuner` designed the Qualification Tool. This class can be used to
+ * implement the logic to recommend AutoTuner configurations by the Qualification Tool.
  */
-class QualificationAutoTuner(val appInfoProvider: QualAppSummaryInfoProvider,
-    val tunerContext: TunerContext) {
+class QualificationAutoTuner(
+    clusterProps: ClusterProperties,
+    appInfoProvider: AppSummaryInfoBaseProvider,
+    platform: Platform,
+    driverInfoProvider: DriverLogInfoProvider)
+  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+    QualificationAutoTunerConfigsProvider) {
 
-  // When enabled, the profiler recommendations should only include updated settings.
-  private val filterByUpdatedPropsEnabled: Boolean = false
-
-  private def writeTuningReport(tuningResult: TuningResult,
-      outputDir: String, hadoopConf: Configuration): Unit = {
-    // First, write down the recommendations and the comments
-    val textFileWriter = new ToolTextFileWriter(outputDir,
-      s"${tuningResult.appID}.log", s"Tuning Qual App - ${tuningResult.appID}", Option(hadoopConf))
-    try {
-      textFileWriter.write(
-        s"### Recommended SPARK Configuration on GPU Cluster for App: ${tuningResult.appID} ###\n")
-      textFileWriter.write(Profiler.getAutoTunerResultsAsString(
-        tuningResult.recommendations, tuningResult.comments))
-    } finally {
-      textFileWriter.close()
-    }
-    // Write down the combined configurations
-    tuningResult.combinedProps.collect {
-      case combinedProps =>
-        val textFileWriter = new ToolTextFileWriter(outputDir,
-          s"${tuningResult.appID}.conf",
-          s"Qual combined configurations for App - ${tuningResult.appID}", Option(hadoopConf))
-        try {
-          textFileWriter.write(combinedProps.map(_.toString).reduce(_ + "\n" + _))
-        } finally {
-          textFileWriter.close()
-        }
-    }
-  }
-
-  def runAutoTuner(platform: Platform): TuningResult = {
-    val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider, platform)
-    val (recommendations, comments) =
-      autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
-    // Combine the GPU recommendations with all others.
-    // There are two ways we can that:
-    // 1- Combine them from the beginning; Or
-    // 2- At the end, get the union of the two properties.
-    // The 2nd needs more effort but it favourite because it keeps two separate lists.
-    // Otherwise, it is difficult to do separate them logically.
-    val combinedProps = autoTuner.combineSparkProperties(recommendations)
-    val resultRecord = TuningResult(appInfoProvider.getAppID, recommendations,
-      comments, Option(combinedProps))
-    writeTuningReport(resultRecord, tunerContext.getOutputPath, tunerContext.hadoopConf)
-    resultRecord
-  }
+  /**
+   * List of recommendations for which the Qualification AutoTuner skips calculations and only
+   * depend on default values.
+   */
+  override protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet(
+    "spark.sql.shuffle.partitions"
+  )
 }
 
-object QualificationAutoTuner extends Logging {
-  def apply(appInfo: QualificationAppInfo,
-      appAggStats: Option[QualificationSummaryInfo],
-      tunerContext: TunerContext,
-      rawAggMetrics: AggRawMetricsResult,
-      dsInfo: Seq[DataSourceProfileResult]): Option[QualificationAutoTuner] = {
-    Try {
-      val qualInfoProvider: QualAppSummaryInfoProvider =
-        AppSummaryInfoBaseProvider.fromQualAppInfo(appInfo, appAggStats, rawAggMetrics, dsInfo)
-          .asInstanceOf[QualAppSummaryInfoProvider]
-      new QualificationAutoTuner(qualInfoProvider, tunerContext)
-    } match {
-      case Success(q) => Some(q)
-      case Failure(e) =>
-        logError(
-          s"Failed to create Qualification tuning object for application ${appInfo.appId}", e)
-        None
-    }
+/**
+ * Provides configuration settings for the Qualification Tool's AutoTuner
+ */
+object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
+
+  // For qualification tool's auto-tuner, the batch size to be recommended is 1GB
+  // See https://github.com/NVIDIA/spark-rapids-tools/issues/1399
+  override val BATCH_SIZE_BYTES = 1073741824
+
+  override def createAutoTunerInstance(
+      clusterProps: ClusterProperties,
+      appInfoProvider: AppSummaryInfoBaseProvider,
+      platform: Platform,
+      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+    new QualificationAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
   }
 }

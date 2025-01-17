@@ -22,8 +22,8 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, Platform, PlatformFactory, ToolBase}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -43,6 +43,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+  // Unlike qualification tool, profiler tool does not require platform per app
+  private val platform: Platform = PlatformFactory.createInstance(appArgs.platform())
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -295,9 +297,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private def createApp(path: EventLogInfo, index: Int,
       hadoopConf: Configuration): Either[FailureApp, ApplicationInfo] = {
     try {
-      // This apps only contains 1 app in each loop.
+      // These apps only contains 1 app in each loop.
       val startTime = System.currentTimeMillis()
-      val app = new ApplicationInfo(hadoopConf, path, index)
+      val app = new ApplicationInfo(hadoopConf, path, index, platform)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
       if (!app.isAppMetaDefined) {
@@ -419,9 +421,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // assumptions made in the code
     if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
       val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
-      val workerInfoPath = appArgs.workerInfo.getOrElse(AutoTuner.DEFAULT_WORKER_INFO_PATH)
-      val clusterPropsOpt = loadClusterProps(workerInfoPath)
-      val autoTuner: AutoTuner = AutoTuner.buildAutoTuner(appInfoProvider,
+      val workerInfoPath = appArgs.workerInfo
+        .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
+      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
+      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider,
         PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt), driverInfoProvider)
 
       // The autotuner allows skipping some properties,
