@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,7 +63,6 @@ class DriverLogProcessor(logPath: String)
     countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2)).toSeq
   }
 }
-
 
 object BaseDriverLogInfoProvider {
   def noneDriverLog: BaseDriverLogInfoProvider = new BaseDriverLogInfoProvider()

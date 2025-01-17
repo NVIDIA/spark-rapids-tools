@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -133,7 +133,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     assert(result.contains("isnull"))
   }
 
-  test("write data format"){
+  test("write data format") {
     val inputString = Array("Execute InsertIntoHadoopFsRelationCommand " +
       "file:/home/ubuntu/eventlogs/complex_nested_decimal, false," +
       " Parquet, Map(path -> complex_nested_decimal), Append, [name, subject]",
@@ -178,7 +178,7 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
     // Using databricks azure speedup factor as custom file
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
     val speedupFactorFile = ToolTestUtils.getTestResourcePath(platform.getOperatorScoreFile)
-    val checker = new PluginTypeChecker(speedupFactorFile=Some(speedupFactorFile))
+    val checker = new PluginTypeChecker(speedupFactorFile = Some(speedupFactorFile))
     assert(checker.getSpeedupFactor("SortExec") == 13.11)
     assert(checker.getSpeedupFactor("FilterExec") == 3.14)
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,7 +69,11 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           } else {
             l
           }
-        ).foreach(modifiedLine => pWriter.println(modifiedLine))
+        ).foreach { modifiedLine =>
+          // scalastyle:off println
+          pWriter.println(modifiedLine)
+          // scalastyle:on println
+        }
       } finally {
         bufferedSource.close()
         pWriter.close()
@@ -169,14 +173,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         "spark-events-qualification/db_subExecution_id.zstd")
     val app = createAppFromEventlog(eventlog)
     // Get sum of durations of all the sqlIds. It contains duplicate values
-     val totalSqlDuration = app.sqlIdToInfo.values.map(x=> x.duration.getOrElse(0L)).sum
+     val totalSqlDuration = app.sqlIdToInfo.values.map(x => x.duration.getOrElse(0L)).sum
 
     // This is to group the sqlIds based on the rootExecutionId. So that we can verify the
     // subExecutionId to rootExecutionId mapping.
      val rootIdToSqlId = app.sqlIdToInfo.groupBy { case (_, info) =>
       info.rootExecutionID
     }
-    assert(rootIdToSqlId(Some(5L)).keySet == Set(5,6,7,8,9,10))
+    assert(rootIdToSqlId(Some(5L)).keySet == Set(5, 6, 7, 8, 9, 10))
 
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(
@@ -1334,7 +1338,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
       val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
       val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
-      val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+      val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
       actualExpressions should ===(expected)
     }
   }
@@ -1390,7 +1394,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "EqualTo" -> 4, // EqualTo comes from the = operator
       "Not" -> 2).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
     val rawExpressions = SQLPlanParser.parseFilterExpressions(exprString)
-    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
     actualExpressions should ===(expected)
   }
 
@@ -1411,7 +1415,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "trim" -> 1,
       "unbase64" -> 4).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
     val rawExpressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    val actualExpressions =  ExprOpRef.fromRawExprSeq(rawExpressions)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
     actualExpressions should ===(expected)
   }
 
@@ -1481,7 +1485,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           //      +- FileScan parquet [] Batched: true, DataFilters: [], Format: Parquet, Location:
           //         InMemoryFileIndex(1 paths)[file:/tmp_folder/T/toolTest..., PartitionFilters: []
           //         PushedFilters: [], ReadSchema: struct<>
-          df2.selectExpr("current_database()","current_database() as my_db")
+          df2.selectExpr("current_database()", "current_database() as my_db")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
@@ -1714,24 +1718,29 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
   }
 
-  runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
+  /**
+   * Helper method to run tests for WindowGroupLimit expressions
+   * @param windowExpr the expression to be evaluated (i.e., rank, row_number).
+   * @param skipSqlID the SQL ID to skip the stage verification.
+   */
+  def runWindowGroupLimitTest(windowExpr: String, skipSqlID: Long): Unit = {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
+    val tbl_name = s"foobar_tbl_test_$windowExpr"
+    val appName = s"WindowGroupLimitExecTest_$windowExpr"
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
-          withTable(spark, tbl_name) {
-            spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-            val query =
-              s"""
-              SELECT foo, bar FROM (
-                  SELECT foo, bar,
-                      RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
-                  FROM $tbl_name)
-              WHERE rank <= 2"""
-            spark.sql(query)
-          }
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, appName) { spark =>
+        withTable(spark, tbl_name) {
+          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
+          val query =
+            s"""
+            SELECT foo, bar FROM (
+                SELECT foo, bar,
+                    $windowExpr() OVER (PARTITION BY foo ORDER BY bar) as rank
+                FROM $tbl_name)
+            WHERE rank <= 2"""
+          spark.sql(query)
         }
+      }
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
@@ -1740,7 +1749,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       // Note that the generated plan, there are skipped stages that causes some execs to appear
       // without their relevant stages. so we skip the stage verification here.
       verifyExecToStageMapping(parsedPlans.toSeq, app, Some( planInfo =>
-        if (planInfo.sqlID == 73) {
+        if (planInfo.sqlID == skipSqlID) {
           // Nodes should not have any stages
           val allExecInfos = planInfo.execInfo.flatMap { e =>
             e.children.getOrElse(Seq.empty) :+ e
@@ -1756,53 +1765,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     }
   }
 
-  runConditionalTest("row_number in WindowGroupLimitExec is not supported",
+  runConditionalTest("WindowGroupLimit expression rank is supported",
     execsSupportedSparkGTE350) {
-    val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
-    TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
-        withTable(spark, tbl_name) {
-          spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-          val query =
-            s"""
-            SELECT foo, bar FROM (
-                SELECT foo, bar,
-                    ROW_NUMBER() OVER (PARTITION BY foo ORDER BY bar) as rank
-                FROM $tbl_name)
-            WHERE rank <= 2"""
-          spark.sql(query)
-        }
-      }
-      val pluginTypeChecker = new PluginTypeChecker()
-      val app = createAppFromEventlog(eventLog)
-      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-      }
-      // Note that the generated plan, there are skipped stages that causes some execs to appear
-      // without their relevant stages. so we skip the stage verification here.
-      verifyExecToStageMapping(parsedPlans.toSeq, app, Some( planInfo =>
-        if (planInfo.sqlID == 76) {
-          // Nodes should not have any stages
-          val allExecInfos = planInfo.execInfo.flatMap { e =>
-            e.children.getOrElse(Seq.empty) :+ e
-          }
-          // exclude all stages higher than 8 because those ones belong to a skipped stage
-          allExecInfos.filter(_.nodeId <= 8).forall(_.stages.nonEmpty)
-        })
-      )
-      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-      val windowExecNotSupportedExprs = allExecInfo.filter(
-        _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-      windowExecNotSupportedExprs.head.getOpName shouldEqual "row_number"
-      windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
-          "Ranking function row_number is not supported in WindowGroupLimitExec"
-      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-      // We should have two WindowGroupLimitExec operators (Partial and Final) which are
-      // not supported due to unsupported expression.
-      assertSizeAndNotSupported(2, windowGroupLimitExecs)
-    }
+    runWindowGroupLimitTest("RANK", skipSqlID = 73)
+  }
+
+  runConditionalTest("WindowGroupLimit expression row_number is supported",
+    execsSupportedSparkGTE350) {
+    runWindowGroupLimitTest("ROW_NUMBER", skipSqlID = 76)
   }
 
   runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",

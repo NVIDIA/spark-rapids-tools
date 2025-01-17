@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ object ReadParser extends Logging {
   }
 
   // This tries to get just the field specified by tag in a string that
-  // may contain multiple fields.  It looks for a comma to delimit fields.
+  // may contain multiple fields. It looks for a comma to delimit fields.
   private def getFieldWithoutTag(str: String, tag: String): String = {
     val index = str.indexOf(tag)
     // remove the tag from the final string returned
@@ -187,7 +187,6 @@ object ReadParser extends Logging {
       }
       ReadMetaData(schema, location, fileFormat, tags = extractReadTags(node.desc))
     }
-
   }
 
   // For the read score we look at the read format and datatypes for each

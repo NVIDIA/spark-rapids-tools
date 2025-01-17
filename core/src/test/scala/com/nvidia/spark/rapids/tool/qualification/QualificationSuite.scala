@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -485,20 +485,24 @@ class QualificationSuite extends BaseTestSuite {
       try {
         val allEventLines = bufferedSource.getLines.toList
         // the following val will contain the last two lines of the eventlog
-        //59 = "{"Event":"SparkListenerTaskEnd",
-        //60 = "{"Event":"SparkListenerStageCompleted"
-        //61 = "{"Event":"SparkListenerJobEnd","Job ID":5,"Completion Time":1718401564645,"
-        //62 = "{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd","
-        //63 = "{"Event":"SparkListenerApplicationEnd","Timestamp":1718401564663}"
+        // 59 = "{"Event":"SparkListenerTaskEnd",
+        // 60 = "{"Event":"SparkListenerStageCompleted"
+        // 61 = "{"Event":"SparkListenerJobEnd","Job ID":5,"Completion Time":1718401564645,"
+        // 62 = "{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd","
+        // 63 = "{"Event":"SparkListenerApplicationEnd","Timestamp":1718401564663}"
         val tailLines = allEventLines.takeRight(5)
         val selectedLines: List[String] = allEventLines.dropRight(5)
+        // scalastyle:off println
         selectedLines.foreach { line =>
           pwList.foreach(pw => pw.println(line))
         }
+        // scalastyle:on println
         for (i <- 0 to tailLines.length - 1) {
           if (i == 0) {
             // add truncatedTaskEvent to the brokenEventlog
+            // scalastyle:off println
             pwList(2).println(tailLines(i).substring(0, 59))
+            // scalastyle:on println
           }
           // Write all the lines to the unfinishedLog and incompleteLog.
           // We do not want to ApplicationEnd in the incompleteLog
@@ -508,7 +512,9 @@ class QualificationSuite extends BaseTestSuite {
             0 // index of incomplete
           }
           for (lIndex <- startListInd to 1) {
+            // scalastyle:off println
             pwList(lIndex).println(tailLines(i))
+            // scalastyle:on println
           }
         }
         // For the first two eventlogs, add a random incomplete line
@@ -610,12 +616,12 @@ class QualificationSuite extends BaseTestSuite {
 
   test("test eventlog with no jobs") {
     val logFiles = Array(s"$logDir/empty_eventlog")
-    runQualificationTest(logFiles, shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty = true)
   }
 
   test("test eventlog with rdd only jobs") {
     val logFiles = Array(s"$logDir/rdd_only_eventlog")
-    runQualificationTest(logFiles, shouldReturnEmpty=true)
+    runQualificationTest(logFiles, shouldReturnEmpty = true)
   }
 
   test("test truncated log file 1") {
@@ -721,7 +727,7 @@ class QualificationSuite extends BaseTestSuite {
     dfGen.write.parquet(dir)
   }
 
-  private def createIntFile(spark:SparkSession, dir:String): Unit = {
+  private def createIntFile(spark: SparkSession, dir: String): Unit = {
     import spark.implicits._
     val t1 = Seq((1, 2), (3, 4), (1, 6)).toDF("a", "b")
     t1.write.parquet(dir)
@@ -791,7 +797,7 @@ class QualificationSuite extends BaseTestSuite {
         // Spark3.2.+ generates a plan with 6 stages. StageID 3 and 4 are both
         // "isEmpty at RowMatrix.scala:441"
         val expStageCount = if (ToolUtils.isSpark320OrLater()) 6 else 5
-        assert(mlOpsRes.mlFunctions.get.map(x=> x.stageId).size == expStageCount)
+        assert(mlOpsRes.mlFunctions.get.map(x => x.stageId).size == expStageCount)
         assert(mlOpsRes.mlFunctions.get.head.mlOps.mkString.contains(
           "org.apache.spark.ml.feature.PCA.fit"))
         assert(mlOpsRes.mlFunctionsStageDurations.get.head.mlFuncName.equals("PCA"))
@@ -1056,7 +1062,7 @@ class QualificationSuite extends BaseTestSuite {
         val df1 = spark.sparkContext.parallelize(List(10, 20, 30, 40)).toDF
         df1.filter(hex($"value") === "A") // hex is not supported in GPU yet.
       }
-      //stdout output tests
+      // stdout output tests
       val sumOut = qualApp.getSummary()
       val detailedOut = qualApp.getDetailed()
       assert(sumOut.nonEmpty)
@@ -1092,7 +1098,7 @@ class QualificationSuite extends BaseTestSuite {
         // so create a new one to read in the csv file
         createSparkSession()
 
-        //csv output tests
+        // csv output tests
         val outputResults = s"$outpath/rapids_4_spark_qualification_output/" +
           s"rapids_4_spark_qualification_output.csv"
         val outputActual = readExpectedFile(new File(outputResults), "\"")
@@ -1100,7 +1106,7 @@ class QualificationSuite extends BaseTestSuite {
         assert(rows.size == 1)
 
         val expectedExecs = "Scan unknown;Filter;SerializeFromObject" // Unsupported Execs
-        val expectedExprs = "hex" //Unsupported Exprs
+        val expectedExprs = "hex" // Unsupported Exprs
         val unsupportedExecs =
           outputActual.select(QualOutputWriter.UNSUPPORTED_EXECS).first.getString(0)
         val unsupportedExprs =
@@ -1223,7 +1229,7 @@ class QualificationSuite extends BaseTestSuite {
             val expr = ".*to_json.*"
             val matches = lines.filter(_.matches(expr))
             assert(matches.length == 1)
-            //get line number containing to_json
+            // get line number containing to_json
             val lineNum = lines.indexOf(matches(0))
             // check if lineNum has the expected value "This is disabled by default"
             assert(lines(lineNum).contains("This is disabled by default"))
@@ -1467,12 +1473,12 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   test("test frequency of repeated job") {
-    val logFiles = Array(s"$logDir/empty_eventlog",  s"$logDir/nested_type_eventlog")
+    val logFiles = Array(s"$logDir/empty_eventlog", s"$logDir/nested_type_eventlog")
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
 
   test("test CSV qual output with escaped characters") {
-    val jobNames = List("test,name",  "\"test\"name\"", "\"", ",", ",\"")
+    val jobNames = List("test,name", "\"test\"name\"", "\"", ",", ",\"")
     jobNames.foreach { jobName =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val (eventLog, _) =

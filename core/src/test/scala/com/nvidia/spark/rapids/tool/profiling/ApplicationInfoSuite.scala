@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -479,7 +479,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path,hadoopConf).head._1, index)
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
       index += 1
     }
     assert(apps.size == 1)
@@ -558,7 +558,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
 
   test("test multiple resource profile in single app") {
-    val apps :ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+    val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(Array(s"$logDir/rp_nosql_eventlog"))
     var index: Int = 1
     val eventlogPaths = appArgs.eventlog()
@@ -753,7 +753,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       // verify  ucx parameters are captured.
       assert(rows.contains("spark.executorEnv.UCX_RNDV_SCHEME"))
 
-      //verify gds parameters are captured.
+      // verify gds parameters are captured.
       assert(rows.contains("spark.rapids.memory.gpu.direct.storage.spill.alignedIO"))
 
       val sparkProps = collect.getSparkProperties

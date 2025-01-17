@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,18 +46,17 @@ object ToolUtils extends Logging {
 
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.
-  private val lookupVersions = Map(
-    "311" -> new ComparableVersion("3.1.1"), // default build version
+  private val lookupVersionsMap = Map(
     "320" -> new ComparableVersion("3.2.0"), // introduced reusedExchange
     "330" -> new ComparableVersion("3.3.0"), // used to check for memoryOverheadFactor
     "331" -> new ComparableVersion("3.3.1"),
-    "340" -> new ComparableVersion("3.4.0"),  // introduces jsonProtocolChanges
-    "350" -> new ComparableVersion("3.5.0")  // introduces windowGroupLimit
+    "340" -> new ComparableVersion("3.4.0"), // introduces jsonProtocolChanges
+    "350" -> new ComparableVersion("3.5.0")  // default build version, introduces windowGroupLimit
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
   // extend the support runtime for different platforms such as Databricks.
-  lazy val sparkRuntimeVersion = {
+  lazy val sparkRuntimeVersion: String = {
     org.apache.spark.SPARK_VERSION
   }
 
@@ -78,8 +77,8 @@ object ToolUtils extends Logging {
     compareVersions(refVersion, sparkRuntimeVersion) == 0
   }
 
-  def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
-    val lookupVersionObj = lookupVersions.get(lookupVersion).get
+  private def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {
+    val lookupVersionObj = lookupVersionsMap(lookupVersion)
     val currVersionObj = new ComparableVersion(currVersion)
     currVersionObj.compareTo(lookupVersionObj)
   }
@@ -113,16 +112,33 @@ object ToolUtils extends Logging {
     df.showString(numRows, 0)
   }
 
-  // given to duration values, calculate a human readable percent
-  // rounded to 2 decimal places. ie 39.12%
-  def calculateDurationPercent(first: Long, total: Long): Double = {
-    val firstDec = BigDecimal.decimal(first)
-    val totalDec = BigDecimal.decimal(total)
-    if (firstDec == 0 || totalDec == 0) {
+  /**
+   * Calculate the duration percent given the numerator and total values.
+   * This is used to calculate the CPURatio which represents the percentage of CPU time to
+   * the runTime.
+   * There is an implicit check to ensure that the denominator is not zero. If it is, then the
+   * ratio will be set to 0.
+   * There is an option to force the cap to 100% if the calculated value is greater
+   * than the total. This is possible to happen because the tasks CPUTime is measured in
+   * nanoseconds, while the runtTime is measured in milliseconds. This leads to a loss of precision
+   * causing the total percentage to exceed 100%.
+   * @param numerator the numerator value.
+   * @param total the total value.
+   * @param forceCap if true, then the value is capped at 100%.
+   * @return the calculated percentage.
+   */
+  def calculateDurationPercent(numerator: Long, total: Long, forceCap: Boolean = true): Double = {
+    if (numerator == 0 || total == 0) {
       0.toDouble
     } else {
-      val res = (firstDec / totalDec) * 100
-      formatDoubleValue(res, 2)
+      val numeratorDec = BigDecimal.decimal(numerator)
+      val totalDec = BigDecimal.decimal(total)
+      val res = formatDoubleValue((numeratorDec / totalDec) * 100, 2)
+      if (forceCap) {
+        math.min(res, 100)
+      } else {
+        res
+      }
     }
   }
 

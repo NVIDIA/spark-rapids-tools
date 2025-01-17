@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,8 +47,8 @@ object EventUtils extends Logging {
     // from pull https://github.com/apache/spark/pull/23551/files
     "number of files" -> "number of files read", // type sum
     "metadata time (ms)" -> "metadata time", // type sum spark2.x, but it was fixed to be timing
-    "time to build (ms)" -> "time to build", //type timing
-    "time to broadcast (ms)" -> "time to broadcast", //type timing
+    "time to build (ms)" -> "time to build", // type timing
+    "time to broadcast (ms)" -> "time to broadcast", // type timing
     "total time to update rows" -> "time to update",
     "total time to remove rows" -> "time to remove",
     "bytes of written output" -> "written output", // type sum

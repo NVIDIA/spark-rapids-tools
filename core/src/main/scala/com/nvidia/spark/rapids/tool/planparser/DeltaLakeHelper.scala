@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
 object DeltaLakeHelper {
   // we look for the serdeLibrary which is part of the node description:
   // Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
-  //private val serdeRegex = "Serde Library: ([\\w.]+)".r
+  // private val serdeRegex = "Serde Library: ([\\w.]+)".r
   private val serdeRegex = "Serde Library: ([\\w.]+)".r
   // We look for the schema in the node description. It is in the following format
   // Schema: root
