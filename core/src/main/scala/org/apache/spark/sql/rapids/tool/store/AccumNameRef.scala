@@ -18,8 +18,6 @@ package org.apache.spark.sql.rapids.tool.store
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics.allDiagnosticMetrics
-
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -35,8 +33,6 @@ case class AccumNameRef(value: String) {
   // We opt to use this optimization because while writing the CSV files, each row is going to
   // create a new CSV string even though they represent the same AccumulatorName.
   val csvValue: String = StringUtils.reformatCSVString(value)
-
-  def isDiagnosticMetrics(): Boolean = allDiagnosticMetrics.contains(value)
 }
 
 object AccumNameRef {

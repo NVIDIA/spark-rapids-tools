@@ -235,6 +235,8 @@ case class SQLAccumProfileResults(
     metricType: String,
     stageIds: Set[Int]) extends ProfileResult {
 
+  private val stageIdsStr = stageIds.mkString(",")
+
   override val outputHeaders = {
     Seq("appIndex",
       "sqlID",
@@ -262,7 +264,7 @@ case class SQLAccumProfileResults(
       max.toString,
       total.toString,
       metricType,
-      stageIds.mkString(","))
+      stageIdsStr)
   }
 
   override def convertToCSVSeq: Seq[String] = {
@@ -277,7 +279,7 @@ case class SQLAccumProfileResults(
       max.toString,
       total.toString,
       StringUtils.reformatCSVString(metricType),
-      StringUtils.reformatCSVString(stageIds.mkString(",")))
+      StringUtils.reformatCSVString(stageIdsStr))
   }
 }
 

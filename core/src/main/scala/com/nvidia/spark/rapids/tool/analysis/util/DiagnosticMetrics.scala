@@ -33,6 +33,13 @@ object StageAccumDiagnosticMetrics {
     DISK_SPILLED_METRIC, INPUT_BYTES_READ_METRIC, OUTPUT_BYTES_WRITTEN_METRIC,
     SW_TOTAL_BYTES_METRIC, SR_FETCH_WAIT_TIME_METRIC, SW_WRITE_TIME_METRIC,
     GPU_SEMAPHORE_WAIT_METRIC)
+
+  /**
+   * Check if a metric is diagnostic
+   */
+  def isDiagnosticMetrics(metric: String): Boolean = {
+    allDiagnosticMetrics.contains(metric)
+  }
 }
 
 object IOAccumDiagnosticMetrics {

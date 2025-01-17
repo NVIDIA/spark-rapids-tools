@@ -20,6 +20,7 @@ import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
+import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
@@ -415,26 +416,25 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         // Process each accumulator for the current SQL stage
         sqlAccums.foreach { sqlAccum =>
           // TODO: check if accumulator ID is in driverAccumMap, currently skipped
-          val accumInfo = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
+          val accumInfoOpt = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
 
-          val metricStats: Option[StatisticsMetrics] =
-            if (accumInfo.isEmpty || !accumInfo.get.stageValuesMap.contains(stageId)) {
+          val metricStats: Option[StatisticsMetrics] = accumInfoOpt.flatMap { accumInfo =>
+            if (!accumInfo.stageValuesMap.contains(stageId)) {
               None
             } else if (stageIds.size == 1) {
               // Skip computing statistics when there is only one stage
               Some(StatisticsMetrics(sqlAccum.min, sqlAccum.median, sqlAccum.max, sqlAccum.total))
             } else {
               // Retrieve task updates which correspond to the current stage
-              val filteredTaskUpdates = filterAccumTaskUpdatesForStage(accumInfo.get, stageTaskIds)
+              val filteredTaskUpdates = filterAccumTaskUpdatesForStage(accumInfo, stageTaskIds)
               StatisticsMetrics.createOptionalFromArr(filteredTaskUpdates)
             }
+          }
 
           // Compute the metric's statistics and store the results if available
-          metricStats match {
-            case Some(stat) =>
-              val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
-              metricNameToStatistics(metricKey) = stat
-            case _ => ()
+          metricStats.map { stat =>
+            val metricKey = normalizeToIODiagnosticMetricKey(sqlAccum.name)
+            metricNameToStatistics(metricKey) = stat
           }
         }
 
@@ -493,7 +493,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
               median = stat.med,
               max = stat.max,
               total = stat.total)
-            if (accumInfo.infoRef.name.isDiagnosticMetrics()) {
+            if (isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
               updateStageDiagnosticMetrics(accumProfileResults)
             }
             Some(accumProfileResults)
