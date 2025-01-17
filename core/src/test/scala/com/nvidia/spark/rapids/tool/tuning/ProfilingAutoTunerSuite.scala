@@ -1883,6 +1883,176 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  // This UT sets a custom spark-property "spark.master" pointing to a spark
+  // k8s value. The Autotuner should detect that the spark-master is k8s and
+  // comments on the missing memoryOverhead value since pinned pool is set.
+  test("missing memoryOverhead comment is included for k8s") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+      Some(testSparkVersion))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.instances=8
+          |--conf spark.executor.memoryOverheadFactor=10240m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.task.resource.gpu.amount=1.0
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverheadFactor' must be set if using 'spark.rapids.memory.pinnedPool.size'.
+          |- 'spark.executor.memoryOverheadFactor' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
+  // This UT sets a custom spark-property "spark.master" pointing to a yarn
+  // value. The Autotuner should detect that the spark-master is yarn and
+  // should not comment on the missing memoryOverhead value even though pinned
+  // pool is set.
+  test("missing memoryOverhead comment is not included for yarn") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.master" -> "yarn",
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.sql.files.maxPartitionBytes" -> "1g",
+        "spark.task.resource.gpu.amount" -> "0.0625",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+      Some(testSparkVersion))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+        platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.instances=8
+          |--conf spark.executor.memoryOverhead=10240m
+          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.task.resource.gpu.amount=1.0
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    assert(expectedResults == autoTunerOutput)
+  }
+
+
+  private val k8s_TEST_CASES = Seq(
+    "3.5.0" -> "spark.executor.memoryOverheadFactor",
+    "3.2.1" -> "spark.kubernetes.memoryOverheadFactor"
+  )
+
+  // This UT sets a custom spark-property "spark.master" pointing to a spark
+  // k8s value. The Autotuner should detect that the spark-master is k8s and
+  // comments on the missing memoryOverhead value since pinned pool is set.
+  k8s_TEST_CASES.foreach { case (sparkVersion, memoryOverheadLabel) =>
+    test(s"missing memoryOverhead comment is included for k8s with pinned pool " +
+      s"[sparkVersion=${sparkVersion}]") {
+      val logEventsProps: mutable.Map[String, String] =
+        mutable.LinkedHashMap[String, String](
+          "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
+          "spark.executor.cores" -> "16",
+          "spark.executor.instances" -> "1",
+          "spark.executor.memory" -> "80g",
+          "spark.executor.resource.gpu.amount" -> "1",
+          "spark.executor.instances" -> "1",
+          "spark.sql.shuffle.partitions" -> "200",
+          "spark.sql.files.maxPartitionBytes" -> "1g",
+          "spark.task.resource.gpu.amount" -> "0.0625",
+          "spark.rapids.memory.pinnedPool.size" -> "5g",
+          "spark.rapids.sql.enabled" -> "true",
+          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+          "spark.rapids.sql.concurrentGpuTasks" -> "4")
+      val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+      val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+        Some(sparkVersion))
+      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+        .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+          platform)
+      val (_, comments) = autoTuner.getRecommendedProperties()
+      val expectedComment =
+        s"'$memoryOverheadLabel' must be set if using 'spark.rapids.memory.pinnedPool.size'."
+      assert(comments.exists(_.comment == expectedComment))
+    }
+  }
+
   test("Recommendations generated for unsupported operators from driver logs only") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
