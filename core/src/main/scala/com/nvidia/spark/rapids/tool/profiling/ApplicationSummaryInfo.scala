@@ -128,7 +128,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
 
   override def getJvmGCFractions: Seq[Double] = {
     app.sqlTaskAggMetrics.map {
-      taskMetrics => taskMetrics.jvmGCTimeSum * 1.0 / taskMetrics.executorCpuTime
+      taskMetrics => taskMetrics.jvmGCTimeSum * 1.0 / taskMetrics.executorCPUTimeSum
     }
   }
 

@@ -50,7 +50,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, cols.sqlId, cols.executorCpuTime)
+        (cols.appIndex, -sortDur, cols.sqlId, cols.executorCPUTimeSum)
       }
     }
   }

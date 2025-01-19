@@ -68,7 +68,7 @@ class QualAppSummaryInfoProvider(
 
   override def getJvmGCFractions: Seq[Double] = {
     rawAggMetrics.sqlAggs.map {
-      taskMetrics => taskMetrics.jvmGCTimeSum * 1.0 / taskMetrics.executorCpuTime
+      taskMetrics => taskMetrics.jvmGCTimeSum * 1.0 / taskMetrics.executorCPUTimeSum
     }
   }
 
