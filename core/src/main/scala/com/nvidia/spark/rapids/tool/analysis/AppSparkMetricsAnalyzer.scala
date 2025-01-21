@@ -193,7 +193,6 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             sqlCase.description,
             preSqlRec.numTasks,
             sqlCase.duration,
-            preSqlRec.executorRunTimeSum,
             preSqlRec.executorCpuRatio,
             preSqlRec.diskBytesSpilledSum,
             preSqlRec.durationSum,
