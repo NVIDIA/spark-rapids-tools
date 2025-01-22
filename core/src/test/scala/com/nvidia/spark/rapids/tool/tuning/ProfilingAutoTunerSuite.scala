@@ -129,7 +129,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |  If the Spark RAPIDS jar is being bundled with your Spark
           |  distribution, this step is not needed.
           |""".stripMargin
-    assert(autoTunerOutput == expectedResults)
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
   test("Load non-existing cluster properties") {
@@ -1002,7 +1002,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1081,7 +1080,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1152,7 +1150,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -1232,7 +1229,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -1314,7 +1310,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1327,7 +1322,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    assert(autoTunerOutput == expectedResults)
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
   // When GCFraction is higher AutoTuner.MAX_JVM_GCTIME_FRACTION, the output should contain
@@ -1394,7 +1389,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1469,7 +1463,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1695,7 +1688,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.filecache.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1771,7 +1763,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1883,10 +1874,53 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  // Map of `Spark Version` -> `memoryOverheadLabel`
+  private val MISSING_MEMORY_OVERHEAD_k8s_TEST_CASES = Seq(
+    "3.5.0" -> "spark.executor.memoryOverheadFactor",
+    "3.2.1" -> "spark.kubernetes.memoryOverheadFactor"
+  )
+
   // This UT sets a custom spark-property "spark.master" pointing to a spark
   // k8s value. The Autotuner should detect that the spark-master is k8s and
   // comments on the missing memoryOverhead value since pinned pool is set.
-  test("missing memoryOverhead comment is included for k8s") {
+  MISSING_MEMORY_OVERHEAD_k8s_TEST_CASES.foreach { case (sparkVersion, memoryOverheadLabel) =>
+    test(s"missing memoryOverhead comment is included for k8s with pinned pool " +
+      s"[sparkVersion=$sparkVersion]") {
+      val logEventsProps: mutable.Map[String, String] =
+        mutable.LinkedHashMap[String, String](
+          "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
+          "spark.executor.cores" -> "16",
+          "spark.executor.instances" -> "1",
+          "spark.executor.memory" -> "80g",
+          "spark.executor.resource.gpu.amount" -> "1",
+          "spark.executor.instances" -> "1",
+          "spark.sql.shuffle.partitions" -> "200",
+          "spark.sql.files.maxPartitionBytes" -> "1g",
+          "spark.task.resource.gpu.amount" -> "0.0625",
+          "spark.rapids.memory.pinnedPool.size" -> "5g",
+          "spark.rapids.sql.enabled" -> "true",
+          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+          "spark.rapids.sql.concurrentGpuTasks" -> "4")
+      val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+      val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
+        Some(sparkVersion))
+      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+        .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
+          platform)
+      val (_, comments) = autoTuner.getRecommendedProperties()
+      val expectedComment =
+        s"'$memoryOverheadLabel' must be set if using 'spark.rapids.memory.pinnedPool.size'."
+      assert(comments.exists(_.comment == expectedComment))
+    }
+  }
+
+  // This UT sets a custom spark-property "spark.master" pointing to a spark
+  // k8s value. The Autotuner should detect that the spark-master is k8s and
+  // should not comment on the missing memoryOverhead value since pinned pool is not set.
+  test(s"missing memoryOverhead comment is not included for k8s without pinned pool") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
@@ -1898,7 +1932,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         "spark.sql.shuffle.partitions" -> "200",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.0625",
-        "spark.rapids.memory.pinnedPool.size" -> "5g",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
@@ -1918,20 +1951,24 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       s"""|
           |Spark Properties:
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memoryOverheadFactor=10240m
+          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memoryOverheadFactor=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
-          |--conf spark.task.resource.gpu.amount=1.0
           |
           |Comments:
-          |- 'spark.executor.memoryOverheadFactor' must be set if using 'spark.rapids.memory.pinnedPool.size'.
           |- 'spark.executor.memoryOverheadFactor' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
@@ -1939,12 +1976,11 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    assert(expectedResults == autoTunerOutput)
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
   // This UT sets a custom spark-property "spark.master" pointing to a yarn
@@ -1983,19 +2019,23 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       s"""|
           |Spark Properties:
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memoryOverhead=10240m
+          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memoryOverhead=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
-          |--conf spark.task.resource.gpu.amount=1.0
           |
           |Comments:
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
@@ -2007,50 +2047,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    assert(expectedResults == autoTunerOutput)
-  }
-
-
-  private val k8s_TEST_CASES = Seq(
-    "3.5.0" -> "spark.executor.memoryOverheadFactor",
-    "3.2.1" -> "spark.kubernetes.memoryOverheadFactor"
-  )
-
-  // This UT sets a custom spark-property "spark.master" pointing to a spark
-  // k8s value. The Autotuner should detect that the spark-master is k8s and
-  // comments on the missing memoryOverhead value since pinned pool is set.
-  k8s_TEST_CASES.foreach { case (sparkVersion, memoryOverheadLabel) =>
-    test(s"missing memoryOverhead comment is included for k8s with pinned pool " +
-      s"[sparkVersion=${sparkVersion}]") {
-      val logEventsProps: mutable.Map[String, String] =
-        mutable.LinkedHashMap[String, String](
-          "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
-          "spark.executor.cores" -> "16",
-          "spark.executor.instances" -> "1",
-          "spark.executor.memory" -> "80g",
-          "spark.executor.resource.gpu.amount" -> "1",
-          "spark.executor.instances" -> "1",
-          "spark.sql.shuffle.partitions" -> "200",
-          "spark.sql.files.maxPartitionBytes" -> "1g",
-          "spark.task.resource.gpu.amount" -> "0.0625",
-          "spark.rapids.memory.pinnedPool.size" -> "5g",
-          "spark.rapids.sql.enabled" -> "true",
-          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-          "spark.rapids.sql.concurrentGpuTasks" -> "4")
-      val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-      val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-        Some(sparkVersion))
-      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-        .loadClusterPropertiesFromContent(dataprocWorkerInfo)
-      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-          platform)
-      val (_, comments) = autoTuner.getRecommendedProperties()
-      val expectedComment =
-        s"'$memoryOverheadLabel' must be set if using 'spark.rapids.memory.pinnedPool.size'."
-      assert(comments.exists(_.comment == expectedComment))
-    }
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
   test("Recommendations generated for unsupported operators from driver logs only") {
@@ -2394,7 +2391,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.0625
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -2603,7 +2599,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.shuffle.partitions=400
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -2681,7 +2676,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
-          |- 'spark.executor.memoryOverhead' must be set if using 'spark.rapids.memory.pinnedPool.size
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
