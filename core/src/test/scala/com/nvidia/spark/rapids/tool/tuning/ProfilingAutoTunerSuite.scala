@@ -1921,9 +1921,10 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
   // k8s value. The Autotuner should detect that the spark-master is k8s and
   // should not comment on the missing memoryOverhead value since pinned pool is not set.
   test(s"missing memoryOverhead comment is not included for k8s without pinned pool") {
+    val sparkMaster = "k8s://https://my-cluster-endpoint.example.com:6443"
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
-        "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
+        "spark.master" -> sparkMaster,
         "spark.executor.cores" -> "16",
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
@@ -1946,13 +1947,15 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    val memoryOverheadLabel = ProfilingAutoTunerConfigsProvider.getMemoryOverheadLabel(
+        SparkMaster(Some(sparkMaster)), Some(testSparkVersion))
     // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverheadFactor=13516m
+          |--conf $memoryOverheadLabel=13516m
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -1965,7 +1968,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
-          |- 'spark.executor.memoryOverheadFactor' was not set.
+          |- '$memoryOverheadLabel' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
