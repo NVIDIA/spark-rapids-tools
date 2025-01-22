@@ -20,9 +20,8 @@ import java.io.{BufferedReader, InputStreamReader, IOException}
 import java.util
 
 import scala.beans.BeanProperty
-import scala.collection.{mutable, Seq}
 import scala.collection.JavaConverters.mapAsScalaMapConverter
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
@@ -47,7 +46,7 @@ class GpuWorkerProps(
     @BeanProperty var memory: String,
     @BeanProperty var count: Int,
     @BeanProperty var name: String) {
-  def this() {
+  def this() = {
     this("0m", 0, "None")
   }
   def isMissingInfo: Boolean = {
@@ -107,7 +106,7 @@ class GpuWorkerProps(
    */
   def setMissingFields(platform: Platform,
       autoTunerConfigsProvider: AutoTunerConfigsProvider): Seq[String] = {
-    val res = new ListBuffer[String]()
+    val res = new mutable.ListBuffer[String]()
     if (setDefaultGpuCountIfMissing(autoTunerConfigsProvider)) {
       res += s"GPU count is missing. Setting default to $getCount."
     }
@@ -133,7 +132,7 @@ class SystemClusterProps(
     @BeanProperty var numCores: Int,
     @BeanProperty var memory: String,
     @BeanProperty var numWorkers: Int) {
-  def this() {
+  def this() = {
     this(0, "0m", 0)
   }
   def isMissingInfo: Boolean = {
@@ -158,7 +157,7 @@ class SystemClusterProps(
    *         used to initialize the field.
    */
   def setMissingFields(autoTunerConfigsProvider: AutoTunerConfigsProvider): Seq[String] = {
-    val res = new ListBuffer[String]()
+    val res = new mutable.ListBuffer[String]()
     if (setDefaultNumWorkersIfMissing(autoTunerConfigsProvider)) {
       res += s"Number of workers is missing. Setting default to $getNumWorkers."
     }
@@ -185,7 +184,7 @@ class ClusterProperties(
     @BeanProperty var gpu: GpuWorkerProps,
     @BeanProperty var softwareProperties: util.LinkedHashMap[String, String]) {
 
-  def this() {
+  def this() = {
     this(new SystemClusterProps(), new GpuWorkerProps(), new util.LinkedHashMap[String, String]())
   }
   def isEmpty: Boolean = {
@@ -337,7 +336,7 @@ class AutoTuner(
     val autoTunerConfigsProvider: AutoTunerConfigsProvider)
   extends Logging {
 
-  var comments = new ListBuffer[String]()
+  var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, RecommendationEntry] =
     mutable.LinkedHashMap[String, RecommendationEntry]()
   // list of recommendations to be skipped for recommendations
@@ -984,11 +983,11 @@ class AutoTuner(
   /**
    * Recommendation for 'spark.rapids.file.cache' based on read characteristics of job.
    */
-  private def recommendFileCache() {
+  private def recommendFileCache(): Unit = {
     if (appInfoProvider.getDistinctLocationPct <
-          autoTunerConfigsProvider.DEF_DISTINCT_READ_THRESHOLD &&
-        appInfoProvider.getRedundantReadSize >
-          autoTunerConfigsProvider.DEF_READ_SIZE_THRESHOLD) {
+      autoTunerConfigsProvider.DEF_DISTINCT_READ_THRESHOLD &&
+      appInfoProvider.getRedundantReadSize >
+        autoTunerConfigsProvider.DEF_READ_SIZE_THRESHOLD) {
       appendRecommendation("spark.rapids.filecache.enabled", "true")
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s" +
         " and you have sufficient disk space available to fit both cache and normal Spark" +
