@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -507,7 +507,7 @@ object QualOutputWriter {
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
-  val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
+  val RECOMMENDED_NUM_GPUS_PER_NODE = "Recommended Num GPUs Per Node"
   val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
   val NUM_EXECS = "Num Executors"
@@ -855,7 +855,7 @@ object QualOutputWriter {
       NUM_EXECS, EXECUTOR_HEAP_MEMORY, DYN_ALLOC_ENABLED, DYN_ALLOC_MAX, DYN_ALLOC_MIN,
       DYN_ALLOC_INIT, CORES_PER_EXEC, RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS,
       RECOMMENDED_NUM_WORKER_NODES, RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE,
-      RECOMMENDED_NUM_GPUS, RECOMMENDED_VENDOR, RECOMMENDED_DYN_ALLOC_ENABLED,
+      RECOMMENDED_NUM_GPUS_PER_NODE, RECOMMENDED_VENDOR, RECOMMENDED_DYN_ALLOC_ENABLED,
       RECOMMENDED_DYN_ALLOC_MAX, RECOMMENDED_DYN_ALLOC_MIN, RECOMMENDED_DYN_ALLOC_INIT).map {
       key => (key, key.length)
     }
@@ -951,7 +951,8 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
         RECOMMENDED_CORES_PER_EXEC),
       refactorCSVFuncWithOption(recClusterInfo.map(_.gpuDevice), RECOMMENDED_GPU_DEVICE),
-      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpusPerNode.toString),
+        RECOMMENDED_NUM_GPUS_PER_NODE),
       refactorCSVFuncWithOption(recClusterInfo.map(_.vendor), RECOMMENDED_VENDOR),
       refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationEnabled.toString),
         RECOMMENDED_DYN_ALLOC_ENABLED),

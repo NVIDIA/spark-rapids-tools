@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@ Feature: Tool Installation Checks
 
     Examples:
       | platform         | cli    | expected_stdout                 |
-      | dataproc         | gcloud | 3 x n1-standard-16 (4 T4 each)  |
-      | emr              | aws    | 10 x g5.xlarge                  |
-      | databricks-aws   | aws    | 10 x g5.xlarge                  |
-      | databricks-azure | az     | 3 x Standard_NC64as_T4_v3       |
+      | dataproc         | gcloud | 2 x n1-standard-16 (1 T4 each)  |
+      | emr              | aws    | 2 x g5.4xlarge                  |
+      | databricks-aws   | aws    | 2 x g5.4xlarge                  |
+      | databricks-azure | az     | 2 x Standard_NC16as_T4_v3       |
 
   @test_id_IC_0002
   Scenario: Environment has missing java
