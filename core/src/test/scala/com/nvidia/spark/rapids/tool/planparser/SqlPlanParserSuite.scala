@@ -1097,7 +1097,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
                       "2023-11-05 20:45:30").toDF("timestamp")
       val df1 = data.withColumn("timestamp", to_timestamp(col("timestamp")))
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/trunctimestamptesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // date_trunc should be part of ProjectExec
       df2.select(date_trunc("month", df2("timestamp")))
     }}),
@@ -1107,7 +1107,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       import org.apache.spark.sql.types.StringType
       val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/ceiltesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // ceil should be part of ProjectExec
       df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
     }}),
@@ -1116,7 +1116,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       import spark.implicits._
       val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/translatetesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // translate should be part of ProjectExec
       df2.select(translate(df2("value"), "ABC", "123"))
     }}),
@@ -1126,7 +1126,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
       val df1 = init_df.toDF("micro", "millis", "seconds")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/timestampfunctesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // timestamp functions should be part of ProjectExec
       df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
         "timestamp_seconds(seconds)")
@@ -1136,7 +1136,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       import spark.implicits._
       val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/flattentesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // flatten should be part of ProjectExec
       df2.select(flatten(df2("value")))
     }}),
@@ -1145,7 +1145,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       import spark.implicits._
       val df1 = Seq("spark", "", "abc").toDF("value")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/xxhash64testtext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // xxhash64 should be part of ProjectExec
       df2.select(xxhash64(df2("value")))
     }}),
@@ -1155,7 +1155,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
         (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
       // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/mapfromarraystesttext")
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // map_from_arrays should be part of ProjectExec
       df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
     }})
