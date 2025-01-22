@@ -26,6 +26,8 @@ import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
+import org.scalatest.prop.TableDrivenPropertyChecks._
+import org.scalatest.prop.TableFor2
 
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
@@ -1050,141 +1052,151 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
   }
 
   /**
-   * Generates a sequence of app names and their corresponding SparkSession operations.
-   * Each application performs a transformation on DataFrames and writes/reads them via Parquet.
+   * Helper function to write a DataFrame to Parquet and then read it back.
    *
-   * @param parquetOutputLoc The output directory where Parquet files will be stored.
-   * @return A sequence of tuples containing the app name and a function that takes a SparkSession
-   *         and returns a DataFrame.
+   * @param spark The SparkSession instance.
+   * @param df    The input DataFrame to be written.
+   * @param path  The file path to store the Parquet file.
+   * @return A DataFrame read from the Parquet file.
    */
-  private def appNamesAndSparkSessions(parquetOutputLoc: File):
-      Seq[(String, SparkSession => DataFrame)] = {
-    /**
-     * Helper function to write a DataFrame to Parquet and then read it back.
-     *
-     * @param spark The SparkSession instance.
-     * @param df    The input DataFrame to be written.
-     * @param path  The file path to store the Parquet file.
-     * @return A DataFrame read from the Parquet file.
-     */
-    def writeAndReadParquet(spark: SparkSession, df: DataFrame, path: String): DataFrame = {
-      df.write.parquet(path)
-      spark.read.parquet(path)
-    }
-
-    Seq(// MonthsBetween is supported in ProjectExec
-      ("MonthsBetweenSupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq(("2024-12-01", "2024-01-01"),
-                      ("2024-12-01", "2023-12-01"),
-                      ("2024-12-01", "2024-12-01")).toDF("date1", "date2")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/monthsbetweentesttext")
-        // months_between should be part of ProjectExec
-        df2.select(months_between(df2("date1"), df2("date2")))
-      }),
-      // TruncDate is supported in ProjectExec
-      ("TruncDateSupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq("2024-12-15", "2024-01-10", "2023-11-05").toDF("date")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/truncdatetesttext")
-        // trunc should be part of ProjectExec
-        df2.select(trunc(df2("date"), "month"))
-      }),
-      // TruncTimestamp is supported in ProjectExec
-      ("TruncTimestampSupportedInProject", { spark =>
-        import spark.implicits._
-        val data = Seq("2024-12-15 14:30:45",
-                       "2024-01-10 08:15:00",
-                       "2023-11-05 20:45:30").toDF("timestamp")
-        val df1 = data.withColumn("timestamp", to_timestamp(col("timestamp")))
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/trunctimestamptesttext")
-        // date_trunc should be part of ProjectExec
-        df2.select(date_trunc("month", df2("timestamp")))
-      }),
-      // Ceil is supported in ProjectExec
-      ("CeilSupportedInProject", { spark =>
-        import spark.implicits._
-        import org.apache.spark.sql.types.StringType
-        val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/ceiltesttext")
-        // ceil should be part of ProjectExec
-        df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
-      }),
-      // Translate is supported in ProjectExec
-      ("TranslateSupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/translatetesttext")
-        // translate should be part of ProjectExec
-        df2.select(translate(df2("value"), "ABC", "123"))
-      }),
-      // Timestamp functions are supported in ProjectExec
-      ("TimestampFunctionsSupportedInProject", { spark =>
-        import spark.implicits._
-        val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
-        val df1 = init_df.toDF("micro", "millis", "seconds")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/timestampfunctesttext")
-        // timestamp functions should be part of ProjectExec
-        df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
-          "timestamp_seconds(seconds)")
-      }),
-      // Flatten is supported in ProjectExec
-      ("FlattenSupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/flattentesttext")
-        // flatten should be part of ProjectExec
-        df2.select(flatten(df2("value")))
-      }),
-      // Xxhash64 is supported in ProjectExec
-      ("Xxhash64SupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq("spark", "", "abc").toDF("value")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/xxhash64testtext")
-        // xxhash64 should be part of ProjectExec
-        df2.select(xxhash64(df2("value")))
-      }),
-      // MapFromArrays is supported in ProjectExec
-      ("MapFromArraysSupportedInProject", { spark =>
-        import spark.implicits._
-        val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
-          (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
-        // write df1 to parquet to transform LocalTableScan to ProjectExec
-        val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/mapfromarraystesttext")
-        // map_from_arrays should be part of ProjectExec
-        df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
-      })
-    )
+  private def writeAndReadParquet(spark: SparkSession, df: DataFrame, path: String): DataFrame = {
+    df.write.parquet(path)
+    spark.read.parquet(path)
   }
 
-  test("Expressions supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      for ((appName, sparkSession) <- appNamesAndSparkSessions(parquetoutputLoc)) {
-        TrampolineUtil.withTempDir { eventLogDir =>
-          val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, appName)(sparkSession)
-          val pluginTypeChecker = new PluginTypeChecker()
-          val app = createAppFromEventlog(eventLog)
-          assert(app.sqlPlans.size == 2)
-          val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-            SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-          }
-          verifyExecToStageMapping(parsedPlans.toSeq, app)
-          val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-          val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-          assert(wholeStages.size == 1)
-          assert(wholeStages.forall(_.duration.nonEmpty))
-          val allChildren = wholeStages.flatMap(_.children).flatten
-          val projects = allChildren.filter(_.exec == "Project")
-          assertSizeAndSupported(1, projects)
-        }
+  /**
+   * Table-driven test cases for verifying Spark SQL expressions in ProjectExec.
+   */
+  val projectExecTestCases: TableFor2[String, (File => (SparkSession => DataFrame))] = Table(
+    ("Expression", "FileToSparkSession"),
+    // MonthsBetween is supported in ProjectExec
+    ("MonthsBetween", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq(("2024-12-01", "2024-01-01"),
+                    ("2024-12-01", "2023-12-01"),
+                    ("2024-12-01", "2024-12-01")).toDF("date1", "date2")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // months_between should be part of ProjectExec
+      df2.select(months_between(df2("date1"), df2("date2")))
+    }}),
+    // TruncDate is supported in ProjectExec
+    ("TruncDate", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("2024-12-15", "2024-01-10", "2023-11-05").toDF("date")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // trunc should be part of ProjectExec
+      df2.select(trunc(df2("date"), "month"))
+    }}),
+    // TruncTimestamp is supported in ProjectExec
+    ("TruncTimestamp", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val data = Seq("2024-12-15 14:30:45",
+                      "2024-01-10 08:15:00",
+                      "2023-11-05 20:45:30").toDF("timestamp")
+      val df1 = data.withColumn("timestamp", to_timestamp(col("timestamp")))
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/trunctimestamptesttext")
+      // date_trunc should be part of ProjectExec
+      df2.select(date_trunc("month", df2("timestamp")))
+    }}),
+    // Ceil is supported in ProjectExec
+    ("Ceil", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      import org.apache.spark.sql.types.StringType
+      val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/ceiltesttext")
+      // ceil should be part of ProjectExec
+      df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
+    }}),
+    // Translate is supported in ProjectExec
+    ("Translate", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/translatetesttext")
+      // translate should be part of ProjectExec
+      df2.select(translate(df2("value"), "ABC", "123"))
+    }}),
+    // Timestamp functions are supported in ProjectExec
+    ("TimestampFunctions", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
+      val df1 = init_df.toDF("micro", "millis", "seconds")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/timestampfunctesttext")
+      // timestamp functions should be part of ProjectExec
+      df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
+        "timestamp_seconds(seconds)")
+    }}),
+    // Flatten is supported in ProjectExec
+    ("Flatten", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/flattentesttext")
+      // flatten should be part of ProjectExec
+      df2.select(flatten(df2("value")))
+    }}),
+    // Xxhash64 is supported in ProjectExec
+    ("Xxhash64", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("spark", "", "abc").toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/xxhash64testtext")
+      // xxhash64 should be part of ProjectExec
+      df2.select(xxhash64(df2("value")))
+    }}),
+    // MapFromArrays is supported in ProjectExec
+    ("MapFromArrays", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
+        (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/mapfromarraystesttext")
+      // map_from_arrays should be part of ProjectExec
+      df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+    }})
+  )
+
+  /**
+   * Tests whether a given Spark SQL expression is supported in ProjectExec.
+   *
+   * @param appName            Name of the Spark application.
+   * @param fileToSparkSession Function that maps a temporary Parquet directory to a function that
+   *                           takes a SparkSession and returns a DataFrame.
+   * @param parquetOutputLoc   Temporary directory used for writing and reading Parquet files.
+   */
+  private def testExpressionInProjectExec(appName: String,
+                                          fileToSparkSession: File => (SparkSession => DataFrame),
+                                          parquetOutputLoc: File): Unit = {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) =
+        ToolTestUtils.generateEventLog(eventLogDir, appName)(fileToSparkSession(parquetOutputLoc))
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      assert(app.sqlPlans.size == 2)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+      assert(wholeStages.size == 1)
+      assert(wholeStages.forall(_.duration.nonEmpty))
+      val allChildren = wholeStages.flatMap(_.children).flatten
+      val projects = allChildren.filter(_.exec == "Project")
+      assertSizeAndSupported(1, projects)
+    }
+  }
+
+  forAll(projectExecTestCases) { (exprName, fileToSparkSession) =>
+    test(s"$exprName is supported in ProjectExec") {
+      TrampolineUtil.withTempDir { parquetOutputLoc =>
+        testExpressionInProjectExec(s"{$exprName}SupportedInProjectExec", fileToSparkSession,
+          parquetOutputLoc)
       }
     }
   }
