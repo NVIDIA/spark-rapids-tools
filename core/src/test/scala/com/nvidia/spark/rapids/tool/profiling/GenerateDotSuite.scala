@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -125,8 +125,8 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
 
   test("Long physical plan") {
     val random = new SecureRandom()
-    val seed = System.currentTimeMillis();
-    random.setSeed(seed);
+    val seed = System.currentTimeMillis()
+    random.setSeed(seed)
     info("Seeding test with: " + seed)
     val numTests = 100
     val lineLengthRange = 50 until 200
@@ -140,7 +140,7 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
         SparkPlanGraph.htmlLineBreak.length()
 
       val sign = if (random.nextBoolean()) 1 else -1
-      val planLength = 16 * 1024 + sign * lineLength * (1 + random.nextInt(5));
+      val planLength = 16 * 1024 + sign * lineLength * (1 + random.nextInt(5))
       val initPlanStr = (0 to planLength / lineLength).map(_ => "a" * lineLength).mkString("\n")
 
       // throw some html characters in there to make sure escaped
@@ -169,7 +169,7 @@ class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
     info(s"Plan label summary: min=${planLengthSeq.min} max=${planLengthSeq.max}")
   }
 
-  private def planLabelChecks(planLabel: String) {
+  private def planLabelChecks(planLabel: String): Unit = {
     assert(planLabel.startsWith("<<table "))
     assert(planLabel.endsWith("</table>>"))
     assert(planLabel.contains("local-12345-1"))
