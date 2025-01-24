@@ -911,8 +911,9 @@ case class SQLStageSummary(
     stageSum: Set[StageQualSummaryInfo],
     sqlID: Long,
     estimateWallClockSupported: Long,
-    execCPUTime: Long,
-    execRunTime: Long)
+    execCPUTime: Long, // in nanoseconds
+    execRunTime: Long // in milliseconds
+)
 
 case class MLFunctions(
     appID: Option[String],
