@@ -273,15 +273,15 @@ case object Kubernetes extends SparkMaster
 case object Standalone extends SparkMaster
 
 object SparkMaster {
-    def apply(master: Option[String]): Option[SparkMaster] = {
-      master.flatMap {
-        case url if url.contains("yarn") => Some(Yarn)
-        case url if url.contains("k8s") => Some(Kubernetes)
-        case url if url.contains("local") => Some(Local)
-        case url if url.contains("spark://") => Some(Standalone)
-        case _ => None
-      }
+  def apply(master: Option[String]): Option[SparkMaster] = {
+    master.flatMap {
+      case url if url.contains("yarn") => Some(Yarn)
+      case url if url.contains("k8s") => Some(Kubernetes)
+      case url if url.contains("local") => Some(Local)
+      case url if url.contains("spark://") => Some(Standalone)
+      case _ => None
     }
+  }
 }
 
 /**
@@ -598,8 +598,8 @@ class AutoTuner(
       appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
       // if using k8s and pinned pool size is set, add a comment if memory overhead is missing
       if (sparkMaster.contains(Kubernetes) &&
-          getPropertyValue(pinnedPoolSizeLookup).isDefined &&
-            getPropertyValue(memOverheadLookup).isEmpty) {
+            getPropertyValue(pinnedPoolSizeLookup).isDefined &&
+              getPropertyValue(memOverheadLookup).isEmpty) {
         appendComment(s"'$memOverheadLookup' must be set if using '$pinnedPoolSizeLookup'.")
       }
     }

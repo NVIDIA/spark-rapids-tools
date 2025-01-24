@@ -977,8 +977,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1055,8 +1054,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1124,8 +1122,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1202,8 +1199,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1364,8 +1360,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1438,8 +1433,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1662,8 +1656,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1738,8 +1731,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1835,8 +1827,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1908,8 +1899,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         .loadClusterPropertiesFromContent(dataprocWorkerInfo)
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
       val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-          platform)
+        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
       val (_, comments) = autoTuner.getRecommendedProperties()
       val expectedComment =
         s"'$memoryOverheadLabel' must be set if using 'spark.rapids.memory.pinnedPool.size'."
@@ -1920,7 +1910,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
   // This UT sets a custom spark-property "spark.master" pointing to a spark
   // k8s value. The Autotuner should detect that the spark-master is k8s and
   // should not comment on the missing memoryOverhead value since pinned pool is not set.
-  test(s"missing memoryOverhead comment is not included for k8s without pinned pool") {
+  test(s"missing memoryOverhead comment is not included for k8s without pinned pool " +
+    s"[sparkVersion=$testSparkVersion]") {
     val sparkMaster = "k8s://https://my-cluster-endpoint.example.com:6443"
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1943,8 +1934,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val memoryOverheadLabel = ProfilingAutoTunerConfigsProvider.getMemoryOverheadLabel(
@@ -1990,7 +1980,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
   // value. The Autotuner should detect that the spark-master is yarn and
   // should not comment on the missing memoryOverhead value even though pinned
   // pool is set.
-  test("missing memoryOverhead comment is not included for yarn") {
+  test("missing memoryOverhead comment is not included for yarn " +
+    s"[sparkVersion=$testSparkVersion]") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.master" -> "yarn",
@@ -2013,8 +2004,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2223,8 +2213,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2300,8 +2289,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedLines.forall(line => autoTunerOutput.contains(line)),
@@ -2368,8 +2356,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2577,8 +2564,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2654,8 +2640,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2719,8 +2704,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2795,8 +2779,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2870,8 +2853,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider,
-        platform)
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
