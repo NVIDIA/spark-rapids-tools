@@ -1039,8 +1039,8 @@ class QualificationSuite extends BaseTestSuite {
         assert(firstRow(4) == "testing, csv delimiter, replacement")
 
         // parse results from listener
-        val executorCpuTime = listener.executorCpuTime
-        val executorRunTime = listener.completedStages
+        val executorCpuTime = NANOSECONDS.toMillis(listener.executorCpuTime) // in milliseconds
+        val executorRunTime = listener.completedStages // in milliseconds
           .map(_.stageInfo.taskMetrics.executorRunTime).sum
 
         val listenerCpuTimePercent =
@@ -1832,7 +1832,7 @@ class ToolTestListener extends SparkListener {
   var executorCpuTime = 0L
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = {
-    executorCpuTime += NANOSECONDS.toMillis(taskEnd.taskMetrics.executorCpuTime)
+    executorCpuTime += taskEnd.taskMetrics.executorCpuTime // in nanoseconds
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = {

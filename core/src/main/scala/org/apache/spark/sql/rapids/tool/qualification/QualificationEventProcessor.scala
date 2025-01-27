@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,6 @@
  */
 
 package org.apache.spark.sql.rapids.tool.qualification
-
-import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -42,8 +40,8 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
     val taskSum = app.stageIdToTaskEndSum.getOrElseUpdate(event.stageId, {
       new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0, 0)
     })
-    taskSum.executorRunTime += event.taskMetrics.executorRunTime
-    taskSum.executorCPUTime += NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime)
+    taskSum.executorRunTime += event.taskMetrics.executorRunTime // in milliseconds
+    taskSum.executorCPUTime += event.taskMetrics.executorCpuTime // in nanoseconds
     taskSum.totalTaskDuration += event.taskInfo.duration
     // Add the total bytes read from the task if it's available. This is from inputMetrics if
     // it is reading from datasource, or shuffleReadMetrics if it is reading from shuffle.
@@ -61,8 +59,8 @@ class QualificationEventProcessor(app: QualificationAppInfo, perSqlOnly: Boolean
       val taskSum = app.sqlIDToTaskEndSum.getOrElseUpdate(sqlID, {
         new StageTaskQualificationSummary(event.stageId, event.stageAttemptId, 0, 0, 0, 0)
       })
-      taskSum.executorRunTime += event.taskMetrics.executorRunTime
-      taskSum.executorCPUTime += NANOSECONDS.toMillis(event.taskMetrics.executorCpuTime)
+      taskSum.executorRunTime += event.taskMetrics.executorRunTime // in milliseconds
+      taskSum.executorCPUTime += event.taskMetrics.executorCpuTime // in nanoseconds
       taskSum.totalTaskDuration += event.taskInfo.duration
     }
   }
