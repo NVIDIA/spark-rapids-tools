@@ -263,6 +263,27 @@ class RecommendationEntry(val name: String,
 }
 
 /**
+ * Represents different Spark master types.
+ */
+sealed trait SparkMaster
+case object Local extends SparkMaster
+case object Yarn extends SparkMaster
+case object Kubernetes extends SparkMaster
+case object Standalone extends SparkMaster
+
+object SparkMaster {
+  def apply(master: Option[String]): Option[SparkMaster] = {
+    master.flatMap {
+      case url if url.contains("yarn") => Some(Yarn)
+      case url if url.contains("k8s") => Some(Kubernetes)
+      case url if url.contains("local") => Some(Local)
+      case url if url.contains("spark://") => Some(Standalone)
+      case _ => None
+    }
+  }
+}
+
+/**
  * AutoTuner module that uses event logs and worker's system properties to recommend Spark
  * RAPIDS configuration based on heuristics.
  *
@@ -346,6 +367,10 @@ class AutoTuner(
   protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
+
+  private lazy val sparkMaster: Option[SparkMaster] = {
+    SparkMaster(appInfoProvider.getProperty("spark.master"))
+  }
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
@@ -556,36 +581,6 @@ class AutoTuner(
   }
 
   /**
-   * Find the label of the memory.overhead based on the spark master configuration and the spark
-   * version.
-   * @return "spark.executor.memoryOverhead", "spark.kubernetes.memoryOverheadFactor",
-   *         or "spark.executor.memoryOverheadFactor".
-   */
-  def memoryOverheadLabel: String = {
-    val sparkMasterConf = getPropertyValue("spark.master")
-    val defaultLabel = "spark.executor.memoryOverhead"
-    sparkMasterConf match {
-      case None => defaultLabel
-      case Some(sparkMaster) =>
-        if (sparkMaster.contains("yarn")) {
-          defaultLabel
-        } else if (sparkMaster.contains("k8s")) {
-          appInfoProvider.getSparkVersion match {
-            case Some(version) =>
-              if (ToolUtils.isSpark330OrLater(version)) {
-                "spark.executor.memoryOverheadFactor"
-              } else {
-                "spark.kubernetes.memoryOverheadFactor"
-              }
-            case None => defaultLabel
-          }
-        } else {
-          defaultLabel
-        }
-    }
-  }
-
-  /**
    * Flow:
    *   if "spark.master" is standalone => Do Nothing
    *   if "spark.rapids.memory.pinnedPool.size" is set
@@ -594,18 +589,17 @@ class AutoTuner(
    *         if version > 3.3.0 recommend "spark.executor.memoryOverheadFactor" and add comment
    *         else recommend "spark.kubernetes.memoryOverheadFactor" and add comment if missing
    */
-  def addRecommendationForMemoryOverhead(recomValue: String): Unit = {
-    if (autoTunerConfigsProvider
-        .enableMemoryOverheadRecommendation(getPropertyValue("spark.master"))) {
-      val memOverheadLookup = memoryOverheadLabel
+  private def addRecommendationForMemoryOverhead(recomValue: String): Unit = {
+    if (!sparkMaster.contains(Standalone)) {
+      val memOverheadLookup = autoTunerConfigsProvider.getMemoryOverheadLabel(sparkMaster,
+        appInfoProvider.getSparkVersion)
+      val pinnedPoolSizeLookup = "spark.rapids.memory.pinnedPool.size"
       appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
-      getPropertyValue("spark.rapids.memory.pinnedPool.size").foreach { lookup =>
-        if (lookup != "spark.executor.memoryOverhead") {
-          if (getPropertyValue(memOverheadLookup).isEmpty) {
-            appendComment(s"'$memOverheadLookup' must be set if using " +
-              s"'spark.rapids.memory.pinnedPool.size")
-          }
-        }
+      // if using k8s and pinned pool size is set, add a comment if memory overhead is missing
+      if (sparkMaster.contains(Kubernetes) &&
+            getPropertyValue(pinnedPoolSizeLookup).isDefined &&
+              getPropertyValue(memOverheadLookup).isEmpty) {
+        appendComment(s"'$memOverheadLookup' must be set if using '$pinnedPoolSizeLookup'.")
       }
     }
   }
@@ -684,7 +678,7 @@ class AutoTuner(
         val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
           calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
         appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-        addRecommendationForMemoryOverhead(s"$memoryOverhead")
+        addRecommendationForMemoryOverhead(memoryOverhead.toString)
         appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
         setMaxBytesInFlight
       } else {
@@ -1439,20 +1433,6 @@ trait AutoTunerConfigsProvider extends Logging {
     }
   }
 
-  /**
-   * Given the spark property "spark.master", it checks whether memoryOverhead should be
-   * enabled/disabled. For Spark Standalone Mode, memoryOverhead property is skipped.
-   * @param confValue the value of property "spark.master"
-   * @return False if the value is a spark standalone. True if the value is not defined or
-   *         set for yarn/Mesos
-   */
-  def enableMemoryOverheadRecommendation(confValue: Option[String]): Boolean = {
-    confValue match {
-      case Some(sparkMaster) if sparkMaster.startsWith("spark:") => false
-      case _ => true
-    }
-  }
-
   def buildShuffleManagerClassName(smVersion: String): String = {
     s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
   }
@@ -1472,6 +1452,32 @@ trait AutoTunerConfigsProvider extends Logging {
 
   def shuffleManagerCommentForMissingVersion: String = {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
+  }
+
+
+  /**
+   * Find the label of the memory overhead based on the spark master configuration and the spark
+   * version.
+   * @return "spark.executor.memoryOverhead", "spark.kubernetes.memoryOverheadFactor",
+   *         or "spark.executor.memoryOverheadFactor".
+   */
+  def getMemoryOverheadLabel(
+      sparkMaster: Option[SparkMaster],
+      sparkVersion: Option[String]) : String = {
+    val defaultLabel = "spark.executor.memoryOverhead"
+    sparkMaster match {
+      case Some(Kubernetes) =>
+        sparkVersion match {
+          case Some(version) =>
+            if (ToolUtils.isSpark330OrLater(version)) {
+              "spark.executor.memoryOverheadFactor"
+            } else {
+              "spark.kubernetes.memoryOverheadFactor"
+            }
+          case None => defaultLabel
+        }
+      case _ => defaultLabel
+    }
   }
 }
 
