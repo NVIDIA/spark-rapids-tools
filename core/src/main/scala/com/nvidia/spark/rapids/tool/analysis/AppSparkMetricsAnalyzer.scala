@@ -19,8 +19,8 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
-import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.{AggAccumHelper, AggAccumPhotonHelper}
+import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling._
 
