@@ -195,74 +195,6 @@ class ClusterProperties(
 }
 
 /**
- * Wrapper to hold the recommendation of a given criterion.
- *
- * @param name the property label.
- * @param original the value loaded from the spark properties.
- * @param recommended the recommended value by the AutoTuner.
- */
-class RecommendationEntry(val name: String,
-    val original: Option[String],
-    var recommended: Option[String]) {
-
-  def setRecommendedValue(value: String): Unit = {
-    recommended = Option(value)
-  }
-
-  /**
-   * Used to compare between two properties by converting memory units to
-   * a equivalent representations.
-   * @param propValue property to be processed.
-   * @return the uniform representation of property.
-   *         For Memory, the value is converted to bytes.
-   */
-  private def getRawValue(propValue: Option[String]): Option[String] = {
-    propValue match {
-      case None => None
-      case Some(value) =>
-        if (StringUtils.isMemorySize(value)) {
-          // if it is memory return the bytes unit
-          Some(s"${StringUtils.convertMemorySizeToBytes(value)}")
-        } else {
-          propValue
-        }
-    }
-  }
-
-  /**
-   * Returns true when the recommendation is different than the original.
-   */
-  private def recommendsNewValue(): Boolean = {
-    val originalVal = getRawValue(original)
-    val recommendedVal = getRawValue(recommended)
-    (originalVal, recommendedVal) match {
-      case (None, None) => false
-      case (Some(orig), Some(rec)) =>
-        orig != rec
-      case _ => true
-    }
-  }
-
-  /**
-   * True or False whether the recommendation is valid. e.g., recommendations that does not change
-   * the original value returns false if filter is enabled.
-   * @param filterByUpdated flag to pick only the properties that would be updated by the
-   *                        recommendations
-   */
-  def isValid(filterByUpdated: Boolean): Boolean = {
-    recommended match {
-      case None => false
-      case _ =>
-        if (filterByUpdated) { // filter enabled
-          recommendsNewValue()
-        } else {
-          true
-        }
-    }
-  }
-}
-
-/**
  * Represents different Spark master types.
  */
 sealed trait SparkMaster
@@ -358,8 +290,8 @@ class AutoTuner(
   extends Logging {
 
   var comments = new mutable.ListBuffer[String]()
-  var recommendations: mutable.LinkedHashMap[String, RecommendationEntry] =
-    mutable.LinkedHashMap[String, RecommendationEntry]()
+  var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
+    mutable.LinkedHashMap[String, TuningEntryTrait]()
   // list of recommendations to be skipped for recommendations
   // Note that the recommendations will be computed anyway to avoid breaking dependencies.
   private val skippedRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
@@ -392,7 +324,7 @@ class AutoTuner(
     autoTunerConfigsProvider.recommendationsTarget.foreach { key =>
       // no need to add new records if they are missing from props
       getPropertyValue(key).foreach { propVal =>
-        val recommendationVal = new RecommendationEntry(key, Option(propVal), None)
+        val recommendationVal = TuningEntry.build(key, Option(propVal), None)
         recommendations(key) = recommendationVal
       }
     }
@@ -401,10 +333,10 @@ class AutoTuner(
   def appendRecommendation(key: String, value: String): Unit = {
     if (!skippedRecommendations.contains(key)) {
       val recomRecord = recommendations.getOrElseUpdate(key,
-        new RecommendationEntry(key, getPropertyValue(key), None))
+        TuningEntry.build(key, getPropertyValue(key), None))
       if (value != null) {
         recomRecord.setRecommendedValue(value)
-        if (recomRecord.original.isEmpty) {
+        if (recomRecord.originalValue.isEmpty) {
           // add a comment that the value was missing in the cluster properties
           appendComment(s"'$key' was not set.")
         }
@@ -1063,13 +995,14 @@ class AutoTuner(
       case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
       case None => false
     }
-    val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
-      case Some(f) => f.toBoolean
-      case None => true
-    }
-    if (!rapidsEnabled) {
-      appendRecommendation("spark.rapids.sql.enabled", "true")
-    }
+//    val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
+//      case Some(f) => f.toBoolean
+//      case None => true
+//    }
+//    if (!rapidsEnabled) {
+//
+//    }
+    appendRecommendation("spark.rapids.sql.enabled", "true")
     if (!isPluginLoaded) {
       appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
         "Please refer to " +
@@ -1119,18 +1052,23 @@ class AutoTuner(
     comments.map(RecommendedCommentResult).sortBy(_.comment)
   }
 
-  private def toRecommendationsProfileResult: Seq[RecommendedPropertyResult] = {
-    val finalRecommendations =
-      recommendations.filter(elem => elem._2.isValid(filterByUpdatedPropertiesEnabled))
-    finalRecommendations.collect {
-      case (key, record) => RecommendedPropertyResult(key, record.recommended.get)
-    }.toSeq.sortBy(_.property)
+  private def toRecommendationsProfileResult: Seq[TuningEntryTrait] = {
+    val recommendationEntries = if (filterByUpdatedPropertiesEnabled) {
+      recommendations.values.filter(_.isTuned())
+    } else {
+      recommendations.values.filter(_.isEnabled())
+    }
+    recommendationEntries.toSeq.sortBy(_.name)
+  }
+
+  protected def finalizeTuning(): Unit = {
+    recommendations.values.foreach(_.commit())
   }
 
   /**
    * The Autotuner loads the spark properties from either the ClusterProperties or the eventlog.
-   * 1- runs the calculation for each criterion and saves it as a [[RecommendationEntry]].
-   * 2- The final list of recommendations include any [[RecommendationEntry]] that has a
+   * 1- runs the calculation for each criterion and saves it as a [[TuningEntryTrait]].
+   * 2- The final list of recommendations include any [[TuningEntryTrait]] that has a
    *    recommendation that is different from the original property.
    * 3- Null values are excluded.
    * 4- A comment is added for each missing property in the spark property.
@@ -1149,7 +1087,7 @@ class AutoTuner(
       skipList: Option[Seq[String]] = Some(Seq()),
       limitedLogicList: Option[Seq[String]] = Some(Seq()),
       showOnlyUpdatedProps: Boolean = true):
-      (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+      (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     if (appInfoProvider.isAppInfoAvailable) {
       limitedLogicList.foreach(limitedSeq => limitedLogicRecommendations ++= limitedSeq)
       skipList.foreach(skipSeq => skippedRecommendations ++= skipSeq)
@@ -1178,6 +1116,7 @@ class AutoTuner(
       }
     }
     recommendFromDriverLogs()
+    finalizeTuning()
     (toRecommendationsProfileResult, toCommentProfileResult)
   }
 
@@ -1192,13 +1131,13 @@ class AutoTuner(
 
   // Combines the original Spark properties with the recommended ones.
   def combineSparkProperties(
-      recommendedSet: Seq[RecommendedPropertyResult]): Seq[RecommendedPropertyResult] = {
+      recommendedSet: Seq[TuningEntryTrait]): Seq[RecommendedPropertyResult] = {
     // get the original properties after filtering the and removing unnecessary keys
     val originalPropsFiltered = processPropKeys(getAllProperties)
     // Combine the original properties with the recommended properties.
     // The recommendations should always override the original ones
     val combinedProps = (originalPropsFiltered
-      ++ recommendedSet.map(r => r.property -> r.value).toMap).toSeq.sortBy(_._1)
+      ++ recommendedSet.map(r => r.name -> r.getTuneValue()).toMap).toSeq.sortBy(_._1)
     combinedProps.collect {
       case (pK, pV) => RecommendedPropertyResult(pK, pV)
     }
@@ -1282,19 +1221,7 @@ trait AutoTunerConfigsProvider extends Logging {
       "'spark.sql.adaptive.enabled' should be enabled for better performance."
   ) ++ commentsForMissingMemoryProps
 
-  val recommendationsTarget: Seq[String] = Seq[String](
-    "spark.executor.instances",
-    "spark.rapids.sql.enabled",
-    "spark.executor.cores",
-    "spark.executor.memory",
-    "spark.rapids.sql.concurrentGpuTasks",
-    "spark.task.resource.gpu.amount",
-    "spark.sql.shuffle.partitions",
-    "spark.sql.files.maxPartitionBytes",
-    "spark.rapids.memory.pinnedPool.size",
-    "spark.executor.memoryOverhead",
-    "spark.executor.memoryOverheadFactor",
-    "spark.kubernetes.memoryOverheadFactor")
+  lazy val recommendationsTarget: Iterable[String] = TuningEntryDefinition.TUNING_TABLE.keys
 
   val classPathComments: Map[String, String] = Map(
     "rapids.jars.missing" ->

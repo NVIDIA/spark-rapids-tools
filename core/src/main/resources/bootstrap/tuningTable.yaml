@@ -1,0 +1,152 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+tuningDefinitions:
+  - label: spark.executor.cores
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.executor.instances
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.executor.memory
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.executor.memoryOverhead
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.executor.memoryOverheadFactor
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.kubernetes.memoryOverheadFactor
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.filecache.enabled
+    description: ''
+    enabled: true
+    level: job
+  - label: spark.rapids.memory.pinnedPool.size
+    description: ''
+    enabled: true
+    level: cluster
+  - label: spark.rapids.shuffle.multiThreaded.maxBytesInFlight
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.shuffle.multiThreaded.reader.threads
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.shuffle.multiThreaded.writer.threads
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.sql.batchSizeBytes
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.rapids.sql.concurrentGpuTasks
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.sql.format.parquet.multithreaded.combine.waitTime
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.sql.enabled
+    description: 'should be true to enable SQL operations on the GPU.'
+    enabled: true
+    level: cluster
+    category: functionality
+  - label: spark.rapids.sql.multiThreadedRead.numThreads
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.rapids.sql.reader.multithreaded.combine.sizeBytes
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning
+  - label: spark.shuffle.manager
+    description: ''
+    enabled: true
+    level: cluster
+  - label: spark.sql.adaptive.enabled
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.advisoryPartitionSizeInBytes
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.coalescePartitions.initialPartitionNum
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.coalescePartitions.minPartitionNum
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.coalescePartitions.minPartitionSize
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.coalescePartitions.parallelismFirst
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.adaptive.autoBroadcastJoinThreshold
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.files.maxPartitionBytes
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.sql.shuffle.partitions
+    description: ''
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.task.resource.gpu.amount
+    description: ''
+    enabled: true
+    level: cluster
+    category: tuning

@@ -1138,6 +1138,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -1152,6 +1153,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -1782,7 +1784,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
-    assert(properties.map(_.property).forall(autoTuner.platform.isValidRecommendation))
+    assert(properties.map(_.name).forall(autoTuner.platform.isValidRecommendation))
     // Assert recommendations are skipped in comments
     assert(comments.map(_.comment).forall(autoTuner.platform.isValidComment))
   }
@@ -2580,6 +2582,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2591,6 +2594,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2656,6 +2660,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2667,6 +2672,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2721,6 +2727,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2740,6 +2747,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2796,6 +2804,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2814,6 +2823,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2870,6 +2880,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2888,6 +2899,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2943,6 +2955,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
@@ -2961,6 +2974,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
