@@ -634,7 +634,7 @@ class AutoTuner(
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
     getShuffleManagerClassName match {
       case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
-      case Left(comment) => appendComment(comment)
+      case Left(comment) => appendComment("spark.shuffle.manager", comment)
     }
     appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
     recommendFileCache()
@@ -789,13 +789,14 @@ class AutoTuner(
     }
 
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
+    val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
     val autoBroadcastJoinThresholdProperty =
-      getPropertyValue("spark.sql.adaptive.autoBroadcastJoinThreshold").map(StringUtils.convertToMB)
+      getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB)
     if (autoBroadcastJoinThresholdProperty.isEmpty) {
-      appendComment("'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.")
+      appendComment(autoBroadcastJoinKey, s"'$autoBroadcastJoinKey' was not set.")
     } else if (autoBroadcastJoinThresholdProperty.get >
         StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
-      appendComment("Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > " +
+      appendComment(s"Setting '$autoBroadcastJoinKey' > " +
         s"${autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD} could " +
         s"lead to performance\n" +
         "  regression. Should be set to a lower number.")
@@ -1012,6 +1013,22 @@ class AutoTuner(
 
   def appendComment(comment: String): Unit = {
     comments += comment
+  }
+
+  /**
+   * Adds a comment for a configuration key when AutoTuner cannot provide a recommended value,
+   * but the configuration is necessary.
+   */
+  private def appendComment(
+      key: String,
+      comment: String,
+      fillInValue: Option[String] = None): Unit = {
+    if (!skippedRecommendations.contains(key)) {
+      val recomRecord = recommendations.getOrElseUpdate(key,
+        TuningEntry.build(key, getPropertyValue(key), None))
+      recomRecord.markAsUnresolved(fillInValue)
+      comments += comment
+    }
   }
 
   def convertClusterPropsToString(): String = {
