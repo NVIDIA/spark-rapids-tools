@@ -995,13 +995,7 @@ class AutoTuner(
       case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
       case None => false
     }
-//    val rapidsEnabled = getPropertyValue("spark.rapids.sql.enabled") match {
-//      case Some(f) => f.toBoolean
-//      case None => true
-//    }
-//    if (!rapidsEnabled) {
-//
-//    }
+    // Set the plugin to True without need to check if it is already set.
     appendRecommendation("spark.rapids.sql.enabled", "true")
     if (!isPluginLoaded) {
       appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
