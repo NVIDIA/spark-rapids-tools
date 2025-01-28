@@ -26,19 +26,25 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * object to aggregate the Raw metrics and returns the result
    * @param app the AppBase to be analyzed
    * @param index the application index
+   * @param sqlAnalyzer optional AppSQLPlanAnalyzer used to aggregate diagnostic metrics,
+   *                    this is already present in ApplicationInfo for Profiler, but for
+   *                    Qualification this argument needs to be provided.
    * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */
-  def getAggRawMetrics(app: AppBase, index: Int): AggRawMetricsResult = {
+  def getAggRawMetrics(app: AppBase, index: Int, sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None):
+      AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
+    val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
     AggRawMetricsResult(
       analysisObj.aggregateSparkMetricsByJob(index),
       analysisObj.aggregateSparkMetricsByStage(index),
       analysisObj.shuffleSkewCheck(index),
-      analysisObj.aggregateSparkMetricsBySql(index),
-      analysisObj.aggregateIOMetricsBySql(analysisObj.aggregateSparkMetricsBySql(index)),
+      sqlMetricsAgg,
+      analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
-      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)))
+      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
+      analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
   }
 
   /**
@@ -59,7 +65,8 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
         agg1.sqlAggs ++ agg2.sqlAggs,
         agg1.ioAggs ++ agg2.ioAggs,
         agg1.sqlDurAggs ++ agg2.sqlDurAggs,
-        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes)
+        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes,
+        agg1.stageDiagnostics ++ agg2.stageDiagnostics)
     }
   }
 }

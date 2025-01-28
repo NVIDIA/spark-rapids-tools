@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,6 +76,7 @@ class Benchmark(
   def run(): Seq[Result] = {
     require(benchmarks.nonEmpty)
     val separator = "-" * 80
+    // scalastyle:off println
     println(separator)
     println("Running benchmark: " + name)
     println(separator)
@@ -85,6 +86,7 @@ class Benchmark(
       measure(c.name, c.numIters)(c.fn)
     }
     println
+    // scalastyle:on println
     results
   }
 
@@ -93,6 +95,7 @@ class Benchmark(
    * the rate of the function.
    */
   def measure(name: String, overrideNumIters: Int)(f: ToolsTimer => Unit): Result = {
+    // scalastyle:off println
     System.gc()  // ensures garbage from previous cases don't impact this one
     val separator = "-" * 80
     for (wi <- 0 until warmUpIterations) {
@@ -102,7 +105,7 @@ class Benchmark(
     val runTimes = ArrayBuffer[Long]()
     val gcCounts = ArrayBuffer[Long]()
     val gcTimes = ArrayBuffer[Long]()
-    //For tracking maximum GC over iterations
+    // For tracking maximum GC over iterations
     for (i <- 0 until minIters) {
       System.gc()  // ensures GC for a consistent state across different iterations
       val timer = new ToolsTimer(i)
@@ -144,14 +147,15 @@ class Benchmark(
       bestRuntime / 1000000.0,
       stdevRunTime / 1000000.0,
       JVMMemoryParams(avgGcTime, avgGcCount, stdevGcCount, maxGcCount, maxGcTime))
+    // scalastyle:on println
   }
 }
 
 
 object Benchmark {
   case class Case(name: String, fn: ToolsTimer => Unit, numIters: Int)
-  case class JVMMemoryParams( avgGCTime:Double, avgGCCount:Double,
-      stdDevGCCount: Double, maxGCCount: Long, maxGcTime:Long)
+  case class JVMMemoryParams(avgGCTime: Double, avgGCCount: Double,
+      stdDevGCCount: Double, maxGCCount: Long, maxGcTime: Long)
   case class Result(caseName: String, avgMs: Double, bestMs: Double, stdevMs: Double,
       memoryParams: JVMMemoryParams)
 }

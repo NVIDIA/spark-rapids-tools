@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,8 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import scala.collection.Map
+
+import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
 import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
@@ -74,16 +76,33 @@ case class JobInfoProfileResult(
     sqlID: Option[Long],
     startTime: Long,
     endTime: Option[Long]) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "jobID", "stageIds", "sqlID", "startTime", "endTime")
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "jobID",
+      "stageIds",
+      "sqlID",
+      "startTime",
+      "endTime")
+  }
+
   override def convertToSeq: Seq[String] = {
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, stageIdStr, sqlID.map(_.toString).getOrElse(null),
-      startTime.toString, endTime.map(_.toString).getOrElse(null))
+    Seq(appIndex.toString,
+      jobID.toString,
+      stageIdStr,
+      sqlID.map(_.toString).getOrElse(null),
+      startTime.toString,
+      endTime.map(_.toString).getOrElse(null))
   }
+
   override def convertToCSVSeq: Seq[String] = {
     val stageIdStr = s"[${stageIds.mkString(",")}]"
-    Seq(appIndex.toString, jobID.toString, StringUtils.reformatCSVString(stageIdStr),
-      sqlID.map(_.toString).getOrElse(null), startTime.toString,
+    Seq(appIndex.toString,
+      jobID.toString,
+      StringUtils.reformatCSVString(stageIdStr),
+      sqlID.map(_.toString).getOrElse(null),
+      startTime.toString,
       endTime.map(_.toString).getOrElse(null))
   }
 }
@@ -96,9 +115,7 @@ case class SQLCleanAndAlignIdsProfileResult(
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, sqlID.toString)
   }
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class SQLStageInfoProfileResult(
@@ -185,9 +202,7 @@ case class AppStatusResult(
     Seq(path, status, appId, message)
   }
 
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(path, status, appId, message)
-  }
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called
@@ -206,38 +221,108 @@ class SQLExecutionInfoClass(
   }
 }
 
-case class SQLAccumProfileResults(appIndex: Int, sqlID: Long, nodeID: Long,
-    nodeName: String, accumulatorId: Long, name: String, min: Long, median:Long,
-    max: Long, total: Long, metricType: String, stageIds: String) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "sqlID", "nodeID", "nodeName", "accumulatorId",
-    "name", "min", "median", "max", "total", "metricType", "stageIds")
-  override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString, nodeName, accumulatorId.toString,
-      name, min.toString, median.toString, max.toString, total.toString, metricType, stageIds)
+case class SQLAccumProfileResults(
+    appIndex: Int,
+    sqlID: Long,
+    nodeID: Long,
+    nodeName: String,
+    accumulatorId: Long,
+    name: String,
+    min: Long,
+    median: Long,
+    max: Long,
+    total: Long,
+    metricType: String,
+    stageIds: Set[Int]) extends ProfileResult {
+
+  private val stageIdsStr = stageIds.mkString(",")
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "sqlID",
+      "nodeID",
+      "nodeName",
+      "accumulatorId",
+      "name",
+      "min",
+      "median",
+      "max",
+      "total",
+      "metricType",
+      "stageIds")
   }
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      sqlID.toString,
+      nodeID.toString,
+      nodeName,
+      accumulatorId.toString,
+      name,
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString,
+      metricType,
+      stageIdsStr)
+  }
+
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, sqlID.toString, nodeID.toString,
-      StringUtils.reformatCSVString(nodeName), accumulatorId.toString,
-      StringUtils.reformatCSVString(name), min.toString, median.toString, max.toString,
-      total.toString, StringUtils.reformatCSVString(metricType),
-      StringUtils.reformatCSVString(stageIds))
+    Seq(appIndex.toString,
+      sqlID.toString,
+      nodeID.toString,
+      StringUtils.reformatCSVString(nodeName),
+      accumulatorId.toString,
+      StringUtils.reformatCSVString(name),
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString,
+      StringUtils.reformatCSVString(metricType),
+      StringUtils.reformatCSVString(stageIdsStr))
   }
 }
 
-case class AccumProfileResults(appIndex: Int, stageId: Int, accMetaRef: AccumMetaRef,
-    min: Long, median: Long, max: Long, total: Long) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "stageId", "accumulatorId", "name", "min",
-    "median", "max", "total")
+case class AccumProfileResults(
+    appIndex: Int,
+    stageId: Int,
+    accMetaRef: AccumMetaRef,
+    min: Long,
+    median: Long,
+    max: Long,
+    total: Long) extends ProfileResult {
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "stageId",
+      "accumulatorId",
+      "name",
+      "min",
+      "median",
+      "max",
+      "total")
+  }
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString, accMetaRef.getName(),
-      min.toString, median.toString, max.toString, total.toString)
+    Seq(appIndex.toString,
+      stageId.toString,
+      accMetaRef.id.toString,
+      accMetaRef.getName(),
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, stageId.toString, accMetaRef.id.toString,
-      accMetaRef.name.csvValue, min.toString,
-      median.toString, max.toString, total.toString)
+    Seq(appIndex.toString,
+      stageId.toString,
+      accMetaRef.id.toString,
+      accMetaRef.name.csvValue,
+      min.toString,
+      median.toString,
+      max.toString,
+      total.toString)
   }
 }
 
@@ -314,7 +399,7 @@ case class AppInfoProfileResults(appIndex: Int, appName: String,
 
   override def convertToSeq: Seq[String] = {
     Seq(appIndex.toString, appName, appId.getOrElse(""),
-      sparkUser,  startTime.toString, endTimeToStr, durToStr,
+      sparkUser, startTime.toString, endTimeToStr, durToStr,
       durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString)
   }
   override def convertToCSVSeq: Seq[String] = {
@@ -425,8 +510,8 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
   def durationMax: Long
   def durationMin: Long
   def durationAvg: Double
-  def executorCPUTimeSum: Long
-  def executorDeserializeCpuTimeSum: Long
+  def executorCPUTimeSum: Long // milliseconds
+  def executorDeserializeCpuTimeSum: Long // milliseconds
   def executorDeserializeTimeSum: Long
   def executorRunTimeSum: Long
   def inputBytesReadSum: Long
@@ -447,20 +532,44 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
   def srTotalBytesReadSum: Long
   def swBytesWrittenSum: Long
   def swRecordsWrittenSum: Long
-  def swWriteTimeSum: Long
+  def swWriteTimeSum: Long // milliseconds
 
   def idHeader: String
 
-  override val outputHeaders = Seq("appIndex", idHeader, "numTasks", "Duration",
-    "diskBytesSpilled_sum", "duration_sum", "duration_max", "duration_min",
-    "duration_avg", "executorCPUTime_sum", "executorDeserializeCPUTime_sum",
-    "executorDeserializeTime_sum", "executorRunTime_sum", "input_bytesRead_sum",
-    "input_recordsRead_sum", "jvmGCTime_sum", "memoryBytesSpilled_sum",
-    "output_bytesWritten_sum", "output_recordsWritten_sum", "peakExecutionMemory_max",
-    "resultSerializationTime_sum", "resultSize_max", "sr_fetchWaitTime_sum",
-    "sr_localBlocksFetched_sum", "sr_localBytesRead_sum", "sr_remoteBlocksFetched_sum",
-    "sr_remoteBytesRead_sum", "sr_remoteBytesReadToDisk_sum", "sr_totalBytesRead_sum",
-    "sw_bytesWritten_sum", "sw_recordsWritten_sum", "sw_writeTime_sum")
+  override val outputHeaders = {
+    Seq("appIndex",
+      idHeader,
+      "numTasks",
+      "Duration",
+      "diskBytesSpilled_sum",
+      "duration_sum",
+      "duration_max",
+      "duration_min",
+      "duration_avg",
+      "executorCPUTime_sum",
+      "executorDeserializeCPUTime_sum",
+      "executorDeserializeTime_sum",
+      "executorRunTime_sum",
+      "input_bytesRead_sum",
+      "input_recordsRead_sum",
+      "jvmGCTime_sum",
+      "memoryBytesSpilled_sum",
+      "output_bytesWritten_sum",
+      "output_recordsWritten_sum",
+      "peakExecutionMemory_max",
+      "resultSerializationTime_sum",
+      "resultSize_max",
+      "sr_fetchWaitTime_sum",
+      "sr_localBlocksFetched_sum",
+      "sr_localBytesRead_sum",
+      "sr_remoteBlocksFetched_sum",
+      "sr_remoteBytesRead_sum",
+      "sr_remoteBytesReadToDisk_sum",
+      "sr_totalBytesRead_sum",
+      "sw_bytesWritten_sum",
+      "sw_recordsWritten_sum",
+      "sw_writeTime_sum")
+  }
 
   val durStr = duration match {
     case Some(dur) => dur.toString
@@ -501,40 +610,8 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
   }
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      id.toString,
-      numTasks.toString,
-      durStr,
-      diskBytesSpilledSum.toString,
-      durationSum.toString,
-      durationMax.toString,
-      durationMin.toString,
-      durationAvg.toString,
-      executorCPUTimeSum.toString,
-      executorDeserializeCpuTimeSum.toString,
-      executorDeserializeTimeSum.toString,
-      executorRunTimeSum.toString,
-      inputBytesReadSum.toString,
-      inputRecordsReadSum.toString,
-      jvmGCTimeSum.toString,
-      memoryBytesSpilledSum.toString,
-      outputBytesWrittenSum.toString,
-      outputRecordsWrittenSum.toString,
-      peakExecutionMemoryMax.toString,
-      resultSerializationTimeSum.toString,
-      resultSizeMax.toString,
-      srFetchWaitTimeSum.toString,
-      srLocalBlocksFetchedSum.toString,
-      srcLocalBytesReadSum.toString,
-      srRemoteBlocksFetchSum.toString,
-      srRemoteBytesReadSum.toString,
-      srRemoteBytesReadToDiskSum.toString,
-      srTotalBytesReadSum.toString,
-      swBytesWrittenSum.toString,
-      swRecordsWrittenSum.toString,
-      swWriteTimeSum.toString)
-  }
+
+  override def convertToCSVSeq: Seq[String] = convertToSeq
 }
 
 case class JobAggTaskMetricsProfileResult(
@@ -547,8 +624,8 @@ case class JobAggTaskMetricsProfileResult(
     durationMax: Long,
     durationMin: Long,
     durationAvg: Double,
-    executorCPUTimeSum: Long,
-    executorDeserializeCpuTimeSum: Long,
+    executorCPUTimeSum: Long, // milliseconds
+    executorDeserializeCpuTimeSum: Long, // milliseconds
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
@@ -569,7 +646,8 @@ case class JobAggTaskMetricsProfileResult(
     srTotalBytesReadSum: Long,
     swBytesWrittenSum: Long,
     swRecordsWrittenSum: Long,
-    swWriteTimeSum: Long) extends BaseJobStageAggTaskMetricsProfileResult {
+    swWriteTimeSum: Long // milliseconds
+  ) extends BaseJobStageAggTaskMetricsProfileResult {
   override def idHeader = "jobId"
 }
 
@@ -583,8 +661,8 @@ case class StageAggTaskMetricsProfileResult(
     durationMax: Long,
     durationMin: Long,
     durationAvg: Double,
-    executorCPUTimeSum: Long,
-    executorDeserializeCpuTimeSum: Long,
+    executorCPUTimeSum: Long, // milliseconds
+    executorDeserializeCpuTimeSum: Long, // milliseconds
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
@@ -605,8 +683,183 @@ case class StageAggTaskMetricsProfileResult(
     srTotalBytesReadSum: Long,
     swBytesWrittenSum: Long,
     swRecordsWrittenSum: Long,
-    swWriteTimeSum: Long) extends BaseJobStageAggTaskMetricsProfileResult {
+    swWriteTimeSum: Long // milliseconds
+  ) extends BaseJobStageAggTaskMetricsProfileResult {
   override def idHeader = "stageId"
+}
+
+/**
+ * Represents diagnostic metrics results at task/stage level in a Spark SQL execution plan.
+ * Output file: stage_level_diagnostic_metrics.csv.
+ * Collected metrics include:
+ * - Memory spilled (MB)
+ * - Disk spilled (MB)
+ * - Input bytes read
+ * - Output bytes written
+ * - Shuffle read total bytes (remote + local)
+ * - Shuffle write bytes
+ * - Shuffle read fetch wait time (ms)
+ * - Shuffle write time (ms)
+ * - GPU semaphore time (ns)
+ */
+case class StageDiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    stageId: Long,
+    duration: Option[Long],
+    numTasks: Int,
+    srTotalBytesReadMin: Long,
+    srTotalBytesReadMed: Long,
+    srTotalBytesReadMax: Long,
+    srTotalBytesReadSum: Long,
+    memoryBytesSpilled: AccumProfileResults,
+    diskBytesSpilled: AccumProfileResults,
+    inputBytesRead: AccumProfileResults,
+    outputBytesWritten: AccumProfileResults,
+    swBytesWritten: AccumProfileResults,
+    srFetchWaitTime: AccumProfileResults,
+    swWriteTime: AccumProfileResults,
+    gpuSemaphoreWait: AccumProfileResults,
+    nodeNames: Seq[String]) extends ProfileResult {
+
+  def bytesToMB(numBytes: Long): Long = numBytes / (1024 * 1024)
+
+  def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
+
+  val durStr = duration match {
+    case Some(dur) => dur.toString
+    case None => "null"
+  }
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appName",
+      "appId",
+      "stageId",
+      "stageDurationMs",
+      "numTasks",
+      "memoryBytesSpilledMBMin",
+      "memoryBytesSpilledMBMedian",
+      "memoryBytesSpilledMBMax",
+      "memoryBytesSpilledMBTotal",
+      "diskBytesSpilledMBMin",
+      "diskBytesSpilledMBMedian",
+      "diskBytesSpilledMBMax",
+      "diskBytesSpilledMBTotal",
+      "inputBytesReadMin",
+      "inputBytesReadMedian",
+      "inputBytesReadMax",
+      "inputBytesReadTotal",
+      "outputBytesWrittenMin",
+      "outputBytesWrittenMedian",
+      "outputBytesWrittenMax",
+      "outputBytesWrittenTotal",
+      "shuffleReadBytesMin",
+      "shuffleReadBytesMedian",
+      "shuffleReadBytesMax",
+      "shuffleReadBytesTotal",
+      "shuffleWriteBytesMin",
+      "shuffleWriteBytesMedian",
+      "shuffleWriteBytesMax",
+      "shuffleWriteBytesTotal",
+      "shuffleReadFetchWaitTimeMin",
+      "shuffleReadFetchWaitTimeMedian",
+      "shuffleReadFetchWaitTimeMax",
+      "shuffleReadFetchWaitTimeTotal",
+      "shuffleWriteWriteTimeMin",
+      "shuffleWriteWriteTimeMedian",
+      "shuffleWriteWriteTimeMax",
+      "shuffleWriteWriteTimeTotal",
+      "gpuSemaphoreWaitTimeTotal",
+      "SQL Nodes(IDs)")
+  }
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      stageId.toString,
+      durStr,
+      numTasks.toString,
+      bytesToMB(memoryBytesSpilled.min).toString,
+      bytesToMB(memoryBytesSpilled.median).toString,
+      bytesToMB(memoryBytesSpilled.max).toString,
+      bytesToMB(memoryBytesSpilled.total).toString,
+      bytesToMB(diskBytesSpilled.min).toString,
+      bytesToMB(diskBytesSpilled.median).toString,
+      bytesToMB(diskBytesSpilled.max).toString,
+      bytesToMB(diskBytesSpilled.total).toString,
+      inputBytesRead.min.toString,
+      inputBytesRead.median.toString,
+      inputBytesRead.max.toString,
+      inputBytesRead.total.toString,
+      outputBytesWritten.min.toString,
+      outputBytesWritten.median.toString,
+      outputBytesWritten.max.toString,
+      outputBytesWritten.total.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      srTotalBytesReadSum.toString,
+      swBytesWritten.min.toString,
+      swBytesWritten.median.toString,
+      swBytesWritten.max.toString,
+      swBytesWritten.total.toString,
+      nanoToMilliSec(srFetchWaitTime.min).toString,
+      nanoToMilliSec(srFetchWaitTime.median).toString,
+      nanoToMilliSec(srFetchWaitTime.max).toString,
+      nanoToMilliSec(srFetchWaitTime.total).toString,
+      nanoToMilliSec(swWriteTime.min).toString,
+      nanoToMilliSec(swWriteTime.median).toString,
+      nanoToMilliSec(swWriteTime.max).toString,
+      nanoToMilliSec(swWriteTime.total).toString,
+      gpuSemaphoreWait.total.toString,
+      nodeNames.mkString(","))
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      stageId.toString,
+      durStr,
+      numTasks.toString,
+      bytesToMB(memoryBytesSpilled.min).toString,
+      bytesToMB(memoryBytesSpilled.median).toString,
+      bytesToMB(memoryBytesSpilled.max).toString,
+      bytesToMB(memoryBytesSpilled.total).toString,
+      bytesToMB(diskBytesSpilled.min).toString,
+      bytesToMB(diskBytesSpilled.median).toString,
+      bytesToMB(diskBytesSpilled.max).toString,
+      bytesToMB(diskBytesSpilled.total).toString,
+      inputBytesRead.min.toString,
+      inputBytesRead.median.toString,
+      inputBytesRead.max.toString,
+      inputBytesRead.total.toString,
+      outputBytesWritten.min.toString,
+      outputBytesWritten.median.toString,
+      outputBytesWritten.max.toString,
+      outputBytesWritten.total.toString,
+      srTotalBytesReadMin.toString,
+      srTotalBytesReadMed.toString,
+      srTotalBytesReadMax.toString,
+      srTotalBytesReadSum.toString,
+      swBytesWritten.min.toString,
+      swBytesWritten.median.toString,
+      swBytesWritten.max.toString,
+      swBytesWritten.total.toString,
+      nanoToMilliSec(srFetchWaitTime.min).toString,
+      nanoToMilliSec(srFetchWaitTime.median).toString,
+      nanoToMilliSec(srFetchWaitTime.max).toString,
+      nanoToMilliSec(srFetchWaitTime.total).toString,
+      nanoToMilliSec(swWriteTime.min).toString,
+      nanoToMilliSec(swWriteTime.median).toString,
+      nanoToMilliSec(swWriteTime.max).toString,
+      nanoToMilliSec(swWriteTime.total).toString,
+      gpuSemaphoreWait.total.toString,
+      StringUtils.reformatCSVString(nodeNames.mkString(",")))
+  }
 }
 
 case class SQLMaxTaskInputSizes(
@@ -623,16 +876,14 @@ case class SQLTaskAggMetricsProfileResult(
     description: String,
     numTasks: Int,
     duration: Option[Long],
-    executorCpuTime: Long,
-    executorRunTime: Long,
     executorCpuRatio: Double,
     diskBytesSpilledSum: Long,
     durationSum: Long,
     durationMax: Long,
     durationMin: Long,
     durationAvg: Double,
-    executorCPUTimeSum: Long,
-    executorDeserializeCpuTimeSum: Long,
+    executorCPUTimeSum: Long, // milliseconds
+    executorDeserializeCpuTimeSum: Long, // milliseconds
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
@@ -655,19 +906,46 @@ case class SQLTaskAggMetricsProfileResult(
     srTotalBytesReadSum: Long,
     swBytesWrittenSum: Long,
     swRecordsWrittenSum: Long,
-    swWriteTimeSum: Long) extends ProfileResult {
+    swWriteTimeSum: Long // milliseconds
+  ) extends ProfileResult {
 
-  override val outputHeaders = Seq("appIndex", "appID", "sqlID", "description", "numTasks",
-    "Duration", "executorCPUTime", "executorRunTime", "executorCPURatio",
-    "diskBytesSpilled_sum", "duration_sum", "duration_max", "duration_min",
-    "duration_avg", "executorCPUTime_sum", "executorDeserializeCPUTime_sum",
-    "executorDeserializeTime_sum", "executorRunTime_sum", "input_bytesRead_sum",
-    "input_recordsRead_sum", "jvmGCTime_sum", "memoryBytesSpilled_sum",
-    "output_bytesWritten_sum", "output_recordsWritten_sum", "peakExecutionMemory_max",
-    "resultSerializationTime_sum", "resultSize_max", "sr_fetchWaitTime_sum",
-    "sr_localBlocksFetched_sum", "sr_localBytesRead_sum", "sr_remoteBlocksFetched_sum",
-    "sr_remoteBytesRead_sum", "sr_remoteBytesReadToDisk_sum", "sr_totalBytesRead_sum",
-    "sw_bytesWritten_sum", "sw_recordsWritten_sum", "sw_writeTime_sum")
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appID",
+      "sqlID",
+      "description",
+      "numTasks",
+      "Duration",
+      "executorCPURatio",
+      "diskBytesSpilled_sum",
+      "duration_sum",
+      "duration_max",
+      "duration_min",
+      "duration_avg",
+      "executorCPUTime_sum",
+      "executorDeserializeCPUTime_sum",
+      "executorDeserializeTime_sum",
+      "executorRunTime_sum",
+      "input_bytesRead_sum",
+      "input_recordsRead_sum",
+      "jvmGCTime_sum",
+      "memoryBytesSpilled_sum",
+      "output_bytesWritten_sum",
+      "output_recordsWritten_sum",
+      "peakExecutionMemory_max",
+      "resultSerializationTime_sum",
+      "resultSize_max",
+      "sr_fetchWaitTime_sum",
+      "sr_localBlocksFetched_sum",
+      "sr_localBytesRead_sum",
+      "sr_remoteBlocksFetched_sum",
+      "sr_remoteBytesRead_sum",
+      "sr_remoteBytesReadToDisk_sum",
+      "sr_totalBytesRead_sum",
+      "sw_bytesWritten_sum",
+      "sw_recordsWritten_sum",
+      "sw_writeTime_sum")
+  }
 
   val durStr = duration match {
     case Some(dur) => dur.toString
@@ -681,8 +959,6 @@ case class SQLTaskAggMetricsProfileResult(
       description,
       numTasks.toString,
       durStr,
-      executorCpuTime.toString,
-      executorRunTime.toString,
       executorCpuRatio.toString,
       diskBytesSpilledSum.toString,
       durationSum.toString,
@@ -720,8 +996,6 @@ case class SQLTaskAggMetricsProfileResult(
       StringUtils.reformatCSVString(description),
       numTasks.toString,
       durStr,
-      executorCpuTime.toString,
-      executorRunTime.toString,
       executorCpuRatio.toString,
       diskBytesSpilledSum.toString,
       durationSum.toString,
@@ -751,6 +1025,153 @@ case class SQLTaskAggMetricsProfileResult(
       swBytesWrittenSum.toString,
       swRecordsWrittenSum.toString,
       swWriteTimeSum.toString)
+  }
+}
+
+/**
+ * Represents IO-related diagnostic metrics results in a Spark SQL execution plan.
+ * Output file: io_diagnostic_metrics.csv.
+ * Collected metrics include:
+ * - Output rows
+ * - Scan time (ns)
+ * - Output batches
+ * - Buffer time (ns)
+ * - Shuffle write time (ns)
+ * - Fetch wait time (ns)
+ * - GPU decode time (ns)
+ */
+case class IODiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    sqlId: Long,
+    stageId: Long,
+    duration: Long,
+    nodeId: Long,
+    nodeName: String,
+    outputRows: StatisticsMetrics,
+    scanTime: StatisticsMetrics,
+    outputBatches: StatisticsMetrics,
+    bufferTime: StatisticsMetrics,
+    shuffleWriteTime: StatisticsMetrics,
+    fetchWaitTime: StatisticsMetrics,
+    gpuDecodeTime: StatisticsMetrics) extends ProfileResult {
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appName",
+      "appId",
+      "sqlId",
+      "stageId",
+      "stageDurationMs",
+      "nodeId",
+      "nodeName",
+      "outputRowsMin",
+      "outputRowsMedian",
+      "outputRowsMax",
+      "outputRowsTotal",
+      "scanTimeMin",
+      "scanTimeMedian",
+      "scanTimeMax",
+      "scanTimeTotal",
+      "outputBatchesMin",
+      "outputBatchesMedian",
+      "outputBatchesMax",
+      "outputBatchesTotal",
+      "bufferTimeMin",
+      "bufferTimeMedian",
+      "bufferTimeMax",
+      "bufferTimeTotal",
+      "shuffleWriteTimeMin",
+      "shuffleWriteTimeMedian",
+      "shuffleWriteTimeMax",
+      "shuffleWriteTimeTotal",
+      "fetchWaitTimeMin",
+      "fetchWaitTimeMedian",
+      "fetchWaitTimeMax",
+      "fetchWaitTimeTotal",
+      "gpuDecodeTimeMin",
+      "gpuDecodeTimeMedian",
+      "gpuDecodeTimeMax",
+      "gpuDecodeTimeTotal")
+  }
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      sqlId.toString,
+      stageId.toString,
+      duration.toString,
+      nodeId.toString,
+      nodeName,
+      outputRows.min.toString,
+      outputRows.med.toString,
+      outputRows.max.toString,
+      outputRows.total.toString,
+      scanTime.min.toString,
+      scanTime.med.toString,
+      scanTime.max.toString,
+      scanTime.total.toString,
+      outputBatches.min.toString,
+      outputBatches.med.toString,
+      outputBatches.max.toString,
+      outputBatches.total.toString,
+      bufferTime.min.toString,
+      bufferTime.med.toString,
+      bufferTime.max.toString,
+      bufferTime.total.toString,
+      shuffleWriteTime.min.toString,
+      shuffleWriteTime.med.toString,
+      shuffleWriteTime.max.toString,
+      shuffleWriteTime.total.toString,
+      fetchWaitTime.min.toString,
+      fetchWaitTime.med.toString,
+      fetchWaitTime.max.toString,
+      fetchWaitTime.total.toString,
+      gpuDecodeTime.min.toString,
+      gpuDecodeTime.med.toString,
+      gpuDecodeTime.max.toString,
+      gpuDecodeTime.total.toString)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      sqlId.toString,
+      stageId.toString,
+      duration.toString,
+      nodeId.toString,
+      StringUtils.reformatCSVString(nodeName),
+      outputRows.min.toString,
+      outputRows.med.toString,
+      outputRows.max.toString,
+      outputRows.total.toString,
+      scanTime.min.toString,
+      scanTime.med.toString,
+      scanTime.max.toString,
+      scanTime.total.toString,
+      outputBatches.min.toString,
+      outputBatches.med.toString,
+      outputBatches.max.toString,
+      outputBatches.total.toString,
+      bufferTime.min.toString,
+      bufferTime.med.toString,
+      bufferTime.max.toString,
+      bufferTime.total.toString,
+      shuffleWriteTime.min.toString,
+      shuffleWriteTime.med.toString,
+      shuffleWriteTime.max.toString,
+      shuffleWriteTime.total.toString,
+      fetchWaitTime.min.toString,
+      fetchWaitTime.med.toString,
+      fetchWaitTime.max.toString,
+      fetchWaitTime.total.toString,
+      gpuDecodeTime.min.toString,
+      gpuDecodeTime.med.toString,
+      gpuDecodeTime.max.toString,
+      gpuDecodeTime.total.toString)
   }
 }
 
@@ -800,12 +1221,27 @@ case class IOAnalysisProfileResult(
   }
 }
 
-case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String,
-    rootsqlID: Option[Long], sqlID: Long, duration: Option[Long], containsDataset: Boolean,
-    appDuration: Option[Long], potentialProbs: String,
+case class SQLDurationExecutorTimeProfileResult(
+    appIndex: Int,
+    appId: String,
+    rootsqlID: Option[Long],
+    sqlID: Long,
+    duration: Option[Long],
+    containsDataset: Boolean,
+    appDuration: Option[Long],
+    potentialProbs: String,
     executorCpuRatio: Double) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "App ID", "RootSqlID", "sqlID", "SQL Duration",
-    "Contains Dataset or RDD Op", "App Duration", "Potential Problems", "Executor CPU Time Percent")
+  override val outputHeaders = {
+    Seq("appIndex",
+      "App ID",
+      "RootSqlID",
+      "sqlID",
+      "SQL Duration",
+      "Contains Dataset or RDD Op",
+      "App Duration",
+      "Potential Problems",
+      "Executor CPU Time Percent")
+  }
   val durStr = duration match {
     case Some(dur) => dur.toString
     case None => ""
@@ -826,14 +1262,27 @@ case class SQLDurationExecutorTimeProfileResult(appIndex: Int, appId: String,
   }
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, rootsqlID.getOrElse("").toString, appId, sqlID.toString, durStr,
-      containsDataset.toString, appDurStr, potentialStr, execCpuTimePercent)
+    Seq(appIndex.toString,
+      rootsqlID.getOrElse("").toString,
+      appId,
+      sqlID.toString,
+      durStr,
+      containsDataset.toString,
+      appDurStr,
+      potentialStr,
+      execCpuTimePercent)
   }
 
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, StringUtils.reformatCSVString(appId), rootsqlID.getOrElse("").toString,
-      sqlID.toString, durStr, containsDataset.toString, appDurStr,
-      StringUtils.reformatCSVString(potentialStr), execCpuTimePercent)
+    Seq(appIndex.toString,
+      StringUtils.reformatCSVString(appId),
+      rootsqlID.getOrElse("").toString,
+      sqlID.toString,
+      durStr,
+      containsDataset.toString,
+      appDurStr,
+      StringUtils.reformatCSVString(potentialStr),
+      execCpuTimePercent)
   }
 }
 
@@ -926,7 +1375,7 @@ case class WholeStageCodeGenResults(
   }
 }
 
-case class RecommendedPropertyResult(property: String, value: String){
+case class RecommendedPropertyResult(property: String, value: String) {
   override def toString: String = "--conf %s=%s".format(property, value)
 }
 

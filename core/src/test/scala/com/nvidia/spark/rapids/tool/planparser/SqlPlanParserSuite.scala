@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,14 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
+import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
+import org.scalatest.prop.TableDrivenPropertyChecks._
+import org.scalatest.prop.TableFor2
 
-import org.apache.spark.sql.{DataFrame, TrampolineUtil}
+import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
@@ -68,7 +71,11 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           } else {
             l
           }
-        ).foreach(modifiedLine => pWriter.println(modifiedLine))
+        ).foreach { modifiedLine =>
+          // scalastyle:off println
+          pWriter.println(modifiedLine)
+          // scalastyle:on println
+        }
       } finally {
         bufferedSource.close()
         pWriter.close()
@@ -109,7 +116,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
-
+        verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         val allChildren = wholeStages.flatMap(_.children).flatten
         val sorts = allChildren.filter(_.exec == "Sort")
@@ -168,14 +175,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         "spark-events-qualification/db_subExecution_id.zstd")
     val app = createAppFromEventlog(eventlog)
     // Get sum of durations of all the sqlIds. It contains duplicate values
-     val totalSqlDuration = app.sqlIdToInfo.values.map(x=> x.duration.getOrElse(0L)).sum
+     val totalSqlDuration = app.sqlIdToInfo.values.map(x => x.duration.getOrElse(0L)).sum
 
     // This is to group the sqlIds based on the rootExecutionId. So that we can verify the
     // subExecutionId to rootExecutionId mapping.
      val rootIdToSqlId = app.sqlIdToInfo.groupBy { case (_, info) =>
       info.rootExecutionID
     }
-    assert(rootIdToSqlId(Some(5L)).keySet == Set(5,6,7,8,9,10))
+    assert(rootIdToSqlId(Some(5L)).keySet == Set(5, 6, 7, 8, 9, 10))
 
     TrampolineUtil.withTempDir { outpath =>
       val allArgs = Array(
@@ -205,6 +212,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
+        verifyPlanExecToStageMap(planInfo)
         val allExecInfo = planInfo.execInfo
         // Note that:
         // Spark320+ will generate the following execs:
@@ -247,6 +255,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
+        verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
         val numSupported = wholeStages.filter(_.isSupported).size
@@ -267,18 +276,19 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val json = allExecInfo.filter(_.exec.contains("Scan json"))
     val orc = allExecInfo.filter(_.exec.contains("Scan orc"))
     val parquet = allExecInfo.filter(_.exec.contains("Scan parquet"))
     val text = allExecInfo.filter(_.exec.contains("Scan text"))
     val csv = allExecInfo.filter(_.exec.contains("Scan csv"))
-    assertSizeAndNotSupported(2, json.toSeq)
-    assertSizeAndNotSupported(1, text.toSeq)
+    assertSizeAndSupported(2, json)
+    assertSizeAndNotSupported(1, text)
     for (t <- Seq(parquet, csv)) {
-      assertSizeAndSupported(1, t.toSeq)
+      assertSizeAndSupported(1, t)
     }
-    assertSizeAndSupported(2, orc.toSeq)
+    assertSizeAndSupported(2, orc)
   }
 
   test("BatchScan") {
@@ -289,16 +299,17 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     // Note that the text scan from this file is v1 so ignore it
     val json = allExecInfo.filter(_.exec.contains("BatchScan json"))
     val orc = allExecInfo.filter(_.exec.contains("BatchScan orc"))
     val parquet = allExecInfo.filter(_.exec.contains("BatchScan parquet"))
     val csv = allExecInfo.filter(_.exec.contains("BatchScan csv"))
-    assertSizeAndNotSupported(3, json.toSeq)
-    assertSizeAndSupported(1, csv.toSeq)
+    assertSizeAndSupported(3, json)
+    assertSizeAndSupported(1, csv)
     for (t <- Seq(orc, parquet)) {
-      assertSizeAndSupported(2, t.toSeq)
+      assertSizeAndSupported(2, t)
     }
   }
 
@@ -319,6 +330,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val subqueryExecs = allExecInfo.filter(_.exec.contains(s"Subquery"))
         val summaryRecs = subqueryExecs.flatten { sqExec =>
@@ -354,6 +366,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val writeExecs = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
         val text = writeExecs.filter(_.expr.contains("text"))
@@ -393,6 +406,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val writeExecs = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
         val text = writeExecs.filter(_.expr.contains("text"))
@@ -425,6 +439,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
         pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val parquet = {
       allExecInfo.filter(_.exec.contains("CreateDataSourceTableAsSelectCommand"))
@@ -454,6 +469,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val tableScan = allExecInfo.filter(_.exec == ("InMemoryTableScan"))
       assertSizeAndSupported(1, tableScan.toSeq)
@@ -468,6 +484,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val broadcasts = allExecInfo.filter(_.exec == "BroadcastExchange")
     assertSizeAndSupported(3, broadcasts.toSeq,
@@ -488,6 +505,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     // reusedExchange is added as a supportedExec
     val reusedExchangeExecs = allExecInfo.filter(_.exec == "ReusedExchange")
@@ -509,6 +527,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val reader = allExecInfo.filter(_.exec == "CustomShuffleReader")
     assertSizeAndSupported(2, reader.toSeq)
@@ -523,6 +542,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val reader = allExecInfo.filter(_.exec == "AQEShuffleRead")
     assertSizeAndSupported(2, reader.toSeq)
@@ -552,15 +572,17 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       for (execName <- supportedExecs) {
         val execs = allExecInfo.filter(_.exec == execName)
-        assertSizeAndSupported(1, execs.toSeq, expectedDur = Seq.empty, extraText = execName)
+        assertSizeAndSupported(1, execs, expectedDur = Seq.empty, extraText = execName)
       }
       for (execName <- unsupportedExecs) {
         val execs = allExecInfo.filter(_.exec == execName)
-        assertSizeAndNotSupported(1, execs.toSeq)
+        assertSizeAndNotSupported(1, execs)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
     }
   }
 
@@ -581,6 +603,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       for (execName <- supportedExecs) {
         val supportedExec = allExecInfo.filter(_.exec == execName)
@@ -617,6 +640,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val bhj = allExecInfo.filter(_.exec == "BroadcastHashJoin")
       assertSizeAndSupported(1, bhj)
@@ -659,6 +683,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val bhj = allExecInfo.filter(_.exec == "BroadcastHashJoin")
       assertSizeAndNotSupported(1, bhj)
@@ -692,6 +717,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val smj = allExecInfo.filter(_.exec == "SortMergeJoin")
       assertSizeAndNotSupported(1, smj)
@@ -714,6 +740,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val sortAggregate = execInfo.filter(_.exec == "SortAggregate")
       assertSizeAndSupported(2, sortAggregate)
@@ -734,6 +761,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val objectHashAggregate = execInfo.filter(_.exec == "ObjectHashAggregate")
       // OHA will get sql time metrics "time in aggregation build"
@@ -760,6 +788,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val windowExecs = execInfo.filter(_.exec == "Window")
       assertSizeAndSupported(1, windowExecs)
@@ -775,6 +804,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
       SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
     }
+    verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
     val flatMapGroups = allExecInfo.filter(_.exec == "FlatMapGroupsInPandas")
     assertSizeAndSupported(1, flatMapGroups)
@@ -800,6 +830,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     val supportedExecs = Array("GlobalLimit", "LocalLimit")
     app.sqlPlans.foreach { case (sqlID, plan) =>
       val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      verifyPlanExecToStageMap(planInfo)
       // GlobalLimit and LocalLimit are inside WholeStageCodegen. So getting the children of
       // WholeStageCodegenExec
       val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
@@ -825,6 +856,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
+        verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 1)
         val allChildren = wholeStages.flatMap(_.children).flatten
@@ -849,6 +881,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       app.sqlPlans.foreach { case (sqlID, plan) =>
         val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
           pluginTypeChecker, app)
+        verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
         val allChildren = wholeStages.flatMap(_.children).flatten
@@ -873,6 +906,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val takeOrderedAndProject = execInfo.filter(_.exec == "TakeOrderedAndProject")
       assertSizeAndNotSupported(1, takeOrderedAndProject)
@@ -897,6 +931,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val generateExprs = execInfo.filter(_.exec == "Generate")
       assertSizeAndSupported(1, generateExprs)
@@ -924,6 +959,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExprs = execInfo.filter(_.exec == "Project")
         assertSizeAndSupported(1, projectExprs)
@@ -948,6 +984,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val sortAggregate = execInfo.filter(_.exec == "SortAggregate")
       assertSizeAndSupported(2, sortAggregate)
@@ -974,40 +1011,11 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val sortExec = allExecInfo.filter(_.exec.contains("Sort"))
         assert(sortExec.size == 3)
         assertSizeAndSupported(3, sortExec)
-      }
-    }
-  }
-
-  test("Expressions supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-
-          import org.apache.spark.sql.types.StringType
-          val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
       }
     }
   }
@@ -1029,6 +1037,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "test desc", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         parsedPlans.foreach { pInfo =>
           assert(pInfo.sqlDesc == "test desc")
         }
@@ -1042,92 +1051,152 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     }
   }
 
-  test("translate is supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-          val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
-          // write df1 to parquet to transform LocalTableScan to ProjectExec
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          // translate should be part of ProjectExec
-          df2.select(translate(df2("value"), "ABC", "123"))
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
+  /**
+   * Helper function to write a DataFrame to Parquet and then read it back.
+   *
+   * @param spark The SparkSession instance.
+   * @param df    The input DataFrame to be written.
+   * @param path  The file path to store the Parquet file.
+   * @return A DataFrame read from the Parquet file.
+   */
+  private def writeAndReadParquet(spark: SparkSession, df: DataFrame, path: String): DataFrame = {
+    df.write.parquet(path)
+    spark.read.parquet(path)
+  }
+
+  /**
+   * Table-driven test cases for verifying Spark SQL expressions in ProjectExec.
+   */
+  val projectExecTestCases: TableFor2[String, (File => (SparkSession => DataFrame))] = Table(
+    ("Expression", "FileToSparkSession"),
+    // MonthsBetween is supported in ProjectExec
+    ("MonthsBetween", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq(("2024-12-01", "2024-01-01"),
+                    ("2024-12-01", "2023-12-01"),
+                    ("2024-12-01", "2024-12-01")).toDF("date1", "date2")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // months_between should be part of ProjectExec
+      df2.select(months_between(df2("date1"), df2("date2")))
+    }}),
+    // TruncDate is supported in ProjectExec
+    ("TruncDate", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("2024-12-15", "2024-01-10", "2023-11-05").toDF("date")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // trunc should be part of ProjectExec
+      df2.select(trunc(df2("date"), "month"))
+    }}),
+    // TruncTimestamp is supported in ProjectExec
+    ("TruncTimestamp", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val data = Seq("2024-12-15 14:30:45",
+                      "2024-01-10 08:15:00",
+                      "2023-11-05 20:45:30").toDF("timestamp")
+      val df1 = data.withColumn("timestamp", to_timestamp(col("timestamp")))
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // date_trunc should be part of ProjectExec
+      df2.select(date_trunc("month", df2("timestamp")))
+    }}),
+    // Ceil is supported in ProjectExec
+    ("Ceil", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      import org.apache.spark.sql.types.StringType
+      val df1 = Seq(9.9, 10.2, 11.6, 12.5).toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // ceil should be part of ProjectExec
+      df2.select(df2("value").cast(StringType), ceil(df2("value")), df2("value"))
+    }}),
+    // Translate is supported in ProjectExec
+    ("Translate", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("", "abc", "ABC", "AaBbCc").toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // translate should be part of ProjectExec
+      df2.select(translate(df2("value"), "ABC", "123"))
+    }}),
+    // Timestamp functions are supported in ProjectExec
+    ("TimestampFunctions", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
+      val df1 = init_df.toDF("micro", "millis", "seconds")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // timestamp functions should be part of ProjectExec
+      df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
+        "timestamp_seconds(seconds)")
+    }}),
+    // Flatten is supported in ProjectExec
+    ("Flatten", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // flatten should be part of ProjectExec
+      df2.select(flatten(df2("value")))
+    }}),
+    // Xxhash64 is supported in ProjectExec
+    ("Xxhash64", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq("spark", "", "abc").toDF("value")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // xxhash64 should be part of ProjectExec
+      df2.select(xxhash64(df2("value")))
+    }}),
+    // MapFromArrays is supported in ProjectExec
+    ("MapFromArrays", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
+        (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // map_from_arrays should be part of ProjectExec
+      df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+    }})
+  )
+
+  /**
+   * Tests whether a given Spark SQL expression is supported in ProjectExec.
+   *
+   * @param appName            Name of the Spark application.
+   * @param fileToSparkSession Function that maps a temporary Parquet directory to a function that
+   *                           takes a SparkSession and returns a DataFrame.
+   * @param parquetOutputLoc   Temporary directory used for writing and reading Parquet files.
+   */
+  private def testExpressionInProjectExec(appName: String,
+                                          fileToSparkSession: File => (SparkSession => DataFrame),
+                                          parquetOutputLoc: File): Unit = {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) =
+        ToolTestUtils.generateEventLog(eventLogDir, appName)(fileToSparkSession(parquetOutputLoc))
+      val pluginTypeChecker = new PluginTypeChecker()
+      val app = createAppFromEventlog(eventLog)
+      assert(app.sqlPlans.size == 2)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
+      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
+      assert(wholeStages.size == 1)
+      assert(wholeStages.forall(_.duration.nonEmpty))
+      val allChildren = wholeStages.flatMap(_.children).flatten
+      val projects = allChildren.filter(_.exec == "Project")
+      assertSizeAndSupported(1, projects)
     }
   }
 
-  test("Timestamp functions supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-          val init_df = Seq((1230219000123123L, 1230219000123L, 1230219000.123))
-          val df1 = init_df.toDF("micro", "millis", "seconds")
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          df2.selectExpr("timestamp_micros(micro)", "timestamp_millis(millis)",
-                         "timestamp_seconds(seconds)")
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
-      }
-    }
-  }
-
-  test("flatten is supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-          val df1 = Seq(Seq(Seq(1, 2), Seq(3, 4))).toDF("value")
-          // write df1 to parquet to transform LocalTableScan to ProjectExec
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          // flatten should be part of ProjectExec
-          df2.select(flatten(df2("value")))
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
+  forAll(projectExecTestCases) { (exprName, fileToSparkSession) =>
+    test(s"$exprName is supported in ProjectExec") {
+      TrampolineUtil.withTempDir { parquetOutputLoc =>
+        testExpressionInProjectExec(s"{$exprName}SupportedInProjectExec", fileToSparkSession,
+          parquetOutputLoc)
       }
     }
   }
@@ -1183,41 +1252,13 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projects = allExecInfo.filter(_.exec.contains("Project"))
         assertSizeAndNotSupported(1, projects)
         val expectedExprss = Seq("parse_url_ref", "parse_url_userinfo")
-        projects(0).unsupportedExprs.map(_.exprName) should contain theSameElementsAs expectedExprss
-      }
-    }
-  }
-
-  test("xxhash64 is supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-          val df1 = Seq("spark", "", "abc").toDF("value")
-          // write df1 to parquet to transform LocalTableScan to ProjectExec
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          // xxhash64 should be part of ProjectExec
-          df2.select(xxhash64(df2("value")))
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
+        projects(0)
+          .unsupportedExprs.map(_.getOpName) should contain theSameElementsAs expectedExprss
       }
     }
   }
@@ -1239,85 +1280,78 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val hashAggregate = execInfo.filter(_.exec == "HashAggregate")
       assertSizeAndSupported(2, hashAggregate, checkDurations = false)
     }
   }
 
-  test("map_from_arrays is supported in ProjectExec") {
-    TrampolineUtil.withTempDir { parquetoutputLoc =>
-      TrampolineUtil.withTempDir { eventLogDir =>
-        val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-          "ProjectExprsSupported") { spark =>
-          import spark.implicits._
-          val df1 = Seq((Array("a", "b", "c"), Array(1, 2, 3)),
-            (Array("x", "y", "z"), Array(10, 20, 30))).toDF("keys", "values")
-          // write df1 to parquet to transform LocalTableScan to ProjectExec
-          df1.write.parquet(s"$parquetoutputLoc/testtext")
-          val df2 = spark.read.parquet(s"$parquetoutputLoc/testtext")
-          // map_from_arrays should be part of ProjectExec
-          df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
-        }
-        val pluginTypeChecker = new PluginTypeChecker()
-        val app = createAppFromEventlog(eventLog)
-        assert(app.sqlPlans.size == 2)
-        val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-        }
-        val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-        val wholeStages = allExecInfo.filter(_.exec.contains("WholeStageCodegen"))
-        assert(wholeStages.size == 1)
-        assert(wholeStages.forall(_.duration.nonEmpty))
-        val allChildren = wholeStages.flatMap(_.children).flatten
-        val projects = allChildren.filter(_.exec == "Project")
-        assertSizeAndSupported(1, projects)
-      }
-    }
-  }
-
   test("Parsing Conditional Expressions") {
     // scalastyle:off line.size.limit
-    val expressionsMap: mutable.HashMap[String, Array[String]] = mutable.HashMap(
-      "(((lower(partition_act#90) = moduleview) && (isnotnull(productarr#22) && NOT (productarr#22=[]))) || (lower(moduletype#13) = saveforlater))" ->
-        Array("lower", "isnotnull", "EqualTo", "And",  "Not", "Or"),
+    val expressionsMap: mutable.HashMap[String, Map[String, Int]] = mutable.HashMap(
+      "(((lower(partition_act#90) = moduleview) && (isnotnull(productarr#22) && NOT (productarr#22 = []))) || (lower(moduletype#13) = saveforlater))" ->
+        Map("lower" -> 2,
+          "isnotnull" -> 1,
+          "EqualTo" -> 3,
+          "And" -> 2,
+          "Not" -> 1,
+          "Or" -> 1),
       "(IsNotNull(c_customer_id))" ->
-        Array("IsNotNull"),
+        Map("IsNotNull" -> 1),
       "(isnotnull(names#15) AND StartsWith(names#15, OR))" ->
-        Array("isnotnull", "And", "StartsWith"),
+        Map("isnotnull" -> 1,
+          "StartsWith" -> 1,
+          "And" -> 1),
       "((isnotnull(s_state#68) AND (s_state#68 = TN)) OR (hex(cast(value#0 as bigint)) = B))" ->
-        Array("isnotnull", "And", "Or", "hex", "EqualTo"),
+        Map("isnotnull" -> 1,
+          "And" -> 1,
+          "Or" -> 1,
+          "hex" -> 1,
+          "EqualTo" -> 2),
       // Test that AND followed by '(' without space can be parsed
       "((isnotnull(s_state#68) AND(s_state#68 = TN)) OR (hex(cast(value#0 as bigint)) = B))" ->
-        Array("isnotnull", "And", "Or", "hex", "EqualTo"),
+        Map("isnotnull" -> 1,
+          "And" -> 1,
+          "Or" -> 1,
+          "hex" -> 1,
+          "EqualTo" -> 2),
       "(((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 = 1998)) AND (d_moy#500 = 12))" ->
-        Array("isnotnull", "And", "EqualTo"),
+        Map("isnotnull" -> 2,
+          "And" -> 3,
+          "EqualTo" -> 2),
       "IsNotNull(d_year) AND IsNotNull(d_moy) AND EqualTo(d_year,1998) AND EqualTo(d_moy,12)" ->
-        Array("IsNotNull", "And", "EqualTo"),
+        Map("IsNotNull" -> 2,
+          "EqualTo" -> 2,
+          "And" -> 3),
       // check that a predicate with a single variable name is fine
       "flagVariable" ->
-        Array(),
+        Map(),
       // check that a predicate with a single function call
       "isnotnull(c_customer_sk#412)" ->
-        Array("isnotnull"),
+        Map("isnotnull" -> 1),
       "((substr(ca_zip#457, 1, 5) IN (85669,86197,88274,83405,86475,85392,85460,80348,81792) OR ca_state#456 IN (CA,WA,GA)) OR (cs_sales_price#20 > 500.00))" ->
-        Array("substr", "In", "Or", "GreaterThan"),
+        Map("substr" -> 1,
+          "In" -> 2,
+          "Or" -> 2,
+          "GreaterThan" -> 1),
       // test the operator is at the beginning of expression and not followed by space
       "NOT(isnotnull(d_moy))" ->
-        Array("Not", "isnotnull"),
+        Map("isnotnull" -> 1,
+          "Not" -> 1),
       // test the shiftright operator(since spark-4.0)
       "((isnotnull(d_year#498) AND isnotnull(d_moy#500)) AND (d_year#498 >> 1) >= 100)" ->
-        Array("isnotnull", "And", "GreaterThanOrEqual", "ShiftRight")
+        Map("isnotnull" -> 2,
+          "And" -> 2,
+          "ShiftRight" -> 1,
+          "GreaterThanOrEqual" -> 1)
     )
     // scalastyle:on line.size.limit
-    for ((condExpr, expectedExpression) <- expressionsMap) {
-      val parsedExpressionsMine = SQLPlanParser.parseConditionalExpressions(condExpr)
-      val currOutput = parsedExpressionsMine.sorted
-      val expectedOutput = expectedExpression.sorted
-      assert(currOutput sameElements expectedOutput,
-        s"The parsed expressions are not as expected. Expression: ${condExpr}, " +
-          s"Expected: ${expectedOutput.mkString}, " +
-          s"Output: ${currOutput.mkString}")
+    for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
+      val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
+      val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+      val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
+      actualExpressions should ===(expected)
     }
   }
 
@@ -1344,6 +1378,11 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        // TODO: Spark shows a weird behavior as the entire plan with SQL 65 loses the metrics
+        //       and the associated jobs. This causes some execs to be isolated without stage.
+        //       The UI won't be able to visualize that job anymore. So, we need to investigate
+        //       what happens in that query before we test the execs-to-stage mapping.
+
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val deltaLakeWrites = allExecInfo.filter(_.exec.contains(s"$dataWriteCMD"))
         assertSizeAndSupported(1, deltaLakeWrites)
@@ -1357,10 +1396,18 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "AND (content_name_16#197L = 1)) AND NOT (split(split(split(replace(replace(replace" +
       "(replace(trim(replace(cast(unbase64(content#192) as string),  , ), Some( )), *., ), *, ), " +
       "https://, ), http://, ), /, -1)[0], :, -1)[0], \\?, -1)[0] = ))"
-    val expected = Array("isnotnull", "split", "replace", "trim", "unbase64", "And",
-      "EqualTo", "Not")
-    val expressions = SQLPlanParser.parseFilterExpressions(exprString)
-    expressions should ===(expected)
+    val expected = Map(
+      "isnotnull" -> 3,
+      "split" -> 3,
+      "replace" -> 5,
+      "trim" -> 1,
+      "unbase64" -> 1,
+      "And" -> 6,
+      "EqualTo" -> 4, // EqualTo comes from the = operator
+      "Not" -> 2).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+    val rawExpressions = SQLPlanParser.parseFilterExpressions(exprString)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
+    actualExpressions should ===(expected)
   }
 
 
@@ -1372,9 +1419,16 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "THEN concat(replace(cast(unbase64(content#192) as string),  , ), %) " +
       "ELSE replace(replace(replace(cast(unbase64(content#192) as string),  , ), %, " +
       "\\%), *, %) END#200])"
-    val expected = Array("replace", "concat", "instr", "split", "trim", "unbase64")
-    val expressions = SQLPlanParser.parseAggregateExpressions(exprString)
-    expressions should ===(expected)
+    val expected = Map(
+      "replace" -> 10,
+      "concat" -> 1,
+      "instr" -> 1,
+      "split" -> 3,
+      "trim" -> 1,
+      "unbase64" -> 4).map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+    val rawExpressions = SQLPlanParser.parseAggregateExpressions(exprString)
+    val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
+    actualExpressions should ===(expected)
   }
 
   runConditionalTest("promote_precision is supported for Spark LT 3.4.0: issue-517",
@@ -1406,6 +1460,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         // The promote_precision should be part of the project exec.
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projExecs = allExecInfo.filter(_.exec.contains("Project"))
@@ -1442,13 +1497,14 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
           //      +- FileScan parquet [] Batched: true, DataFilters: [], Format: Parquet, Location:
           //         InMemoryFileIndex(1 paths)[file:/tmp_folder/T/toolTest..., PartitionFilters: []
           //         PushedFilters: [], ReadSchema: struct<>
-          df2.selectExpr("current_database()","current_database() as my_db")
+          df2.selectExpr("current_database()", "current_database() as my_db")
         }
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         // The current_database should be part of the project-exec and the parser should ignore it.
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projExecs = allExecInfo.filter(_.exec.contains("Project"))
@@ -1474,7 +1530,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       "gid#1296," +
       "CAST((IF((supersql_t12.`ret_type` = 2), 1, 0)) AS BIGINT)#1300L]]"
     // Only "IF" should be picked up as a function name
-    val expected = Array("IF")
+    val expected = Array("IF", "IF", "IF")
     val expressions = SQLPlanParser.parseExpandExpressions(exprString)
     expressions should ===(expected)
   }
@@ -1674,50 +1730,24 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     pluginTypeChecker.getNotSupportedExprs(filterExprArray) shouldBe 'empty
   }
 
-  runConditionalTest("WindowGroupLimitExec is supported", execsSupportedSparkGTE350) {
+  /**
+   * Helper method to run tests for WindowGroupLimit expressions
+   * @param windowExpr the expression to be evaluated (i.e., rank, row_number).
+   * @param skipSqlID the SQL ID to skip the stage verification.
+   */
+  def runWindowGroupLimitTest(windowExpr: String, skipSqlID: Long): Unit = {
     val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
+    val tbl_name = s"foobar_tbl_test_$windowExpr"
+    val appName = s"WindowGroupLimitExecTest_$windowExpr"
     TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
-          withTable(spark, tbl_name) {
-            spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
-            val query =
-              s"""
-              SELECT foo, bar FROM (
-                  SELECT foo, bar,
-                      RANK() OVER (PARTITION BY foo ORDER BY bar) as rank
-                  FROM $tbl_name)
-              WHERE rank <= 2"""
-            spark.sql(query)
-          }
-        }
-      val pluginTypeChecker = new PluginTypeChecker()
-      val app = createAppFromEventlog(eventLog)
-      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-      }
-      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-      val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-      // We should have two WindowGroupLimitExec operators (Partial and Final).
-      assertSizeAndSupported(2, windowGroupLimitExecs)
-    }
-  }
-
-  runConditionalTest("row_number in WindowGroupLimitExec is not supported",
-    execsSupportedSparkGTE350) {
-    val windowGroupLimitExecCmd = "WindowGroupLimit"
-    val tbl_name = "foobar_tbl"
-    TrampolineUtil.withTempDir { eventLogDir =>
-      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir,
-        windowGroupLimitExecCmd) { spark =>
+      val (eventLog, _) = ToolTestUtils.generateEventLog(eventLogDir, appName) { spark =>
         withTable(spark, tbl_name) {
           spark.sql(s"CREATE TABLE $tbl_name (foo STRING, bar STRING) USING PARQUET")
           val query =
             s"""
             SELECT foo, bar FROM (
                 SELECT foo, bar,
-                    ROW_NUMBER() OVER (PARTITION BY foo ORDER BY bar) as rank
+                    $windowExpr() OVER (PARTITION BY foo ORDER BY bar) as rank
                 FROM $tbl_name)
             WHERE rank <= 2"""
           spark.sql(query)
@@ -1728,17 +1758,33 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      // Note that the generated plan, there are skipped stages that causes some execs to appear
+      // without their relevant stages. so we skip the stage verification here.
+      verifyExecToStageMapping(parsedPlans.toSeq, app, Some( planInfo =>
+        if (planInfo.sqlID == skipSqlID) {
+          // Nodes should not have any stages
+          val allExecInfos = planInfo.execInfo.flatMap { e =>
+            e.children.getOrElse(Seq.empty) :+ e
+          }
+          // exclude all stages higher than 8 because those ones belong to a skipped stage
+          allExecInfos.filter(_.nodeId <= 8).forall(_.stages.nonEmpty)
+        })
+      )
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-      val windowExecNotSupportedExprs = allExecInfo.filter(
-        _.exec.contains(windowGroupLimitExecCmd)).flatMap(x => x.unsupportedExprs)
-      windowExecNotSupportedExprs.head.exprName shouldEqual "row_number"
-      windowExecNotSupportedExprs.head.unsupportedReason shouldEqual
-          "Ranking function row_number is not supported in WindowGroupLimitExec"
       val windowGroupLimitExecs = allExecInfo.filter(_.exec.contains(windowGroupLimitExecCmd))
-      // We should have two WindowGroupLimitExec operators (Partial and Final) which are
-      // not supported due to unsupported expression.
-      assertSizeAndNotSupported(2, windowGroupLimitExecs)
+      // We should have two WindowGroupLimitExec operators (Partial and Final).
+      assertSizeAndSupported(2, windowGroupLimitExecs)
     }
+  }
+
+  runConditionalTest("WindowGroupLimit expression rank is supported",
+    execsSupportedSparkGTE350) {
+    runWindowGroupLimitTest("RANK", skipSqlID = 73)
+  }
+
+  runConditionalTest("WindowGroupLimit expression row_number is supported",
+    execsSupportedSparkGTE350) {
+    runWindowGroupLimitTest("ROW_NUMBER", skipSqlID = 76)
   }
 
   runConditionalTest("CheckOverflowInsert should not exist in Physical Plan",
@@ -1793,6 +1839,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
         SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
       }
+      verifyExecToStageMapping(parsedPlans.toSeq, app)
       // we should have 2 hash aggregates with min_by and max_by expressions
       // if the min_by and max_by were not recognized, the test would fail
       val hashAggExecs =
@@ -1822,6 +1869,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
           SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
         }
+        verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
         val projectExecs = allExecInfo.filter(_.exec == "Project")
         assertSizeAndSupported(1, projectExecs)

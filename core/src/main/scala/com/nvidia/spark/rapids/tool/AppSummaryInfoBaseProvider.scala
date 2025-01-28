@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getProperty(propKey: String): Option[String] = {
     if (propKey.startsWith(ToolUtils.PROPS_RAPIDS_KEY_PREFIX)) {
       getRapidsProperty(propKey)
-    } else if (propKey.startsWith("spark")){
+    } else if (propKey.startsWith("spark")) {
       getSparkProperty(propKey)
     } else {
       getSystemProperty(propKey)

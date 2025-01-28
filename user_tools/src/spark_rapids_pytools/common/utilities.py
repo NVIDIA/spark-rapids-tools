@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ class Utils:
         :param suffix_len:
         :return:
         """
-        ts = datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        ts = datetime.datetime.now().astimezone().strftime('%Y%m%d%H%M%S')
         uuid_parts = [] if pref is None else [pref]
         uuid_parts.append(ts)
         if suffix_len > 0:

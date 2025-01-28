@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification._
 
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
@@ -59,7 +59,8 @@ class BasePlanParserSuite extends BaseTestSuite {
     }
   }
 
-  def createAppFromEventlog(eventLog: String): QualificationAppInfo = {
+  def createAppFromEventlog(eventLog: String,
+      platformName: String = PlatformNames.DEFAULT): QualificationAppInfo = {
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
       None, None, List(eventLog), hadoopConf)
@@ -67,7 +68,7 @@ class BasePlanParserSuite extends BaseTestSuite {
     assert(allEventLogs.size == 1)
     val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
       pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true,
-      PlatformFactory.createInstance())
+      PlatformFactory.createInstance(platformName))
     appResult match {
       case Right(app) => app
       case Left(_) => throw new AssertionError("Cannot create application")
@@ -78,6 +79,29 @@ class BasePlanParserSuite extends BaseTestSuite {
     val topExecInfo = plans.flatMap(_.execInfo)
     topExecInfo.flatMap { e =>
       e.children.getOrElse(Seq.empty) :+ e
+    }
+  }
+  def verifyPlanExecToStageMap(toolsPlanInfo: PlanInfo): Unit = {
+    val allExecInfos = toolsPlanInfo.execInfo.flatMap { e =>
+      e.children.getOrElse(Seq.empty) :+ e
+    }
+    // Test that all execs are assigned to stages
+    assert (allExecInfos.forall(_.stages.nonEmpty))
+    // assert that exchange is assigned to a single stage
+    val exchangeExecs = allExecInfos.filter(_.exec == "Exchange")
+    if (exchangeExecs.nonEmpty) {
+      assert (exchangeExecs.forall(_.stages.size == 1))
+    }
+  }
+
+  def verifyExecToStageMapping(plans: Seq[PlanInfo],
+    qualApp: QualificationAppInfo, funcCB: Option[PlanInfo => Unit] = None): Unit = {
+    // Only iterate on plans with that are associated to jobs
+    val associatedSqls = qualApp.jobIdToSqlID.values.toSeq
+    val filteredPlans = plans.filter(p => associatedSqls.contains(p.sqlID))
+    val func = funcCB.getOrElse(verifyPlanExecToStageMap(_))
+    filteredPlans.foreach { plan =>
+      func(plan)
     }
   }
 }

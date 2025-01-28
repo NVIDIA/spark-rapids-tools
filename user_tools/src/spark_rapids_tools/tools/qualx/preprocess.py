@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,7 +30,9 @@ from spark_rapids_tools.tools.qualx.util import (
     get_logger,
     get_dataset_platforms,
     load_plugin,
-    run_profiler_tool, log_fallback,
+    log_fallback,
+    run_profiler_tool,
+    RegexPattern
 )
 
 PREPROCESSED_FILE = 'preprocessed.parquet'
@@ -106,7 +108,12 @@ expected_raw_features = \
         'sqlOp_CustomShuffleReader',
         'sqlOp_DeserializeToObject',
         'sqlOp_Exchange',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand csv',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand parquet',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand orc',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand json',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand text',
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand unknown',
         'sqlOp_Expand',
         'sqlOp_Filter',
         'sqlOp_Generate',
@@ -123,15 +130,17 @@ expected_raw_features = \
         'sqlOp_Project',
         'sqlOp_ReusedSort',
         'sqlOp_RunningWindowFunction',
-        'sqlOp_Scan csv ',
+        'sqlOp_Scan csv',
         'sqlOp_Scan ExistingRDD Delta Table Checkpoint',
         'sqlOp_Scan ExistingRDD Delta Table State',
-        'sqlOp_Scan JDBCRelation',
-        'sqlOp_Scan json ',
+        'sqlOp_Scan ExistingRDD',
+        'sqlOp_Scan jdbc',
+        'sqlOp_Scan json',
         'sqlOp_Scan OneRowRelation',
-        'sqlOp_Scan orc ',
-        'sqlOp_Scan parquet ',
-        'sqlOp_Scan text ',
+        'sqlOp_Scan orc',
+        'sqlOp_Scan parquet',
+        'sqlOp_Scan text',
+        'sqlOp_Scan unknown',
         'sqlOp_SerializeFromObject',
         'sqlOp_Sort',
         'sqlOp_SortAggregate',
@@ -269,10 +278,12 @@ def load_profiles(
         app_meta_inner = {}
         for e in eventlog_list:
             parts = Path(e).parts
-            app_id_inner = parts[-1]
+            app_id_part = parts[-1]
+            match = RegexPattern.app_id.search(app_id_part)
+            app_id = match.group() if match else app_id_part
             run_type = parts[-2].upper()
             job_name = parts[-4]
-            app_meta_inner[app_id_inner] = {
+            app_meta_inner[app_id] = {
                 'jobName': job_name,
                 'runType': run_type,
                 'scaleFactor': 1,
@@ -450,7 +461,7 @@ def extract_raw_features(
 
     # normalize WholeStageCodegen labels
     ops_tbl.loc[
-        ops_tbl['nodeName'].str.startswith('WholeStageCodegen'), 'nodeName'
+        ops_tbl['nodeName'].astype(str).str.startswith('WholeStageCodegen'), 'nodeName'
     ] = 'WholeStageCodegen'
 
     # format WholeStageCodegen for merging
@@ -477,8 +488,8 @@ def extract_raw_features(
         'Scan DeltaCDFRelation',
         'Scan ExistingRDD Delta Table Checkpoint',
         'Scan ExistingRDD Delta Table State',
-        'Scan JDBCRelation',
-        'Scan parquet ',  # trailing space is also in default sql op name
+        'Scan jdbc',
+        'Scan parquet',
         # GPU
         'GpuScan parquet',
     ]
@@ -604,7 +615,7 @@ def extract_raw_features(
             ['input_bytesRead_sum', 'input_bytesRead_cache']
         ].max(axis=1)
         full_tbl = full_tbl.drop(columns=['input_bytesRead_cache'])
-        full_tbl['cache_hit_ratio'].fillna(0.0, inplace=True)
+        full_tbl.fillna({'cache_hit_ratio': 0.0}, inplace=True)
     else:
         full_tbl['cache_hit_ratio'] = 0.0
 
@@ -799,7 +810,7 @@ def load_csv_files(
 
     if not app_info.empty:
         app_info['appName'] = app_name
-        app_info['sparkVersion'].fillna('Unknown', inplace=True)
+        app_info.fillna({'sparkVersion': 'Unknown'}, inplace=True)
 
     # Get jar versions:
     cudf_version = '-'
@@ -1129,7 +1140,7 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']
             | node_level_supp['Action'].apply(_is_ignore_no_perf)
-            | node_level_supp['Exec Name'].apply(
+            | node_level_supp['Exec Name'].astype(str).apply(
                 lambda x: x.startswith('WholeStageCodegen')
             )
         )
@@ -1151,7 +1162,8 @@ def load_qual_csv(
     qual_csv = [os.path.join(q, csv_filename) for q in qual_dirs]
     df = None
     if qual_csv:
-        df = pd.concat([pd.read_csv(f) for f in qual_csv])
+        dfs = [pd.read_csv(f) for f in qual_csv]
+        df = pd.concat([df for df in dfs if not df.empty])
         if cols:
             df = df[cols]
     return df

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner.loadClusterProps
-import com.nvidia.spark.rapids.tool.tuning.TunerContext
+import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
@@ -33,7 +32,7 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
  */
 object QualificationMain extends Logging {
 
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val (exitCode, _) =
       mainInternal(new QualificationArgs(args), printStdout = true, enablePB = true)
     if (exitCode != 0) {
@@ -75,7 +74,8 @@ object QualificationMain extends Logging {
     // This platform instance should not be used for anything other then referencing the
     // files for this particular Platform.
     val referencePlatform = try {
-      val clusterPropsOpt = loadClusterProps(appArgs.workerInfo())
+      val clusterPropsOpt =
+        QualificationAutoTunerConfigsProvider.loadClusterProps(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
       case NonFatal(e) =>

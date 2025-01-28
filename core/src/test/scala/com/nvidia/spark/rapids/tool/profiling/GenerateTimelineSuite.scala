@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ class GenerateTimelineSuite extends FunSuite with BeforeAndAfterAll with Logging
         val tempSubDir = new File(dotFileDir, s"${Profiler.SUBDIR}/$appId")
 
         // assert that a file was generated
-        val outputDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f => 
+        val outputDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
           f.endsWith("timeline.svg")
         })
         assert(outputDirs.length === 1)

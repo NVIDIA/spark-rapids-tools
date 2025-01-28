@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,21 @@ case class ReadMetaData(schema: String, location: String, format: String,
   def pushedFilters: String = tags(ReadParser.METAFIELD_TAG_PUSHED_FILTERS)
   def dataFilters: String = tags(ReadParser.METAFIELD_TAG_DATA_FILTERS)
   def partitionFilters: String = tags(ReadParser.METAFIELD_TAG_PARTITION_FILTERS)
+
+  def hasUnknownFormat: Boolean = format.equals(ReadParser.UNKNOWN_METAFIELD)
+
+  /**
+   * Returns the read format in lowercase. This is used to be consistent.
+   * @return the lower case of the read format
+   */
+  def getReadFormatLC: String = format.toLowerCase
 }
 
 object ReadParser extends Logging {
   // It was found that some eventlogs could have "NativeScan" instead of "Scan"
   val SCAN_NODE_PREFIXES = Seq("Scan", "NativeScan")
+  // Do not include OneRowRelation in the scan nodes, consider it as regular Exec
+  val SCAN_ONE_ROW_RELATION = "Scan OneRowRelation"
   // DatasourceV2 node names that exactly match the following labels
   val DATASOURCE_V2_NODE_EXACT_PREF = Set(
     "BatchScan")
@@ -58,7 +68,7 @@ object ReadParser extends Logging {
   )
 
   def isScanNode(nodeName: String): Boolean = {
-    SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_))
+    SCAN_NODE_PREFIXES.exists(nodeName.startsWith(_)) && !nodeName.startsWith(SCAN_ONE_ROW_RELATION)
   }
 
   def isScanNode(node: SparkPlanGraphNode): Boolean = {
@@ -76,7 +86,7 @@ object ReadParser extends Logging {
   }
 
   // This tries to get just the field specified by tag in a string that
-  // may contain multiple fields.  It looks for a comma to delimit fields.
+  // may contain multiple fields. It looks for a comma to delimit fields.
   private def getFieldWithoutTag(str: String, tag: String): String = {
     val index = str.indexOf(tag)
     // remove the tag from the final string returned
@@ -177,7 +187,6 @@ object ReadParser extends Logging {
       }
       ReadMetaData(schema, location, fileFormat, tags = extractReadTags(node.desc))
     }
-
   }
 
   // For the read score we look at the read format and datatypes for each

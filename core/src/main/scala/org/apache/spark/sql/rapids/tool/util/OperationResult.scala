@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ class AppResult(path: String, message: String) extends Logging {
     val messageToLog = s"File: $path, Message: $message"
     exp match {
       case Some(e) => logWarning(messageToLog, e)
-      case None    => logWarning(messageToLog)
+      case None => logWarning(messageToLog)
     }
   }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map}
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
-import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo}
+import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
@@ -42,7 +42,10 @@ import org.apache.spark.util.Utils
 
 abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
-    val hadoopConf: Option[Configuration]) extends Logging with ClusterTagPropHandler {
+    val hadoopConf: Option[Configuration],
+    val platform: Option[Platform] = None) extends Logging
+  with ClusterTagPropHandler
+  with AccumToStageRetriever {
 
   var appMetaData: Option[AppMetaData] = None
 
@@ -104,6 +107,10 @@ abstract class AppBase(
     immutable.Map(), immutable.Map(), immutable.Map())
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
+
+  def getStageIDsFromAccumIds(accumIds: Seq[Long]): Set[Int] = {
+    accumIds.flatMap(accumManager.getAccStageIds).toSet
+  }
 
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
@@ -348,7 +355,7 @@ abstract class AppBase(
     ".*second\\(.*\\).*" -> "TIMEZONE second()"
   )
 
-  def findPotentialIssues(desc: String): Set[String] =  {
+  def findPotentialIssues(desc: String): Set[String] = {
     val potentialIssuesRegexs = potentialIssuesRegexMap
     val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
     issues.values.toSet
@@ -372,11 +379,11 @@ abstract class AppBase(
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
-      val scanNode = allNodes.filter(node => {
+      val scanNode = allNodes.filter(ReadParser.isScanNode(_)).filter(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
         readSchema.contains(trimmedNode)
-      }).filter(ReadParser.isScanNode(_))
+      })
 
       // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
       // add it to the dataSourceInfo
@@ -475,6 +482,7 @@ abstract class AppBase(
   protected def postCompletion(): Unit = {
     registerAttemptId()
     calculateAppDuration()
+    validateSparkRuntime()
   }
 
   /**
@@ -484,6 +492,20 @@ abstract class AppBase(
   def processEvents(): Unit = {
     processEventsInternal()
     postCompletion()
+  }
+
+  /**
+   * Validates if the spark runtime (parsed from event log) is supported by the platform.
+   * If the runtime is not supported, an `UnsupportedSparkRuntimeException`
+   * is thrown.
+   */
+  private def validateSparkRuntime(): Unit = {
+    val parsedRuntime = getSparkRuntime
+    platform.foreach { p =>
+      require(p.isRuntimeSupported(parsedRuntime),
+        throw UnsupportedSparkRuntimeException(p, parsedRuntime)
+      )
+    }
   }
 }
 

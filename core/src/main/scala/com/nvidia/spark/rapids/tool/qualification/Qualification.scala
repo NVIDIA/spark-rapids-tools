@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.profiling.AutoTuner
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
-import com.nvidia.spark.rapids.tool.tuning.TunerContext
+import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
@@ -36,7 +35,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     timeout: Option[Long], nThreads: Int, order: String,
     pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
     printStdout: Boolean, enablePB: Boolean,
-    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled:Boolean,
+    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
     clusterReport: Boolean, platformArg: String, workerInfoPath: String) extends ToolBase(timeout) {
 
@@ -147,7 +146,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       // we need a platform per application because it's storing cluster information which could
       // vary between applications, especially when using dynamic allocation
       val platform = {
-        val clusterPropsOpt = AutoTuner.loadClusterProps(workerInfoPath)
+        val clusterPropsOpt = QualificationAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
         PlatformFactory.createInstance(platformArg, clusterPropsOpt)
       }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
@@ -238,13 +237,6 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
   }
 
   /**
-   * The outputPath of the current instance of the provider
-   */
-  def getReportOutputPath: String = {
-    s"$outputDir/rapids_4_spark_qualification_output"
-  }
-
-  /**
    * Generates a qualification report based on the provided summary information.
    */
   private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
@@ -259,10 +251,12 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       qWriter.writePerSqlTextReport(allAppsSum, numRows, maxSQLDescLength)
       qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
     }
-    qWriter.writeExecReport(allAppsSum, order)
+    qWriter.writeExecReport(allAppsSum)
     qWriter.writeStageReport(allAppsSum, order)
     qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
+    qWriter.writeAllOpsSummaryCSVReport(allAppsSum)
     val appStatusResult = generateStatusResults(appStatusReporter.asScala.values.toSeq)
+    logOutputPath()
     qWriter.writeStatusReport(appStatusResult, order)
     if (mlOpsEnabled) {
       if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {

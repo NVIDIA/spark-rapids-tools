@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,17 +45,17 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     val finalSpeedupFactor = if (writeSupported) speedupFactor else 1.0
 
     // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
-    val nodeName = node.name.replace("Execute ", "")
+    val nodeName = node.name.replaceFirst("Execute\\s*", "")
     ExecInfo.createExecNoNode(sqlID, nodeName,
       s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
-      isSupported = writeSupported && isExecSupported, children = None)
+      isSupported = writeSupported && isExecSupported, children = None, expressions = Seq.empty)
   }
 }
 
 object DeltaLakeHelper {
   // we look for the serdeLibrary which is part of the node description:
   // Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
-  //private val serdeRegex = "Serde Library: ([\\w.]+)".r
+  // private val serdeRegex = "Serde Library: ([\\w.]+)".r
   private val serdeRegex = "Serde Library: ([\\w.]+)".r
   // We look for the schema in the node description. It is in the following format
   // Schema: root

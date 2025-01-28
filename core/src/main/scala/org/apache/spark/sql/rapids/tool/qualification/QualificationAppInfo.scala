@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 
 package org.apache.spark.sql.rapids.tool.qualification
+
+import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.collection.mutable
@@ -41,7 +43,7 @@ class QualificationAppInfo(
     mlOpsEnabled: Boolean = false,
     penalizeTransitions: Boolean = true,
     platform: Platform)
-  extends AppBase(eventLogInfo, hadoopConf) with Logging {
+  extends AppBase(eventLogInfo, hadoopConf, Some(platform)) with Logging {
 
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
@@ -60,7 +62,7 @@ class QualificationAppInfo(
 
   val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
 
-  private lazy val eventProcessor =  new QualificationEventProcessor(this, perSqlOnly)
+  private lazy val eventProcessor = new QualificationEventProcessor(this, perSqlOnly)
 
   /**
    * Important system properties that should be retained. We also include
@@ -168,8 +170,9 @@ class QualificationAppInfo(
   }
 
   private def calculateCpuTimePercent(perSqlStageSummary: Seq[SQLStageSummary]): Double = {
-    val totalCpuTime = perSqlStageSummary.map(_.execCPUTime).sum
-    val totalRunTime = perSqlStageSummary.map(_.execRunTime).sum
+    val totalCpuTime =
+      NANOSECONDS.toMillis(perSqlStageSummary.map(_.execCPUTime).sum) // in milliseconds
+    val totalRunTime = perSqlStageSummary.map(_.execRunTime).sum // in milliseconds
     ToolUtils.calculateDurationPercent(totalCpuTime, totalRunTime)
   }
 
@@ -281,7 +284,7 @@ class QualificationAppInfo(
     // need to remove the WholeStageCodegen wrappers since they aren't actual
     // execs that we want to get timings of
     execs.flatMap { e =>
-      if (e.exec.contains("WholeStageCodegen")) {
+      if (e.isClusterNode) {
         e.children.getOrElse(Seq.empty)
       } else {
         e.children.getOrElse(Seq.empty) :+ e
@@ -456,8 +459,10 @@ class QualificationAppInfo(
         val ratio = numSupportedExecs / numExecs
         val estimateWallclockSupported = (sqlWallClockDuration * ratio).toInt
         // don't worry about supported execs for these are these are mostly indicator of I/O
-        val execRunTime = sqlIDToTaskEndSum.get(sqlID).map(_.executorRunTime).getOrElse(0L)
-        val execCPUTime = sqlIDToTaskEndSum.get(sqlID).map(_.executorCPUTime).getOrElse(0L)
+        val execRunTime =
+          sqlIDToTaskEndSum.get(sqlID).map(_.executorRunTime).getOrElse(0L) // in milliseconds
+        val execCPUTime =
+          sqlIDToTaskEndSum.get(sqlID).map(_.executorCPUTime).getOrElse(0L) // in nanoseconds
         SQLStageSummary(stageSum, sqlID, estimateWallclockSupported,
           execCPUTime, execRunTime)
       }
@@ -485,7 +490,7 @@ class QualificationAppInfo(
   def aggregateStats(): Option[QualificationSummaryInfo] = {
     appMetaData.map { info =>
       val appDuration = calculateAppDuration().getOrElse(0L)
-      //calculateAppDuration(info.startTime).getOrElse(0L)
+      // calculateAppDuration(info.startTime).getOrElse(0L)
 
       // if either job or stage failures then we mark as N/A
       // TODO - what about incomplete, do we want to change those?
@@ -573,7 +578,7 @@ class QualificationAppInfo(
       val unSupportedExecs = planInfos.flatMap { p =>
         // WholeStageCodeGen is excluded from the result.
         val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
-          x => x.exec.startsWith("WholeStage"))
+          x => x.isClusterNode)
         val childrenExecs = p.execInfo.flatMap { e =>
           e.children.map(x => x.filterNot(_.isSupported))
         }.flatten
@@ -581,9 +586,8 @@ class QualificationAppInfo(
       }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // Get all the unsupported Expressions from the plan
-      val unSupportedExprs = origPlanInfos.map(_.execInfo.flatMap(
-        _.unsupportedExprs.map(_.exprName))).flatten.filter(_.nonEmpty).toSet.mkString(";")
-        .trim.replaceAll("\n", "").replace(",", ":")
+      val unSupportedExprs = origPlanInfos.flatMap(p => p.getUnsupportedExpressions)
+        .map(s => s.getOpName).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
 
       // TODO - this is not correct as this is using the straight stage wall
       // clock time and hasn't been adjusted to the app duration wall clock
@@ -755,9 +759,9 @@ class QualificationAppInfo(
       }
 
       // Consider stageInfo to have below string as an example
-      //org.apache.spark.rdd.RDD.first(RDD.scala:1463)
-      //org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
-      //org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
+      // org.apache.spark.rdd.RDD.first(RDD.scala:1463)
+      // org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
+      // org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
       val splitString = stageInfoDetails.split("\n")
 
       // filteredString = org.apache.spark.ml.feature.PCA.fit
@@ -907,8 +911,9 @@ case class SQLStageSummary(
     stageSum: Set[StageQualSummaryInfo],
     sqlID: Long,
     estimateWallClockSupported: Long,
-    execCPUTime: Long,
-    execRunTime: Long)
+    execCPUTime: Long, // in nanoseconds
+    execRunTime: Long // in milliseconds
+)
 
 case class MLFunctions(
     appID: Option[String],

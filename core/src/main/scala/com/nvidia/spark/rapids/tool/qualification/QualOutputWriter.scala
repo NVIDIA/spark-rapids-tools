@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
+import com.nvidia.spark.rapids.tool.planparser.ops.OperatorCounter
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.{CLUSTER_ID, CLUSTER_ID_STR_SIZE, JOB_ID, JOB_ID_STR_SIZE, RUN_NAME, RUN_NAME_STR_SIZE, TEXT_DELIMITER}
@@ -165,7 +166,25 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       sums.foreach { sum =>
         QualOutputWriter.constructUnsupportedDetailedStagesDurationInfo(csvFileWriter,
           sum, headersAndSizes,
-          QualOutputWriter.CSV_DELIMITER, false)
+          QualOutputWriter.CSV_DELIMITER, prettyPrint = false)
+      }
+    } finally {
+      csvFileWriter.close()
+    }
+  }
+
+  def writeAllOpsSummaryCSVReport(
+    sums: Seq[QualificationSummaryInfo]): Unit = {
+    val csvFileWriter = new ToolTextFileWriter(outputDir,
+      s"${QualOutputWriter.LOGFILE_NAME}_operatorsStats.csv",
+      "All Operators CSV Report", hadoopConf)
+    try {
+      val headersAndSizes = QualOutputWriter.getAllOperatorsHeaderStrings
+      csvFileWriter.write(QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
+        QualOutputWriter.CSV_DELIMITER))
+      sums.foreach { sum =>
+        QualOutputWriter.constructAllOperatorsInfo(csvFileWriter, sum.planInfo, sum.appId,
+          QualOutputWriter.CSV_DELIMITER)
       }
     } finally {
       csvFileWriter.close()
@@ -255,17 +274,50 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeExecReport(sums: Seq[QualificationSummaryInfo], order: String) : Unit = {
+  def writeExecReport(sums: Seq[QualificationSummaryInfo]) : Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_execs.csv",
       "Plan Exec Info", hadoopConf)
     try {
-      val headersAndSizes = QualOutputWriter.getDetailedExecsHeaderStrings
       csvFileWriter.write(QualOutputWriter.constructDetailedHeader(
         QualOutputWriter.getDetailedExecsHeaderStrings, ",", false))
+      val delimiter = ","
+      val booleanTrue = "true"
+      val booleanFalse = "false"
+      val zeroDurationStr = "0"
       sums.foreach { sumInfo =>
-        val appRows = QualOutputWriter.constructExecsInfo(sumInfo, headersAndSizes, ",", false)
-        appRows.foreach(csvFileWriter.write(_))
+        val appIDCSVStr = StringUtils.reformatCSVString(sumInfo.appId)
+        sumInfo.planInfo.foreach { pInfo =>
+          val execInfos = pInfo.execInfo.flatMap { eInfo =>
+            eInfo.children.getOrElse(Seq.empty) :+ eInfo
+          }.sortBy(eInfo => eInfo.nodeId)
+          val sqlIDStr = pInfo.sqlID.toString
+          val rows = execInfos.map { info =>
+            val (childrenExecsStr, nodeIdsStr) = if (info.children.isDefined) {
+              (StringUtils.reformatCSVString(
+                info.children.get.map(_.exec).mkString(":")),
+                StringUtils.reformatCSVString(
+                  info.children.get.map(_.nodeId).mkString(":")))
+            } else {
+              ("", "")
+            }
+            Seq(appIDCSVStr, sqlIDStr, info.execRef.getOpNameCSV,
+              StringUtils.reformatCSVString(info.expr),
+              if (info.duration.isDefined) info.duration.get.toString else zeroDurationStr,
+              info.nodeId.toString,
+              if (info.isSupported) booleanTrue else booleanFalse,
+              StringUtils.reformatCSVString(info.stages.mkString(":")),
+              childrenExecsStr,
+              nodeIdsStr,
+              if (info.shouldRemove) booleanTrue else booleanFalse,
+              if (info.shouldIgnore) booleanTrue else booleanFalse,
+              StringUtils.reformatCSVString(info.getOpAction.toString)
+            ).mkString(delimiter)
+          }
+          if (rows.nonEmpty) {
+            csvFileWriter.write(s"${rows.mkString("\n")}\n")
+          }
+        }
       }
     } finally {
       csvFileWriter.close()
@@ -412,6 +464,11 @@ object QualOutputWriter {
   val UNSUPPORTED_TASK_DURATION_STR = "Unsupported Task Duration"
   val SUPPORTED_SQL_TASK_DURATION_STR = "Supported SQL DF Task Duration"
   val LONGEST_SQL_DURATION_STR = "Longest SQL Duration"
+  val OPERATOR_TYPE = "Operator Type"
+  val OPERATOR_NAME = "Operator Name"
+  val COUNT = "Count"
+  val IS_SUPPORTED = "Supported"
+  val STAGES = "Stages"
   val EXEC_STR = "Exec Name"
   val EXPR_STR = "Expression Name"
   val EXEC_DURATION = "Exec Duration"
@@ -450,7 +507,7 @@ object QualOutputWriter {
   val DRIVER_HOST = "Driver Host"
   val CLUSTER_ID_STR = "Cluster Id" // Different from ClusterId used for Databricks Tags
   val CLUSTER_NAME = "Cluster Name"
-  val RECOMMENDED_NUM_GPUS = "Recommended Num GPUs Per Node"
+  val RECOMMENDED_NUM_GPUS_PER_NODE = "Recommended Num GPUs Per Node"
   val RECOMMENDED_GPU_DEVICE = "Recommended GPU Device"
   val NUM_EXECS_PER_NODE = "Num Executors Per Node"
   val NUM_EXECS = "Num Executors"
@@ -798,11 +855,54 @@ object QualOutputWriter {
       NUM_EXECS, EXECUTOR_HEAP_MEMORY, DYN_ALLOC_ENABLED, DYN_ALLOC_MAX, DYN_ALLOC_MIN,
       DYN_ALLOC_INIT, CORES_PER_EXEC, RECOMMENDED_WORKER_NODE_TYPE, RECOMMENDED_NUM_EXECS,
       RECOMMENDED_NUM_WORKER_NODES, RECOMMENDED_CORES_PER_EXEC, RECOMMENDED_GPU_DEVICE,
-      RECOMMENDED_NUM_GPUS, RECOMMENDED_VENDOR, RECOMMENDED_DYN_ALLOC_ENABLED,
+      RECOMMENDED_NUM_GPUS_PER_NODE, RECOMMENDED_VENDOR, RECOMMENDED_DYN_ALLOC_ENABLED,
       RECOMMENDED_DYN_ALLOC_MAX, RECOMMENDED_DYN_ALLOC_MIN, RECOMMENDED_DYN_ALLOC_INIT).map {
       key => (key, key.length)
     }
     mutable.LinkedHashMap(headersAndFields: _*)
+  }
+
+  private def getAllOperatorsHeaderStrings: LinkedHashMap[String, Int] = {
+    val detailedHeaderAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> APP_ID_STR.size,
+      SQL_ID_STR -> SQL_ID_STR.size,
+      OPERATOR_TYPE -> OPERATOR_TYPE.size,
+      OPERATOR_NAME -> OPERATOR_NAME.size,
+      COUNT -> COUNT.size,
+      IS_SUPPORTED -> IS_SUPPORTED.size,
+      STAGES -> STAGES.size
+    )
+    detailedHeaderAndFields
+  }
+
+  private def constructAllOperatorsInfo(
+    csvWriter: ToolTextFileWriter,
+    planInfos: Seq[PlanInfo],
+    appId: String,
+    delimiter: String): Unit = {
+    // This method iterates on PlanInfo which are sorted by SqlID. It constructs the operators per
+    // SQLPlan and sumps it to the CSV as a bufferedString instead of writing one row at a time.
+    val appIDCSVStr = StringUtils.reformatCSVString(appId)
+    val supportedCSVStr = "true"
+    val unsupportedCSVStr = "false"
+    planInfos.foreach { planInfo =>
+      val sqlIDCSVStr = planInfo.sqlID.toString
+      val allOpsCount = OperatorCounter(planInfo)
+        .getOpsCountSummary.sortBy(oInfo => (-oInfo.opData.count, oInfo.opData.opRef.getOpName))
+      if (allOpsCount.nonEmpty) {
+        val planBuffer = allOpsCount.map { opInfo =>
+          val supportFlag = if (opInfo.isSupported) supportedCSVStr else unsupportedCSVStr
+          val stageStr = StringUtils.reformatCSVString(opInfo.opData.stages.mkString(":"))
+          s"$appIDCSVStr$delimiter" +
+            s"$sqlIDCSVStr$delimiter" +
+            s"${opInfo.opData.getOpTypeCSV}$delimiter" +
+            s"${opInfo.opData.getOpNameCSV}$delimiter${opInfo.opData.count}$delimiter" +
+            s"$supportFlag$delimiter" +
+            s"$stageStr"
+        }
+        csvWriter.write(s"${planBuffer.mkString("\n")}\n")
+      }
+    }
   }
 
   def constructClusterInfo(
@@ -851,7 +951,8 @@ object QualOutputWriter {
       refactorCSVFuncWithOption(recClusterInfo.map(_.coresPerExecutor.toString),
         RECOMMENDED_CORES_PER_EXEC),
       refactorCSVFuncWithOption(recClusterInfo.map(_.gpuDevice), RECOMMENDED_GPU_DEVICE),
-      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpus.toString), RECOMMENDED_NUM_GPUS),
+      refactorCSVFuncWithOption(recClusterInfo.map(_.numGpusPerNode.toString),
+        RECOMMENDED_NUM_GPUS_PER_NODE),
       refactorCSVFuncWithOption(recClusterInfo.map(_.vendor), RECOMMENDED_VENDOR),
       refactorCSVFuncWithOption(recClusterInfo.map(_.dynamicAllocationEnabled.toString),
         RECOMMENDED_DYN_ALLOC_ENABLED),
@@ -907,7 +1008,7 @@ object QualOutputWriter {
     // need to remove the WholeStageCodegen wrappers since they aren't actual
     // execs that we want to get timings of
     execs.flatMap { e =>
-      if (e.exec.contains("WholeStageCodegen")) {
+      if (e.isClusterNode) {
         e.children.getOrElse(Seq.empty)
       } else {
         e.children.getOrElse(Seq.empty) :+ e
@@ -941,33 +1042,6 @@ object QualOutputWriter {
     detailedHeadersAndFields
   }
 
-  private def constructExecInfoBuffer(
-      info: ExecInfo,
-      appId: String,
-      delimiter: String,
-      prettyPrint: Boolean,
-      headersAndSizes: LinkedHashMap[String, Int],
-      reformatCSV: Boolean = true): String = {
-    val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
-    val data = ListBuffer[(String, Int)](
-      reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-      info.sqlID.toString -> headersAndSizes(SQL_ID_STR),
-      reformatCSVFunc(info.exec) -> headersAndSizes(EXEC_STR),
-      reformatCSVFunc(info.expr) -> headersAndSizes(EXEC_STR),
-      info.duration.getOrElse(0).toString -> headersAndSizes(EXEC_DURATION),
-      info.nodeId.toString -> headersAndSizes(EXEC_NODEID),
-      info.isSupported.toString -> headersAndSizes(EXEC_IS_SUPPORTED),
-      reformatCSVFunc(info.stages.mkString(":")) -> headersAndSizes(EXEC_STAGES),
-      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.exec).mkString(":")) ->
-        headersAndSizes(EXEC_CHILDREN),
-      reformatCSVFunc(info.children.getOrElse(Seq.empty).map(_.nodeId).mkString(":")) ->
-        headersAndSizes(EXEC_CHILDREN_NODE_IDS),
-      info.shouldRemove.toString -> headersAndSizes(EXEC_SHOULD_REMOVE),
-      info.shouldIgnore.toString -> headersAndSizes(EXEC_SHOULD_IGNORE),
-      reformatCSVFunc(info.getOpAction.toString) -> headersAndSizes(EXEC_ACTION)
-    )
-    constructOutputRow(data, delimiter, prettyPrint)
-  }
 
   private def getDetailedStagesHeaderStrings: LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
@@ -1029,32 +1103,36 @@ object QualOutputWriter {
       reformatCSV: Boolean = true): Unit = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val appId = sumInfo.appId
+    val appIDStr = reformatCSVFunc(appId)
     val appDuration = sumInfo.estimatedInfo.appDur
     val dummyStageID = -1
     val dummyStageDur = 0
     val execIdGenerator = new AtomicLong(0)
 
-    def constructDetailedUnsupportedRow(unSupExecInfo: UnsupportedExecSummary,
-        stageId: Int, stageAppDuration: Long): String = {
-      val data = ListBuffer[(String, Int)](
-        reformatCSVFunc(appId) -> headersAndSizes(APP_ID_STR),
-        unSupExecInfo.sqlId.toString -> headersAndSizes(SQL_ID_STR),
-        stageId.toString -> headersAndSizes(STAGE_ID_STR),
-        reformatCSVFunc(unSupExecInfo.execId.toString) -> headersAndSizes(EXEC_ID),
-        reformatCSVFunc(unSupExecInfo.finalOpType) -> headersAndSizes(UNSUPPORTED_TYPE),
-        reformatCSVFunc(unSupExecInfo.unsupportedOperator) -> headersAndSizes(UNSUPPORTED_OPERATOR),
-        reformatCSVFunc(unSupExecInfo.details) -> headersAndSizes(DETAILS),
-        stageAppDuration.toString -> headersAndSizes(STAGE_WALLCLOCK_DUR_STR),
-        appDuration.toString -> headersAndSizes(APP_DUR_STR),
-        reformatCSVFunc(unSupExecInfo.opAction.toString) -> headersAndSizes(EXEC_ACTION)
-      )
-      constructOutputRow(data, delimiter, prettyPrint)
+    def constructDetailedUnsupportedRow(
+      appID: String,
+      unSupExecInfo: UnsupportedExecSummary,
+      stageId: String,
+      stageAppDuration: String): String = {
+      val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
+      s"$appID" + delimiter +
+        s"${unSupExecInfo.sqlId}" + delimiter +
+        s"$stageId" + delimiter +
+        s"${unSupExecInfo.execId.toString}" + delimiter +
+        s"${reformatCSVFunc(unSupExecInfo.finalOpType)}" + delimiter +
+        s"${unSupExecInfo.unsupportedOperatorCSVFormat}" + delimiter +
+        s"${reformatCSVFunc(unSupExecInfo.details)}" + delimiter +
+        s"$stageAppDuration" + delimiter +
+        s"$appDuration" + delimiter +
+        s"${unSupExecInfo.opAction}\n"
     }
 
     def getUnsupportedRows(execI: ExecInfo, stageId: Int, stageDur: Long): String = {
       val results = execI.getUnsupportedExecSummaryRecord(execIdGenerator.getAndIncrement())
+      val stageIDStr = stageId.toString
+      val stageDurStr = stageDur.toString
       results.map { unsupportedExecSummary =>
-        constructDetailedUnsupportedRow(unsupportedExecSummary, stageId, stageDur)
+        constructDetailedUnsupportedRow(appIDStr, unsupportedExecSummary, stageIDStr, stageDurStr)
       }.mkString
     }
 
@@ -1075,18 +1153,6 @@ object QualOutputWriter {
     topExecInfo.flatMap { e =>
       e.children.getOrElse(Seq.empty) :+ e
     }.toSet
-  }
-
-  private def constructExecsInfo(
-      sumInfo: QualificationSummaryInfo,
-      headersAndSizes: LinkedHashMap[String, Int],
-      delimiter: String,
-      prettyPrint: Boolean): Set[String] = {
-    // No need to visit the execInfo children because the result returned from
-    // "getAllExecsFromPlan" is already flattened
-    getAllExecsFromPlan(sumInfo.planInfo).collect { case info =>
-      constructExecInfoBuffer(info, sumInfo.appId, delimiter, prettyPrint, headersAndSizes)
-    }
   }
 
   def createFormattedQualSummaryInfo(

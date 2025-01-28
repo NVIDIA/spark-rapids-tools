@@ -16,6 +16,7 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.tool.PlatformNames
+import com.nvidia.spark.rapids.tool.tuning.ProfilingAutoTunerConfigsProvider
 import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.rogach.scallop.exceptions.ScallopException
 
@@ -117,7 +118,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "File path containing the system information of a worker node. It is assumed " +
         "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
         "./worker_info.yaml",
-      default = Some(AutoTuner.DEFAULT_WORKER_INFO_PATH))
+      default = Some(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH))
 
   validate(filterCriteria) {
     case crit if (crit.endsWith("-newest-filesystem") ||

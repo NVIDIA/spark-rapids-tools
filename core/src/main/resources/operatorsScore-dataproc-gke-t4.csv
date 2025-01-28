@@ -287,3 +287,7 @@ DecimalSum,1.5
 MaxBy,1.5
 MinBy,1.5
 ArrayJoin,1.5
+RunningWindowFunctionExec,1.5
+MonthsBetween,1.5
+TruncDate,1.5
+TruncTimestamp,1.5

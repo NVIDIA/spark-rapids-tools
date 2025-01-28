@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.Platform
-import com.nvidia.spark.rapids.tool.analysis.QualSparkMetricsAnalyzer
+import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, RecommendedCommentResult, RecommendedPropertyResult}
 import org.apache.hadoop.conf.Configuration
 
@@ -53,8 +53,10 @@ case class TunerContext (
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult],
       platform: Platform): Option[TuningResult] = {
-    val rawAggMetrics = QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex)
-    QualificationAutoTuner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
+    val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo, appIndex)
+    val rawAggMetrics =
+      QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex, Some(sqlAnalyzer))
+    QualificationAutoTunerRunner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {
           qualTuner.runAutoTuner(platform)

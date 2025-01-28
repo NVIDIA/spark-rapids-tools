@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import org.apache.spark.sql.rapids.tool.UnsupportedExpr
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 
 trait ExecParser {
   def parse: ExecInfo
@@ -32,5 +32,6 @@ trait ExecParser {
    * @param expressions Array of expression strings to evaluate for support.
    * @return Empty Seq[UnsupportedExpr], indicating no unsupported expressions by default.
    */
-  def getUnsupportedExprReasonsForExec(expressions: Array[String]): Seq[UnsupportedExpr] = Seq.empty
+  def getUnsupportedExprReasonsForExec(
+    expressions: Array[String]): Seq[UnsupportedExprOpRef] = Seq.empty
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -104,6 +104,25 @@ object ProfSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with ProfAppInd
     app match {
       case app: ApplicationInfo =>
         app.planMetricProcessor.generateSQLAccums()
+      case _ => Seq.empty
+    }
+  }
+}
+
+object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
+    with ProfAppIndexMapperTrait {
+  override def getLabel: String = "IO Diagnostic Metrics"
+  override def getDescription: String = "IO Diagnostic Metrics"
+
+  override def sortView(
+      rows: Seq[IODiagnosticResult]): Seq[IODiagnosticResult] = {
+    rows.sortBy(cols => (cols.appIndex, -cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
+  }
+
+  override def getRawView(app: AppBase, index: Int): Seq[IODiagnosticResult] = {
+    app match {
+      case app: ApplicationInfo =>
+        sortView(app.planMetricProcessor.generateIODiagnosticAccums())
       case _ => Seq.empty
     }
   }

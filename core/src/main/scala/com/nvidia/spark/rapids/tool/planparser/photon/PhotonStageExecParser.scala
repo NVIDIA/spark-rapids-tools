@@ -35,5 +35,6 @@ case class PhotonStageExecParser(
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase,
-    reusedNodeIds: Set[Long])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds)
+    reusedNodeIds: Set[Long],
+    nodeIdToStagesFunc: Long => Set[Int])
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)

@@ -1,5 +1,5 @@
 <!--
-  Copyright (c) 2023-2024, NVIDIA CORPORATION. All Rights Reserved.
+  Copyright (c) 2023-2025, NVIDIA CORPORATION. All Rights Reserved.
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -40,6 +40,12 @@ You can also disable only one rule, by specifying its rule id, as specified in:
 
     <check level="error" class="org.scalastyle.file.FileTabChecker" enabled="true"/>
 
+    <check level="error" class="org.scalastyle.scalariform.SpacesAfterPlusChecker" enabled="true"></check>
+
+    <check level="error" class="org.scalastyle.scalariform.SpacesBeforePlusChecker" enabled="true"></check>
+
+    <check level="error" class="org.scalastyle.file.WhitespaceEndOfLineChecker" enabled="true"></check>
+
     <check level="error" class="org.scalastyle.file.FileLineLengthChecker" enabled="true">
         <parameters>
             <parameter name="maxLineLength"><![CDATA[100]]></parameter>
@@ -56,6 +62,24 @@ You can also disable only one rule, by specifying its rule id, as specified in:
             <parameter name="group.3rdParty">(?!org\.apache\.spark\.).*</parameter>
             <parameter name="group.spark">org\.apache\.spark\..*</parameter>
         </parameters>
+    </check>
+
+    <check level="error" class="org.scalastyle.scalariform.DisallowSpaceBeforeTokenChecker" enabled="true">
+        <parameters>
+            <parameter name="tokens">COMMA</parameter>
+        </parameters>
+    </check>
+
+    <check customId="SingleSpaceBetweenRParenAndLCurlyBrace" level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
+        <parameters><parameter name="regex">\)\{</parameter></parameters>
+        <customMessage><![CDATA[
+            Single Space between ')' and `{`.
+        ]]></customMessage>
+    </check>
+
+    <check customId="OmitBracesInCase" level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
+        <parameters><parameter name="regex">case[^\n>]*=>\s*\{</parameter></parameters>
+        <customMessage>Omit braces in case clauses.</customMessage>
     </check>
 
     <check level="error" class="org.scalastyle.scalariform.ClassNamesChecker" enabled="true">
@@ -92,9 +116,34 @@ You can also disable only one rule, by specifying its rule id, as specified in:
         </parameters>
     </check>
 
+    <check level="error" class="org.scalastyle.file.NewLineAtEofChecker" enabled="true"></check>
+
+    <check level="error" class="org.scalastyle.scalariform.SpaceAfterCommentStartChecker" enabled="true"></check>
+
+    <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceBeforeTokenChecker" enabled="true">
+        <parameters>
+            <parameter name="tokens">ARROW, EQUALS, ELSE, TRY, CATCH, FINALLY, LARROW, RARROW</parameter>
+        </parameters>
+    </check>
+
+    <check level="error" class="org.scalastyle.scalariform.EnsureSingleSpaceAfterTokenChecker" enabled="true">
+        <parameters>
+            <parameter name="tokens">ARROW, EQUALS, COMMA, COLON, IF, ELSE, DO, WHILE, FOR, MATCH, TRY, CATCH, FINALLY, LARROW, RARROW</parameter>
+        </parameters>
+    </check>
+
     <!-- ??? usually shouldn't be checked into the code base. -->
     <check level="error" class="org.scalastyle.scalariform.NotImplementedErrorUsage"
            enabled="true"/>
+
+    <!-- Similar to Spark, all printlns need to be wrapped in '// scalastyle:off/on println' -->
+    <check customId="println" level="error" class="org.scalastyle.scalariform.TokenChecker" enabled="true">
+        <parameters><parameter name="regex">^println$</parameter></parameters>
+        <customMessage><![CDATA[Are you sure you want to println? If yes, wrap the code block with
+      // scalastyle:off println
+      println(...)
+      // scalastyle:on println]]></customMessage>
+    </check>
 
     <check customId="NoScalaDoc" level="error" class="org.scalastyle.file.RegexChecker"
            enabled="true">
@@ -113,10 +162,54 @@ You can also disable only one rule, by specifying its rule id, as specified in:
     </check>
 
     <!-- ================================================================================ -->
+    <!--       rules for enforcing cross-build between Scala 2.12 and 2.13                -->
+    <!-- ================================================================================ -->
+
+    <check level="error" class="org.scalastyle.scalariform.IllegalImportsChecker" enabled="true">
+        <parameters><parameter name="illegalImports"><![CDATA[scala.collection.Seq,scala.collection.IndexedSeq]]></parameter></parameters>
+        <customMessage><![CDATA[
+        Don't import scala.collection.Seq and scala.collection.IndexedSeq as it may bring some problems with cross-build between Scala 2.12 and 2.13.
+
+        Please refer below page to see the details of changes around Seq / IndexedSeq.
+        https://docs.scala-lang.org/overviews/core/collections-migration-213.html
+
+        If you really need to use scala.collection.Seq or scala.collection.IndexedSeq, please use the fully-qualified name instead.
+        ]]></customMessage>
+    </check>
+
+    <check level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
+        <parameters>
+            <parameter name="regex">def this\((.*)\) \{</parameter>
+            <parameter name="line">false</parameter>
+        </parameters>
+        <customMessage>procedure syntax is deprecated for constructors in Scala 2.13: add `=`, as in method definition</customMessage>
+    </check>
+
+    <check level="error" class="org.scalastyle.scalariform.ProcedureDeclarationChecker" enabled="true">
+        <customMessage>procedure syntax is deprecated in Scala 2.13: add return type `: Unit` and `=`</customMessage>
+    </check>
+
+    <check level="error" class="org.scalastyle.file.RegexChecker" enabled="true">
+        <parameters>
+            <parameter name="regex">ArrayBuilder.make\[(.+)\]\(\)</parameter>
+            <parameter name="line">false</parameter>
+        </parameters>
+        <customMessage>ArrayBuilder.make does not accept parens anymore in Scala 2.13</customMessage>
+    </check>
+
+    <!-- ================================================================================ -->
     <!--       rules we'd like to enforce, but haven't cleaned up the codebase yet        -->
     <!-- ================================================================================ -->
 
     <!-- This project uses Javadoc rather than Scaladoc so scaladoc checks are disabled -->
     <check enabled="false" class="org.scalastyle.scalariform.ScalaDocChecker" level="warning"/>
 
+    <check customId="argcount" level="error" class="org.scalastyle.scalariform.ParameterNumberChecker" enabled="false">
+        <parameters><parameter name="maxParameters"><![CDATA[10]]></parameter></parameters>
+    </check>
+
+    <check level="error" class="org.scalastyle.scalariform.PublicMethodsHaveTypeChecker" enabled="false"></check>
+
+    <!-- Unit test uses ascii characters. So, we need to clean that up first -->
+    <check customId="nonascii" level="error" class="org.scalastyle.scalariform.NonASCIICharacterChecker" enabled="false"></check>
 </scalastyle>

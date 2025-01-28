@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{BaseJobStageAggTaskMetricsProfileResult, IOAnalysisProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageDiagnosticResult}
 
 /**
  * Contains the sort logic for the aggregated Spark RawMetrics.
@@ -50,7 +50,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, cols.sqlId, cols.executorCpuTime)
+        (cols.appIndex, -sortDur, cols.sqlId, cols.executorCPUTimeSum)
       }
     }
   }
@@ -88,6 +88,19 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         (cols.appIndex, cols.sqlId)
+      }
+    }
+  }
+
+  def sortStageDiagnostics(
+      rows: Seq[StageDiagnosticResult]):
+  Seq[StageDiagnosticResult] = {
+    if (rows.isEmpty) {
+      Seq.empty
+    } else {
+      rows.sortBy { cols =>
+        val sortDur = cols.duration.getOrElse(0L)
+        (cols.appIndex, -sortDur, -cols.memoryBytesSpilled.total)
       }
     }
   }

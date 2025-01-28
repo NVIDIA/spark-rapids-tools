@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,9 +45,9 @@ logger = get_logger(__name__)
 
 @dataclass
 class RegexPattern:
-    app_id = re.compile(r'^app.*[_-][0-9]+[_-][0-9]+$')
-    profile = re.compile(r'^prof_[0-9]+_[0-9a-zA-Z]+$')
-    qual_tool = re.compile(r'^qual_[0-9]+_[0-9a-zA-Z]+$')
+    app_id = re.compile(r'app.*[_-][0-9]+[_-][0-9]+')
+    profile = re.compile(r'prof_[0-9]+_[0-9a-zA-Z]+')
+    qual_tool = re.compile(r'qual_[0-9]+_[0-9a-zA-Z]+')
     rapids_profile = re.compile(r'rapids_4_spark_profile')
     rapids_qual = re.compile(r'rapids_4_spark_qualification_output')
     qual_tool_metrics = re.compile(r'raw_metrics')
@@ -190,6 +190,12 @@ def compute_accuracy(
         Dictionary of display name of metric -> prediction column name.
     weight: str
         Name of column to use as weight, e.g. 'Duration' or 'appDuration'.
+
+    Returns
+    -------
+    scores: Dict[str, Dict[str, float]]
+        Dictionary of different scoring metrics per prediction column,
+        e.g. {'QXS': {'MAPE"; 1.31, 'dMAPE': 1.25}}
     """
     scores = {}
     for name, y_pred in y_preds.items():
@@ -219,6 +225,44 @@ def compute_accuracy(
                 np.log(1 + results[weight]) * np.abs(results[y] - results[y_pred])
             ) / (np.sum(np.log(1 + results[weight]) * results[y]))
     return scores
+
+
+def compute_precision_recall(
+    results: pd.DataFrame, y: str, y_preds: Dict[str, str], threshold: float
+) -> Tuple[Dict[str, float], Dict[str, float]]:
+    """Compute precision and recall from a dataframe using a threshold for identifying true positives.
+
+    Parameters
+    ----------
+    results: pd.DataFrame
+        Pandas dataframe containing the label column and one or more prediction columns.
+    y: str
+        Label column name.
+    y_preds: Dict[str, str]
+        Dictionary of display name of prediction -> prediction column name.
+    threshold: float
+        Threshold separating positives (inclusive of threshold) from negatives.
+
+    Returns
+    -------
+    precision: Dict[str, float]
+        Dictionary of precision metric per prediction column,
+        e.g. {'QX': 0.90, 'QXS': 0.92}
+    recall: Dict[str, float]
+        Dictionary of recall metric per prediction column,
+        e.g. {'QX': 0.78, 'QXS': 0.82}
+    """
+    precision = {}
+    recall = {}
+    for name, y_pred in y_preds.items():
+        tp = sum((results[y_pred] >= threshold) & (results[y] >= threshold))
+        fp = sum((results[y_pred] >= threshold) & (results[y] < threshold))
+        fn = sum((results[y_pred] < threshold) & (results[y] >= threshold))
+
+        precision[name] = tp / (tp + fp) if (tp + fp) > 0 else np.nan
+        recall[name] = tp / (tp + fn) if (tp + fn) > 0 else np.nan
+
+    return precision, recall
 
 
 def load_plugin(plugin_path: str) -> types.ModuleType:

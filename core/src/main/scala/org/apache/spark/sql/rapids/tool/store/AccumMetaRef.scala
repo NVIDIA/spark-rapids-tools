@@ -27,6 +27,7 @@ case class AccumMetaRef(id: Long, name: AccumNameRef) {
 }
 
 object AccumMetaRef {
+  val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
   def apply(id: Long, name: Option[String]): AccumMetaRef =
     new AccumMetaRef(id, AccumNameRef.getOrCreateAccumNameRef(name))
 }

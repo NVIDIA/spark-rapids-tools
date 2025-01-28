@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,14 @@ package com.nvidia.spark.rapids.tool.views
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
 /**
  * This object generates the raw metrics view for the qualification tool. It is used to generate
  * the CSV files without applying any heuristics or estimation.
  */
-object QualRawReportGenerator {
+object QualRawReportGenerator extends Logging {
 
   private def constructLabelsMaps(
       aggRawResult: AggRawMetricsResult): Map[String, Seq[ProfileResult]] = {
@@ -36,14 +37,16 @@ object QualRawReportGenerator {
       AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
-      aggRawResult.maxTaskInputSizes)
+      aggRawResult.maxTaskInputSizes,
+      AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics))
     Map(
       STAGE_AGG_LABEL -> sortedRes.stageAggs,
       JOB_AGG_LABEL -> sortedRes.jobAggs,
       TASK_SHUFFLE_SKEW -> sortedRes.taskShuffleSkew,
       SQL_AGG_LABEL -> sortedRes.sqlAggs,
       IO_LABEL -> sortedRes.ioAggs,
-      SQL_DUR_LABEL -> sortedRes.sqlDurAggs)
+      SQL_DUR_LABEL -> sortedRes.sqlDurAggs,
+      STAGE_DIAGNOSTICS_LABEL -> sortedRes.stageDiagnostics)
   }
 
   private def generateSQLProcessingView(
@@ -92,11 +95,13 @@ object QualRawReportGenerator {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      constructLabelsMaps(
-        QualSparkMetricsAnalyzer.getAggRawMetrics(app, appIndex)).foreach { case (label, metrics) =>
-        pWriter.write(label,
-          metrics,
-          AGG_DESCRIPTION.get(label))
+      constructLabelsMaps(QualSparkMetricsAnalyzer.
+        getAggRawMetrics(app, appIndex, Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
+          if (label == STAGE_DIAGNOSTICS_LABEL) {
+            pWriter.writeCSVTable(label, metrics)
+          } else {
+            pWriter.write(label, metrics, AGG_DESCRIPTION.get(label))
+          }
       }
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.write(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
@@ -106,7 +111,7 @@ object QualRawReportGenerator {
       pWriter.write(QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
     } catch {
       case e: Exception =>
-        println(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")
+        logError(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")
     } finally {
       pWriter.close()
     }
