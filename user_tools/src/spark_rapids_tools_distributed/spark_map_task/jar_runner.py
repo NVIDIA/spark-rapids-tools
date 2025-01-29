@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the 'License');
 # you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ class SparkJarRunner:
         classpath = ':'.join([
             SparkFiles.get(os.path.basename(self.jar_cmd_args.tools_jar_path)),
             self.jar_cmd_args.hadoop_classpath,
-            f'{self.get_env_var("SPARK_HOME")}/jars/*'
+            f"{self.get_env_var('SPARK_HOME')}/jars/*"
         ])
 
         # Set the JVM log file path
@@ -84,7 +84,7 @@ class SparkJarRunner:
         # Construct the JAR command
         return [
             # pylint: disable=line-too-long
-            f'{self.get_env_var("JAVA_HOME")}/bin/java',       # Java executable path
+            f"{self.get_env_var('JAVA_HOME')}/bin/java",       # Java executable path
             *self.jar_cmd_args.jvm_args,                       # JVM Arguments: Log configuration, memory settings, etc.
             '-cp', classpath,                                  # Classpath for dependencies
             self.jar_cmd_args.jar_main_class,                  # Spark RAPIDS Tools main class
@@ -149,7 +149,7 @@ class SparkJarRunner:
             f'Host: {socket.gethostname()}',
             f'Event Log Path: {file_path}',
             f'Executor Output Path: {executor_output_path}',
-            f'Command: {" ".join(jar_command)}',
+            f"Command: {' '.join(jar_command)}",
             f'Processing Time: {processing_time}',
             f'Status: {app_status.status.value}',
             f'Error Description:\n {app_status.description}' if app_status.status == AppStatus.FAILURE else '',
