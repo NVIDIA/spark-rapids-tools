@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.ClusterProperties
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
@@ -147,7 +147,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
 
   // Default recommendation based on NDS benchmarks (note: this could be platform specific)
-  def recommendedCoresPerExec = 16
+  def recommendedCoresPerExec: Int = ProfilingAutoTunerConfigsProvider.DEF_CORES_PER_EXECUTOR
   // Default number of GPUs to use, currently we do not support multiple GPUs per node
   def recommendedGpusPerNode = 1
   def defaultNumGpus: Int = 1
