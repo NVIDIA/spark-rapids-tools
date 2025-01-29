@@ -30,7 +30,7 @@ trait TuningEntryTrait {
   // The value recommended by the AutoTuner
   var tunedValue: Option[String]
   // The original value of the property from the event log
-  val originalValue: Option[String]
+  var originalValue: Option[String]
   var enabled: Boolean = true
 
   // The type of tuning operation to be performed
@@ -43,6 +43,8 @@ trait TuningEntryTrait {
   def toConfString: String = {
     "--conf %s=%s".format(name, getTuneValue())
   }
+
+  def setOriginalValueFromDefaultSpark(): Unit
 
   /**
    * Indicates if the property is resolved by the AutoTuner or not. This is used to distinguish

@@ -626,7 +626,7 @@ class AutoTuner(
     }
     appendRecommendation("spark.rapids.sql.batchSizeBytes",
       autoTunerConfigsProvider.BATCH_SIZE_BYTES)
-    appendRecommendation("spark.locality.wait", 0)
+    appendRecommendation("spark.locality.wait", "0")
   }
 
   def calculateJobLevelRecommendations(): Unit = {

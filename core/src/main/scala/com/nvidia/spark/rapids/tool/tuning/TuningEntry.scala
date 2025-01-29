@@ -27,9 +27,28 @@ import org.apache.spark.internal.Logging
  */
 class TuningEntry(
     override val name: String,
-    override val originalValue: Option[String],
+    override var originalValue: Option[String],
     override var tunedValue: Option[String],
     definition: Option[TuningEntryDefinition] = None) extends TuningEntryTrait {
+
+  /**
+   * Set the original value from the default value in Spark if it exists.
+   * This is needed because some properties may not be set relying on the default value defined by
+   * Spark configurations.
+   */
+  override def setOriginalValueFromDefaultSpark(): Unit = {
+    originalValue match {
+      case Some(_) => // Do Nothing
+      case None =>
+        definition match {
+          case Some(defn) =>
+            if (defn.hasDefaultSpark()) {
+              originalValue = Some(defn.defaultSpark)
+            }
+          case None =>  // Do Nothing
+        }
+    }
+  }
 
   override def isBootstrap(): Boolean = {
     definition match {
@@ -45,6 +64,12 @@ class TuningEntry(
     }
     globalFlag && enabled
   }
+
+  /////////////////////////
+  // Initialization Code //
+  /////////////////////////
+
+  setOriginalValueFromDefaultSpark()
 }
 
 object TuningEntry extends Logging {

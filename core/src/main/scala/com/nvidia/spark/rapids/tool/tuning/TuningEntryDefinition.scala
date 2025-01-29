@@ -38,6 +38,8 @@ import org.apache.spark.sql.rapids.tool.util.UTF8Source
  *                 "tuning": required to tune the runtime.
  * @param bootstrapEntry When true, the property should be added to the bootstrap configuration.
  *                       Default is true.
+ * @param defaultSpark The default value of the property in Spark. This is used to set the
+ *                     originalValue of the property in case it is not set by the eventlog.
  */
 class TuningEntryDefinition(
     @BeanProperty var label: String,
@@ -45,9 +47,11 @@ class TuningEntryDefinition(
     @BeanProperty var enabled: Boolean,
     @BeanProperty var level: String,
     @BeanProperty var category: String,
-    @BeanProperty var bootstrapEntry: Boolean) {
+    @BeanProperty var bootstrapEntry: Boolean,
+    @BeanProperty var defaultSpark: String) {
   def this() = {
-    this("", "", enabled = true, "", "", bootstrapEntry = true)
+    this(label = "", description = "", enabled = true, level = "", category = "",
+      bootstrapEntry = true, defaultSpark = null)
   }
 
   def isEnabled(): Boolean = {
@@ -55,6 +59,15 @@ class TuningEntryDefinition(
   }
   def isBootstrap(): Boolean = {
     bootstrapEntry || label.startsWith("spark.rapids.")
+  }
+
+  /**
+   * Indicates if the property has a default value in Spark. This implies that the default value
+   * can be used to set the original value of the property.
+   * @return true if the property has a default value in Spark.
+   */
+  def hasDefaultSpark(): Boolean = {
+    defaultSpark != null
   }
 }
 

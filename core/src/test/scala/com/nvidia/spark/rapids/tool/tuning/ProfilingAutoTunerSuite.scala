@@ -80,6 +80,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -143,6 +144,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -185,6 +187,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -246,6 +249,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
@@ -296,6 +300,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -360,6 +365,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -434,6 +440,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -499,6 +506,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -560,6 +568,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -614,6 +623,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -674,6 +684,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -724,6 +735,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -791,6 +803,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -851,6 +864,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -896,6 +910,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -999,6 +1014,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1077,6 +1093,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=5
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1146,6 +1163,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1226,6 +1244,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1310,6 +1329,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1389,6 +1409,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1463,6 +1484,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1529,6 +1551,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1576,6 +1599,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1620,6 +1644,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1690,6 +1715,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.filecache.enabled=true
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -1766,6 +1792,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1862,6 +1889,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1973,6 +2001,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf $memoryOverheadLabel=13516m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -2042,6 +2071,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -2133,6 +2163,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
@@ -2252,6 +2283,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2396,6 +2428,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2604,6 +2637,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2683,6 +2717,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2751,6 +2786,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2829,6 +2865,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2906,6 +2943,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2982,6 +3020,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28

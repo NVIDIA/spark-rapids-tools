@@ -43,6 +43,12 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+  - label: spark.locality.wait
+    description: 'The time to wait to launch a data-local task before giving up and launching it on a less-local node. It is recommended to avoid waiting for a data-local task.'
+    enabled: true
+    level: cluster
+    category: tuning
+    defaultSpark: 3s
   - label: spark.rapids.filecache.enabled
     description: ''
     enabled: true
