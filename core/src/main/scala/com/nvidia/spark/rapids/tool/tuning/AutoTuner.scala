@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -394,15 +394,6 @@ class AutoTuner(
   }
 
   /**
-   * Recommendation for 'spark.task.resource.gpu.amount' based on num of cpu cores.
-   */
-  def calcTaskGPUAmount: Double = {
-    val numExecutorCores = calcNumExecutorCores
-    // can never be 0 since numExecutorCores has to be at least 1
-    1.0 / numExecutorCores
-  }
-
-  /**
    * Recommendation for 'spark.rapids.sql.concurrentGpuTasks' based on gpu memory.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
@@ -598,7 +589,10 @@ class AutoTuner(
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
       val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
-      appendRecommendation("spark.task.resource.gpu.amount", calcTaskGPUAmount)
+      // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
+      // by `spark.executor.cores`.
+      appendRecommendation("spark.task.resource.gpu.amount",
+        autoTunerConfigsProvider.DEF_TASK_GPU_RESOURCE_AMT)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
       val availableMemPerExec =
@@ -1161,8 +1155,12 @@ class AutoTuner(
 trait AutoTunerConfigsProvider extends Logging {
   // Maximum number of concurrent tasks to run on the GPU
   val MAX_CONC_GPU_TASKS = 4L
-  // Amount of CPU memory to reserve for system overhead (kernel, buffers, etc.) in megabytes
-  val DEF_SYSTEM_RESERVE_MB: Long = 2 * 1024L
+  // Default cores per executor to be recommended for Spark RAPIDS
+  val DEF_CORES_PER_EXECUTOR = 16
+  // Default amount of a GPU memory allocated for each task.
+  // This is set to a low value for Spark RAPIDS as task parallelism will be
+  // honoured by `spark.executor.cores`.
+  val DEF_TASK_GPU_RESOURCE_AMT = 0.001
   // Fraction of the executor JVM heap size that should be additionally reserved
   // for JVM off-heap overhead (thread stacks, native libraries, etc.)
   val DEF_HEAP_OVERHEAD_FRACTION = 0.1
@@ -1219,11 +1217,15 @@ trait AutoTunerConfigsProvider extends Logging {
     "spark.rapids.memory.pinnedPool.size" ->
       s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.")
 
+  // scalastyle:off line.size.limit
   val commentsForMissingProps: Map[String, String] = Map(
+    "spark.executor.cores" ->
+      // TODO: This could be extended later to be platform specific.
+      s"'spark.executor.cores' should be set to $DEF_CORES_PER_EXECUTOR.",
     "spark.executor.instances" ->
-      "'spark.executor.instances' should be set to (gpuCount * numWorkers).",
+      "'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.",
     "spark.task.resource.gpu.amount" ->
-      "'spark.task.resource.gpu.amount' should be set to Min(1, (gpuCount / numCores)).",
+      s"'spark.task.resource.gpu.amount' should be set to $DEF_TASK_GPU_RESOURCE_AMT.",
     "spark.rapids.sql.concurrentGpuTasks" ->
       s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
     "spark.rapids.sql.enabled" ->
@@ -1231,6 +1233,7 @@ trait AutoTunerConfigsProvider extends Logging {
     "spark.sql.adaptive.enabled" ->
       "'spark.sql.adaptive.enabled' should be enabled for better performance."
   ) ++ commentsForMissingMemoryProps
+  // scalastyle:off line.size.limit
 
   lazy val recommendationsTarget: Iterable[String] = TuningEntryDefinition.TUNING_TABLE.keys
 
