@@ -132,8 +132,8 @@ trait TuningEntryTrait {
   def isEnabled(): Boolean
 
   /**
-   * Used to compare between two properties by converting memory units to
-   * a equivalent representations.
+   * Used to compare between two properties by converting memory units to equivalent
+   * representations.
    * @param propValue property to be processed.
    * @return the uniform representation of property.
    *         For Memory, the value is converted to bytes.
@@ -172,7 +172,7 @@ trait TuningEntryTrait {
           }
         case (None, Some(_)) => setTuningOpType(TuningOpTypes.ADD)
         case (Some(orig), None) =>
-          // It is possible that the property was not set bu the AutoTuner, then it means it should
+          // It is possible that the property is not set by the AutoTuner, then it means it should
           // be copied from the original configuration.
           setRecommendedValue(orig)
       }

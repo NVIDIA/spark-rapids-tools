@@ -36,6 +36,7 @@ class BootstrapReport(tuningResult: TuningResult,
   private def loadBootstrapEntries(): Seq[TuningEntryTrait] = {
     tuningResult.recommendations.filter(e => e.isEnabled() && e.isBootstrap() && !e.isRemoved())
   }
+
   def generateReport(): Unit = {
     val textFileWriter = new ToolTextFileWriter(outputDir,
       s"${tuningResult.appID}-bootstrap.conf",
