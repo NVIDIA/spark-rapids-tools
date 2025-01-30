@@ -719,6 +719,7 @@ class AutoTuner(
   }
 
   private def recommendAQEProperties(): Unit = {
+    // Spark configuration (AQE is enabled by default)
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
       .getOrElse("false").toLowerCase
     if (aqeEnabled == "false") {
