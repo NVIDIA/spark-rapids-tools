@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -405,7 +405,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
       appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo),
-      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics))
+      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
 
   /**
@@ -573,12 +573,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
     // Write diagnostic related results to CSV files
     val diagnostics = if (outputCombined) {
-      Seq(DiagnosticSummaryInfo(diagnosticSum.flatMap(_.stageDiagnostics)))
+      Seq(DiagnosticSummaryInfo(diagnosticSum.flatMap(_.stageDiagnostics),
+        diagnosticSum.flatMap(_.IODiagnostics)))
     } else {
       diagnosticSum
     }
     diagnostics.foreach { diagnostoic =>
       profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL, diagnostoic.stageDiagnostics)
+      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
+        diagnostoic.IODiagnostics)
     }
   }
 

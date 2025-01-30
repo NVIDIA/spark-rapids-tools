@@ -16,6 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.qualification
 
+import java.util.concurrent.TimeUnit.NANOSECONDS
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.collection.mutable
 
@@ -168,8 +170,9 @@ class QualificationAppInfo(
   }
 
   private def calculateCpuTimePercent(perSqlStageSummary: Seq[SQLStageSummary]): Double = {
-    val totalCpuTime = perSqlStageSummary.map(_.execCPUTime).sum
-    val totalRunTime = perSqlStageSummary.map(_.execRunTime).sum
+    val totalCpuTime =
+      NANOSECONDS.toMillis(perSqlStageSummary.map(_.execCPUTime).sum) // in milliseconds
+    val totalRunTime = perSqlStageSummary.map(_.execRunTime).sum // in milliseconds
     ToolUtils.calculateDurationPercent(totalCpuTime, totalRunTime)
   }
 
@@ -456,8 +459,10 @@ class QualificationAppInfo(
         val ratio = numSupportedExecs / numExecs
         val estimateWallclockSupported = (sqlWallClockDuration * ratio).toInt
         // don't worry about supported execs for these are these are mostly indicator of I/O
-        val execRunTime = sqlIDToTaskEndSum.get(sqlID).map(_.executorRunTime).getOrElse(0L)
-        val execCPUTime = sqlIDToTaskEndSum.get(sqlID).map(_.executorCPUTime).getOrElse(0L)
+        val execRunTime =
+          sqlIDToTaskEndSum.get(sqlID).map(_.executorRunTime).getOrElse(0L) // in milliseconds
+        val execCPUTime =
+          sqlIDToTaskEndSum.get(sqlID).map(_.executorCPUTime).getOrElse(0L) // in nanoseconds
         SQLStageSummary(stageSum, sqlID, estimateWallclockSupported,
           execCPUTime, execRunTime)
       }
@@ -906,8 +911,9 @@ case class SQLStageSummary(
     stageSum: Set[StageQualSummaryInfo],
     sqlID: Long,
     estimateWallClockSupported: Long,
-    execCPUTime: Long,
-    execRunTime: Long)
+    execCPUTime: Long, // in nanoseconds
+    execRunTime: Long // in milliseconds
+)
 
 case class MLFunctions(
     appID: Option[String],

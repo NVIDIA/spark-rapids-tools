@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ object ProfileMain extends Logging {
   /**
    * Entry point from spark-submit running this as the driver.
    */
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     val (exitCode, _) = mainInternal(new ProfileArgs(args), enablePB = true)
     if (exitCode != 0) {
       System.exit(exitCode)

@@ -196,11 +196,10 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val resultExpectation =
       new File(expRoot, "rapids_join_eventlog_sqlmetrics_expectation.csv")
     assert(sqlMetrics.size == 83)
-    val sqlMetricsWithDelim = sqlMetrics.map { metrics =>
-      metrics.copy(stageIds = ProfileUtils.replaceDelimiter(metrics.stageIds, ","))
-    }
+
+    import org.apache.spark.sql.functions._
     import sparkSession.implicits._
-    val df = sqlMetricsWithDelim.toDF
+    val df = sqlMetrics.toDF.withColumn("stageIds", concat_ws(",", col("stageIds")))
     val dfExpect = ToolTestUtils.readExpectationCSV(sparkSession, resultExpectation.getPath())
     ToolTestUtils.compareDataFrames(df, dfExpect)
   }
@@ -842,7 +841,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 21)
+      assert(dotDirs.length === 22)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -876,7 +875,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 17)
+      assert(dotDirs.length === 18)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -913,7 +912,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 21)
+      assert(dotDirs.length === 22)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly
@@ -950,7 +949,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         f.endsWith(".csv")
       })
       // compare the number of files generated
-      assert(dotDirs.length === 19)
+      assert(dotDirs.length === 20)
       for (file <- dotDirs) {
         assert(file.getAbsolutePath.endsWith(".csv"))
         // just load each one to make sure formatted properly

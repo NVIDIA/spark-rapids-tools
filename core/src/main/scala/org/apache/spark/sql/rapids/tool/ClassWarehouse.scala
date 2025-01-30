@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -72,7 +72,7 @@ case class RecommendedClusterInfo(
     vendor: String,
     coresPerExecutor: Int,
     numWorkerNodes: Int,
-    numGpus: Int,
+    numGpusPerNode: Int,
     numExecutors: Int,
     gpuDevice: String,
     dynamicAllocationEnabled: Boolean,
@@ -82,7 +82,7 @@ case class RecommendedClusterInfo(
     driverNodeType: Option[String] = None,
     workerNodeType: Option[String] = None) extends ClusterInfo {
     // The number of executors per node is the same as the number of GPUs
-    def numExecsPerNode: Int = numGpus
+    def numExecsPerNode: Int = numGpusPerNode
 }
 
 case class ClusterSummary(

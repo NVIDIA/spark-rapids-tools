@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,6 @@ package org.apache.spark.sql.rapids.tool.store
 
 import java.util.concurrent.ConcurrentHashMap
 
-import com.nvidia.spark.rapids.tool.analysis.StageAccumDiagnosticMetrics.getAllDiagnosticMetrics
-
 import org.apache.spark.sql.rapids.tool.util.EventUtils.normalizeMetricName
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -35,8 +33,6 @@ case class AccumNameRef(value: String) {
   // We opt to use this optimization because while writing the CSV files, each row is going to
   // create a new CSV string even though they represent the same AccumulatorName.
   val csvValue: String = StringUtils.reformatCSVString(value)
-
-  def isDiagnosticMetrics(): Boolean = getAllDiagnosticMetrics.contains(value)
 }
 
 object AccumNameRef {

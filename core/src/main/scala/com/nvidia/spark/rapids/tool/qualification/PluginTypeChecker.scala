@@ -318,15 +318,17 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
     (allSupportedReadSources.toMap, allSupportedWriteFormats)
   }
 
-  def getOtherTypes(typeRead: String): Seq[String] = {
+  private def getOtherTypes(typeRead: String): Seq[String] = {
     typeRead match {
+      case "binary" => Seq("blob")
+      case "byte" => Seq("tinyint")
+      case "calendar" => Seq("interval")
+      case "decimal" => Seq("dec", "numeric")
+      case "float" => Seq("real")
+      case "int" => Seq("integer")
       case "long" => Seq("bigint")
       case "short" => Seq("smallint")
-      case "int" => Seq("integer")
-      case "byte" => Seq("tinyint")
-      case "float" => Seq("real")
-      case "decimal" => Seq("dec", "numeric")
-      case "calendar" => Seq("interval")
+      case "string" => Seq("varchar", "char")
       case _ => Seq.empty[String]
     }
   }
