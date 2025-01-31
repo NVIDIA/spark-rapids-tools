@@ -1,6 +1,32 @@
 
 <br/>
 
+## Release [v24.12.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.2)
+Generated on 2025-01-31
+### User Tools
+
+- Revert "Follow Up: Make '--platform' argument mandatory in CLI (#1473)" ([#1498](https://github.com/NVIDIA/spark-rapids-tools/pull/1498))
+- Fix Hadoop JAR Download Timeouts in Behave Tests ([#1503](https://github.com/NVIDIA/spark-rapids-tools/pull/1503))
+
+### Core
+
+- AutoTuner: Set recommendation for spark.task.resource.gpu.amount to a very low value ([#1514](https://github.com/NVIDIA/spark-rapids-tools/pull/1514))
+- [FEA] Add IO diagnostic output for GPU slowness in Profiler tool ([#1451](https://github.com/NVIDIA/spark-rapids-tools/pull/1451))
+- [BUG] Qual tool should convert time units at stage/job/sql level ([#1511](https://github.com/NVIDIA/spark-rapids-tools/pull/1511))
+- Fix string comparison for memory overhead in pinned pool size recommendation in AutoTuner ([#1508](https://github.com/NVIDIA/spark-rapids-tools/pull/1508))
+- Update core tools rules to allow cross-build between 2.12 and 2.13 ([#1510](https://github.com/NVIDIA/spark-rapids-tools/pull/1510))
+- Sync plugin support as of 2024-12-31 ([#1478](https://github.com/NVIDIA/spark-rapids-tools/pull/1478))
+- Add stringType and binaryType to the list of dataType map ([#1506](https://github.com/NVIDIA/spark-rapids-tools/pull/1506))
+- [BUG] Remove duplicated executor CPU time and runtime metric from SQLTaskAggMetricsProfileResult ([#1504](https://github.com/NVIDIA/spark-rapids-tools/pull/1504))
+- Improve AutoTuner cluster configuration recommendations for GPU runs ([#1501](https://github.com/NVIDIA/spark-rapids-tools/pull/1501))
+
+### Miscellaneous
+
+- Use common add-to-project action [skip ci] ([#1505](https://github.com/NVIDIA/spark-rapids-tools/pull/1505))
+
+
+<br/>
+
 ## Release [v24.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.1)
 Generated on 2025-01-14
 ### User Tools
