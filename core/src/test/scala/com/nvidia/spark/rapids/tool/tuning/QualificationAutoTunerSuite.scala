@@ -76,14 +76,18 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     assert(expectedResults.forall(autoTunerOutput.contains))
   }
 
-  test("test AutoTuner for Qualification sets shuffle partitions to 200") {
-    val autoTuner = buildDefaultAutoTuner()
+  test("test AutoTuner for Qualification should not change shuffle partitions") {
+    // Set shuffle partitions to 100. The AutoTuner should recommend the same value
+    // because currently shuffle.partitions is one of the limitedLogicRecommendations.
+    // It will not be added to the recommendations because the value has not changed.
+    val autoTuner = buildDefaultAutoTuner(
+      defaultSparkProps ++ mutable.Map("spark.sql.shuffle.partitions" -> "100")
+    )
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults = Seq(
-      "--conf spark.sql.shuffle.partitions=200",
-      "- 'spark.sql.shuffle.partitions' was not set."
+      "--conf spark.sql.shuffle.partitions"
     )
-    assert(expectedResults.forall(autoTunerOutput.contains))
+    assert(expectedResults.forall(t => !autoTunerOutput.contains(t)))
   }
 }

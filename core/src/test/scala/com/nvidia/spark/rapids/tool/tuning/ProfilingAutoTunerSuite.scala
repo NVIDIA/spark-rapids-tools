@@ -80,6 +80,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -91,9 +92,9 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark320.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -113,10 +114,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- Number of workers is missing. Setting default to 1.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -135,10 +134,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
@@ -151,7 +150,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -171,10 +169,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
@@ -187,7 +185,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -226,10 +223,10 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
@@ -242,7 +239,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -270,6 +266,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -281,9 +278,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -303,10 +300,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -333,6 +328,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -344,9 +340,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -366,10 +362,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- Number of workers is missing. Setting default to 1.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -406,6 +400,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -415,8 +410,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -429,8 +424,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU count is missing. Setting default to 1.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -470,6 +463,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -478,8 +472,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -488,8 +482,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -530,6 +522,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -537,7 +530,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.sql.shuffle.partitions=200
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -545,7 +538,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU memory is missing. Setting default to 15109m.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -583,6 +575,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -591,8 +584,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -601,8 +594,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to $T4Gpu.
           |- GPU memory is missing. Setting default to ${T4Gpu.getMemory}.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -642,6 +633,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -650,8 +642,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -660,8 +652,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- GPU device is missing. Setting default to $T4Gpu.
           |- GPU memory is missing. Setting default to ${T4Gpu.getMemory}.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -691,6 +681,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -702,9 +693,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -724,10 +715,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -757,6 +746,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -765,8 +755,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -775,8 +765,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -816,6 +804,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -824,8 +813,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -834,8 +823,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -860,6 +847,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -871,9 +859,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -893,10 +881,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -962,6 +948,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -972,6 +959,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -983,7 +971,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -1039,6 +1026,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=5
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1049,6 +1037,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -1060,7 +1049,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -1107,17 +1095,20 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -1127,13 +1118,13 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -1184,6 +1175,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1196,6 +1188,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -1211,7 +1204,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -1267,6 +1259,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1277,6 +1270,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -1345,6 +1339,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1355,6 +1350,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -1418,6 +1414,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1428,6 +1425,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -1483,6 +1481,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1491,8 +1490,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1501,8 +1500,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.multiple")} [23.06.0, 23.02.1]
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -1529,6 +1526,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1537,8 +1535,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1547,8 +1545,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- A newer RAPIDS Accelerator for Apache Spark plugin is available:
           |  $pluginJarMvnURl
           |  Version used in application is $jarVer.
@@ -1572,6 +1568,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1580,8 +1577,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1590,8 +1587,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$latestRelease.jar")
@@ -1641,6 +1636,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.filecache.enabled=true
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -1652,6 +1648,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -1716,6 +1713,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1726,6 +1724,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -1757,7 +1756,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
-    assert(properties.map(_.property).forall(autoTuner.platform.isValidRecommendation))
+    assert(properties.map(_.name).forall(autoTuner.platform.isValidRecommendation))
     // Assert recommendations are skipped in comments
     assert(comments.map(_.comment).forall(autoTuner.platform.isValidComment))
   }
@@ -1811,6 +1810,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |Spark Properties:
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -1821,6 +1821,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -1831,7 +1832,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -1921,6 +1921,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf $memoryOverheadLabel=13516m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -1929,6 +1930,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -1942,7 +1944,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -1989,6 +1990,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -1997,6 +1999,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
@@ -2009,7 +2012,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -2089,6 +2091,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=4
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -2097,9 +2100,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.executor.instances' was not set.
@@ -2113,10 +2116,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |- ${ProfilingAutoTunerConfigsProvider.commentForExperimentalConfig("spark.rapids.sql.incompatibleDateFormats.enabled")}
@@ -2222,6 +2223,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2246,7 +2248,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- Setting 'spark.sql.adaptive.autoBroadcastJoinThreshold' > 100m could lead to performance\n  regression. Should be set to a lower number.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -2366,6 +2367,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2376,6 +2378,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -2573,16 +2576,19 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |--conf spark.sql.shuffle.partitions=400
           |
@@ -2590,6 +2596,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
@@ -2597,7 +2604,6 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
@@ -2649,30 +2655,32 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
-          |--conf spark.sql.shuffle.partitions=200
           |
           |Comments:
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in
@@ -2714,20 +2722,22 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -2739,16 +2749,15 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -2789,20 +2798,22 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -2813,16 +2824,15 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -2863,20 +2873,22 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -2887,16 +2899,15 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
@@ -2936,20 +2947,22 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
+          |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647
           |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark341.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -2960,16 +2973,15 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.minPartitionSize' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- 'spark.sql.shuffle.partitions' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,9 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
     } finally {
       textFileWriter.close()
     }
+    // Write down the recommended properties
+    val bootstrapReport = new BootstrapReport(tuningResult, outputDir, hadoopConf)
+    bootstrapReport.generateReport()
     // Write down the combined configurations
     tuningResult.combinedProps.collect {
       case combinedProps =>
@@ -77,7 +80,7 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
     // Otherwise, it is difficult to separate them logically.
     val combinedProps = autoTuner.combineSparkProperties(recommendations)
     val resultRecord = TuningResult(appInfoProvider.getAppID, recommendations,
-      comments, Option(combinedProps))
+      comments, combinedProps = Option(combinedProps))
     writeTuningReport(resultRecord, tunerContext.getOutputPath, tunerContext.hadoopConf)
     resultRecord
   }

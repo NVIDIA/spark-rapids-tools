@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, Platform, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -416,7 +416,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    */
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
-  : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+  : (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     // only run the auto tuner on GPU event logs for profiling tool right now. There are
     // assumptions made in the code
     if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
@@ -611,10 +611,10 @@ object Profiler {
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
 
-  def getAutoTunerResultsAsString(props: Seq[RecommendedPropertyResult],
+  def getAutoTunerResultsAsString(props: Seq[TuningEntryTrait],
       comments: Seq[RecommendedCommentResult]): String = {
     val propStr = if (props.nonEmpty) {
-        val propertiesToStr = props.map(_.toString).reduce(_ + "\n" + _)
+        val propertiesToStr = props.map(_.toConfString).reduce(_ + "\n" + _)
         s"\nSpark Properties:\n$propertiesToStr\n"
       } else {
         "Cannot recommend properties. See Comments.\n"
