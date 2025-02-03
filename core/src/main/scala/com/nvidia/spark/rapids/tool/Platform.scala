@@ -77,7 +77,7 @@ object InstanceInfo {
 // format (numGpus, numCores) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
-  // Using G6 instances for EMR and AWS
+  // Using G6 instances for EMR
   val EMR_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1),
     (1, 8) -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1),
     (1, 16) -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1),
