@@ -77,12 +77,23 @@ object InstanceInfo {
 // format (numGpus, numCores) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
-  val AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1),
+  // Using G6 instances for EMR and AWS
+  val EMR_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1),
     (1, 8) -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1),
     (1, 16) -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1),
     (1, 32) -> InstanceInfo(32, 128 * 1024, "g6.8xlarge", 1),
     (4, 48) -> InstanceInfo(48, 192 * 1024, "g6.12xlarge", 1),
     (1, 64) -> InstanceInfo(64, 256 * 1024, "g6.16xlarge", 1)
+  )
+
+  // Using G5 instances. To be updated once G6 availability on Databricks
+  // is consistent
+  val DATABRICKS_AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1),
+    (1, 8) -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1),
+    (1, 16) -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1),
+    (1, 32) -> InstanceInfo(32, 128 * 1024, "g5.8xlarge", 1),
+    (4, 48) -> InstanceInfo(48, 192 * 1024, "g5.12xlarge", 1),
+    (1, 64) -> InstanceInfo(64, 256 * 1024, "g5.16xlarge", 1)
   )
 
   // Standard_NC4as_T4_v3 - only recommending nodes with T4's for now, add more later
@@ -559,7 +570,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
-    PlatformInstanceTypes.AWS_BY_GPUS_CORES
+    PlatformInstanceTypes.DATABRICKS_AWS_BY_GPUS_CORES
   }
 }
 
@@ -629,7 +640,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
-    PlatformInstanceTypes.AWS_BY_GPUS_CORES
+    PlatformInstanceTypes.EMR_BY_GPUS_CORES
   }
 }
 
