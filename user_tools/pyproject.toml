@@ -86,7 +86,7 @@ dependencies = [
     # used for retrieving available memory on the host
     "psutil==6.1.1",
     # pyspark for distributed computing
-    "pyspark==3.5.0"
+    "pyspark>=3.4.2,<4.0.0"
 ]
 dynamic=["entry-points", "version"]
 
