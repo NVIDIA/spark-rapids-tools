@@ -116,10 +116,6 @@ def find_eventlogs(path: str) -> List[str]:
     return eventlogs
 
 
-def get_cache_dir() -> str:
-    return os.environ.get('QUALX_CACHE_DIR', 'qualx_cache')
-
-
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
     """Return list of platforms and dataset parent directory from a string path.
 
