@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@
 
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from spark_rapids_tools.configuration.common import RuntimeDependency
+from spark_rapids_tools.configuration.common import RuntimeDependency, BaseConfig
 
 
-class ToolsRuntimeConfig(BaseModel):
+class ToolsRuntimeConfig(BaseConfig):
     """The runtime configurations of the tools as defined by the user."""
     dependencies: List[RuntimeDependency] = Field(
         description='The list of runtime dependencies required by the tools java cmd. '

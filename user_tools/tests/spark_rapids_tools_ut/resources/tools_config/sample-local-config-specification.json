@@ -10,6 +10,7 @@
       "type": "string"
     },
     "DependencyVerification": {
+      "additionalProperties": false,
       "description": "The verification information of a runtime dependency required by the tools' java cmd.",
       "properties": {
         "size": {
@@ -65,7 +66,15 @@
       "title": "HashAlgorithm",
       "type": "string"
     },
+    "LocalSubmissionConfig": {
+      "additionalProperties": false,
+      "description": "Configuration class for local submission mode",
+      "properties": {},
+      "title": "LocalSubmissionConfig",
+      "type": "object"
+    },
     "RuntimeDependency": {
+      "additionalProperties": false,
       "description": "Holds information about a runtime dependency required by the tools' java cmd.",
       "properties": {
         "name": {
@@ -115,6 +124,7 @@
       "type": "object"
     },
     "RuntimeDependencyType": {
+      "additionalProperties": false,
       "description": "Defines the type of runtime dependency required by the tools' java cmd.",
       "properties": {
         "dep_type": {
@@ -138,6 +148,7 @@
       "type": "object"
     },
     "ToolsRuntimeConfig": {
+      "additionalProperties": false,
       "description": "The runtime configurations of the tools as defined by the user.",
       "properties": {
         "dependencies": {
@@ -156,7 +167,8 @@
       "type": "object"
     }
   },
-  "description": "Main container for the user's defined tools configuration",
+  "additionalProperties": false,
+  "description": "Container for the local submission mode configurations. This is the parts of the configuration that\ncan be passed as an input to the CLI",
   "properties": {
     "api_version": {
       "description": "The version of the API that the tools are using. This is used to test the compatibility of the configuration file against the current tools release.",
@@ -169,14 +181,33 @@
       "type": "number"
     },
     "runtime": {
-      "$ref": "#/$defs/ToolsRuntimeConfig",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ToolsRuntimeConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
       "description": "Configuration related to the runtime environment of the tools."
+    },
+    "submission": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LocalSubmissionConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Configuration related to local submission mode."
     }
   },
   "required": [
-    "api_version",
-    "runtime"
+    "api_version"
   ],
-  "title": "ToolsConfig",
+  "title": "LocalToolsConfig",
   "type": "object"
 }

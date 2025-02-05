@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -322,6 +322,9 @@ class CspPath(metaclass=CspPathMeta):
 
     def open_output_stream(self):
         return self.fs_obj.open_output_stream(self.no_scheme)
+
+    def open_append_stream(self):
+        return self.fs_obj.open_append_stream(self.no_scheme)
 
     def create_sub_path(self, relative: str) -> 'CspPath':
         """

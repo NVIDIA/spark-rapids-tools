@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools import CspEnv, CspPath
+from spark_rapids_tools.enums import SubmissionMode
 from spark_rapids_tools.utils import Utilities
 
 
@@ -88,6 +89,12 @@ class ToolContext(YAMLPropertiesContainer):
 
     def is_fat_wheel_mode(self) -> bool:
         return self.get_ctxt('fatWheelModeEnabled')
+
+    def is_distributed_mode(self) -> bool:
+        return self.get_ctxt('submissionMode') == SubmissionMode.DISTRIBUTED
+
+    def is_local_mode(self) -> bool:
+        return self.get_ctxt('submissionMode') == SubmissionMode.LOCAL
 
     def set_ctxt(self, key: str, val: Any):
         self.props['wrapperCtx'][key] = val
