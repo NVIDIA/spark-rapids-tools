@@ -32,6 +32,6 @@ class DevRuntimeCheckpoint extends RuntimeCheckpointTrait {
     val memoryInfo = RuntimeUtil.getJVMHeapInfo(runGC = true)
     // scalastyle:off println
     println(s"Memory Marker: $label, ${memoryInfo.mkString("\n")}")
-    // scalastyle:oon println
+    // scalastyle:on println
   }
 }
