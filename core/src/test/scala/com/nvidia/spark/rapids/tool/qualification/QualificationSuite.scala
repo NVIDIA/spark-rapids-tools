@@ -95,7 +95,6 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
-    (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
     (QualOutputWriter.ROOT_SQL_ID_STR, StringType),
     (QualOutputWriter.SQL_ID_STR, StringType),
@@ -226,12 +225,12 @@ class QualificationSuite extends BaseTestSuite {
           val allFiles = fs.listStatus(outputDirPath)
           assert(allFiles.size == 6)
           val dfPerSqlActual = readPerSqlFile(new File(csvOutput0))
-          assert(dfPerSqlActual.columns.size == 7)
+          assert(dfPerSqlActual.columns.size == 6)
           val rows = dfPerSqlActual.collect()
           assert(rows.size == 2)
           val firstRow = rows(1)
           // , should be replaced with ;
-          assert(firstRow(4).toString.contains("at QualificationSuite.scala"))
+          assert(firstRow(3).toString.contains("at QualificationSuite.scala"))
 
           // this reads everything into single column
           val dfPerSqlActualTxt = readPerSqlTextFile(new File(txtOutput0))
@@ -314,8 +313,8 @@ class QualificationSuite extends BaseTestSuite {
       val inputSource = UTF8Source.fromFile(filename)
       try {
         val lines = inputSource.getLines.toArray
-        // 4 lines of header and footer
-        assert(lines.size == (4 + 4))
+        // 4 lines of headers and footers
+        assert(lines.size == 4 + 4)
         // skip the 3 header lines
         val firstRow = lines(3)
         assert(firstRow.contains("local-1622043423018"))
@@ -323,12 +322,12 @@ class QualificationSuite extends BaseTestSuite {
         inputSource.close()
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
-        s"rapids_4_spark_qualification_output_persql.log"
+        s"rapids_4_spark_qualification_output_persql.csv"
       val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines.toArray
         // 4 lines of header and footer
-        assert(lines.size == (4 + 17))
+        assert(lines.size == (1 + 17))
         // skip the 3 header lines
         val firstRow = lines(3)
         // this should be app
@@ -372,12 +371,12 @@ class QualificationSuite extends BaseTestSuite {
         inputSource.close()
       }
       val persqlFileName = s"$outpath/rapids_4_spark_qualification_output/" +
-        s"rapids_4_spark_qualification_output_persql.log"
+        s"rapids_4_spark_qualification_output_persql.csv"
       val persqlInputSource = UTF8Source.fromFile(persqlFileName)
       try {
         val lines = persqlInputSource.getLines
-        // 4 lines of header and footer, limit is 2
-        assert(lines.size == (4 + 2))
+        // 1 lines of header, limit is has not impact on CSV file
+        assert(lines.size == (1 + 17))
       } finally {
         persqlInputSource.close()
       }
@@ -1031,12 +1030,12 @@ class QualificationSuite extends BaseTestSuite {
         val dfPerSqlActual = readPerSqlFile(new File(persqlResults))
         // the number of columns actually won't be wrong if sql description is malformatted
         // because spark seems to drop extra column so need more checking
-        assert(dfPerSqlActual.columns.size == 7)
+        assert(dfPerSqlActual.columns.size == 6)
         val rows = dfPerSqlActual.collect()
         assert(rows.size == 3)
         val firstRow = rows(1)
         // , should not be replaced with ; or any other delim
-        assert(firstRow(4) == "testing, csv delimiter, replacement")
+        assert(firstRow(3) == "testing, csv delimiter, replacement")
 
         // parse results from listener
         val executorCpuTime = NANOSECONDS.toMillis(listener.executorCpuTime) // in milliseconds
@@ -1259,26 +1258,27 @@ class QualificationSuite extends BaseTestSuite {
         }
         // just basic testing that line exists and has right separator
         val csvHeader = qualApp.getPerSqlCSVHeader
-        assert(csvHeader.contains("App Name,App ID,Root SQL ID,SQL ID,SQL Description," +
+        assert(csvHeader.contains("App ID,Root SQL ID,SQL ID,SQL Description," +
             "SQL DF Duration,GPU Opportunity"))
         val txtHeader = qualApp.getPerSqlTextHeader
-        assert(txtHeader.contains("|                              App Name|             App ID|" +
+        assert(txtHeader.contains(
+          "|             App ID|" +
             "Root SQL ID|SQL ID|                                                              " +
             "                       SQL Description|SQL DF Duration|GPU Opportunity|"))
         val randHeader = qualApp.getPerSqlHeader(";", true, 20)
-        assert(randHeader.contains(";                              App Name;             App ID;" +
+        assert(randHeader.contains(";             App ID;" +
             "Root SQL ID;SQL ID;     SQL Description;SQL DF Duration;GPU Opportunity;"))
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
         val sqlIdToLookup = allSQLIds.head
         val (csvOut, txtOut) = qualApp.getPerSqlTextAndCSVSummary(sqlIdToLookup)
-        assert(csvOut.contains("Profiling Tool Unit Tests") && csvOut.contains(","),
+        assert(csvOut.contains("collect at ToolTestUtils.scala:67") && csvOut.contains(","),
           s"CSV output was: $csvOut")
-        assert(txtOut.contains("Profiling Tool Unit Tests") && txtOut.contains("|"),
+        assert(txtOut.contains("collect at ToolTestUtils.scala:67") && txtOut.contains("|"),
           s"TXT output was: $txtOut")
         val sqlOut = qualApp.getPerSQLSummary(sqlIdToLookup, ":", true, 5)
-        assert(sqlOut.contains("Tool Unit Tests:"), s"SQL output was: $sqlOut")
+        assert(sqlOut.contains("colle:"), s"SQL output was: $sqlOut")
 
         // test different delimiter
         val sumOut = qualApp.getSummary(":", false)
@@ -1485,7 +1485,7 @@ class QualificationSuite extends BaseTestSuite {
           ToolTestUtils.generateEventLog(eventLogDir, jobName) { spark =>
             import spark.implicits._
             val testData = Seq((1), (2)).toDF("id")
-            spark.sparkContext.setJobDescription("run job with problematic name")
+            spark.sparkContext.setJobDescription(s"run job with problematic name ($jobName)")
             testData.createOrReplaceTempView("t1")
             spark.sql("SELECT id FROM t1")
           }
@@ -1515,7 +1515,7 @@ class QualificationSuite extends BaseTestSuite {
             s"rapids_4_spark_qualification_output_persql.csv"
           val outputPerSqlActual = readPerSqlFile(new File(persqlResults), "\"")
           val rows = outputPerSqlActual.collect()
-          assert(rows(1)(0).toString == jobName)
+          assert(rows(1)(3).toString == s"run job with problematic name ($jobName)")
         }
       }
     }
