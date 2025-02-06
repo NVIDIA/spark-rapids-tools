@@ -417,6 +417,7 @@
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
+        <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>

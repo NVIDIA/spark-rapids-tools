@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
 import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.sql.rapids.tool.annotation.{Calculated, Since, WallClock}
+import org.apache.spark.sql.rapids.tool.util.stubs.StageInfoStub
 
 /**
  * StageModel is a class to store the information of a stage.
@@ -31,7 +32,7 @@ import org.apache.spark.sql.rapids.tool.annotation.{Calculated, Since, WallClock
 @Since("24.02.3")
 class StageModel private(sInfo: StageInfo) {
 
-  var stageInfo: StageInfo = _
+  var stageInfo: StageInfoStub = _
   updateInfo(sInfo)
 
   /**
@@ -39,8 +40,8 @@ class StageModel private(sInfo: StageInfo) {
    * @return a new StageInfo object.
    * TODO: https://github.com/NVIDIA/spark-rapids-tools/issues/1260
    */
-  private def initStageInfo(newStageInfo: StageInfo): StageInfo = {
-    newStageInfo
+  private def initStageInfo(newStageInfo: StageInfo): StageInfoStub = {
+    StageInfoStub.fromStageInfo(newStageInfo)
   }
 
   @WallClock
