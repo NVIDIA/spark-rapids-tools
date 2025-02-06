@@ -28,6 +28,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from spark_rapids_tools.tools.qualx.config import get_label
 from tabulate import tabulate
 import numpy as np
 import pandas as pd
@@ -410,13 +411,14 @@ def create_row_with_default_speedup(app: pd.Series) -> pd.Series:
     """
     Create a default row for an app with no speedup prediction.
     """
+    label=get_label()
     return pd.Series({
         'appName': app['App Name'],
         'appId': app['App ID'],
         'appDuration': app['App Duration'],
-        'Duration': 0,
-        'Duration_pred': 0,
-        'Duration_supported': 0,
+        label: 0,
+        f'{label}_pred': 0,
+        f'{label}_supported': 0,
         'fraction_supported': 0.0,
         'appDuration_pred': app['App Duration'],
         'speedup': 1.0,

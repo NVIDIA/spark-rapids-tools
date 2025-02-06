@@ -179,14 +179,15 @@ def predict(
         'appDuration',
         'sqlID',
         'scaleFactor',
+        label,
         'fraction_supported',
         'description',
     ]
     if 'split' in cpu_aug_tbl:
         select_columns.append('split')
 
-    if label in cpu_aug_tbl:
-        select_columns.append(label)
+    if label not in cpu_aug_tbl:
+        raise ValueError(f'{label} column not found in input data')
 
     # join predictions with select input features
     results_df = (
