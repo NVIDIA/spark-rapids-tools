@@ -19,9 +19,10 @@ package com.nvidia.spark.rapids.tool.analysis
 import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
+import com.nvidia.spark.rapids.tool.analysis.util.FilteredAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
-import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, FilteredDiagnosticResult, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -77,6 +78,24 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   // metrics for the given key.
   val IODiagnosticMetricsMap: HashMap[(Long, Long), ArrayBuffer[SQLAccumProfileResults]] =
     HashMap.empty[(Long, Long), ArrayBuffer[SQLAccumProfileResults]]
+
+  // A list of AccumProfileResults objects containing filtered diagnostic metrics for the top 7 stages (duration-wise).
+  // This list contains all the results we need/want.
+  val filteredStageAccumList: ArrayBuffer[AccumProfileResults] = ArrayBuffer[AccumProfileResults]()
+
+  // accumId -> (sqlId, nodeId, nodeName)
+  val accumIdToNodeInfoMap: HashMap[Long, (Long, Long, String)] =
+    HashMap.empty[Long, (Long, Long, String)]
+
+  def topDurationStageIds: Set[Int] = {
+    val stageIds = app.stageManager.getAllStageIds.toSeq
+    val stageIdsWithDurations = stageIds.map { stageId =>
+      (stageId, app.stageManager.getDurationById(stageId))
+    }
+    // 7 is a magic number to get the top 7 stages with the highest duration
+    val topDurationStages = stageIdsWithDurations.sortBy(_._2).reverse.take(7)
+    topDurationStages.map(_._1)(breakOut)
+  }
 
   /**
    * Updates the stageToDiagnosticMetrics mapping with the provided AccumProfileResults.
@@ -377,6 +396,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           updateIODiagnosticMetricsMap(sqlAccumProileResult)
         }
 
+        accumIdToNodeInfoMap(metric.accumulatorId) = (metric.sqlID, metric.nodeID, metric.nodeName)
+
         Some(sqlAccumProileResult)
       } else {
         None
@@ -451,15 +472,54 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
             app.stageManager.getDurationById(stageId),
             nodeId,
             nodeName,
-            metricNameToStatistics(OUTPUT_ROWS_METRIC_KEY),
-            metricNameToStatistics(SCAN_TIME_METRIC_KEY),
-            metricNameToStatistics(OUTPUT_BATCHES_METRIC_KEY),
-            metricNameToStatistics(BUFFER_TIME_METRIC_KEY),
-            metricNameToStatistics(SHUFFLE_WRITE_TIME_METRIC_KEY),
-            metricNameToStatistics(FETCH_WAIT_TIME_METRIC_KEY),
-            metricNameToStatistics(GPU_DECODE_TIME_METRIC_KEY)))
+            metricNameToStatistics(IO_OUTPUT_ROWS_METRIC_KEY),
+            metricNameToStatistics(IO_SCAN_TIME_METRIC_KEY),
+            metricNameToStatistics(IO_OUTPUT_BATCHES_METRIC_KEY),
+            metricNameToStatistics(IO_BUFFER_TIME_METRIC_KEY),
+            metricNameToStatistics(IO_SHUFFLE_WRITE_TIME_METRIC_KEY),
+            metricNameToStatistics(IO_FETCH_WAIT_TIME_METRIC_KEY),
+            metricNameToStatistics(IO_GPU_DECODE_TIME_METRIC_KEY)))
         }
       }
+    }(breakOut)
+  }
+
+  def generateFilteredDiagnosticAccums(): Seq[FilteredDiagnosticResult] = {
+    val nodeInfoToFilterMetricsMap =
+      HashMap.empty[(Long, Long, String, Int), HashMap[String, StatisticsMetrics]]
+    filteredStageAccumList.foreach  { stageAccumResult =>
+      val accumId = stageAccumResult.accMetaRef.id
+      val stageId = stageAccumResult.stageId
+      val (sqlId, nodeId, nodeName) = accumIdToNodeInfoMap(accumId)
+      if (!nodeInfoToFilterMetricsMap.contains((sqlId, nodeId, nodeName, stageId))) {
+        nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId)) =
+          HashMap.empty[String, StatisticsMetrics]
+      }
+      val normalizeMetricName = normalizeFilteredDiagnosticMetricKey(stageAccumResult.accMetaRef.getName())
+      nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId))(normalizeMetricName) =
+        StatisticsMetrics(stageAccumResult.min, stageAccumResult.median, stageAccumResult.max, stageAccumResult.total)
+    }
+
+    nodeInfoToFilterMetricsMap.map { case ((sqlId, nodeId, nodeName, stageId), metricsMap) =>
+      FilteredDiagnosticResult(
+        appIndex,
+        app.getAppName,
+        app.appId,
+        sqlId,
+        stageId,
+        app.stageManager.getDurationById(stageId),
+        nodeId,
+        nodeName,
+        metricsMap.getOrElse(FILTERED_NUM_FILES_READ_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_NUM_PARTITIONS_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_METADATA_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_OUTPUT_BATCHES_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_INPUT_BATCHES_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_OUTPUT_ROWS_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_SORT_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_PEAK_MEMORY_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_SHUFFLE_BYTES_WRITTEN_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_SHUFFLE_WRITE_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD))
     }(breakOut)
   }
 
@@ -495,6 +555,10 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
               total = stat.total)
             if (isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
               updateStageDiagnosticMetrics(accumProfileResults)
+            }
+            if (isFilteredDiagnosticMetricName(accumInfo.infoRef.name.value) &&
+                topDurationStageIds.contains(stageId)) {
+              filteredStageAccumList += accumProfileResults
             }
             Some(accumProfileResults)
           case _ => None
