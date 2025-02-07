@@ -14,8 +14,6 @@
 
 """ Utility functions for QualX """
 
-from dataclasses import dataclass
-from typing import Dict, List, Tuple, Callable
 import glob
 import importlib
 import logging
@@ -26,12 +24,17 @@ import string
 import types
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from spark_rapids_tools.tools.qualx.config import get_label
-from tabulate import tabulate
+from typing import Dict, List, Tuple, Callable
+
 import numpy as np
 import pandas as pd
+from tabulate import tabulate
+
+from spark_rapids_tools.tools.qualx.config import get_label
+
 
 INTERMEDIATE_DATA_ENABLED = False
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
