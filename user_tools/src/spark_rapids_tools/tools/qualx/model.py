@@ -186,9 +186,6 @@ def predict(
     if 'split' in cpu_aug_tbl:
         select_columns.append('split')
 
-    if label not in cpu_aug_tbl:
-        raise ValueError(f'{label} column not found in input data')
-
     # join predictions with select input features
     results_df = (
         cpu_aug_tbl[select_columns]
@@ -227,10 +224,6 @@ def extract_model_features(
     label = get_label()
     expected_model_features = expected_raw_features - ignored_features
     expected_model_features.remove(label)
-    if label == 'duration_sum':
-        # for 'duration_sum' label, also remove 'duration_mean' since it's related to 'duration_sum'
-        expected_model_features.remove('duration_mean')
-
     missing = expected_raw_features - set(df.columns)
     if missing:
         logger.warning('Input dataframe is missing expected raw features: %s', missing)
