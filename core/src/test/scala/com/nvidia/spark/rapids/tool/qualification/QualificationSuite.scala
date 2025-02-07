@@ -1619,7 +1619,12 @@ class QualificationSuite extends BaseTestSuite {
   expectedClusterInfoMap.foreach { case (eventlogPath, expectedClusterInfo) =>
     test(s"test cluster information JSON - $eventlogPath") {
       val logFile = s"$logDir/cluster_information/$eventlogPath"
-      runQualificationAndTestClusterInfo(logFile, PlatformNames.DEFAULT, expectedClusterInfo)
+      val actualClusterInfo =
+        runQualificationAndGetClusterSummary(logFile, PlatformNames.DEFAULT)
+          .flatMap(_.clusterInfo)
+      assert(actualClusterInfo == expectedClusterInfo,
+        s"Actual cluster info does not match the expected cluster info. " +
+          s"Expected: $expectedClusterInfo, Actual: $actualClusterInfo")
     }
   }
 
@@ -1688,16 +1693,22 @@ class QualificationSuite extends BaseTestSuite {
 
   expectedPlatformClusterInfoMap.foreach { case (platform, expectedClusterInfo) =>
     test(s"test cluster information JSON for platform - $platform ") {
-      val logFile = s"$logDir/cluster_information/platform/$platform"
-      runQualificationAndTestClusterInfo(logFile, platform, Some(expectedClusterInfo))
+      val logFile = s"$logDir/cluster_information/platform/valid/$platform"
+      val actualClusterInfo =
+        runQualificationAndGetClusterSummary(logFile, platform)
+          .flatMap(_.clusterInfo)
+      assert(actualClusterInfo.contains(expectedClusterInfo),
+        s"Actual cluster info does not match the expected cluster info. " +
+          s"Expected: $expectedClusterInfo, Actual: $actualClusterInfo")
     }
   }
 
   /**
-   * Runs the qualification tool and verifies cluster information against expected values.
+   * Runs the qualification tool and returns the cluster summary.
    */
-  private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
-      expectedClusterInfo: Option[ExistingClusterInfo]): Unit = {
+  private def runQualificationAndGetClusterSummary(
+      eventlogPath: String, platform: String): Option[ClusterSummary] = {
+    var clusterSummary: Option[ClusterSummary] = None
     TrampolineUtil.withTempDir { outPath =>
       val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
       val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)
@@ -1714,10 +1725,9 @@ class QualificationSuite extends BaseTestSuite {
       // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfo = readJson(outputResultFile).headOption.flatMap(_.clusterInfo)
-      assert(actualClusterInfo == expectedClusterInfo,
-        "Actual cluster info does not match the expected cluster info.")
+      clusterSummary = readJson(outputResultFile).headOption
     }
+    clusterSummary
   }
 
   test("test cluster information generation is disabled") {
@@ -1738,6 +1748,18 @@ class QualificationSuite extends BaseTestSuite {
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
       assert(!new File(outputResultFile).exists())
     }
+  }
+
+  // TODO: This should be extended for validating the recommended cluster information
+  //       for other platforms.
+  test(s"test invalid recommended cluster information JSON for platform - dataproc") {
+    val logFile = s"$logDir/cluster_information/platform/invalid/dataproc.zstd"
+    val actualRecommendedClusterInfo =
+      runQualificationAndGetClusterSummary(logFile, PlatformNames.DATAPROC)
+      .flatMap(_.recommendedClusterInfo)
+    assert(actualRecommendedClusterInfo.isEmpty,
+      "Recommended cluster info is expected to be empty. " +
+        s"Actual: $actualRecommendedClusterInfo")
   }
 
   test("test status report generation for wildcard event log") {

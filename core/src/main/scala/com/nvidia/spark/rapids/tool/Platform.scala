@@ -485,8 +485,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
             }
 
             val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-            recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
-            recommendedClusterInfo = Some(RecommendedClusterInfo(
+            val recommendedCluster = RecommendedClusterInfo(
               vendor = vendor,
               coresPerExecutor = clusterConfig.coresPerExec,
               numWorkerNodes = numWorkerNodes,
@@ -498,7 +497,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
               dynamicAllocationInitialExecutors = dynamicAllocSettings.initial,
               workerNodeType = Some(recommendedNodeInstance.name)
-            ))
+            )
+
+            validateRecommendedCluster(recommendedCluster) match {
+              case Right(validCluster) =>
+                recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
+                recommendedClusterInfo = Some(validCluster)
+              case Left(reason) =>
+                logWarning(s"Failed to generate a cluster recommendation. Reason: $reason")
+            }
 
           case None =>
             logWarning("Failed to generate a cluster recommendation. " +
@@ -512,6 +519,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           "Could not determine number of executors. " +
           "Cluster properties are missing and event log does not contain cluster information.")
     }
+  }
+
+  /**
+   * Validates the recommended cluster configuration. This can be overridden by
+   * subclasses to provide platform-specific validation.
+   * @param recommendedClusterInfo Recommended cluster configuration
+   * @return Either a failure message or the valid recommended cluster configuration
+   */
+  protected def validateRecommendedCluster(
+      recommendedClusterInfo: RecommendedClusterInfo): Either[String, RecommendedClusterInfo] = {
+    Right(recommendedClusterInfo)
   }
 }
 
@@ -592,9 +610,20 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuDevice: GpuDevice = T4Gpu
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
+  private val minWorkerNodes = 2
 
   override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_GPUS_CORES
+  }
+
+  override def validateRecommendedCluster(
+      recommendedClusterInfo: RecommendedClusterInfo): Either[String, RecommendedClusterInfo] = {
+    if (recommendedClusterInfo.numWorkerNodes < minWorkerNodes) {
+      Left(s"Requested number of worker nodes (${recommendedClusterInfo.numWorkerNodes}) " +
+        s"is less than the minimum required ($minWorkerNodes) by the platform.")
+    } else {
+      Right(recommendedClusterInfo)
+    }
   }
 }
 
