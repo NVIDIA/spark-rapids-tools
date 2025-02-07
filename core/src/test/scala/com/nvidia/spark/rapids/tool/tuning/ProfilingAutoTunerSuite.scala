@@ -2989,4 +2989,32 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("test AutoTuner sets Dataproc Spark performance enhancements") {
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1"
+      )
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
+      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    val expectedResults = Seq(
+      "--conf spark.dataproc.enhanced.optimizer.enabled=true",
+      "--conf spark.dataproc.enhanced.execution.enabled=true"
+    )
+    assert(expectedResults.forall(autoTunerOutput.contains))
+  }
 }
