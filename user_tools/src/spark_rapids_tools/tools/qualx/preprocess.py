@@ -455,7 +455,7 @@ def extract_raw_features(
     if get_label() == 'duration_sum':
         # override appDuration with sum(duration_sum) across all stages per appId
         app_duration_sum = job_stage_agg_tbl.groupby('appId')['duration_sum'].sum().reset_index()
-        app_duration_sum = app_duration_sum.rename(columns = {'duration_sum': 'appDuration'})
+        app_duration_sum = app_duration_sum.rename(columns={'duration_sum': 'appDuration'})
         app_tbl = app_tbl.merge(app_duration_sum, on=['appId'], how='left', suffixes=['_orig', None])
 
     # normalize dtypes

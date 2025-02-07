@@ -414,7 +414,7 @@ def create_row_with_default_speedup(app: pd.Series) -> pd.Series:
     """
     Create a default row for an app with no speedup prediction.
     """
-    label=get_label()
+    label = get_label()
     return pd.Series({
         'appName': app['App Name'],
         'appId': app['App ID'],
