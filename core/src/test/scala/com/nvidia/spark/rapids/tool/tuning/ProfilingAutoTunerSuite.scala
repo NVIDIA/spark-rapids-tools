@@ -3153,7 +3153,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
