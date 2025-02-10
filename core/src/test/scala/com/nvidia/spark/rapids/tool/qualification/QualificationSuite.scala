@@ -1752,8 +1752,8 @@ class QualificationSuite extends BaseTestSuite {
 
   // TODO: This should be extended for validating the recommended cluster information
   //       for other platforms.
-  test(s"test invalid recommended cluster information JSON for platform - dataproc") {
-    val logFile = s"$logDir/cluster_information/platform/invalid/dataproc.zstd"
+  test(s"test invalid recommended num workers for platform - dataproc") {
+    val logFile = s"$logDir/cluster_information/platform/invalid/dataproc_invalid_num_workers.zstd"
     val actualRecommendedClusterInfo =
       runQualificationAndGetClusterSummary(logFile, PlatformNames.DATAPROC)
       .flatMap(_.recommendedClusterInfo)
