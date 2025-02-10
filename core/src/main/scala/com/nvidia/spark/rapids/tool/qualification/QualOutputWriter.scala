@@ -191,25 +191,65 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
+  /**
+   * Write the per SQL CSV report. This is used by the QualificationApp to write CSV report for the
+   * SQLs in the application.
+   * The SQLs within each app are sorted DESC by GPU opportunity and SQL DF Duration in
+   * descending order.
+   * Note that the caller takes the responsibility of sorting the App summaries; which determines
+   * the order of each AppID in the report.
+   *
+   * The implementation is optimized as follows:
+   *  - reduce the objects allocations resulting avoiding using ListBuffer(string, int).
+   *  - uses raw interpolation which is faster way of concatenating strings.
+   *  - does not sort all the SQLs of the applications. Instead, sort SQLs locally per app which
+   *    reduces the size of the sorting data.
+   *
+   * @param sums list of QualificationSummaryInfo
+   * @param maxSQLDescLength the maximum length allowed in the SQl description field.
+   */
   def writePerSqlCSVReport(sums: Seq[QualificationSummaryInfo], maxSQLDescLength: Int): Unit = {
+    val delimiter = QualOutputWriter.CSV_DELIMITER
+    val emptyString = StringUtils.reformatCSVString("")
+
+    def constructRowFromPerSqlSummary(
+      appID: String, sumInfo: EstimatedPerSQLSummaryInfo): String = {
+      val rootID = sumInfo.rootExecutionID match {
+        case Some(id) => StringUtils.reformatCSVString(id.toString)
+        case _ => emptyString
+      }
+      val sqlDescr =
+        StringUtils.reformatCSVString(
+          QualOutputWriter.formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter))
+      // Use raw interpolation which has better performance compared to sInterpolation because it
+      // does not process escaped characters.
+      raw"$appID$delimiter$rootID$delimiter${sumInfo.sqlID}$delimiter$sqlDescr$delimiter" +
+        raw"${sumInfo.info.sqlDfDuration}$delimiter${sumInfo.info.gpuOpportunity}"
+    }
+
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_persql.csv",
       "Per SQL CSV Report", hadoopConf)
     try {
-      val appNameSize = QualOutputWriter.getAppNameSize(sums)
-      val appIdSize = QualOutputWriter.getAppIdSize(sums)
-      val sqlDescSize =
-        QualOutputWriter.getSqlDescSize(sums, maxSQLDescLength, QualOutputWriter.CSV_DELIMITER)
-      val headersAndSizes =
-        QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appNameSize, appIdSize, sqlDescSize)
-      csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes,
-        QualOutputWriter.CSV_DELIMITER, false))
-      val appIdMaxSize = QualOutputWriter.getAppIdSize(sums)
-      val sortedInfo = sortPerSqlInfo(sums)
-      sortedInfo.foreach { sumInfo =>
-        val row = QualOutputWriter.constructPerSqlSummaryInfo(sumInfo, headersAndSizes,
-          appIdMaxSize, ",", false, maxSQLDescLength)
-        csvFileWriter.write(row)
+      csvFileWriter.write(
+        QualOutputWriter.constructOutputRowFromMap(QualOutputWriter.getPerSqlHeaderStrings,
+          QualOutputWriter.CSV_DELIMITER))
+      // Write the perSQL info for each app.
+      sums.foreach { sum =>
+        sum.perSQLEstimatedInfo match {
+          case Some(perSqlArr) =>
+            if (perSqlArr.nonEmpty) {
+              val appIDStr = StringUtils.reformatCSVString(sum.appId)
+              perSqlArr.sortBy(sum => {
+                (-sum.info.gpuOpportunity, -sum.info.appDur)
+              }).foreach { sqlInfo =>
+                csvFileWriter.write(constructRowFromPerSqlSummary(appIDStr, sqlInfo))
+                // add new line separately to avoid processing escape characters.
+                csvFileWriter.write("\n")
+              }
+            }
+          case _ => // Do nothing
+        }
       }
     } finally {
       csvFileWriter.close()
@@ -228,15 +268,15 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
       sortedAsc.reverse
     }
   }
+
   private def writePerSqlTextSummary(writer: ToolTextFileWriter,
       sums: Seq[QualificationSummaryInfo],
       numOutputRows: Int, maxSQLDescLength: Int): Unit = {
-    val appNameSize = QualOutputWriter.getAppNameSize(sums)
     val appIdSize = QualOutputWriter.getAppIdSize(sums)
     val sqlDescSize =
       QualOutputWriter.getSqlDescSize(sums, maxSQLDescLength, QualOutputWriter.TEXT_DELIMITER)
     val headersAndSizes =
-      QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appNameSize, appIdSize, sqlDescSize)
+      QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appIdSize, sqlDescSize)
     val entireHeader = QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
       TEXT_DELIMITER, true)
     val sep = "=" * (entireHeader.size - 1)
@@ -783,12 +823,13 @@ object QualOutputWriter {
     QualOutputWriter.constructOutputRowFromMap(headersAndSizes, delimiter, prettyPrint)
   }
 
+  /**
+   * Constructs a row from the PerSQL Summary Info. This is called by the RunningQualWriter
+   */
   def getDetailedPerSqlHeaderStringsAndSizes(
-      appMaxNameSize: Int,
       appMaxIdSize: Int,
       sqlDescLength: Int): LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
-      APP_NAME_STR -> appMaxNameSize,
       APP_ID_STR -> appMaxIdSize,
       ROOT_SQL_ID_STR -> ROOT_SQL_ID_STR.size,
       SQL_ID_STR -> SQL_ID_STR.size,
@@ -807,6 +848,10 @@ object QualOutputWriter {
     replaceDelimiter(escapedMetaStr, delimiter)
   }
 
+  /**
+   * Constructs a row from the PerSQL Summary Info.
+   * This method is used by the RunningQualificationApp
+   */
   def constructPerSqlSummaryInfo(
       sumInfo: EstimatedPerSQLSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
@@ -818,7 +863,6 @@ object QualOutputWriter {
     val reformatCSVFunc : String => String =
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => str
     val data = ListBuffer[(String, Int)](
-      reformatCSVFunc(sumInfo.info.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(sumInfo.info.appId) -> appIdMaxSize,
       reformatCSVFunc(sumInfo.rootExecutionID.getOrElse("").toString)-> ROOT_SQL_ID_STR.size,
       sumInfo.sqlID.toString -> SQL_ID_STR.size,
@@ -845,6 +889,22 @@ object QualOutputWriter {
       EXEC_SHOULD_REMOVE -> EXEC_SHOULD_REMOVE.size,
       EXEC_SHOULD_IGNORE -> EXEC_SHOULD_IGNORE.size,
       EXEC_ACTION -> EXEC_ACTION.size)
+    detailedHeadersAndFields
+  }
+
+  /**
+   * Construct the headers for the PerSql Summary (csv file).
+   * rapids_4_spark_qualification_output_persql.csv
+   * @return LinkedHashMap[String, Int]
+   */
+  private def getPerSqlHeaderStrings: LinkedHashMap[String, Int] = {
+    val detailedHeadersAndFields = LinkedHashMap[String, Int](
+      APP_ID_STR -> APP_ID_STR.size,
+      ROOT_SQL_ID_STR -> ROOT_SQL_ID_STR.size,
+      SQL_ID_STR -> SQL_ID_STR.size,
+      SQL_DESC_STR -> SQL_DESC_STR.size,
+      SQL_DUR_STR -> SQL_DUR_STR_SIZE,
+      GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE)
     detailedHeadersAndFields
   }
 

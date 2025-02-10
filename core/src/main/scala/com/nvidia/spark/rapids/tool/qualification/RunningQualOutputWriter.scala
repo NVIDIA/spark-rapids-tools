@@ -51,9 +51,8 @@ class RunningQualOutputWriter(
 
   // we don't know max length since process per query, hardcode for 100 for now
   private val SQL_DESC_LENGTH = 100
-  private val appNameSize = if (appName.nonEmpty) appName.size else 100
-  val headersAndSizes = QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appNameSize,
-    appId.size, SQL_DESC_LENGTH)
+  val headersAndSizes = QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appId.size,
+    SQL_DESC_LENGTH)
   val entireTextHeader = QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
     TEXT_DELIMITER, true)
   private val sep = "=" * (entireTextHeader.size - 1)
