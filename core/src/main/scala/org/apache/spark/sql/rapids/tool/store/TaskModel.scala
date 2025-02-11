@@ -116,11 +116,10 @@ object TaskModel {
     }
 
 
-    val taskMetrics = immutable.IntMap.empty[Long]
+    var taskMetrics = immutable.IntMap.empty[Long]
 
     def storeIfNonZero(field: Int, value: Long): Unit =
-      if (value != 0) taskMetrics.updated(field, value)
-
+      if (value != 0) taskMetrics = taskMetrics.updated(field, value)
     storeIfNonZero(LAUNCH_TIME, taskInfo.launchTime)
     storeIfNonZero(FINISH_TIME, taskInfo.finishTime)
     storeIfNonZero(DURATION, taskInfo.duration)
