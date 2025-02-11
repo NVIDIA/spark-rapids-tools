@@ -1,0 +1,20 @@
+{
+    "nds_local": {
+        "eventlogs": [
+            "${QUALX_DATA_DIR}/onprem/nds/power/eventlogs"
+        ],
+        "app_meta": {
+            "app-20231122005806-0064": {"runType": "CPU", "scaleFactor": 10},
+            "app-20231122010741-0065": {"runType": "CPU", "scaleFactor": 30},
+            "app-20231031225845-0001": {"runType": "CPU", "scaleFactor": 100},
+            "app-20231122011610-0066": {"runType": "CPU", "scaleFactor": 300},
+            "app-20231122020415-0067": {"runType": "CPU", "scaleFactor": 1000},
+            "app-20231114200842-0001": {"runType": "GPU", "scaleFactor": 10},
+            "app-20231114202719-0004": {"runType": "GPU", "scaleFactor": 30},
+            "app-20231031225101-0000": {"runType": "GPU", "scaleFactor": 100},
+            "app-20231108165915-0039": {"runType": "GPU", "scaleFactor": 300},
+            "app-20231115192922-0016": {"runType": "GPU", "scaleFactor": 1000}
+        },
+        "split_function": "${QUALX_DIR}/plugins/nds.py"
+    }
+}

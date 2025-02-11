@@ -13,10 +13,20 @@
 # limitations under the License.
 
 """Add common helpers and utilities for unit-tests"""
-
+import glob
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
+
+
+def get_jar_path():
+    # get path to main repository
+    repo_root = Path(__file__).parent.parent.parent.parent
+    jar_path = repo_root / 'core' / 'target' / 'rapids-4-spark-tools_*-SNAPSHOT.jar'
+    jar_path = Path(glob.glob(str(jar_path))[0])
+    assert jar_path.exists()
+    return jar_path
 
 
 def get_test_resources_path():
@@ -76,3 +86,7 @@ class SparkRapidsToolsUT:  # pylint: disable=too-few-public-methods
     def get_ut_data_dir(self):
         # TODO: find a dynamic way to load the package name, instead of having it hardcoded
         return get_test_resources_path()
+
+    @pytest.fixture(autouse=True)
+    def get_jar_path(self):
+        return get_jar_path()
