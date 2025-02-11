@@ -590,6 +590,11 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
   override val platformName: String = PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val recommendationsToInclude: Seq[(String, String)] = Seq(
+    "spark.dataproc.enhanced.optimizer.enabled" -> "true",
+    "spark.dataproc.enhanced.execution.enabled" -> "true"
+  )
+
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
 

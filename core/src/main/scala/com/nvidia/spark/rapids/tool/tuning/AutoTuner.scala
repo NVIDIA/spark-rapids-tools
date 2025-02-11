@@ -1117,8 +1117,9 @@ class AutoTuner(
       calculateClusterLevelRecommendations()
 
       // add all platform specific recommendations
-      platform.recommendationsToInclude.foreach {
-        case (property, value) => appendRecommendation(property, value)
+      platform.recommendationsToInclude.collect {
+        case (property, value) if getPropertyValue(property).isEmpty =>
+          appendRecommendation(property, value)
       }
     }
     recommendFromDriverLogs()

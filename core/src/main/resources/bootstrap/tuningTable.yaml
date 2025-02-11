@@ -18,6 +18,16 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+  - label: spark.dataproc.enhanced.execution.enabled
+    description: 'Enables enhanced execution. It is recommended to turn it on for better performance on Dataproc.'
+    enabled: true
+    level: job
+    category: tuning
+  - label: spark.dataproc.enhanced.optimizer.enabled
+    description: 'Enables enhanced optimizer. It is recommended to turn it on for better performance on Dataproc.'
+    enabled: true
+    level: job
+    category: tuning
   - label: spark.executor.cores
     description: 'The number of cores to use on each executor. It is recommended to be set to 16'
     enabled: true
