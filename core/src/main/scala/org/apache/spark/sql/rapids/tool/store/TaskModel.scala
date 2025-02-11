@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,102 +16,147 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import org.apache.spark.TaskFailedReason
-import org.apache.spark.scheduler.SparkListenerTaskEnd
-import org.apache.spark.sql.rapids.tool.annotation.Since
+import scala.collection.immutable
 
-@Since("24.04.1")
-case class TaskModel(
-    stageId: Int,
-    stageAttemptId: Int,
-    taskType: String,
-    endReason: String,
-    taskId: Long,
-    attempt: Int,
-    launchTime: Long,
-    finishTime: Long,
-    duration: Long,
-    successful: Boolean,
-    executorId: String,
-    host: String,
-    taskLocality: String,
-    speculative: Boolean,
-    gettingResultTime: Long,
-    executorDeserializeTime: Long,
-    executorDeserializeCPUTime: Long, // nanoseconds
-    executorRunTime: Long, // milliseconds
-    executorCPUTime: Long, // nanoseconds
-    peakExecutionMemory: Long,
-    resultSize: Long,
-    jvmGCTime: Long,
-    resultSerializationTime: Long,
-    memoryBytesSpilled: Long,
-    diskBytesSpilled: Long,
-    // Note: sr stands for ShuffleRead
-    sr_remoteBlocksFetched: Long,
-    sr_localBlocksFetched: Long,
-    sr_fetchWaitTime: Long,
-    sr_remoteBytesRead: Long,
-    sr_remoteBytesReadToDisk: Long,
-    sr_localBytesRead: Long,
-    sr_totalBytesRead: Long,
-    // Note: sw stands for ShuffleWrite
-    sw_bytesWritten: Long,
-    sw_writeTime: Long, // nanoseconds
-    sw_recordsWritten: Long,
-    input_bytesRead: Long,
-    input_recordsRead: Long,
-    output_bytesWritten: Long,
-    output_recordsWritten: Long)
+import org.apache.spark.scheduler.SparkListenerTaskEnd
+
+
+object LongMetrics {
+  val LAUNCH_TIME = 1
+  val FINISH_TIME = 2
+  val DURATION = 3
+  val GETTING_RESULT_TIME = 4
+  val EXEC_DESERIALIZE_TIME = 5
+  val EXEC_DESERIALIZE_CPU_TIME = 6
+  val EXEC_RUN_TIME = 7
+  val EXEC_CPU_TIME = 8
+  val PEAK_MEMORY = 9
+  val RESULT_SIZE = 10
+  val JVM_GC_TIME = 11
+  val RESULT_SER_TIME = 12
+  val MEM_SPILLED = 13
+  val DISK_SPILLED = 14
+  val SR_REMOTE_BLOCKS = 15
+  val SR_LOCAL_BLOCKS = 16
+  val SR_FETCH_WAIT = 17
+  val SR_REMOTE_BYTES = 18
+  val SR_REMOTE_DISK_BYTES = 19
+  val SR_LOCAL_BYTES = 20
+  val SR_TOTAL_BYTES = 21
+  val SW_BYTES = 22
+  val SW_TIME = 23
+  val SW_RECORDS = 24
+  val INPUT_BYTES = 25
+  val INPUT_RECORDS = 26
+  val OUTPUT_BYTES = 27
+  val OUTPUT_RECORDS = 28
+}
+
+class TaskModel(
+  val stageId: Int,
+  val stageAttemptId: Int,
+  val taskType: String,
+  val endReason: String,
+  val taskId: Long,
+  val attempt: Int,
+  val successful: Boolean,
+  val executorId: String,
+  val host: String,
+  val taskLocality: String,
+  val speculative: Boolean,
+  private val taskMetrics: immutable.IntMap[Long]) {
+  import LongMetrics._
+
+  def launchTime: Long = taskMetrics.getOrElse(LAUNCH_TIME, 0L)
+  def finishTime: Long = taskMetrics.getOrElse(FINISH_TIME, 0L)
+  def duration: Long = taskMetrics.getOrElse(DURATION, 0L)
+  def executorDeserializeTime: Long = taskMetrics.getOrElse(EXEC_DESERIALIZE_TIME, 0L)
+  def executorDeserializeCPUTime: Long = taskMetrics.getOrElse(EXEC_DESERIALIZE_CPU_TIME, 0L)
+  def executorRunTime: Long = taskMetrics.getOrElse(EXEC_RUN_TIME, 0L)
+  def executorCPUTime: Long = taskMetrics.getOrElse(EXEC_CPU_TIME, 0L)
+  def peakExecutionMemory: Long = taskMetrics.getOrElse(PEAK_MEMORY, 0L)
+  def resultSize: Long = taskMetrics.getOrElse(RESULT_SIZE, 0L)
+  def jvmGCTime: Long = taskMetrics.getOrElse(JVM_GC_TIME, 0L)
+  def resultSerializationTime: Long = taskMetrics.getOrElse(RESULT_SER_TIME, 0L)
+  def memoryBytesSpilled: Long = taskMetrics.getOrElse(MEM_SPILLED, 0L)
+  def diskBytesSpilled: Long = taskMetrics.getOrElse(DISK_SPILLED, 0L)
+  def sr_remoteBlocksFetched: Long = taskMetrics.getOrElse(SR_REMOTE_BLOCKS, 0L)
+  def sr_localBlocksFetched: Long = taskMetrics.getOrElse(SR_LOCAL_BLOCKS, 0L)
+  def sr_fetchWaitTime: Long = taskMetrics.getOrElse(SR_FETCH_WAIT, 0L)
+  def sr_remoteBytesRead: Long = taskMetrics.getOrElse(SR_REMOTE_BYTES, 0L)
+  def sr_remoteBytesReadToDisk: Long = taskMetrics.getOrElse(SR_REMOTE_DISK_BYTES, 0L)
+  def sr_localBytesRead: Long = taskMetrics.getOrElse(SR_LOCAL_BYTES, 0L)
+  def sr_totalBytesRead: Long = taskMetrics.getOrElse(SR_TOTAL_BYTES, 0L)
+  def sw_bytesWritten: Long = taskMetrics.getOrElse(SW_BYTES, 0L)
+  def sw_writeTime: Long = taskMetrics.getOrElse(SW_TIME, 0L)
+  def sw_recordsWritten: Long = taskMetrics.getOrElse(SW_RECORDS, 0L)
+  def input_bytesRead: Long = taskMetrics.getOrElse(INPUT_BYTES, 0L)
+  def input_recordsRead: Long = taskMetrics.getOrElse(INPUT_RECORDS, 0L)
+  def output_bytesWritten: Long = taskMetrics.getOrElse(OUTPUT_BYTES, 0L)
+  def output_recordsWritten: Long = taskMetrics.getOrElse(OUTPUT_RECORDS, 0L)
+}
 
 object TaskModel {
-  def apply(event: SparkListenerTaskEnd): TaskModel = {
-    val reason = event.reason match {
-      case failed: TaskFailedReason =>
-        failed.toErrorString
-      case _ =>
-        event.reason.toString
-    }
+  import LongMetrics._
 
-    TaskModel(
-      event.stageId,
-      event.stageAttemptId,
-      event.taskType,
-      reason,
-      event.taskInfo.taskId,
-      event.taskInfo.attemptNumber,
-      event.taskInfo.launchTime,
-      event.taskInfo.finishTime,
-      event.taskInfo.duration,
-      event.taskInfo.successful,
-      event.taskInfo.executorId,
-      event.taskInfo.host,
-      event.taskInfo.taskLocality.toString,
-      event.taskInfo.speculative,
-      event.taskInfo.gettingResultTime,
-      event.taskMetrics.executorDeserializeTime,
-      event.taskMetrics.executorDeserializeCpuTime, // nanoseconds
-      event.taskMetrics.executorRunTime, // milliseconds
-      event.taskMetrics.executorCpuTime, // nanoseconds
-      event.taskMetrics.peakExecutionMemory,
-      event.taskMetrics.resultSize,
-      event.taskMetrics.jvmGCTime,
-      event.taskMetrics.resultSerializationTime,
-      event.taskMetrics.memoryBytesSpilled,
-      event.taskMetrics.diskBytesSpilled,
-      event.taskMetrics.shuffleReadMetrics.remoteBlocksFetched,
-      event.taskMetrics.shuffleReadMetrics.localBlocksFetched,
-      event.taskMetrics.shuffleReadMetrics.fetchWaitTime,
-      event.taskMetrics.shuffleReadMetrics.remoteBytesRead,
-      event.taskMetrics.shuffleReadMetrics.remoteBytesReadToDisk,
-      event.taskMetrics.shuffleReadMetrics.localBytesRead,
-      event.taskMetrics.shuffleReadMetrics.totalBytesRead,
-      event.taskMetrics.shuffleWriteMetrics.bytesWritten,
-      event.taskMetrics.shuffleWriteMetrics.writeTime, // nanoseconds
-      event.taskMetrics.shuffleWriteMetrics.recordsWritten,
-      event.taskMetrics.inputMetrics.bytesRead,
-      event.taskMetrics.inputMetrics.recordsRead,
-      event.taskMetrics.outputMetrics.bytesWritten,
-      event.taskMetrics.outputMetrics.recordsWritten)
+  def apply(event: SparkListenerTaskEnd): TaskModel = {
+    val taskInfo = event.taskInfo
+    val metrics = event.taskMetrics
+    val shuffleRead = metrics.shuffleReadMetrics
+    val shuffleWrite = metrics.shuffleWriteMetrics
+    val input = metrics.inputMetrics
+    val output = metrics.outputMetrics
+
+    val taskMetrics = immutable.IntMap.empty[Long]
+
+    def storeIfNonZero(field: Int, value: Long): Unit =
+      if (value != 0) taskMetrics.updated(field, value)
+
+    storeIfNonZero(LAUNCH_TIME, taskInfo.launchTime)
+    storeIfNonZero(FINISH_TIME, taskInfo.finishTime)
+    storeIfNonZero(DURATION, taskInfo.duration)
+    storeIfNonZero(GETTING_RESULT_TIME, taskInfo.gettingResultTime)
+    storeIfNonZero(EXEC_DESERIALIZE_TIME, metrics.executorDeserializeTime)
+    storeIfNonZero(EXEC_DESERIALIZE_CPU_TIME, metrics.executorDeserializeCpuTime)
+    storeIfNonZero(EXEC_RUN_TIME, metrics.executorRunTime)
+    storeIfNonZero(EXEC_CPU_TIME, metrics.executorCpuTime)
+    storeIfNonZero(PEAK_MEMORY, metrics.peakExecutionMemory)
+    storeIfNonZero(RESULT_SIZE, metrics.resultSize)
+    storeIfNonZero(JVM_GC_TIME, metrics.jvmGCTime)
+    storeIfNonZero(RESULT_SER_TIME, metrics.resultSerializationTime)
+    storeIfNonZero(MEM_SPILLED, metrics.memoryBytesSpilled)
+    storeIfNonZero(DISK_SPILLED, metrics.diskBytesSpilled)
+
+    storeIfNonZero(SR_REMOTE_BLOCKS, shuffleRead.remoteBlocksFetched)
+    storeIfNonZero(SR_LOCAL_BLOCKS, shuffleRead.localBlocksFetched)
+    storeIfNonZero(SR_FETCH_WAIT, shuffleRead.fetchWaitTime)
+    storeIfNonZero(SR_REMOTE_BYTES, shuffleRead.remoteBytesRead)
+    storeIfNonZero(SR_REMOTE_DISK_BYTES, shuffleRead.remoteBytesReadToDisk)
+    storeIfNonZero(SR_LOCAL_BYTES, shuffleRead.localBytesRead)
+    storeIfNonZero(SR_TOTAL_BYTES, shuffleRead.totalBytesRead)
+
+    storeIfNonZero(SW_BYTES, shuffleWrite.bytesWritten)
+    storeIfNonZero(SW_TIME, shuffleWrite.writeTime)
+    storeIfNonZero(SW_RECORDS, shuffleWrite.recordsWritten)
+
+    storeIfNonZero(INPUT_BYTES, input.bytesRead)
+    storeIfNonZero(INPUT_RECORDS, input.recordsRead)
+    storeIfNonZero(OUTPUT_BYTES, output.bytesWritten)
+    storeIfNonZero(OUTPUT_RECORDS, output.recordsWritten)
+
+    new TaskModel(
+      stageId = event.stageId,
+      stageAttemptId = event.stageAttemptId,
+      taskType = event.taskType,
+      endReason = event.reason.toString,
+      taskId = taskInfo.taskId,
+      attempt = taskInfo.attemptNumber,
+      successful = taskInfo.successful,
+      executorId = taskInfo.executorId,
+      host = taskInfo.host,
+      taskLocality = taskInfo.taskLocality.toString,
+      speculative = taskInfo.speculative,
+      taskMetrics = taskMetrics
+    )
   }
 }

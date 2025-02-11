@@ -33,8 +33,8 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
  */
 class AccumInfo(val infoRef: AccumMetaRef) {
   // TODO: use sorted maps for stageIDs and taskIds?
-  val taskUpdatesMap: mutable.HashMap[Long, Long] =
-    new mutable.HashMap[Long, Long]()
+  val taskUpdatesMap: mutable.LongMap[Long] =
+    new mutable.LongMap[Long]()
   val stageValuesMap: mutable.HashMap[Int, Long] =
     new mutable.HashMap[Int, Long]()
 
