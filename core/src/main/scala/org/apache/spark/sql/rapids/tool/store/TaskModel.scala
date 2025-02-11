@@ -18,7 +18,9 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.immutable
 
+import org.apache.spark.TaskFailedReason
 import org.apache.spark.scheduler.SparkListenerTaskEnd
+
 
 
 object LongMetrics {
@@ -106,6 +108,13 @@ object TaskModel {
     val shuffleWrite = metrics.shuffleWriteMetrics
     val input = metrics.inputMetrics
     val output = metrics.outputMetrics
+    val reason = event.reason match {
+      case failed: TaskFailedReason =>
+        failed.toErrorString
+      case _ =>
+        event.reason.toString
+    }
+
 
     val taskMetrics = immutable.IntMap.empty[Long]
 
@@ -148,7 +157,7 @@ object TaskModel {
       stageId = event.stageId,
       stageAttemptId = event.stageAttemptId,
       taskType = event.taskType,
-      endReason = event.reason.toString,
+      endReason = reason,
       taskId = taskInfo.taskId,
       attempt = taskInfo.attemptNumber,
       successful = taskInfo.successful,
