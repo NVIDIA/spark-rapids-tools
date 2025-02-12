@@ -379,7 +379,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
       apps.foreach { app =>
         val start = System.nanoTime()
-        GenerateTimeline.generateFor(app, s"$outputDir/${app.appId}")
+//        GenerateTimeline.generateFor(app, s"$outputDir/${app.appId}")
         val duration = TimeUnit.SECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS)
         profileOutputWriter.writeText(s"Generated timeline graphs for app ${app.appId} " +
           s"to $outputDir in $duration second(s)\n")
