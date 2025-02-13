@@ -20,6 +20,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 // A class used to handle the DL writeOps such as:
 // - AppendDataExecV1
@@ -135,14 +136,31 @@ object DeltaLakeHelper {
   def parseNode(node: SparkPlanGraphNode,
       checker: PluginTypeChecker,
       sqlID: Long): ExecInfo = {
-    val opExec = new DLWriteWithFormatAndSchemaParser(node, checker, sqlID)
-    opExec.parse
     node match {
       case n if acceptsWriteOp(n) =>
         val opExec = new DLWriteWithFormatAndSchemaParser(node, checker, sqlID)
         opExec.parse
       case _ => throw new IllegalArgumentException(s"Unhandled Exec for node ${node.name}")
     }
+  }
+
+  /**
+   * Get the write command wrapper for the given node deltaLake exec node.
+   * This method should be called only if the node passes the `acceptsWriteOp` check.
+   * @param node the deltaLake write exec
+   * @return the write command wrapper
+   */
+  def getWriteCMDWrapper(node: SparkPlanGraphNode): Option[DataWritingCmdWrapper] = {
+    val wcmd = exclusiveDeltaExecs.find(node.name.contains(_)) match {
+      case Some(cmd) => cmd
+      case _ =>
+        deltaExecsFromSpark.find(node.name.contains(_)) match {
+          case Some(cmd) => cmd
+          case _ => StringUtils.UNKNOWN_EXTRACT
+        }
+    }
+    // The format must be delta
+    Some(DataWritingCmdWrapper(wcmd, DataWritingCommandExecParser.dataWriteCMD, getWriteFormat))
   }
 
   // Kept for future use if we find that SerDe library can be used to deduce any information to

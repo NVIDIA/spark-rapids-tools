@@ -37,8 +37,8 @@ import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -143,6 +143,14 @@ abstract class AppBase(
   // Returns optional wallClock duration of the Application
   def getAppDuration: Option[Long] = {
     appMetaData.flatMap(_.duration)
+  }
+
+  def getWriteOperationRecords(): Iterable[WriteOperationRecord] = {
+    sqlManager.getWriteOperationRecords()
+  }
+
+  def getWriteDataFormats(): Set[String] = {
+    sqlManager.getWriteFormats()
   }
 
   // Returns a boolean true/false. This is used to check whether processing an eventlog was
@@ -634,16 +642,16 @@ object AppBase {
   def handleException(e: Exception, path: EventLogInfo): FailureApp = {
     val (status, message): (String, String) = e match {
       case incorrectStatusEx: IncorrectAppStatusException =>
-        ("unknown", incorrectStatusEx.getMessage)
+        (StringUtils.UNKNOWN_EXTRACT, incorrectStatusEx.getMessage)
       case skippedEx: AppEventlogProcessException =>
         ("skipped", skippedEx.getMessage)
       case _: com.fasterxml.jackson.core.JsonParseException =>
-        ("unknown", s"Error parsing JSON: ${path.eventLog.toString}")
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing JSON: ${path.eventLog.toString}")
       case _: IllegalArgumentException =>
-        ("unknown", s"Error parsing file: ${path.eventLog.toString}")
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing file: ${path.eventLog.toString}")
       case ue: Exception =>
         // catch all exceptions and skip that file
-        ("unknown", s"Got unexpected exception processing file:" +
+        (StringUtils.UNKNOWN_EXTRACT, s"Got unexpected exception processing file:" +
           s"${path.eventLog.toString}. ${ue.getMessage} ")
     }
 

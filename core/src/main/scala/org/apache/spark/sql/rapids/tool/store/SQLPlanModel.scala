@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,6 +78,8 @@ class SQLPlanModel(val id: Long) {
   // After adding a new version, reset the previous plan if necessary
   protected def resetPreviousPlan(): Unit = {
     plan.resetFinalFlag()
+    // call any cleanup code necessary for the plan
+    plan.cleanUpPlan()
   }
 
   /**

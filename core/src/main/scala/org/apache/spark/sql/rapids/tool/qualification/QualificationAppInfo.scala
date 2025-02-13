@@ -19,7 +19,6 @@ package org.apache.spark.sql.rapids.tool.qualification
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
@@ -47,9 +46,6 @@ class QualificationAppInfo(
 
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
-  // Keeps track of the WriteDataFormats used in the WriteExecs
-  // Use LinkedHashSet to preserve Order of insertion and avoid duplicates
-  val writeDataFormat: mutable.AbstractSet[String] = mutable.LinkedHashSet[String]()
 
   val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
     HashMap.empty[Long, StageTaskQualificationSummary]
@@ -505,7 +501,7 @@ class QualificationAppInfo(
         val typeString = types.mkString(":").replace(",", ":")
         s"${format}[$typeString]"
       }.toSeq
-      val writeFormat = writeFormatNotSupported(writeDataFormat)
+      val writeFormat = writeFormatNotSupported(getWriteDataFormats())
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
       val problems = getPotentialProblemsForDf
 
@@ -827,7 +823,7 @@ class QualificationAppInfo(
     }
   }
 
-  private def writeFormatNotSupported(writeFormat: mutable.AbstractSet[String]): Seq[String] = {
+  private def writeFormatNotSupported(writeFormat: Set[String]): Seq[String] = {
     // Filter unsupported write data format
     val unSupportedWriteFormat = pluginTypeChecker.getUnsupportedWriteFormat(writeFormat)
     unSupportedWriteFormat.toSeq
