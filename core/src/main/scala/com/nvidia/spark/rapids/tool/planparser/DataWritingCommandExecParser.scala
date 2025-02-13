@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.store.{WriteOperationMetaBuilder, WriteOperationMetadataTrait}
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 case class DataWritingCommandExecParser(
     node: SparkPlanGraphNode,
@@ -106,13 +108,13 @@ object DataWritingCommandExecParser {
   // This used for expressions that do not show the format as part of the description.
   private val specialWriteFormatMap = Map[String, String](
     // if appendDataExecV1 is not deltaLakeProvider, then we want to mark it as unsupported
-    appendDataExecV1 -> "unknown",
+    appendDataExecV1 -> StringUtils.UNKNOWN_EXTRACT,
     // if overwriteByExprExecV1 is not deltaLakeProvider, then we want to mark it as unsupported
-    overwriteByExprExecV1 -> "unknown",
+    overwriteByExprExecV1 -> StringUtils.UNKNOWN_EXTRACT,
     // if atomicReplaceTableExec is not deltaLakeProvider, then we want to mark it as unsupported
-    atomicReplaceTableExec -> "unknown",
+    atomicReplaceTableExec -> StringUtils.UNKNOWN_EXTRACT,
     // if atomicCreateTableExec is not deltaLakeProvider, then we want to mark it as unsupported
-    atomicCreateTableExec -> "unknown"
+    atomicCreateTableExec -> StringUtils.UNKNOWN_EXTRACT
   )
 
   // Checks whether a node is a write CMD Exec
@@ -173,6 +175,168 @@ object DataWritingCommandExecParser {
       parsedString.split("(?<=],)").map(_.trim).slice(1, 2)(0).split(",")(0)
     } else {
       parsedString.split(",")(0) // return third parameter from the input string
+    }
+  }
+
+  /**
+   * Extracts metadata information from a write operation node description.
+   * This method is specifically designed to parse the description of
+   * `InsertIntoHadoopFsRelationCommand` nodes and extract relevant details
+   * such as the output path, data format, write mode, catalog information,
+   * and output columns.
+   *
+   * The method performs the following steps:
+   * - Extracts the output path and data format from the node description.
+   * - Determines the write mode (e.g., Append, Overwrite) based on specific keywords in the
+   *   description.
+   * - Extracts catalog information (database and table name) from the output path.
+   * - Extracts the output columns if available in the description.
+   * - Builds and returns a `WriteOperationMetadataTrait` object encapsulating the extracted
+   *   metadata.
+   *
+   * This method includes error handling to ensure graceful fallback to default values
+   * (e.g., `UNKNOWN_EXTRACT`) in case of unexpected input or parsing errors.
+   *
+   * @param execName The name of the execution command (e.g., `InsertIntoHadoopFsRelationCommand`).
+   * @param nodeDescr The description of the node, typically containing details about the write
+   *                  operation.
+   * @return A `WriteOperationMetadataTrait` object containing the extracted metadata.
+   */
+  private def extractWriteOpRecord(
+      execName: String, nodeDescr: String): WriteOperationMetadataTrait = {
+    // Helper function to extract catalog information (database and table name) from the output
+    // path.
+    def extractCatalog(path: String): (String, String) = {
+      try {
+        // Split the URI into parts by "/"
+        val pathParts = path.split("/").filter(_.nonEmpty)
+        if (pathParts.length >= 2) {
+          // Extract the last two parts as database and table name
+          val database = pathParts(pathParts.length - 2)
+          val tableName = pathParts.last
+          (database, tableName)
+        } else {
+          // If not enough parts, return UNKNOWN_EXTRACT
+          (StringUtils.UNKNOWN_EXTRACT, StringUtils.UNKNOWN_EXTRACT)
+        }
+      } catch {
+        // Handle any unexpected errors gracefully
+        case _: Exception => (StringUtils.UNKNOWN_EXTRACT, StringUtils.UNKNOWN_EXTRACT)
+      }
+    }
+
+    // Helper function to extract the output path and data format from the node description.
+    def extractPathAndFormat(args: Array[String]): (String, String) = {
+      // Extract the path from the first argument
+      val path =
+        args.headOption.map(_.split("\\s+").last.trim).getOrElse(StringUtils.UNKNOWN_EXTRACT)
+      // Extract the data format from the third argument
+      val thirdArg = args.lift(2).getOrElse("").trim
+      val format = if (thirdArg.startsWith("[")) {
+        // Optional parameter is present in the eventlog. Get the fourth parameter by skipping the
+        // optional parameter string.
+        thirdArg.split("(?<=],)")
+          .map(_.trim).lift(1).getOrElse("").split(",").headOption.getOrElse("").trim
+      } else {
+        thirdArg.split(",").headOption.getOrElse("").trim
+      }
+      (path, format)
+    }
+
+    // Helper function to determine the write mode (e.g., Append, Overwrite) from the description.
+    def extractWriteMode(description: String): String = {
+      val modes = Map(
+        ", Append," -> "Append",
+        ", Overwrite," -> "Overwrite",
+        ", ErrorIfExists," -> "ErrorIfExists",
+        ", Ignore," -> "Ignore"
+      )
+      // Match the description against known write modes
+      modes.collectFirst { case (key, mode) if description.contains(key) => mode }
+        .getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    }
+
+    // Helper function to extract output columns from the node description.
+    def extractOutputColumns(description: String): Option[String] = {
+      // Use a regular expression to find column definitions enclosed in square brackets
+      val columnsRegex = """\[(.*?)\]""".r
+      columnsRegex.findAllMatchIn(description).map(_.group(1)).toList.lastOption
+        .map(_.replaceAll(",\\s+", ";"))  // Replace commas with semicolons for better readability
+    }
+
+    // Parse the node description into arguments
+    val splitArgs = nodeDescr.split(",", 3)
+
+    // Extract the output path and data format
+    val (path, format) = extractPathAndFormat(splitArgs)
+
+    // Extract the write mode (e.g., Append, Overwrite)
+    val writeMode = extractWriteMode(nodeDescr)
+
+    // Extract catalog information (database and table name) from the output path
+    val (catalogDB, catalogTable) = extractCatalog(path)
+
+    // Extract the output columns, if available
+    val outColumns = extractOutputColumns(nodeDescr)
+
+    // Build and return the metadata object encapsulating all extracted information
+    WriteOperationMetaBuilder.build(
+      execName = execName,
+      dataFormat = format,
+      outputPath = Option(path),
+      outputColumns = outColumns,
+      writeMode = writeMode,
+      tableName = catalogTable,
+      dataBaseName = catalogDB,
+      fullDescr = Some(nodeDescr)
+    )
+  }
+
+  /**
+   * Extracts metadata information from a given SparkPlanGraphNode representing a write operation.
+   *
+   * This method determines the type of write operation (e.g., Delta Lake or other supported
+   * commands) and extracts relevant metadata such as execution name, data format, output path,
+   * write mode, and catalog information. It uses helper methods to parse the node description
+   * and build a metadata object encapsulating the extracted details.
+   *
+   * The method performs the following steps:
+   * 1. Retrieves the node description from the provided SparkPlanGraphNode.
+   * 2. Checks if the node is a Delta Lake write operation using DeltaLakeHelper.
+   * 3. Retrieves the appropriate command wrapper (logical or physical) for the node.
+   * 4. If the command is `InsertIntoHadoopFsRelationCommand`, it invokes a specialized method
+   *    `extractWriteOpRecord` to extract detailed metadata.
+   * 5. For other commands, it builds a metadata object using the command wrapper's information.
+   * 6. If no command wrapper is found, it falls back to building a metadata object with minimal
+   *    information.
+   *
+   * @param node The SparkPlanGraphNode representing the write operation.
+   * @return A WriteOperationMetadataTrait object containing the extracted metadata.
+   */
+  def getWriteOpMetaFromNode(node: SparkPlanGraphNode): WriteOperationMetadataTrait = {
+    // Determine the appropriate command wrapper based on whether the node is a Delta Lake write
+    // operation.
+    val cmdWrapper = if (DeltaLakeHelper.acceptsWriteOp(node)) {
+      DeltaLakeHelper.getWriteCMDWrapper(node)
+    } else {
+      getWriteCMDWrapper(node)
+    }
+    // Process the command wrapper to extract metadata
+    cmdWrapper match {
+      case Some(cmdWrapper) =>
+        // If the command is InsertIntoHadoopFsRelationCommand, extract detailed metadata.
+        if (cmdWrapper.execName == DataWritingCommandExecParser.insertIntoHadoopCMD) {
+          extractWriteOpRecord(cmdWrapper.execName, node.desc)
+        } else {
+          // For other commands, build metadata using the command wrapper's information.
+          WriteOperationMetaBuilder.build(
+            execName = cmdWrapper.execName,
+            dataFormat = cmdWrapper.dataFormat,
+            fullDescr = Some(node.desc))
+        }
+      case _ =>
+        // If no command wrapper is found, build metadata with minimal information.
+        WriteOperationMetaBuilder.buildNoMeta(Some(node.desc))
     }
   }
 }
