@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,12 +34,6 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
 class AccumInfo(val infoRef: AccumMetaRef) {
   // TODO: use sorted maps for stageIDs and taskIds
 
-//  var sumTaskUpdate = 0L
-
-//  val taskUpdatesMap: mutable.HashMap[Long, Long] =
-//    new mutable.HashMap[Long, Long]()
-//  val stageValuesMap: mutable.HashMap[Int, Long] =
-//    new mutable.HashMap[Int, Long]()
   val stageValuesMap: mutable.HashMap[Int, (Long, StatisticsMetrics)] =
     new mutable.HashMap[Int, (Long, StatisticsMetrics)]()
 
@@ -61,7 +55,6 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     val parsedValue = accumulableInfo.value.flatMap(parseAccumFieldToLong)
     // in case there is an out of order event, the value showing up later could be
     // lower-than the previous value. In that case we should take the maximum.
-//    val existingValue = stageValuesMap.getOrElse(stageId, 0L)
     val existingEntry = stageValuesMap.getOrElse(stageId,
       (0L, StatisticsMetrics(0L, 0L, 0L, 0L)))
     val incomingValue = parsedValue match {
@@ -69,7 +62,6 @@ class AccumInfo(val infoRef: AccumMetaRef) {
       case _ => update.getOrElse(0L)
     }
     val newValue = Math.max(existingEntry._1, incomingValue)
-//    stageValuesMap.put(stageId, Math.max(existingValue, incomingValue))
     stageValuesMap.put(stageId, (newValue, existingEntry._2))
   }
 
@@ -86,33 +78,12 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     parsedUpdateValue.foreach{ value =>
       val (total, stats) = stageValuesMap.getOrElse(stageId,
         (0L, StatisticsMetrics(value, 0L, value, 0L)))
-      val newStats = StatisticsMetrics(
-        Math.min(stats.min, value),
-        (stats.med * stats.total + value) / ( stats.total + 1),
-        Math.max(stats.max, value),
-        stats.total + 1
-      )
-      stageValuesMap.put(stageId, (total + value, newStats))
+      stats.min = Math.min(stats.min, value)
+      stats.med = (stats.med * stats.total + value) / ( stats.total + 1)
+      stats.max = Math.max(stats.max, value)
+      stats.total = stats.total + 1
+      stageValuesMap.put(stageId, (total + value, stats))
     }
-//    val updateStageFlag = !stageValuesMap.contains(stageId)
-//    parsedUpdateValue match {
-//      case Some(x) =>
-//        minTaskUpdate = Math.min(minTaskUpdate, x)
-//        maxTaskUpdate = Math.max(maxTaskUpdate, x)
-//      case None =>
-//    }
-    // This is for cases where same task updates the same accum multiple times
-//    val existingUpdateValue = taskUpdatesMap.getOrElse(taskId, 0L)
-//    parsedUpdateValue match {
-//      case Some(_) =>
-//        taskUpdatesMap.put(taskId, v + existingUpdateValue)
-//      case None =>
-//        taskUpdatesMap.put(taskId, existingUpdateValue)
-//    }
-    // update the stage value map if necessary
-//    if (updateStageFlag) {
-//      addAccumToStage(stageId, accumulableInfo, parsedUpdateValue)
-//    }
   }
 
   def getStageIds: Set[Int] = {
@@ -123,27 +94,20 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     stageValuesMap.keys.min
   }
 
-//  def calculateAccStats(): StatisticsMetrics = {
-//    // do not check stage values because the stats is only meant for task updates
-//    StatisticsMetrics(minTaskUpdate, 0L, maxTaskUpdate, stageValuesMap.values.sum)
-//    StatisticsMetrics.createFromArr(taskUpdatesMap.map(_._2)(breakOut))
-//  }
-
   def calculateAccStats(): StatisticsMetrics = {
     val reduced_val = stageValuesMap.values.reduce { (a, b) =>
-      (a._1 + b._1,
-        StatisticsMetrics(
-          Math.min(a._2.min, b._2.min),
-          (a._2.med * a._2.total + b._2.med * b._2.total) / (a._2.total + b._2.total),
-          Math.max(a._2.max, b._2.max),
-          a._2.total + b._2.total
-      ))
+      a._2.min = Math.min(a._2.min, b._2.min)
+      a._2.med = (a._2.med * a._2.total + b._2.med * b._2.total) / (a._2.total + b._2.total)
+      a._2.max = Math.max(a._2.max, b._2.max)
+      a._2.total = a._2.total + b._2.total
+      (a._1 + b._1, a._2)
     }
     StatisticsMetrics(
       reduced_val._2.min,
       reduced_val._2.med,
       reduced_val._2.max,
-      reduced_val._1)
+      reduced_val._1
+    )
   }
 
   def calculateAccStatsForStage(stageId: Int): Option[StatisticsMetrics] = {
