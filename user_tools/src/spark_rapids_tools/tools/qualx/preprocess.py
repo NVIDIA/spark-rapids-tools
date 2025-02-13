@@ -22,11 +22,14 @@ import glob
 import os
 import numpy as np
 import pandas as pd
+from spark_rapids_tools.tools.qualx.config import (
+    get_cache_dir,
+    get_label,
+)
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
     find_eventlogs,
     find_paths,
-    get_cache_dir,
     get_logger,
     get_dataset_platforms,
     load_plugin,
@@ -392,19 +395,20 @@ def load_profiles(
     )
 
     # run any plugin hooks on profile_df
-    for ds_name, plugin_path in plugins.items():
-        plugin = load_plugin(plugin_path)
-        if plugin:
-            df_schema = profile_df.dtypes
-            dataset_df = profile_df.loc[
-                (profile_df.appName == ds_name) | (profile_df.appName.str.startswith(f'{ds_name}:'))
-            ]
-            modified_dataset_df = plugin.load_profiles_hook(dataset_df)
-            if modified_dataset_df.index.equals(dataset_df.index):
-                profile_df.update(modified_dataset_df)
-                profile_df.astype(df_schema)
-            else:
-                raise ValueError(f'Plugin: load_profiles_hook for {ds_name} unexpectedly modified row indices.')
+    if not profile_df.empty:
+        for ds_name, plugin_path in plugins.items():
+            plugin = load_plugin(plugin_path)
+            if plugin:
+                df_schema = profile_df.dtypes
+                dataset_df = profile_df.loc[
+                    (profile_df.appName == ds_name) | (profile_df.appName.str.startswith(f'{ds_name}:'))
+                ]
+                modified_dataset_df = plugin.load_profiles_hook(dataset_df)
+                if modified_dataset_df.index.equals(dataset_df.index):
+                    profile_df.update(modified_dataset_df)
+                    profile_df.astype(df_schema)
+                else:
+                    raise ValueError(f'Plugin: load_profiles_hook for {ds_name} unexpectedly modified row indices.')
     return profile_df
 
 
@@ -447,6 +451,12 @@ def extract_raw_features(
         log_fallback(logger, unique_app_ids,
                      fallback_reason=f'Empty feature tables found after preprocessing: {empty_tables_str}')
         return pd.DataFrame()
+
+    if get_label() == 'duration_sum':
+        # override appDuration with sum(duration_sum) across all stages per appId
+        app_duration_sum = job_stage_agg_tbl.groupby('appId')['duration_sum'].sum().reset_index()
+        app_duration_sum = app_duration_sum.rename(columns={'duration_sum': 'appDuration'})
+        app_tbl = app_tbl.merge(app_duration_sum, on=['appId'], how='left', suffixes=['_orig', None])
 
     # normalize dtypes
     app_int_dtypes = ['taskCpu', 'taskGpu']

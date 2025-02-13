@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ from spark_rapids_tools import CspEnv
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
 from spark_rapids_tools.enums import QualFilterApp
 from .conftest import SparkRapidsToolsUT, autotuner_prop_path, all_cpu_cluster_props, all_csps, \
-    valid_tools_conf_files, invalid_tools_conf_files
+    valid_tools_conf_files, invalid_tools_conf_files, valid_distributed_mode_tools_conf_files
 
 
 @dataclasses.dataclass
@@ -77,25 +77,25 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
             assert t_args['filterApps'] == QualFilterApp.get_default()
 
     @staticmethod
-    def create_tool_args_should_pass(tool_name: str, platform=None, cluster=None,
-                                     eventlogs=None, tools_jar=None, tools_config_path=None):
+    def create_tool_args_should_pass(tool_name: str, **kwargs):
         return AbsToolUserArgModel.create_tool_args(tool_name,
-                                                    platform=platform,
-                                                    cluster=cluster,
-                                                    eventlogs=eventlogs,
-                                                    tools_jar=tools_jar,
-                                                    tools_config_path=tools_config_path)
+                                                    platform=kwargs.get('platform'),
+                                                    cluster=kwargs.get('cluster'),
+                                                    eventlogs=kwargs.get('eventlogs'),
+                                                    tools_jar=kwargs.get('tools_jar'),
+                                                    tools_config_path=kwargs.get('tools_config_path'),
+                                                    submission_mode=kwargs.get('submission_mode'))
 
     @staticmethod
-    def create_tool_args_should_fail(tool_name: str, platform=None, cluster=None,
-                                     eventlogs=None, tools_jar=None, tools_config_path=None):
+    def create_tool_args_should_fail(tool_name: str, **kwargs):
         with pytest.raises(SystemExit) as pytest_wrapped_e:
             AbsToolUserArgModel.create_tool_args(tool_name,
-                                                 platform=platform,
-                                                 cluster=cluster,
-                                                 eventlogs=eventlogs,
-                                                 tools_jar=tools_jar,
-                                                 tools_config_path=tools_config_path)
+                                                 platform=kwargs.get('platform'),
+                                                 cluster=kwargs.get('cluster'),
+                                                 eventlogs=kwargs.get('eventlogs'),
+                                                 tools_jar=kwargs.get('tools_jar'),
+                                                 tools_config_path=kwargs.get('tools_config_path'),
+                                                 submission_mode=kwargs.get('submission_mode'))
         assert pytest_wrapped_e.type == SystemExit
 
     @staticmethod
@@ -329,6 +329,20 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                  eventlogs=f'{get_ut_data_dir}/eventlogs',
                                                  tools_config_path=tools_conf_path)
             assert pytest_wrapped_e.type == SystemExit
+
+    @pytest.mark.parametrize('tool_name', ['qualification'])
+    @pytest.mark.parametrize('csp', ['onprem'])
+    @pytest.mark.parametrize('submission_mode', ['distributed'])
+    @pytest.mark.parametrize('tools_conf_fname', valid_distributed_mode_tools_conf_files)
+    def test_distributed_mode_configs(self, get_ut_data_dir, tool_name, csp, submission_mode, tools_conf_fname):
+        tools_conf_path = f'{get_ut_data_dir}/tools_config/valid/{tools_conf_fname}'
+        # should pass: tools config file is provided
+        tool_args = self.create_tool_args_should_pass(tool_name,
+                                                      platform=csp,
+                                                      eventlogs=f'{get_ut_data_dir}/eventlogs',
+                                                      tools_config_path=tools_conf_path,
+                                                      submission_mode=submission_mode)
+        assert tool_args['toolsConfig'] is not None
 
     def test_arg_cases_coverage(self):
         """

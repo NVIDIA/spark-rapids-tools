@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>24.12.2</version>
+    <version>24.12.3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -417,6 +417,7 @@
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
+        <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>

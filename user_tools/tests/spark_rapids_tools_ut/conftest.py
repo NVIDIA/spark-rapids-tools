@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ all_csps = csps + ['onprem']
 autotuner_prop_path = 'worker_info.yaml'
 # valid tools config files
 valid_tools_conf_files = ['tools_config_00.yaml']
+valid_distributed_mode_tools_conf_files = ['tools_config_01.yaml', 'tools_config_02.yaml']
 # invalid tools config files
 invalid_tools_conf_files = [
     # test older API_version

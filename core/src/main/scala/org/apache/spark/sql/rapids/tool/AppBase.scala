@@ -33,6 +33,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
+import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
@@ -492,6 +493,7 @@ abstract class AppBase(
   def processEvents(): Unit = {
     processEventsInternal()
     postCompletion()
+    RuntimeInjector.insertMemoryMarker("Post processing events")
   }
 
   /**

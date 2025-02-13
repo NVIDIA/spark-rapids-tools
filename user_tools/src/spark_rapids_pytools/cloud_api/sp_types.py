@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,11 +22,11 @@ from enum import Enum
 from logging import Logger
 from typing import Type, Any, List, Callable, Union, Optional, final, Dict
 
-from spark_rapids_tools import EnumeratedType, CspEnv
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
 from spark_rapids_pytools.common.sys_storage import StorageDriver, FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging, SysCmd, Utils, TemplateGenerator
+from spark_rapids_tools import EnumeratedType, CspEnv
 
 
 class DeployMode(EnumeratedType):
@@ -882,6 +882,9 @@ class PlatformBase:
         raise NotImplementedError
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
+        raise NotImplementedError
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
         raise NotImplementedError
 
     def load_platform_configs(self):

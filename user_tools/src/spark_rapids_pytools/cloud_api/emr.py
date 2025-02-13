@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -114,6 +114,9 @@ class EMRPlatform(PlatformBase):
 
     def create_local_submission_job(self, job_prop, ctxt) -> Any:
         return EmrLocalRapidsJob(prop_container=job_prop, exec_ctxt=ctxt)
+
+    def create_distributed_submission_job(self, job_prop, ctxt) -> Any:
+        pass
 
     def generate_cluster_configuration(self, render_args: dict):
         image_version = self.configs.get_value_silent('clusterInference', 'defaultImage')
