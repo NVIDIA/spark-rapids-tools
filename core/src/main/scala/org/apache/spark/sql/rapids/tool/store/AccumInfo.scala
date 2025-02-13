@@ -85,14 +85,14 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     // we need to update the stageMap if the stageId does not exist in the map
     parsedUpdateValue.foreach{ value =>
       val (total, stats) = stageValuesMap.getOrElse(stageId,
-        (value, StatisticsMetrics(value, value, value, 1)))
+        (0L, StatisticsMetrics(value, 0L, value, 0L)))
       val newStats = StatisticsMetrics(
         Math.min(stats.min, value),
         (stats.med * stats.total + value) / ( stats.total + 1),
         Math.max(stats.max, value),
         stats.total + 1
       )
-      stageValuesMap.put(stageId, (Math.max(total, value), newStats))
+      stageValuesMap.put(stageId, (total + value, newStats))
     }
 //    val updateStageFlag = !stageValuesMap.contains(stageId)
 //    parsedUpdateValue match {
@@ -143,7 +143,7 @@ class AccumInfo(val infoRef: AccumMetaRef) {
       reduced_val._2.min,
       reduced_val._2.med,
       reduced_val._2.max,
-      reduced_val._1 + reduced_val._1)
+      reduced_val._1)
   }
 
   def calculateAccStatsForStage(stageId: Int): Option[StatisticsMetrics] = {
