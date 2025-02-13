@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v24.12.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.3)
+Generated on 2025-02-13
+### User Tools
+
+- Add support for configurable qualx label column ([#1528](https://github.com/NVIDIA/spark-rapids-tools/pull/1528))
+- Merge Distributed Qualification Tools CLI ([#1516](https://github.com/NVIDIA/spark-rapids-tools/pull/1516))
+
+### Core
+
+- AutoTuner/Bootstrapper should recommend Dataproc Spark performance enhancements ([#1539](https://github.com/NVIDIA/spark-rapids-tools/pull/1539))
+- Disable Per-SQL summary text output ([#1530](https://github.com/NVIDIA/spark-rapids-tools/pull/1530))
+- Use a stub to store Spark StageInfo ([#1525](https://github.com/NVIDIA/spark-rapids-tools/pull/1525))
+- Recommend G6 instead of G5 on EMR ([#1523](https://github.com/NVIDIA/spark-rapids-tools/pull/1523))
+- Generate a separate file to list bootstrap properties  ([#1517](https://github.com/NVIDIA/spark-rapids-tools/pull/1517))
+
+### Miscellaneous
+
+- Disable diagnostics pytests ([#1532](https://github.com/NVIDIA/spark-rapids-tools/pull/1532))
+
+
+<br/>
+
 ## Release [v24.12.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.2)
 Generated on 2025-01-31
 ### User Tools
