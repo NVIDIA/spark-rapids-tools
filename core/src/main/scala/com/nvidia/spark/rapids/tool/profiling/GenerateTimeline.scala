@@ -285,12 +285,6 @@ object GenerateTimeline {
         case _ => None
       }.sum
 
-//    val readMetrics = readTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
-//
-//    val opMetrics = opTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
-//
-//    val writeMetrics = writeTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
-
     app.taskManager.getAllTasks().foreach { tc =>
       val host = tc.host
       val execId = tc.executorId
@@ -300,11 +294,6 @@ object GenerateTimeline {
       val finishTime = tc.finishTime
       val duration = tc.duration
       val semTimeMs = ( semMetricsNs / 1000000) + semMetricsMs
-//      val readTimeMs = readMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000 +
-//        tc.sr_fetchWaitTime
-//      val opTimeMs = opMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000
-//      val writeTimeMs = writeMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000 +
-//        tc.sw_writeTime / 1000000
       val readTimeMs = tc.sr_fetchWaitTime
       val opTimeMs = 0L
       val writeTimeMs = tc.sw_writeTime / 1000000
