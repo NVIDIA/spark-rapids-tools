@@ -32,22 +32,21 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.parseAccumFieldToLong
  * @param infoRef - AccumMetaRef for the accumulator
  */
 class AccumInfo(val infoRef: AccumMetaRef) {
-  // TODO: use sorted maps for stageIDs and taskIds
-
+  /**
+   * Maps stageId to a tuple of:
+   * - Total accumulator value for the stage (Long)
+   * - Statistical metrics for task-level updates (StatisticsMetrics)
+   */
   val stageValuesMap: mutable.HashMap[Int, (Long, StatisticsMetrics)] =
     new mutable.HashMap[Int, (Long, StatisticsMetrics)]()
 
   /**
-   * Add accumulable to a stage while:
-   * 1- handling StageCompleted event.
-   * 2- handling taskEnd event, we want to make sure that there is an entry that maps the stage to
-   *    the accumulable. The reason is that we want to keep track of the stageIDs in case their
-   *    stageCompleted has never been triggered. It is common case for incomplete eventlogs.
-   * @param stageId the stageId pulled from the StageCompleted/TaskEnd event
-   * @param accumulableInfo the accumulableInfo from the StageCompleted/TaskEnd event
-   * @param update optional long that represents the task update value in case the call was
-   *               triggered by a taskEnd event and the map between stage-Acc has not been
-   *               established yet.
+   * Adds or updates accumulator information for a stage.
+   * Called during StageCompleted or TaskEnd events processing.
+   *
+   * @param stageId The ID of the stage
+   * @param accumulableInfo Accumulator information from the event
+   * @param update Optional task update value for TaskEnd events
    */
   def addAccumToStage(stageId: Int,
       accumulableInfo: AccumulableInfo,
@@ -66,13 +65,17 @@ class AccumInfo(val infoRef: AccumMetaRef) {
   }
 
   /**
-   * Add accumulable to a task while handling TaskEnd event.
-   * This can propagate a call to addAccToStage if the stageId does not exist in the stageValuesMap
-   * @param stageId the stageId pulled from the TaskEnd event
-   * @param taskId the taskId pulled from the TaskEnd event
-   * @param accumulableInfo the accumulableInfo from the TaskEnd event
+   * Processes task-level accumulator updates and updates stage-level statistics.
+   * Called during TaskEnd event processing.
+   *
+   * @param stageId The ID of the stage containing the task
+   * @param taskId The ID of the completed task
+   * @param accumulableInfo Accumulator information from the TaskEnd event
    */
   def addAccumToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
+    // For each incoming Task, we update the statistics with min, rolling average
+    // max and count of tasks
+
     val parsedUpdateValue = accumulableInfo.update.flatMap(parseAccumFieldToLong)
     // we need to update the stageMap if the stageId does not exist in the map
     parsedUpdateValue.foreach{ value =>
@@ -88,15 +91,34 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     }
   }
 
+  /**
+   * Returns all stage IDs that have accumulator updates.
+   *
+   * @return Set of stage IDs
+   */
   def getStageIds: Set[Int] = {
     stageValuesMap.keySet.toSet
   }
 
+  /**
+   * Returns the smallest stage ID in the accumulator data.
+   *
+   * @return Minimum stage ID
+   */
   def getMinStageId: Int = {
     stageValuesMap.keys.min
   }
 
+  /**
+   * Calculates aggregate statistics across all stages for this accumulator.
+   *
+   * @return Combined StatisticsMetrics including min, median, max, and total
+   */
   def calculateAccStats(): StatisticsMetrics = {
+    // While reducing we leverage the count stored during TaskEnd processing
+    // We use it to update the rolling average
+    // However, the sum ( calculated using sum of all values for stages )
+    // is returned at the end
     val reduced_val = stageValuesMap.values.reduce { (a, b) =>
       (a._1 + b._1,
         StatisticsMetrics(
@@ -113,6 +135,12 @@ class AccumInfo(val infoRef: AccumMetaRef) {
       reduced_val._1)
   }
 
+  /**
+   * Retrieves statistical metrics for a specific stage.
+   *
+   * @param stageId The ID of the stage
+   * @return Option containing StatisticsMetrics if stage exists, None otherwise
+   */
   def calculateAccStatsForStage(stageId: Int): Option[StatisticsMetrics] = {
     val output = stageValuesMap.get(stageId)
     output match {
@@ -121,6 +149,11 @@ class AccumInfo(val infoRef: AccumMetaRef) {
     }
   }
 
+  /**
+   * Returns the highest accumulator value across all stages.
+   *
+   * @return Option containing maximum value if stages exist, None otherwise
+   */
   def getMaxStageValue: Option[Long] = {
     if (stageValuesMap.values.isEmpty) {
       None
