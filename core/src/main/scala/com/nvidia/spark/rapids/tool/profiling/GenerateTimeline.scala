@@ -60,7 +60,7 @@ object GenerateTimeline {
   private val FOOTER_HEIGHT = FONT_SIZE + (PADDING * 2)
   private val MS_PER_PIXEL = 5.0
 
-//   Generated using https://mokole.com/palette.html
+  // Generated using https://mokole.com/palette.html
   private val COLORS = Array(
     "#696969",
     "#dcdcdc",

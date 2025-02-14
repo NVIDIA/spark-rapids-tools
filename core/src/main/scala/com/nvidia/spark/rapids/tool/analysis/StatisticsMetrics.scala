@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.analysis
 import org.apache.spark.sql.rapids.tool.util.InPlaceMedianArrView.{chooseMidpointPivotInPlace, findMedianInPlace}
 
 // Store (min, median, max, total) for a given metric
-case class StatisticsMetrics(min: Long, med: Long, var max: Long, var total: Long)
+case class StatisticsMetrics(min: Long, med: Long, max: Long, total: Long)
 
 object StatisticsMetrics {
   // a static variable used to represent zero-statistics instead of allocating a dummy record
