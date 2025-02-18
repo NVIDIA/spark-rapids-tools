@@ -79,7 +79,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   val IODiagnosticMetricsMap: HashMap[(Long, Long), ArrayBuffer[SQLAccumProfileResults]] =
     HashMap.empty[(Long, Long), ArrayBuffer[SQLAccumProfileResults]]
 
-  // A list of AccumProfileResults objects containing filtered diagnostic metrics for the top 7 stages (duration-wise).
+  // A list of AccumProfileResults objects containing filtered diagnostic metrics for the
+  // top 7 stages (duration-wise).
   // This list contains all the results we need/want.
   val filteredStageAccumList: ArrayBuffer[AccumProfileResults] = ArrayBuffer[AccumProfileResults]()
 
@@ -487,17 +488,21 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   def generateFilteredDiagnosticAccums(): Seq[FilteredDiagnosticResult] = {
     val nodeInfoToFilterMetricsMap =
       HashMap.empty[(Long, Long, String, Int), HashMap[String, StatisticsMetrics]]
-    filteredStageAccumList.foreach  { stageAccumResult =>
+    for (stageAccumResult <- filteredStageAccumList) {
       val accumId = stageAccumResult.accMetaRef.id
-      val stageId = stageAccumResult.stageId
-      val (sqlId, nodeId, nodeName) = accumIdToNodeInfoMap(accumId)
-      if (!nodeInfoToFilterMetricsMap.contains((sqlId, nodeId, nodeName, stageId))) {
-        nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId)) =
-          HashMap.empty[String, StatisticsMetrics]
+      if (accumIdToNodeInfoMap.contains(accumId)) {
+        val stageId = stageAccumResult.stageId
+        val (sqlId, nodeId, nodeName) = accumIdToNodeInfoMap(accumId)
+        if (!nodeInfoToFilterMetricsMap.contains((sqlId, nodeId, nodeName, stageId))) {
+          nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId)) =
+            HashMap.empty[String, StatisticsMetrics]
+        }
+        val normalizeMetricName =
+          normalizeFilteredDiagnosticMetricKey(stageAccumResult.accMetaRef.getName())
+        nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId))(normalizeMetricName) =
+          StatisticsMetrics(stageAccumResult.min, stageAccumResult.median,
+            stageAccumResult.max, stageAccumResult.total)
       }
-      val normalizeMetricName = normalizeFilteredDiagnosticMetricKey(stageAccumResult.accMetaRef.getName())
-      nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId))(normalizeMetricName) =
-        StatisticsMetrics(stageAccumResult.min, stageAccumResult.median, stageAccumResult.max, stageAccumResult.total)
     }
 
     nodeInfoToFilterMetricsMap.map { case ((sqlId, nodeId, nodeName, stageId), metricsMap) =>
@@ -518,7 +523,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         metricsMap.getOrElse(FILTERED_OUTPUT_ROWS_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
         metricsMap.getOrElse(FILTERED_SORT_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
         metricsMap.getOrElse(FILTERED_PEAK_MEMORY_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_SHUFFLE_BYTES_WRITTEN_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
+        metricsMap.getOrElse(FILTERED_SHUFFLE_BYTES_WRITTEN_METRIC_KEY,
+          StatisticsMetrics.ZERO_RECORD),
         metricsMap.getOrElse(FILTERED_SHUFFLE_WRITE_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD))
     }(breakOut)
   }

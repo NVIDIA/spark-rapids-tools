@@ -405,7 +405,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
       unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
       appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo),
-      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
+      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics,
+      collect.getFilteredDiagnosticMetrics))
   }
 
   /**
@@ -574,7 +575,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // Write diagnostic related results to CSV files
     val diagnostics = if (outputCombined) {
       Seq(DiagnosticSummaryInfo(diagnosticSum.flatMap(_.stageDiagnostics),
-        diagnosticSum.flatMap(_.IODiagnostics)))
+        diagnosticSum.flatMap(_.IODiagnostics), diagnosticSum.flatMap(_.filteredDiagnostics)))
     } else {
       diagnosticSum
     }
@@ -582,6 +583,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL, diagnostoic.stageDiagnostics)
       profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
         diagnostoic.IODiagnostics)
+      profileOutputWriter.writeCSVTable(ProfFilteredDiagnosticMetricsView.getLabel,
+        diagnostoic.filteredDiagnostics)
     }
   }
 

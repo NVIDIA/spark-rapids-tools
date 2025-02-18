@@ -135,7 +135,8 @@ object FilteredAccumDiagnosticMetrics {
 
   val NUM_PARTITIONS_METRIC_NAMES = Set(
     "number of partitions", // common across all Spark eventlogs
-    "number of partitions read" // only in DB eventlogs
+    "number of partitions read", // only in DB eventlogs
+    "partitions"  // only in GPU eventlogs
   )
 
   val METADATA_TIME_METRIC_NAMES = Set(
@@ -163,7 +164,8 @@ object FilteredAccumDiagnosticMetrics {
 
   val PEAK_MEMORY_METRIC_NAMES = Set(
     "peak memory", // common across all Spark eventlogs
-    "peak memory usage" // only in Photon eventlogs
+    "peak memory usage", // only in Photon eventlogs
+    "peak device memory" // only in GPU eventlogs
   )
 
   val SHUFFLE_BYTES_WRITTEN_METRIC_NAMES = Set(
