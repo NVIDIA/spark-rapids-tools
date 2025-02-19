@@ -22,6 +22,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 case class ReadMetaData(schema: String, location: String, format: String,
     tags: Map[String, String] = ReadParser.DEFAULT_METAFIELD_MAP) {
@@ -60,7 +61,7 @@ object ReadParser extends Logging {
   val METAFIELD_TAG_FORMAT = "Format"
   val METAFIELD_TAG_LOCATION = "Location"
 
-  val UNKNOWN_METAFIELD: String = "unknown"
+  val UNKNOWN_METAFIELD: String = StringUtils.UNKNOWN_EXTRACT
   val DEFAULT_METAFIELD_MAP: Map[String, String] = collection.immutable.Map(
     METAFIELD_TAG_DATA_FILTERS -> UNKNOWN_METAFIELD,
     METAFIELD_TAG_PUSHED_FILTERS -> UNKNOWN_METAFIELD,

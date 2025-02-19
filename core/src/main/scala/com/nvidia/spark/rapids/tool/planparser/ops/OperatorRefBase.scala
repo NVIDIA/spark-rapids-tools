@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 class OperatorRefBase(val value: String, val opType: OpTypes.OpType) extends OperatorRefTrait {
   // Preformatted values for CSV output to avoid reformatting multiple times.
-  val csvValue: String = StringUtils.reformatCSVString(value)
-  val csvOpType: String = StringUtils.reformatCSVString(opType.toString)
+  lazy val csvValue: String = StringUtils.reformatCSVString(value)
+  lazy val csvOpType: String = StringUtils.reformatCSVString(opType.toString)
 
   override def getOpName: String = value
   override def getOpNameCSV: String = csvValue
