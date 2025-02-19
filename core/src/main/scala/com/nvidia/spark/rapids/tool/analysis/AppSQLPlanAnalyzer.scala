@@ -79,21 +79,25 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   val IODiagnosticMetricsMap: HashMap[(Long, Long), ArrayBuffer[SQLAccumProfileResults]] =
     HashMap.empty[(Long, Long), ArrayBuffer[SQLAccumProfileResults]]
 
-  // A list of AccumProfileResults objects containing filtered diagnostic metrics for the
-  // top 7 stages (duration-wise).
-  // This list contains all the results we need/want.
+  // A list of AccumProfileResults objects containing filtered diagnostic metrics for the top 7
+  // stages with the highest durations.
   val filteredStageAccumList: ArrayBuffer[AccumProfileResults] = ArrayBuffer[AccumProfileResults]()
 
-  // accumId -> (sqlId, nodeId, nodeName)
+  // A mapping from accumulator ID to a tuple of (SQL ID, Node ID, Node Name).
   val accumIdToNodeInfoMap: HashMap[Long, (Long, Long, String)] =
     HashMap.empty[Long, (Long, Long, String)]
 
+  /**
+   * Retrieves the top 7 stage IDs with the highest execution durations.
+   * 7 is a magic number that was chosen from past experiences.
+   */
   def topDurationStageIds: Set[Int] = {
+    // Get all stage IDs and their durations
     val stageIds = app.stageManager.getAllStageIds.toSeq
     val stageIdsWithDurations = stageIds.map { stageId =>
       (stageId, app.stageManager.getDurationById(stageId))
     }
-    // 7 is a magic number to get the top 7 stages with the highest duration
+    // Selects and returns the top 7 longest-running stages
     val topDurationStages = stageIdsWithDurations.sortBy(_._2).reverse.take(7)
     topDurationStages.map(_._1)(breakOut)
   }
@@ -485,26 +489,48 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
     }(breakOut)
   }
 
+  /**
+   * Generates a sequence of filtered diagnostic results based on accumulated stage metrics.
+   *
+   * This function:
+   * - Iterates through `filteredStageAccumList` to collect diagnostic metrics for each node-stage
+   *   combination.
+   * - Uses accumulation IDs to retrieve node information from `accumIdToNodeInfoMap`.
+   * - Stores metric results in a `nodeInfoToFilterMetricsMap` for efficient updates.
+   *
+   * @return A sequence of `FilteredDiagnosticResult` objects.
+   */
   def generateFilteredDiagnosticAccums(): Seq[FilteredDiagnosticResult] = {
+    // Initialize a map to store filtered diagnostic metrics for each node-stage combination
+    // The key is a tuple of (SQL ID, Node ID, Node Name, Stage ID)
+    // The value is a HashMap of diagnostic metric names to their respective statistics
     val nodeInfoToFilterMetricsMap =
       HashMap.empty[(Long, Long, String, Int), HashMap[String, StatisticsMetrics]]
+
     for (stageAccumResult <- filteredStageAccumList) {
       val accumId = stageAccumResult.accMetaRef.id
-      if (accumIdToNodeInfoMap.contains(accumId)) {
+      // Retrieve node information if available
+      accumIdToNodeInfoMap.get(accumId).foreach { case (sqlId, nodeId, nodeName) =>
         val stageId = stageAccumResult.stageId
-        val (sqlId, nodeId, nodeName) = accumIdToNodeInfoMap(accumId)
-        if (!nodeInfoToFilterMetricsMap.contains((sqlId, nodeId, nodeName, stageId))) {
-          nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId)) =
-            HashMap.empty[String, StatisticsMetrics]
-        }
+        val metricsMap = nodeInfoToFilterMetricsMap.getOrElseUpdate(
+          (sqlId, nodeId, nodeName, stageId),
+          HashMap.empty[String, StatisticsMetrics]
+        )
+
+        // Normalize metric name and store the metric results in `nodeInfoToFilterMetricsMap``
         val normalizeMetricName =
           normalizeFilteredDiagnosticMetricKey(stageAccumResult.accMetaRef.getName())
-        nodeInfoToFilterMetricsMap((sqlId, nodeId, nodeName, stageId))(normalizeMetricName) =
-          StatisticsMetrics(stageAccumResult.min, stageAccumResult.median,
-            stageAccumResult.max, stageAccumResult.total)
+        metricsMap(normalizeMetricName) = StatisticsMetrics(
+          stageAccumResult.min,
+          stageAccumResult.median,
+          stageAccumResult.max,
+          stageAccumResult.total
+        )
       }
     }
 
+    // Convert the collected metrics into a sequence of `FilteredDiagnosticResult` objects
+    val zeroStats = StatisticsMetrics.ZERO_RECORD
     nodeInfoToFilterMetricsMap.map { case ((sqlId, nodeId, nodeName, stageId), metricsMap) =>
       FilteredDiagnosticResult(
         appIndex,
@@ -515,17 +541,16 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         app.stageManager.getDurationById(stageId),
         nodeId,
         nodeName,
-        metricsMap.getOrElse(FILTERED_NUM_FILES_READ_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_NUM_PARTITIONS_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_METADATA_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_OUTPUT_BATCHES_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_INPUT_BATCHES_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_OUTPUT_ROWS_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_SORT_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_PEAK_MEMORY_METRIC_KEY, StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_SHUFFLE_BYTES_WRITTEN_METRIC_KEY,
-          StatisticsMetrics.ZERO_RECORD),
-        metricsMap.getOrElse(FILTERED_SHUFFLE_WRITE_TIME_METRIC_KEY, StatisticsMetrics.ZERO_RECORD))
+        metricsMap.getOrElse(FILTERED_NUM_FILES_READ_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_NUM_PARTITIONS_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_METADATA_TIME_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_OUTPUT_BATCHES_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_INPUT_BATCHES_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_OUTPUT_ROWS_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_SORT_TIME_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_PEAK_MEMORY_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_SHUFFLE_BYTES_WRITTEN_METRIC_KEY, zeroStats),
+        metricsMap.getOrElse(FILTERED_SHUFFLE_WRITE_TIME_METRIC_KEY, zeroStats))
     }(breakOut)
   }
 
