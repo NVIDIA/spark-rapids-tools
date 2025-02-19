@@ -42,136 +42,138 @@ PREPROCESSED_FILE = 'preprocessed.parquet'
 
 logger = get_logger(__name__)
 
-# expected features for dataframe produced by preprocessing
+# expected features for the dataframe produced by preprocessing
+# comments show the profiler source CSV file (and column name, if different)
+# N/A indicates that the feature is derived from other features or other sources
 expected_raw_features = \
     {
-        'appDuration',
-        'appId',
-        'appName',
-        'cache_hit_ratio',
-        'data_size',
-        'decode_time',
-        'description',
-        'diskBytesSpilled_mean',
-        'diskBytesSpilledRatio',
-        'duration_max',
-        'duration_mean',
-        'duration_min',
-        'duration_sum',
-        'Duration',
-        'executorCores',
-        'executorCPUTime_mean',
-        'executorDeserializeCPUTime_mean',
-        'executorDeserializeTime_mean',
-        'executorMemory',
-        'executorOffHeap',
-        'executorRunTime_mean',
-        'fraction_supported',
-        'input_bytesRead_mean',
-        'input_bytesReadRatio',
-        'input_recordsRead_sum',
-        'jvmGCTime_mean',
-        'maxMem',
-        'maxOffHeapMem',
-        'maxOnHeapMem',
-        'memoryBytesSpilled_mean',
-        'memoryBytesSpilledRatio',
-        'numExecutors',
-        'numGpusPerExecutor',
-        'numTasks_sum',
-        'output_bytesWritten_mean',
-        'output_bytesWrittenRatio',
-        'output_recordsWritten_sum',
-        'peakExecutionMemory_max',
-        'platform_databricks-aws',
-        'platform_databricks-azure',
-        'platform_dataproc',
-        'platform_emr',
-        'platform_onprem',
-        'pluginEnabled',
-        'resultSerializationTime_sum',
-        'resultSize_max',
-        'runType',
-        'scaleFactor',
-        'scan_bw',
-        'scan_time',
-        'shuffle_read_bw',
-        'shuffle_write_bw',
-        'sparkRuntime',
-        'sparkVersion',
-        'sqlID',
-        'sqlOp_AQEShuffleRead',
-        'sqlOp_BatchEvalPython',
-        'sqlOp_BroadcastExchange',
-        'sqlOp_BroadcastHashJoin',
-        'sqlOp_BroadcastNestedLoopJoin',
-        'sqlOp_CartesianProduct',
-        'sqlOp_ColumnarToRow',
-        'sqlOp_CommandResult',
-        'sqlOp_CustomShuffleReader',
-        'sqlOp_DeserializeToObject',
-        'sqlOp_Exchange',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand csv',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand parquet',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand orc',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand json',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand text',
-        'sqlOp_Execute InsertIntoHadoopFsRelationCommand unknown',
-        'sqlOp_Expand',
-        'sqlOp_Filter',
-        'sqlOp_Generate',
-        'sqlOp_GenerateBloomFilter',
-        'sqlOp_GlobalLimit',
-        'sqlOp_HashAggregate',
-        'sqlOp_HashAggregatePrefixGroupingSets',
-        'sqlOp_LocalLimit',
-        'sqlOp_LocalTableScan',
-        'sqlOp_MapElements',
-        'sqlOp_ObjectHashAggregate',
-        'sqlOp_OutputAdapter',
-        'sqlOp_PartialWindow',
-        'sqlOp_Project',
-        'sqlOp_ReusedSort',
-        'sqlOp_RunningWindowFunction',
-        'sqlOp_Scan csv',
-        'sqlOp_Scan ExistingRDD Delta Table Checkpoint',
-        'sqlOp_Scan ExistingRDD Delta Table State',
-        'sqlOp_Scan ExistingRDD',
-        'sqlOp_Scan jdbc',
-        'sqlOp_Scan json',
-        'sqlOp_Scan OneRowRelation',
-        'sqlOp_Scan orc',
-        'sqlOp_Scan parquet',
-        'sqlOp_Scan text',
-        'sqlOp_Scan unknown',
-        'sqlOp_SerializeFromObject',
-        'sqlOp_Sort',
-        'sqlOp_SortAggregate',
-        'sqlOp_SortMergeJoin',
-        'sqlOp_Subquery',
-        'sqlOp_SubqueryBroadcast',
-        'sqlOp_SubqueryOutputBroadcast',
-        'sqlOp_TakeOrderedAndProject',
-        'sqlOp_Window',
-        'sqlOp_WindowGroupLimit',
-        'sqlOp_WindowSort',
-        'sr_fetchWaitTime_mean',
-        'sr_localBlocksFetched_sum',
-        'sr_localBytesRead_mean',
-        'sr_localBytesReadRatio',
-        'sr_remoteBlocksFetched_sum',
-        'sr_remoteBytesRead_mean',
-        'sr_remoteBytesReadRatio',
-        'sr_remoteBytesReadToDisk_mean',
-        'sr_remoteBytesReadToDiskRatio',
-        'sr_totalBytesRead_mean',
-        'sr_totalBytesReadRatio',
-        'sw_bytesWritten_mean',
-        'sw_bytesWrittenRatio',
-        'sw_recordsWritten_sum',
-        'sw_writeTime_mean',
-        'taskCpu',
-        'taskGpu',
+        'appDuration',  # sql_duration_and_executor_cpu_time_percent (App Duration)
+        'appId',  # application_information
+        'appName',  # application_information
+        'cache_hit_ratio',  # sql_plan_metrics_for_application (cache hits size, cache misses size)
+        'data_size',  # data_source_information
+        'decode_time',  # data_source_information
+        'description',  # data_source_information
+        'diskBytesSpilled_mean',  # job_level_aggregated_task_metrics (diskBytesSpilled_sum)
+        'diskBytesSpilledRatio',  # N/A
+        'duration_max',  # job_level_aggregated_task_metrics
+        'duration_mean',  # job_level_aggregated_task_metrics (duration_avg)
+        'duration_min',  # job_level_aggregated_task_metrics
+        'duration_sum',  # job_level_aggregated_task_metrics
+        'Duration',  # job_level_aggregated_task_metrics
+        'executorCores',  # executor_information
+        'executorCPUTime_mean',  # job_level_aggregated_task_metrics (executorCpuTime_sum)
+        'executorDeserializeCPUTime_mean',  # job_level_aggregated_task_metrics (executorDeserializeCpuTime_sum)
+        'executorDeserializeTime_mean',  # job_level_aggregated_task_metrics (executorDeserializeTime_sum)
+        'executorMemory',  # executor_information
+        'executorOffHeap',  # executor_information
+        'executorRunTime_mean',  # job_level_aggregated_task_metrics (executorCpuTime_sum)
+        'fraction_supported',  # N/A
+        'input_bytesRead_mean',  # job_level_aggregated_task_metrics (input_bytesRead_sum)
+        'input_bytesReadRatio',  # N/A
+        'input_recordsRead_sum',  # job_level_aggregated_task_metrics (input_recordsRead_sum)
+        'jvmGCTime_mean',  # job_level_aggregated_task_metrics (jvmGCTime_sum)
+        'maxMem',  # executor_information
+        'maxOffHeapMem',  # executor_information
+        'maxOnHeapMem',  # executor_information
+        'memoryBytesSpilled_mean',  # job_level_aggregated_task_metrics (memoryBytesSpilled_sum)
+        'memoryBytesSpilledRatio',  # N/A
+        'numExecutors',  # executor_information
+        'numGpusPerExecutor',  # executor_information
+        'numTasks_sum',  # job_level_aggregated_task_metrics (numTasks)
+        'output_bytesWritten_mean',  # job_level_aggregated_task_metrics (output_bytesWritten_sum)
+        'output_bytesWrittenRatio',  # N/A
+        'output_recordsWritten_sum',  # job_level_aggregated_task_metrics
+        'peakExecutionMemory_max',  # job_level_aggregated_task_metrics
+        'platform_databricks-aws',  # N/A
+        'platform_databricks-azure',  # N/A
+        'platform_dataproc',  # N/A
+        'platform_emr',  # N/A
+        'platform_onprem',  # N/A
+        'pluginEnabled',  # application_information
+        'resultSerializationTime_sum',  # job_level_aggregated_task_metrics
+        'resultSize_max',  # job_level_aggregated_task_metrics
+        'runType',  # N/A
+        'scaleFactor',  # N/A
+        'scan_bw',  # N/A
+        'scan_time',  # data_source_information
+        'shuffle_read_bw',  # N/A
+        'shuffle_write_bw',  # N/A
+        'sparkRuntime',  # application_information
+        'sparkVersion',  # application_information
+        'sqlID',  # job_level_aggregated_task_metrics
+        'sqlOp_AQEShuffleRead',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_BatchEvalPython',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_BroadcastExchange',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_BroadcastHashJoin',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_BroadcastNestedLoopJoin',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_CartesianProduct',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_ColumnarToRow',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_CommandResult',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_CustomShuffleReader',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_DeserializeToObject',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Exchange',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand csv',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand parquet',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand orc',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand json',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand text',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Execute InsertIntoHadoopFsRelationCommand unknown',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Expand',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Filter',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Generate',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_GenerateBloomFilter',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_GlobalLimit',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_HashAggregate',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_HashAggregatePrefixGroupingSets',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_LocalLimit',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_LocalTableScan',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_MapElements',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_ObjectHashAggregate',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_OutputAdapter',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_PartialWindow',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Project',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_ReusedSort',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_RunningWindowFunction',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan csv',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan ExistingRDD Delta Table Checkpoint',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan ExistingRDD Delta Table State',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan ExistingRDD',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan jdbc',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan json',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan OneRowRelation',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan orc',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan parquet',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan text',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Scan unknown',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_SerializeFromObject',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Sort',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_SortAggregate',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_SortMergeJoin',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Subquery',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_SubqueryBroadcast',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_SubqueryOutputBroadcast',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_TakeOrderedAndProject',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_Window',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_WindowGroupLimit',  # sql_plan_metrics_for_application (nodeName)
+        'sqlOp_WindowSort',  # sql_plan_metrics_for_application (nodeName)
+        'sr_fetchWaitTime_mean',  # job_level_aggregated_task_metrics (sr_fetchWaitTime_sum)
+        'sr_localBlocksFetched_sum',  # job_level_aggregated_task_metrics
+        'sr_localBytesRead_mean',  # job_level_aggregated_task_metrics (sr_localBytesRead_sum)
+        'sr_localBytesReadRatio',  # N/A
+        'sr_remoteBlocksFetched_sum',  # job_level_aggregated_task_metrics
+        'sr_remoteBytesRead_mean',  # job_level_aggregated_task_metrics (sr_remoteBytesRead_sum)
+        'sr_remoteBytesReadRatio',  # N/A
+        'sr_remoteBytesReadToDisk_mean',  # job_level_aggregated_task_metrics (sr_remoteBytesReadToDisk_sum)
+        'sr_remoteBytesReadToDiskRatio',  # N/A
+        'sr_totalBytesRead_mean',  # job_level_aggregated_task_metrics (sr_totalBytesRead_sum)
+        'sr_totalBytesReadRatio',  # N/A
+        'sw_bytesWritten_mean',  # job_level_aggregated_task_metrics (sw_bytesWritten_sum)
+        'sw_bytesWrittenRatio',  # N/A
+        'sw_recordsWritten_sum',  # job_level_aggregated_task_metrics
+        'sw_writeTime_mean',  # job_level_aggregated_task_metrics (sw_writeTime_sum)
+        'taskCpu',  # executor_information
+        'taskGpu',  # executor_information
     }
 
 
