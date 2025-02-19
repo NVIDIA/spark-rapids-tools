@@ -67,7 +67,7 @@ class WriteOperationParserSuite extends FunSuite {
       desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
         "false, Parquet, " +
         "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
         "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
         "[col01, col02, col03]",
       Seq.empty
@@ -158,7 +158,7 @@ class WriteOperationParserSuite extends FunSuite {
       desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
         "false, Parquet, " +
         "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
         "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
         "[]",
       Seq.empty
@@ -182,7 +182,7 @@ class WriteOperationParserSuite extends FunSuite {
       desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
         "false, [paths=(path)], Parquet, " +
         "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
         "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
         "[col01]",
       Seq.empty
