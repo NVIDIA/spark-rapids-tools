@@ -105,6 +105,56 @@ case class TestIODiagnosticResult(
     gpuDecodeTimeMax: Long,
     gpuDecodeTimeSum: Long)
 
+case class TestFilteredDiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    sqlId: Long,
+    stageId: Long,
+    duration: Long,
+    nodeId: Long,
+    nodeName: String,
+    numFilesReadMin: Long,
+    numFilesReadMed: Long,
+    numFilesReadMax: Long,
+    numFilesReadSum: Long,
+    numPartitionsMin: Long,
+    numPartitionsMed: Long,
+    numPartitionsMax: Long,
+    numPartitionsSum: Long,
+    metadataTimeMin: Long,
+    metadataTimeMed: Long,
+    metadataTimeMax: Long,
+    metadataTimeSum: Long,
+    outputBatchesMin: Long,
+    outputBatchesMed: Long,
+    outputBatchesMax: Long,
+    outputBatchesSum: Long,
+    inputBatchesMin: Long,
+    inputBatchesMed: Long,
+    inputBatchesMax: Long,
+    inputBatchesSum: Long,
+    outputRowsMin: Long,
+    outputRowsMed: Long,
+    outputRowsMax: Long,
+    outputRowsSum: Long,
+    sortTimeMin: Long,
+    sortTimeMed: Long,
+    sortTimeMax: Long,
+    sortTimeSum: Long,
+    peakMemoryMin: Long,
+    peakMemoryMed: Long,
+    peakMemoryMax: Long,
+    peakMemorySum: Long,
+    shuffleBytesWrittenMin: Long,
+    shuffleBytesWrittenMed: Long,
+    shuffleBytesWrittenMax: Long,
+    shuffleBytesWrittenSum: Long,
+    shuffleWriteTimeMin: Long,
+    shuffleWriteTimeMed: Long,
+    shuffleWriteTimeMax: Long,
+    shuffleWriteTimeSum: Long)
+
 class AnalysisSuite extends FunSuite {
 
   private def createTestStageDiagnosticResult(diagnosticsResults: Seq[StageDiagnosticResult]):
@@ -199,6 +249,61 @@ class AnalysisSuite extends FunSuite {
     }
   }
 
+  private def createTestFilteredDiagnosticResult(diagnosticsResults: Seq[FilteredDiagnosticResult]):
+      Seq[TestFilteredDiagnosticResult] = {
+    diagnosticsResults.map {result =>
+      TestFilteredDiagnosticResult(
+        result.appIndex,
+        result.appName,
+        result.appId,
+        result.sqlId,
+        result.stageId,
+        result.duration,
+        result.nodeId,
+        result.nodeName,
+        result.numFilesRead.min,
+        result.numFilesRead.med,
+        result.numFilesRead.max,
+        result.numFilesRead.total,
+        result.numPartitions.min,
+        result.numPartitions.med,
+        result.numPartitions.max,
+        result.numPartitions.total,
+        result.metadataTime.min,
+        result.metadataTime.med,
+        result.metadataTime.max,
+        result.metadataTime.total,
+        result.outputBatches.min,
+        result.outputBatches.med,
+        result.outputBatches.max,
+        result.outputBatches.total,
+        result.inputBatches.min,
+        result.inputBatches.med,
+        result.inputBatches.max,
+        result.inputBatches.total,
+        result.outputRows.min,
+        result.outputRows.med,
+        result.outputRows.max,
+        result.outputRows.total,
+        result.sortTime.min,
+        result.sortTime.med,
+        result.sortTime.max,
+        result.sortTime.total,
+        result.peakMemory.min,
+        result.peakMemory.med,
+        result.peakMemory.max,
+        result.peakMemory.total,
+        result.shuffleBytesWritten.min,
+        result.shuffleBytesWritten.med,
+        result.shuffleBytesWritten.max,
+        result.shuffleBytesWritten.total,
+        result.shuffleWriteTime.min,
+        result.shuffleWriteTime.med,
+        result.shuffleWriteTime.max,
+        result.shuffleWriteTime.total)
+    }
+  }
+
   lazy val sparkSession = {
     SparkSession
         .builder()
@@ -281,6 +386,23 @@ class AnalysisSuite extends FunSuite {
 
     import sparkSession.implicits._
     val actualDf = createTestIODiagnosticResult(diagnosticResults).toDF
+    compareMetrics(actualDf, expectFile)
+  }
+
+  test("test filtered diagnostic metrics") {
+    val expectFile = "rapids_join_eventlog_filtereddiagnosticmetrics_expectation.csv"
+    val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    assert(apps.size == logs.size)
+
+    val collect = new CollectInformation(apps)
+    // Computes IO diagnostic metrics mapping which is later used in getIODiagnosticMetrics
+    collect.getSQLPlanMetrics
+    collect.getStageLevelMetrics
+    val diagnosticResults = collect.getFilteredDiagnosticMetrics
+
+    import sparkSession.implicits._
+    val actualDf = createTestFilteredDiagnosticResult(diagnosticResults).toDF
     compareMetrics(actualDf, expectFile)
   }
 

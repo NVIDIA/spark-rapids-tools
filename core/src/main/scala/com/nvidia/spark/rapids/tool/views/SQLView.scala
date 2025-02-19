@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{FilteredDiagnosticResult, IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -123,6 +123,26 @@ object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
     app match {
       case app: ApplicationInfo =>
         sortView(app.planMetricProcessor.generateIODiagnosticAccums())
+      case _ => Seq.empty
+    }
+  }
+}
+
+object ProfFilteredDiagnosticMetricsView extends ViewableTrait[FilteredDiagnosticResult]
+    with ProfAppIndexMapperTrait {
+  override def getLabel: String = "Filtered Diagnostic Metrics"
+  override def getDescription: String =
+    "Filtered Diagnostic Metrics (top 7 stages in terms of duration)"
+
+  override def sortView(
+      rows: Seq[FilteredDiagnosticResult]): Seq[FilteredDiagnosticResult] = {
+    rows.sortBy(cols => (cols.appIndex, -cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
+  }
+
+  override def getRawView(app: AppBase, index: Int): Seq[FilteredDiagnosticResult] = {
+    app match {
+      case app: ApplicationInfo =>
+        sortView(app.planMetricProcessor.generateFilteredDiagnosticAccums())
       case _ => Seq.empty
     }
   }
