@@ -399,13 +399,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
-      collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
-      analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
-      failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo),
-      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
+        collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
+        rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
+        analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
+        failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
+        unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
+        appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
+        collect.getWriteOperationInfo),
+      compareRes,
+      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
 
   /**
@@ -502,7 +504,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
         combineProps("system", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
-        appsSum.flatMap(_.sparkRapidsBuildInfo)
+        appsSum.flatMap(_.sparkRapidsBuildInfo),
+        appsSum.flatMap(_.writeOpsInfo).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -546,6 +549,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
       profileOutputWriter.write(IO_LABEL, app.ioMetrics)
       profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+      // writeOps are generated in only CSV format
+      profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
       val skewHeader = TASK_SHUFFLE_SKEW
       val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))

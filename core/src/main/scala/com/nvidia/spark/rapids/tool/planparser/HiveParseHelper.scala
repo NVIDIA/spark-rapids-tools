@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.util.EventUtils
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 // A wrapper class to map between
 case class HiveScanSerdeClasses(className: String, format: String) extends Logging {
@@ -68,7 +68,7 @@ object HiveParseHelper extends Logging {
   }
 
   def getHiveFormatFromSimpleStr(str: String): String = {
-    LOADED_SERDE_CLASSES.find(_.accepts(str)).map(_.format).getOrElse("unknown")
+    LOADED_SERDE_CLASSES.find(_.accepts(str)).map(_.format).getOrElse(StringUtils.UNKNOWN_EXTRACT)
   }
 
   // Given a "scan hive" NodeGraph, construct the MetaData based on the SerDe class.

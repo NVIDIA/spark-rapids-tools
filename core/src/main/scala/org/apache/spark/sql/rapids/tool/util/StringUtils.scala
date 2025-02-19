@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@ import org.apache.spark.internal.Logging
  * strings.
  */
 object StringUtils extends Logging {
+  // Constant used to replace the unknown values
+  val UNKNOWN_EXTRACT: String = "unknown"
   // Regular expression for duration-format 'H+:MM:SS.FFF'
   // Note: this is not time-of-day. Hours can be larger than 12.
   private val regExDurationFormat = "^(\\d+):([0-5]\\d):([0-5]\\d\\.\\d+)$"

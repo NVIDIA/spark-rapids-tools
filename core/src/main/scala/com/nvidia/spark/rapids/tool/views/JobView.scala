@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ trait AppFailedJobsViewTrait extends ViewableTrait[FailedJobsProfileResults] {
     }
     jobsFailed.map { case (id, jc) =>
       val failureStr = jc.failedReason.getOrElse("")
-      FailedJobsProfileResults(index, id, jc.jobResult.getOrElse("Unknown"),
+      FailedJobsProfileResults(index, id, jc.jobResult.getOrElse(StringUtils.UNKNOWN_EXTRACT),
         StringUtils.renderStr(failureStr, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }

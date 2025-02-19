@@ -109,6 +109,8 @@ object QualRawReportGenerator extends Logging {
       pWriter.write(QualAppFailedJobView.getLabel, QualAppFailedJobView.getRawView(Seq(app)))
       pWriter.write(QualRemovedBLKMgrView.getLabel, QualRemovedBLKMgrView.getRawView(Seq(app)))
       pWriter.write(QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
+      // we only need to write the CSV report of the WriteOps
+      pWriter.writeCSVTable(QualWriteOpsView.getLabel, QualWriteOpsView.getRawView(Seq(app)))
     } catch {
       case e: Exception =>
         logError(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")
