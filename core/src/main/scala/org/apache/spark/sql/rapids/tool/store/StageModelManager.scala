@@ -53,6 +53,12 @@ class StageModelManager extends Logging {
    */
   def getAllStages: Iterable[StageModel] = stageIdToInfo.values.flatMap(_.values)
 
+  def getAllCompletedStages: Iterable[StageModel] = {
+    stageIdToInfo.values.flatMap(_.values).filter(stage => {
+      stage.hasCompleted && !stage.hasFailed
+    })
+  }
+
   /**
    * Returns all Ids of stage objects created as a result of handling StageSubmitted/StageCompleted.
    *
