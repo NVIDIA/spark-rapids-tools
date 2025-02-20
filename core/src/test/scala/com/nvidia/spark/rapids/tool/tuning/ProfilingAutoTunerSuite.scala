@@ -90,11 +90,12 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
@@ -117,7 +118,9 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.cores' was not set.
           |- 'spark.executor.instances' was not set.
@@ -142,6 +145,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
@@ -283,8 +287,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
@@ -307,7 +311,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.cores' was not set.
           |- 'spark.executor.instances' was not set.
@@ -349,8 +355,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
@@ -373,7 +379,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.cores' was not set.
           |- 'spark.executor.instances' was not set.
@@ -427,8 +435,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -445,7 +453,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -491,11 +501,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -511,7 +522,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -523,6 +536,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
@@ -554,11 +568,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -572,7 +587,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -583,6 +600,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
@@ -611,11 +629,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -631,7 +650,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -644,6 +665,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
@@ -673,11 +695,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
         platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -693,7 +716,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -706,6 +731,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
@@ -726,8 +752,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32768m
@@ -750,7 +776,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.cores' was not set.
           |- 'spark.executor.instances' was not set.
@@ -794,11 +822,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       "spark.task.resource.gpu.amount" -> "0.001")
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -814,7 +843,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -825,6 +856,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -855,11 +887,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       "spark.task.resource.gpu.amount" -> "0.001")
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
           |--conf spark.executor.memoryOverhead=17612m
@@ -876,7 +909,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -887,6 +922,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -904,8 +940,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32768m
@@ -928,7 +964,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.cores' was not set.
           |- 'spark.executor.instances' was not set.
@@ -1010,8 +1048,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1031,7 +1069,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1092,8 +1132,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=5
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1113,7 +1153,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1165,8 +1207,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1188,7 +1230,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1249,8 +1293,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1272,7 +1316,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1337,8 +1383,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1358,7 +1404,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1421,8 +1469,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1442,7 +1490,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1500,8 +1550,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1521,7 +1571,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1572,8 +1624,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -1589,7 +1641,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1618,11 +1672,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     }
     val pluginJarMvnURl = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
       s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -1638,7 +1693,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1651,6 +1708,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |  Version used in application is $jarVer.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     compareOutput(expectedResults, autoTunerOutput)
@@ -1664,11 +1722,12 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       case Some(v) => v
       case None => fail("Could not find pull the latest release successfully")
     }
+    // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
@@ -1684,7 +1743,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -1694,6 +1755,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
     val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$latestRelease.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     compareOutput(expectedResults, autoTunerOutput)
@@ -1738,8 +1800,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1760,7 +1822,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.filecache.enabled' was not set.
@@ -1819,8 +1883,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -1840,7 +1904,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -1921,8 +1987,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.locality.wait=0
@@ -1941,7 +2007,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -2337,8 +2405,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -2358,7 +2426,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=4096m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -2692,8 +2762,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -2714,7 +2784,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.shuffle.partitions=400
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -2775,8 +2847,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -2796,7 +2868,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.sql.files.maxPartitionBytes=3669m
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -2837,8 +2911,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -2862,7 +2936,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.kryo.registrator' was not set.
@@ -2909,8 +2985,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -2934,7 +3010,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
@@ -2980,8 +3058,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -3005,7 +3083,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
@@ -3122,8 +3202,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=true
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -3146,7 +3226,9 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
@@ -3191,7 +3273,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.dataproc.enhanced.optimizer.enabled=true
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
@@ -3214,6 +3296,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
