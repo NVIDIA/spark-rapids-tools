@@ -392,11 +392,16 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           val accumInfoOpt = app.accumManager.accumInfoMap.get(sqlAccum.accumulatorId)
 
           val metricStats: Option[StatisticsMetrics] = accumInfoOpt.flatMap { accumInfo =>
-            if (!accumInfo.stageValuesMap.contains(stageId)) {
+            if (!accumInfo.containsStage(stageId)) {
               None
             } else if (stageIds.size == 1) {
               // Skip computing statistics when there is only one stage
-              Some(StatisticsMetrics(sqlAccum.min, sqlAccum.median, sqlAccum.max, sqlAccum.total))
+              Some(StatisticsMetrics(
+                min = sqlAccum.min,
+                med = sqlAccum.median,
+                max = sqlAccum.max,
+                count = 0,
+                total = sqlAccum.total))
             } else {
               // Retrieve task updates which correspond to the current stage
               accumInfo.calculateAccStatsForStage(stageId)
@@ -448,7 +453,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
   def generateStageLevelAccums(): Seq[AccumProfileResults] = {
     app.accumManager.accumInfoMap.flatMap { accumMapEntry =>
       val accumInfo = accumMapEntry._2
-      accumInfo.stageValuesMap.keys.flatMap( stageId => {
+      accumInfo.getStageIds.flatMap( stageId => {
         // Get the task updates that belong to that stage
         accumInfo.calculateAccStatsForStage(stageId) match {
           case Some(stat) =>

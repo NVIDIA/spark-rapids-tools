@@ -276,12 +276,12 @@ object GenerateTimeline {
 
     val semMetricsNs = semWaitIds.toList
       .flatMap(app.accumManager.accumInfoMap.get)
-      .flatMap(_.stageValuesMap.values).map(_._1).sum
+      .map(_.getTotalAcrossStages).sum
 
     val semMetricsMs = app.accumManager.accumInfoMap.flatMap {
         case (_, accumInfo: AccumInfo)
             if accumInfo.infoRef.name == AccumNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
-            Some(accumInfo.stageValuesMap.values.map(_._1).sum)
+            Some(accumInfo.getTotalAcrossStages)
         case _ => None
       }.sum
 
