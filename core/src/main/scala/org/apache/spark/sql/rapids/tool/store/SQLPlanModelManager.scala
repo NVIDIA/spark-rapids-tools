@@ -16,8 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.immutable
-import scala.collection.mutable
+import scala.collection.{breakOut, immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 
@@ -125,5 +124,22 @@ class SQLPlanModelManager {
    */
   def getPlanInfos: immutable.Map[Long, SparkPlanInfo] = {
     immutable.SortedMap[Long, SparkPlanInfo]() ++ sqlPlans.mapValues(_.planInfo)
+  }
+
+  /**
+   * Gets all the writeRecords of of the final plan of the SQL
+   * @return Iterable of WriteOperationRecord representing the write operations.
+   */
+  def getWriteOperationRecords(): Iterable[WriteOperationRecord] = {
+    sqlPlans.values.flatMap(_.plan.writeRecords)
+  }
+
+  /**
+   * Converts the writeOperations into a String set to represent the format of the writeOps.
+   * This only pulls the information from the final plan of the SQL.
+   * @return a set of write formats
+   */
+  def getWriteFormats(): Set[String] = {
+    sqlPlans.values.flatMap(_.plan.getWriteDataFormats)(breakOut)
   }
 }
