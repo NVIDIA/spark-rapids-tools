@@ -176,12 +176,12 @@ def init_environment(short_name: str):
 
 class Utilities:
     """Utility class used to enclose common helpers and utilities."""
-    # Assume that the minimum xmx jvm heap allowed to the java cmd is 8 GB.
-    min_jvm_xmx: ClassVar[int] = 8
+    # Assume that the minimum xmx jvm heap allowed to the java cmd is 6 GB.
+    min_jvm_xmx: ClassVar[int] = 6
     # Assume that the maximum xmx jvm heap allowed to the java cmd is 32 GB.
     max_jvm_xmx: ClassVar[int] = 32
-    # Assume that any tools thread would need at least 8 GB of heap memory.
-    min_jvm_heap_per_thread: ClassVar[int] = 8
+    # Assume that any tools thread would need at least 6 GB of heap memory.
+    min_jvm_heap_per_thread: ClassVar[int] = 6
     # Assume that maximum allowed number of threads to be passed to the tools java cmd is 8.
     max_tools_threads: ClassVar[int] = 8
     # Flag used to disable running tools in parallel. This is a temporary hack to reduce possibility
@@ -259,14 +259,14 @@ class Utilities:
         process when the OS runs out of resources.
         To achieve this, we calculate the heap based on the available memory
         (not total memory) capping the value to 32 GB.
-        :return: The maximum JVM heap size in GB. It is in the range [8-32] GB.
+        :return: The maximum JVM heap size in GB. It is in the range [min_jvm_xmx-max_jvm_xmx] GB.
         """
         ps_memory = psutil.virtual_memory()
         # get the available memory in the system
         available_sys_gb = ps_memory.available / (1024 ** 3)
         # set the max heap to 30% of total available memory
         heap_based_on_sys = int(0.3 * available_sys_gb)
-        # enforce the xmx heap argument to be in the range [8, 32] GB
+        # enforce the xmx heap argument to be in the range [6, 32] GB
         return max(cls.min_jvm_xmx, min(heap_based_on_sys, cls.max_jvm_xmx))
 
     @classmethod
@@ -293,7 +293,7 @@ class Utilities:
         In concurrent mode, the profiler needs to have more heap, and more threads.
         """
         # The number of threads is calculated based on the total system memory and the JVM heap size
-        # Each thread should at least be running within 8 GB of heap memory
+        # Each thread should at least be running within min_jvm_heap_per_thread GB of heap memory
         concurrent_mode = cls.conc_mode_enabled and jvm_processes > 1
         heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
         # calculate the maximum number of threads.
