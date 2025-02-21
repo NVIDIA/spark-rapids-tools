@@ -1,6 +1,24 @@
 
 <br/>
 
+## Release [v24.12.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.4)
+Generated on 2025-02-21
+### User Tools
+
+- Add comment for each expected_raw_feature indicating CSV source ([#1547](https://github.com/NVIDIA/spark-rapids-tools/pull/1547))
+
+### Core
+
+- Calculate task metric aggregates on-the-fly to reduce memory usage ([#1543](https://github.com/NVIDIA/spark-rapids-tools/pull/1543))
+- Generate a detailed report for the write ops ([#1544](https://github.com/NVIDIA/spark-rapids-tools/pull/1544))
+
+### Miscellaneous
+
+- Disable dataproc enhanced optimizer configs ([#1554](https://github.com/NVIDIA/spark-rapids-tools/pull/1554))
+
+
+<br/>
+
 ## Release [v24.12.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.3)
 Generated on 2025-02-13
 ### User Tools
