@@ -19,15 +19,19 @@ tuningDefinitions:
     level: job
     category: tuning
   - label: spark.dataproc.enhanced.execution.enabled
-    description: 'Enables enhanced execution. It is recommended to turn it on for better performance on Dataproc.'
+    description: 'Enables enhanced execution. Turning this on might cause the accelerated dataproc cluster to hang.'
     enabled: true
     level: job
     category: tuning
+    comments:
+      persistent: 'should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.'
   - label: spark.dataproc.enhanced.optimizer.enabled
-    description: 'Enables enhanced optimizer. It is recommended to turn it on for better performance on Dataproc.'
+    description: 'Enables enhanced optimizer. Turning this on might cause the accelerated dataproc cluster to hang.'
     enabled: true
     level: job
     category: tuning
+    comments:
+      persistent: 'should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.'
   - label: spark.executor.cores
     description: 'The number of cores to use on each executor. It is recommended to be set to 16'
     enabled: true

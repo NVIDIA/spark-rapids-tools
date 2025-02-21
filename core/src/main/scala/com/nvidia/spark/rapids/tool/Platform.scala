@@ -591,8 +591,10 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override val platformName: String = PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
   override val recommendationsToInclude: Seq[(String, String)] = Seq(
-    "spark.dataproc.enhanced.optimizer.enabled" -> "true",
-    "spark.dataproc.enhanced.execution.enabled" -> "true"
+    // Keep disabled. This property does not work well with GPU clusters.
+    "spark.dataproc.enhanced.optimizer.enabled" -> "false",
+    // Keep disabled. This property does not work well with GPU clusters.
+    "spark.dataproc.enhanced.execution.enabled" -> "false"
   )
 
   override def isPlatformCSP: Boolean = true

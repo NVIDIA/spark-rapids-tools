@@ -56,6 +56,11 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfDataSourceView.getRawView(apps, cachedSqlAccum)
   }
 
+  // get the write records information
+  def getWriteOperationInfo: Seq[WriteOpProfileResult] = {
+    ProfWriteOpsView.getRawView(apps)
+  }
+
   // get executor related information
   def getExecutorInfo: Seq[ExecutorInfoProfileResult] = {
     ProfExecutorView.getRawView(apps)
