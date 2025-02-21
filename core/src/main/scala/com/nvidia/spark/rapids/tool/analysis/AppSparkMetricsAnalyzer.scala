@@ -321,7 +321,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     val emptyNodeNames = Seq.empty[String]
     val emptyDiagnosticMetrics = HashMap.empty[String, AccumProfileResults]
     // TODO: this has stage attempts. we should handle different attempts
-    app.stageManager.getAllStages.map { sm =>
+    app.stageManager.getAllCompletedStages.map { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
@@ -392,7 +392,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       }
     }
 
-    app.stageManager.getAllStages.foreach { sm =>
+    app.stageManager.getAllCompletedStages.foreach { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
