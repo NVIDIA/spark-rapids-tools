@@ -330,17 +330,47 @@ class AutoTuner(
     }
   }
 
-  def appendRecommendation(key: String, value: String): Unit = {
-    if (!skippedRecommendations.contains(key)) {
-      val recomRecord = recommendations.getOrElseUpdate(key,
-        TuningEntry.build(key, getPropertyValue(key), None))
-      if (value != null) {
-        recomRecord.setRecommendedValue(value)
-        if (recomRecord.originalValue.isEmpty) {
-          // add a comment that the value was missing in the cluster properties
-          appendComment(s"'$key' was not set.")
-        }
+  /**
+   * Add default missing comments from the tuningEntry table if any.
+   * @param key the property set by the autotuner.
+   */
+  private def appendMissingComment(key: String): Unit = {
+    val missingComment = TuningEntryDefinition.TUNING_TABLE.get(key)
+      .flatMap(_.getMissingComment())
+      .getOrElse(s"'$key' was not set.")
+    appendComment(missingComment)
+  }
+
+  /**
+   * Append a comment to the list by looking up the persistent comment if any in the tuningEntry
+   * table.
+   * @param key the property set by the autotuner.
+   */
+  private def appendPersistentComment(key: String): Unit = {
+    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+      eDef.getPersistentComment().foreach { comment =>
+        appendComment(s"'$key' $comment")
       }
+    }
+  }
+
+  def appendRecommendation(key: String, value: String): Unit = {
+    if (skippedRecommendations.contains(key)) {
+      // do not do anything if the recommendations should be skipped
+      return
+    }
+    // Update the recommendation entry or update the existing one.
+    val recomRecord = recommendations.getOrElseUpdate(key,
+      TuningEntry.build(key, getPropertyValue(key), None))
+    // if the value is not null, then proceed to add the recommendation.
+    Option(value).foreach { nonNullValue =>
+      recomRecord.setRecommendedValue(nonNullValue)
+      if (recomRecord.originalValue.isEmpty) {
+        // add missing comment if any
+        appendMissingComment(key)
+      }
+      // add the persistent comment if any.
+      appendPersistentComment(key)
     }
   }
 
