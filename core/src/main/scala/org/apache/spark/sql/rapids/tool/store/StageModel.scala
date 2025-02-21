@@ -73,6 +73,10 @@ class StageModel private(sInfo: StageInfo) {
     stageInfo.failureReason.isDefined
   }
 
+  def hasCompleted: Boolean = {
+    stageInfo.completionTime.isDefined
+  }
+
   def getFailureReason: String = {
     stageInfo.failureReason.getOrElse("")
   }
