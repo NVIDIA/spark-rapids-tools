@@ -16,13 +16,15 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import java.util
+
 import scala.beans.BeanProperty
+import scala.collection.JavaConverters._
+import scala.collection.breakOut
 
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
 import org.yaml.snakeyaml.constructor.Constructor
 import org.yaml.snakeyaml.representer.Representer
-import scala.collection.JavaConverters._
-import scala.collection.breakOut
 
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
@@ -40,6 +42,14 @@ import org.apache.spark.sql.rapids.tool.util.UTF8Source
  *                       Default is true.
  * @param defaultSpark The default value of the property in Spark. This is used to set the
  *                     originalValue of the property in case it is not set by the eventlog.
+ * @param comments The defaults comments to be loaded for the entry. It is a map to represent
+ *                 three different types of comments:
+ *                 1. "missing" to represent the default comment to be appended to the AutoTuner's
+ *                    comment when the property is missing.
+ *                 2. "persistent" to represent a comment that always shows up in the AutoTuner's
+ *                    output.
+ *                 3. "updated" to represent a comment that shows when a property is being set by
+ *                    the Autotuner.
  */
 class TuningEntryDefinition(
     @BeanProperty var label: String,
@@ -48,10 +58,12 @@ class TuningEntryDefinition(
     @BeanProperty var level: String,
     @BeanProperty var category: String,
     @BeanProperty var bootstrapEntry: Boolean,
-    @BeanProperty var defaultSpark: String) {
+    @BeanProperty var defaultSpark: String,
+    @BeanProperty var comments: util.LinkedHashMap[String, String]) {
   def this() = {
     this(label = "", description = "", enabled = true, level = "", category = "",
-      bootstrapEntry = true, defaultSpark = null)
+      bootstrapEntry = true, defaultSpark = null,
+      comments = new util.LinkedHashMap[String, String]())
   }
 
   def isEnabled(): Boolean = {
@@ -68,6 +80,18 @@ class TuningEntryDefinition(
    */
   def hasDefaultSpark(): Boolean = {
     defaultSpark != null
+  }
+
+  def getMissingComment(): Option[String] = {
+    Option(comments.get("missing"))
+  }
+
+  def getPersistentComment(): Option[String] = {
+    Option(comments.get("persistent"))
+  }
+
+  def getUpdatedComment(): Option[String] = {
+    Option(comments.get("updated"))
   }
 }
 
