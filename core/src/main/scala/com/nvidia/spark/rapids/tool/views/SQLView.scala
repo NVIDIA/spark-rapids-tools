@@ -132,7 +132,7 @@ object ProfFilteredDiagnosticMetricsView extends ViewableTrait[FilteredDiagnosti
     with ProfAppIndexMapperTrait {
   override def getLabel: String = "Filtered Diagnostic Metrics"
   override def getDescription: String =
-    "Filtered Diagnostic Metrics (top 7 stages in terms of duration)"
+    "Filtered Diagnostic Metrics (top 7 stages ordered by highest duration)"
 
   override def sortView(
       rows: Seq[FilteredDiagnosticResult]): Seq[FilteredDiagnosticResult] = {
