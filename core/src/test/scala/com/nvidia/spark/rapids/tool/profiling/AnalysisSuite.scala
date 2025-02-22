@@ -396,7 +396,8 @@ class AnalysisSuite extends FunSuite {
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)
-    // Computes filtered diagnostic metrics mappings which is later used in getFilteredDiagnosticMetrics
+    // Computes filtered diagnostic metrics mappings which are later used
+    // in getFilteredDiagnosticMetrics
     collect.getSQLPlanMetrics
     collect.getStageLevelMetrics
     val diagnosticResults = collect.getFilteredDiagnosticMetrics
