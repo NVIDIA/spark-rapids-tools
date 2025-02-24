@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.configuration.common import RuntimeDependency
+from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
@@ -608,7 +609,7 @@ class RapidsJarTool(RapidsTool):
             # check if the dependencies is defined in a config file
             config_obj = self.get_tools_config_obj()
             if config_obj is not None:
-                if config_obj.runtime.dependencies:
+                if config_obj.runtime and config_obj.runtime.dependencies:
                     return config_obj.runtime.dependencies
                 self.logger.info('The ToolsConfig did not specify the dependencies. '
                                  'Falling back to the default dependencies.')
@@ -939,9 +940,32 @@ class RapidsJarTool(RapidsTool):
             'sparkConfArgs': spark_conf_args,
             'platformArgs': platform_args
         }
+        # Set the configuration for the distributed tools
+        distributed_tools_configs = self._get_distributed_tools_configs()
+        if distributed_tools_configs:
+            job_properties_json['distributedToolsConfigs'] = distributed_tools_configs
         rapids_job_container = RapidsJobPropContainer(prop_arg=job_properties_json,
                                                       file_load=False)
         self.ctxt.set_ctxt('rapidsJobContainers', [rapids_job_container])
+
+    def _get_distributed_tools_configs(self) -> Optional[DistributedToolsConfig]:
+        """
+        Parse the tools configuration and return as distributed tools configuration object
+        """
+        config_obj = self.get_tools_config_obj()
+        if config_obj and config_obj.submission:
+            if self.ctxt.is_distributed_mode():
+                return config_obj
+            self.logger.warning(
+                'Distributed tool configurations detected, but distributed mode is not enabled.'
+                'Use \'--submission_mode distributed\' flag to enable distributed mode. Switching to local mode.'
+            )
+        elif self.ctxt.is_distributed_mode():
+            self.logger.warning(
+                'Distributed mode is enabled, but no distributed tool configurations were provided. '
+                'Using default settings.'
+            )
+        return None
 
     def _archive_results(self):
         self._archive_local_results()
@@ -961,8 +985,12 @@ class RapidsJarTool(RapidsTool):
         executors_cnt = len(rapids_job_containers) if Utilities.conc_mode_enabled else 1
         with ThreadPoolExecutor(max_workers=executors_cnt) as executor:
             for rapids_job in rapids_job_containers:
-                job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
-                                                                         ctxt=self.ctxt)
+                if self.ctxt.is_distributed_mode():
+                    job_obj = self.ctxt.platform.create_distributed_submission_job(job_prop=rapids_job,
+                                                                                   ctxt=self.ctxt)
+                else:
+                    job_obj = self.ctxt.platform.create_local_submission_job(job_prop=rapids_job,
+                                                                             ctxt=self.ctxt)
                 futures = executor.submit(job_obj.run_job)
                 futures_list.append(futures)
             try:
@@ -970,5 +998,5 @@ class RapidsJarTool(RapidsTool):
                     result = future.result()
                     results.append(result)
             except Exception as ex:    # pylint: disable=broad-except
-                self.logger.error('Failed to download dependencies %s', ex)
+                self.logger.error('Failed to submit jobs %s', ex)
                 raise ex

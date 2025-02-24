@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.ClusterProperties
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
@@ -77,7 +77,18 @@ object InstanceInfo {
 // format (numGpus, numCores) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
-  val AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1),
+  // Using G6 instances for EMR
+  val EMR_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1),
+    (1, 8) -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1),
+    (1, 16) -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1),
+    (1, 32) -> InstanceInfo(32, 128 * 1024, "g6.8xlarge", 1),
+    (4, 48) -> InstanceInfo(48, 192 * 1024, "g6.12xlarge", 1),
+    (1, 64) -> InstanceInfo(64, 256 * 1024, "g6.16xlarge", 1)
+  )
+
+  // Using G5 instances. To be updated once G6 availability on Databricks
+  // is consistent
+  val DATABRICKS_AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1),
     (1, 8) -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1),
     (1, 16) -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1),
     (1, 32) -> InstanceInfo(32, 128 * 1024, "g5.8xlarge", 1),
@@ -147,7 +158,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
 
   // Default recommendation based on NDS benchmarks (note: this could be platform specific)
-  def recommendedCoresPerExec = 16
+  def recommendedCoresPerExec: Int = ProfilingAutoTunerConfigsProvider.DEF_CORES_PER_EXECUTOR
   // Default number of GPUs to use, currently we do not support multiple GPUs per node
   def recommendedGpusPerNode = 1
   def defaultNumGpus: Int = 1
@@ -559,7 +570,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuDevice: GpuDevice = A10GGpu
 
   override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
-    PlatformInstanceTypes.AWS_BY_GPUS_CORES
+    PlatformInstanceTypes.DATABRICKS_AWS_BY_GPUS_CORES
   }
 }
 
@@ -579,6 +590,13 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
   override val platformName: String = PlatformNames.DATAPROC
   override val defaultGpuDevice: GpuDevice = T4Gpu
+  override val recommendationsToInclude: Seq[(String, String)] = Seq(
+    // Keep disabled. This property does not work well with GPU clusters.
+    "spark.dataproc.enhanced.optimizer.enabled" -> "false",
+    // Keep disabled. This property does not work well with GPU clusters.
+    "spark.dataproc.enhanced.execution.enabled" -> "false"
+  )
+
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
 
@@ -629,7 +647,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
-    PlatformInstanceTypes.AWS_BY_GPUS_CORES
+    PlatformInstanceTypes.EMR_BY_GPUS_CORES
   }
 }
 

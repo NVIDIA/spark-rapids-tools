@@ -71,8 +71,12 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
 
   // Spark runtime version used for testing
   def testSparkVersion: String = ToolUtils.sparkRuntimeVersion
+  // Databricks version used for testing
+  def testDatabricksVersion: String = "12.2.x-aarch64-scala2.12"
   // RapidsShuffleManager version used for testing
   def testSmVersion: String = testSparkVersion.filterNot(_ == '.')
+  // RapidsShuffleManager version used for testing Databricks
+  def testSmVersionDatabricks: String = "332db"
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](

@@ -84,7 +84,9 @@ dependencies = [
     # dependency of shap, python [3.9, 3.12]
     "scikit-learn==1.5.2",
     # used for retrieving available memory on the host
-    "psutil==6.1.1"
+    "psutil==6.1.1",
+    # pyspark for distributed computing
+    "pyspark>=3.4.2,<4.0.0"
 ]
 dynamic=["entry-points", "version"]
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ from spark_rapids_pytools import wrapper
 from .mock_cluster import mock_live_cluster
 
 
+@pytest.mark.skip(reason="The cluster's env diagnostics tool is not maintained")
 @pytest.mark.parametrize('cloud', ['dataproc', 'emr', 'databricks-aws', 'databricks-azure'])
 class TestInfoCollect:
     """Test info collect functions."""

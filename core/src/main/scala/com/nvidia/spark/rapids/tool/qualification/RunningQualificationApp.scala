@@ -81,18 +81,9 @@ class RunningQualificationApp(
 
   // we don't know the max sql query name size so lets cap it at 100
   private val SQL_DESC_LENGTH = 100
-  private lazy val appNameSize = {
-    val runningAppName = getAppName
-    if (runningAppName.nonEmpty) {
-      runningAppName.size
-    } else {
-      100
-    }
-  }
 
   private lazy val perSqlHeadersAndSizes = {
-      QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appNameSize,
-        appId.size, SQL_DESC_LENGTH)
+      QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appId.size, SQL_DESC_LENGTH)
   }
 
   def this() = {

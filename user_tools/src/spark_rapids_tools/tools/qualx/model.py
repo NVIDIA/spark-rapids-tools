@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 from xgboost import Booster
+from spark_rapids_tools.tools.qualx.config import get_label
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
 # Import optional packages
@@ -42,7 +43,6 @@ ignored_features = {
     'appId',
     'appName',
     'description',
-    'Duration',
     'fraction_supported',
     'jobStartTime_min',
     'pluginEnabled',
@@ -52,8 +52,6 @@ ignored_features = {
     'sparkVersion',
     'sqlID'
 }
-
-expected_model_features = expected_raw_features - ignored_features
 
 
 def train(
@@ -174,13 +172,14 @@ def predict(
         preds['y'] = y
     preds_df = pd.DataFrame(preds)
 
+    label = get_label()  # Duration, duration_sum
     select_columns = [
         'appName',
         'appId',
         'appDuration',
         'sqlID',
         'scaleFactor',
-        'Duration',
+        label,
         'fraction_supported',
         'description',
     ]
@@ -196,31 +195,35 @@ def predict(
 
     if 'y' in results_df.columns:
         # reconstruct original gpu duration for validation purposes
-        results_df['gpuDuration'] = results_df['Duration'] / results_df['y']
-        results_df['gpuDuration'] = np.floor(results_df['gpuDuration'])
+        results_df[f'gpu_{label}'] = results_df[label] / results_df['y']
+        results_df[f'gpu_{label}'] = np.floor(results_df[f'gpu_{label}'])
 
     # adjust raw predictions with stage/sqlID filtering of unsupported ops
-    results_df['Duration_pred'] = results_df['Duration'] * (
+    results_df[f'{label}_pred'] = results_df[label] * (
         1.0
         - results_df['fraction_supported']
         + (results_df['fraction_supported'] / results_df['y_pred'])
     )
     # compute fraction of duration in supported ops
-    results_df['Duration_supported'] = (
-        results_df['Duration'] * results_df['fraction_supported']
+    results_df[f'{label}_supported'] = (
+        results_df[label] * results_df['fraction_supported']
     )
     # compute adjusted speedup (vs. raw speedup prediction: 'y_pred')
     # without qual data, this should be the same as the raw 'y_pred'
-    results_df['speedup_pred'] = results_df['Duration'] / results_df['Duration_pred']
+    results_df['speedup_pred'] = results_df[label] / results_df[f'{label}_pred']
     results_df = results_df.drop(columns=['fraction_supported'])
 
     return results_df
 
 
 def extract_model_features(
-    df: pd.DataFrame, split_functions: Mapping[str, Callable[[pd.DataFrame], pd.DataFrame]] = None
+    df: pd.DataFrame,
+    split_functions: Mapping[str, Callable[[pd.DataFrame], pd.DataFrame]] = None,
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
+    label = get_label()
+    expected_model_features = expected_raw_features - ignored_features
+    expected_model_features.remove(label)
     missing = expected_raw_features - set(df.columns)
     if missing:
         logger.warning('Input dataframe is missing expected raw features: %s', missing)
@@ -256,11 +259,11 @@ def extract_model_features(
                 'appName',
                 'scaleFactor',
                 'sqlID',
-                'Duration',
+                label,
                 'description',
             ]
         ]
-        gpu_aug_tbl = gpu_aug_tbl.rename(columns={'Duration': 'xgpu_Duration'})
+        gpu_aug_tbl = gpu_aug_tbl.rename(columns={label: f'xgpu_{label}'})
         cpu_aug_tbl = cpu_aug_tbl.merge(
             gpu_aug_tbl,
             on=['appName', 'scaleFactor', 'sqlID', 'description'],
@@ -269,7 +272,7 @@ def extract_model_features(
 
         # warn for possible mismatched sqlIDs
         num_rows = len(cpu_aug_tbl)
-        num_na = cpu_aug_tbl['xgpu_Duration'].isna().sum()
+        num_na = cpu_aug_tbl[f'xgpu_{label}'].isna().sum()
         if (
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
@@ -279,14 +282,14 @@ def extract_model_features(
                 num_rows,
             )
 
-        # calculate Duration_speedup
-        cpu_aug_tbl['Duration_speedup'] = (
-            cpu_aug_tbl['Duration'] / cpu_aug_tbl['xgpu_Duration']
+        # calculate speedup
+        cpu_aug_tbl[f'{label}_speedup'] = (
+            cpu_aug_tbl[label] / cpu_aug_tbl[f'xgpu_{label}']
         )
-        cpu_aug_tbl = cpu_aug_tbl.drop(columns=['xgpu_Duration'])
+        cpu_aug_tbl = cpu_aug_tbl.drop(columns=[f'xgpu_{label}'])
 
-        # use Duration_speedup as label
-        label_col = 'Duration_speedup'
+        # use speedup as label
+        label_col = f'{label}_speedup'
     else:
         # inference dataset with CPU runs only
         label_col = None

@@ -16,7 +16,9 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import com.nvidia.spark.rapids.tool.planparser.ReadParser
+import scala.collection.breakOut
+
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ReadParser}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
@@ -44,6 +46,57 @@ class SQLPlanVersion(
     val physicalPlanDescription: String,
     var isFinal: Boolean = true) {
 
+  // Used to cache the Spark graph for that plan to avoid creating a plan.
+  // This graph can be used and then cleaned up at the end of the execution.
+  // This has to be accessed through the getPlanGraph() which synchronizes on this object to avoid
+  // races between threads.
+  private var sparkGraph: Option[SparkPlanGraph] = None
+
+  private def getPlanGraph(): SparkPlanGraph = {
+    this.synchronized {
+      if (sparkGraph.isEmpty) {
+        sparkGraph = Some(ToolsPlanGraph(planInfo))
+      }
+      sparkGraph.get
+    }
+  }
+
+  /**
+   * Builds the list of write records for this plan.
+   * This works by looping on all the nodes and filtering write execs.
+   * @return the list of write records for this plan if any.
+   */
+  private def initWriteOperationRecords(): Iterable[WriteOperationRecord] = {
+    getPlanGraph().allNodes
+      // pick only nodes that are DataWritingCommandExec
+      .filter(node => DataWritingCommandExecParser.isWritingCmdExec(node.name.stripSuffix("$")))
+      .map { n =>
+        // extract the meta data and convert it to store record.
+        val opMeta = DataWritingCommandExecParser.getWriteOpMetaFromNode(n)
+        WriteOperationRecord(sqlId, version, n.id, operationMeta = opMeta)
+      }
+  }
+
+  // Captures the write operations for this plan. This is lazy because we do not need
+  // to construct this until we need it.
+  lazy val writeRecords: Iterable[WriteOperationRecord] = {
+    initWriteOperationRecords()
+  }
+
+  // Converts the writeRecords into a write formats.
+  def getWriteDataFormats: Set[String] = {
+    writeRecords.map(_.operationMeta.dataFormat())(breakOut)
+  }
+
+  /**
+   * Reset any data structure that has been used to free memory.
+   */
+  def cleanUpPlan(): Unit = {
+    this.synchronized {
+      sparkGraph = None
+    }
+  }
+
   def resetFinalFlag(): Unit = {
     // This flag depends on the AQE events sequence.
     // It does not set that field using the substring of the physicalPlanDescription
@@ -68,7 +121,7 @@ class SQLPlanVersion(
    * @return all the read datasources V1 recursively that are read by this plan including.
    */
   def getReadDSV1(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
-    val graph = planGraph.getOrElse(ToolsPlanGraph(planInfo))
+    val graph = planGraph.getOrElse(getPlanGraph())
     getPlansWithSchema.flatMap { plan =>
       val meta = plan.metadata
       // TODO: Improve the extraction of ReaSchema using RegEx (ReadSchema):\s(.*?)(\.\.\.|,\s|$)
@@ -103,7 +156,7 @@ class SQLPlanVersion(
    * @return List of DataSourceRecord for all the V2 DataSources read by this plan.
    */
   def getReadDSV2(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
-    val graph = planGraph.getOrElse(ToolsPlanGraph(planInfo))
+    val graph = planGraph.getOrElse(getPlanGraph())
     graph.allNodes.filter(ReadParser.isDataSourceV2Node).map { node =>
       val res = ReadParser.parseReadNode(node)
       DataSourceRecord(
@@ -125,7 +178,7 @@ class SQLPlanVersion(
    * @return Iterable of DataSourceRecord
    */
   def getAllReadDS: Iterable[DataSourceRecord] = {
-    val planGraph = Option(ToolsPlanGraph(planInfo))
+    val planGraph = Option(getPlanGraph())
     getReadDSV1(planGraph) ++ getReadDSV2(planGraph)
   }
 }

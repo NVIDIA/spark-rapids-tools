@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -102,5 +102,17 @@ object RuntimeUtil extends Logging {
           }
         }
     }.toMap
+  }
+
+  def getJVMHeapInfo(runGC: Boolean = true): Map[String, String] = {
+    if (runGC) {
+      System.gc()
+    }
+    val runtime = Runtime.getRuntime
+    Map(
+      "jvm.heap.max" -> runtime.maxMemory().toString,
+      "jvm.heap.total" -> runtime.totalMemory().toString,
+      "jvm.heap.free" -> runtime.freeMemory().toString
+    )
   }
 }

@@ -1,0 +1,42 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file contains the configuration for the distributed tools.
+tool:
+  qualification:
+    jarOutputDirName: 'rapids_4_spark_qualification_output'
+    statusCsvFileName: 'rapids_4_spark_qualification_output_status.csv'
+cacheDirPath: '/tmp/spark_rapids_distributed_tools_cache'
+outputFiles:
+  logFileName: 'spark_rapids_distributed_tools.log'
+requiredEnvVariables:
+  - 'JAVA_HOME'
+  - 'HADOOP_HOME'
+  - 'SPARK_HOME'
+  - 'PYTHONPATH'
+sparkSessionBuilder:
+  distributedToolsAppName: 'Distributed SPARK Rapids Tools'
+  sparkConfigs:
+    default:
+      - name: 'spark.executor.instances'
+        value: '1'
+      - name: 'spark.task.cpus'
+        value: '1'
+      - name: 'spark.submit.deployMode'   # Set deploy mode to client
+        value: 'client'
+      - name: 'spark.speculation'         # Disable speculative execution
+        value: 'false'
+    protected:                            # These properties are protected and cannot be set by the user
+      - 'spark.submit.deployMode'
+      - 'spark.speculation'

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -222,3 +222,13 @@ class QualEstimationModel(EnumeratedType):
             'xgboostEnabled': model_type == QualEstimationModel.XGBOOST,
             'customModelFile': None,
         }
+
+
+class SubmissionMode(EnumeratedType):
+    """Values used to define the submission mode of the applications"""
+    LOCAL = 'local'
+    DISTRIBUTED = 'distributed'
+
+    @classmethod
+    def get_default(cls) -> 'SubmissionMode':
+        return cls.LOCAL

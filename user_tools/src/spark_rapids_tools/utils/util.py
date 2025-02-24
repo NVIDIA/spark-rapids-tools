@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 import os
 import pathlib
 import re
+import shutil
 import ssl
 import sys
 import textwrap
@@ -175,12 +176,12 @@ def init_environment(short_name: str):
 
 class Utilities:
     """Utility class used to enclose common helpers and utilities."""
-    # Assume that the minimum xmx jvm heap allowed to the java cmd is 8 GB.
-    min_jvm_xmx: ClassVar[int] = 8
+    # Assume that the minimum xmx jvm heap allowed to the java cmd is 6 GB.
+    min_jvm_xmx: ClassVar[int] = 6
     # Assume that the maximum xmx jvm heap allowed to the java cmd is 32 GB.
     max_jvm_xmx: ClassVar[int] = 32
-    # Assume that any tools thread would need at least 8 GB of heap memory.
-    min_jvm_heap_per_thread: ClassVar[int] = 8
+    # Assume that any tools thread would need at least 6 GB of heap memory.
+    min_jvm_heap_per_thread: ClassVar[int] = 6
     # Assume that maximum allowed number of threads to be passed to the tools java cmd is 8.
     max_tools_threads: ClassVar[int] = 8
     # Flag used to disable running tools in parallel. This is a temporary hack to reduce possibility
@@ -258,14 +259,14 @@ class Utilities:
         process when the OS runs out of resources.
         To achieve this, we calculate the heap based on the available memory
         (not total memory) capping the value to 32 GB.
-        :return: The maximum JVM heap size in GB. It is in the range [8-32] GB.
+        :return: The maximum JVM heap size in GB. It is in the range [min_jvm_xmx-max_jvm_xmx] GB.
         """
         ps_memory = psutil.virtual_memory()
         # get the available memory in the system
         available_sys_gb = ps_memory.available / (1024 ** 3)
         # set the max heap to 30% of total available memory
         heap_based_on_sys = int(0.3 * available_sys_gb)
-        # enforce the xmx heap argument to be in the range [8, 32] GB
+        # enforce the xmx heap argument to be in the range [6, 32] GB
         return max(cls.min_jvm_xmx, min(heap_based_on_sys, cls.max_jvm_xmx))
 
     @classmethod
@@ -292,7 +293,7 @@ class Utilities:
         In concurrent mode, the profiler needs to have more heap, and more threads.
         """
         # The number of threads is calculated based on the total system memory and the JVM heap size
-        # Each thread should at least be running within 8 GB of heap memory
+        # Each thread should at least be running within min_jvm_heap_per_thread GB of heap memory
         concurrent_mode = cls.conc_mode_enabled and jvm_processes > 1
         heap_unit = max(cls.min_jvm_heap_per_thread, jvm_heap // 3 if concurrent_mode else jvm_heap)
         # calculate the maximum number of threads.
@@ -349,3 +350,49 @@ class Utilities:
             num_bytes /= 1024.0
             i += 1
         return f'{num_bytes:.2f} {size_units[i]}'
+
+    @classmethod
+    def parse_memory_size_in_gb(cls, memory_str: str) -> float:
+        """
+        Helper function to convert JVM memory string to float in gigabytes.
+        E.g. '512m' -> 0.5, '2g' -> 2.0
+        """
+        if not memory_str or len(memory_str) < 2:
+            raise ValueError("Memory size string must include a value and a unit (e.g., '512m', '2g').")
+
+        unit = memory_str[-1].lower()
+        size_value = float(memory_str[:-1])
+
+        if unit == 'g':
+            return size_value
+        if unit == 'm':
+            return size_value / 1024  # Convert MB to GB
+        if unit == 'k':
+            return size_value / (1024 ** 2)  # Convert KB to GB
+
+        raise ValueError(f'Invalid memory unit {unit} in memory size: {memory_str}')
+
+    @staticmethod
+    def archive_directory(source_folder: str, base_name: str, archive_format: str = 'zip') -> str:
+        """
+        Archives the specified directory, keeping the directory at the top level in the
+        archived file.
+
+        Example:
+        source_folder = '/path/to/directory'
+        base_name = '/path/to/archived_directory'
+        archive_format = 'zip'
+
+        The above example will create a zip file at '/path/to/archived_directory.zip'
+        with 'directory' at the top level.
+
+        :param source_folder: Path to the directory to be zipped.
+        :param base_name: Base name for the zipped file (without any format extension).
+        :param archive_format: Format of the zipped file (default is 'zip').
+        :return: Path to the zipped file.
+        """
+        # Create the zip file with the directory at the top level
+        return shutil.make_archive(base_name=base_name,
+                                   format=archive_format,
+                                   root_dir=os.path.dirname(source_folder),
+                                   base_dir=os.path.basename(source_folder))

@@ -399,14 +399,14 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
 
       val accumHelperObj = if (app.isPhoton) { // If this a photon app, use the photonHelper
         // For max peak memory, we need to look at the accumulators at the task level.
-        val peakMemoryValues = tasksInStage.flatMap { taskModel =>
-          photonPeakMemoryAccumInfos.flatMap { accumInfo =>
-            accumInfo.taskUpdatesMap.get(taskModel.taskId)
-          }
+        // We leverage the stage level metrics and get the max task update from it
+        val peakMemoryValues = photonPeakMemoryAccumInfos.flatMap { accumInfo =>
+          accumInfo.getMaxForStage(sm.stageInfo.stageId)
         }
         // For sum of shuffle write time, we need to look at the accumulators at the stage level.
+        // We get the values associated with all tasks for a stage
         val shuffleWriteValues = photonShuffleWriteTimeAccumInfos.flatMap { accumInfo =>
-          accumInfo.stageValuesMap.get(sm.stageInfo.stageId)
+          accumInfo.getTotalForStage(sm.stageInfo.stageId)
         }
         new AggAccumPhotonHelper(shuffleWriteValues, peakMemoryValues)
       } else {

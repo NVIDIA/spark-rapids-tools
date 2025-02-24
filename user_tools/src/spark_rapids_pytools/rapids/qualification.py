@@ -29,7 +29,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel
+from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -153,6 +153,17 @@ class Qualification(RapidsJarTool):
             estimation_model_args = QualEstimationModel.create_default_model_args(selected_model)
         self.ctxt.set_ctxt('estimationModelArgs', estimation_model_args)
 
+    def _process_submission_mode_arg(self) -> None:
+        """
+        Process the value provided by `--submission_mode` argument.
+        """
+        submission_mode_arg = self.wrapper_options.get('submissionMode')
+        if submission_mode_arg is None or not submission_mode_arg:
+            submission_mode = SubmissionMode.get_default()
+        else:
+            submission_mode = SubmissionMode.fromstring(submission_mode_arg)
+        self.ctxt.set_ctxt('submissionMode', submission_mode)
+
     def _process_custom_args(self) -> None:
         """
         Qualification tool processes extra arguments:
@@ -181,6 +192,7 @@ class Qualification(RapidsJarTool):
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
         self._process_eventlogs_args()
+        self._process_submission_mode_arg()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
@@ -375,7 +387,7 @@ class Qualification(RapidsJarTool):
 
         df = self._read_qualification_output_file('summaryReport')
         # 1. Operations related to XGboost modelling
-        if self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
+        if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
                 df = self.__update_apps_with_prediction_info(df,
                                                              self.ctxt.get_ctxt('estimationModelArgs'))
@@ -609,6 +621,9 @@ class Qualification(RapidsJarTool):
         # extract the file name of report from the YAML config (e.g., toolOutput -> csv -> summaryReport -> fileName)
         report_file_name = self.ctxt.get_value('toolOutput', file_format_key, report_name_key, 'fileName')
         report_file_path = FSUtil.build_path(self.ctxt.get_rapids_output_folder(), report_file_name)
+        if not FSUtil.resource_exists(report_file_path):
+            self.logger.warning('Unable to read the report file \'%s\'. File does not exist.', report_file_path)
+            return pd.DataFrame()
         return pd.read_csv(report_file_path)
 
     def _read_qualification_metric_file(self, file_name: str) -> Dict[str, pd.DataFrame]:

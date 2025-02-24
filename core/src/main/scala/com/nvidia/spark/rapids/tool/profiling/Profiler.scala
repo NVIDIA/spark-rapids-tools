@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, Platform, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -399,14 +399,16 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val endTime = System.currentTimeMillis()
     logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
     (ApplicationSummaryInfo(appInfo, dsInfo,
-      collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-      rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
-      analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
-      failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-      unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-      appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo),
-      compareRes, DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics,
-      collect.getFilteredDiagnosticMetrics))
+        collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
+        rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
+        analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
+        failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
+        unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
+        appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
+        collect.getWriteOperationInfo),
+      compareRes,
+      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics,
+        collect.getFilteredDiagnosticMetrics))
   }
 
   /**
@@ -417,7 +419,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    */
   private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
-  : (Seq[RecommendedPropertyResult], Seq[RecommendedCommentResult]) = {
+  : (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     // only run the auto tuner on GPU event logs for profiling tool right now. There are
     // assumptions made in the code
     if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
@@ -503,7 +505,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
         combineProps("system", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
-        appsSum.flatMap(_.sparkRapidsBuildInfo)
+        appsSum.flatMap(_.sparkRapidsBuildInfo),
+        appsSum.flatMap(_.writeOpsInfo).sortBy(_.appIndex)
       )
       Seq(reduced)
     } else {
@@ -547,6 +550,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
       profileOutputWriter.write(IO_LABEL, app.ioMetrics)
       profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+      // writeOps are generated in only CSV format
+      profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
       val skewHeader = TASK_SHUFFLE_SKEW
       val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
       profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
@@ -614,10 +619,10 @@ object Profiler {
   val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
 
-  def getAutoTunerResultsAsString(props: Seq[RecommendedPropertyResult],
+  def getAutoTunerResultsAsString(props: Seq[TuningEntryTrait],
       comments: Seq[RecommendedCommentResult]): String = {
     val propStr = if (props.nonEmpty) {
-        val propertiesToStr = props.map(_.toString).reduce(_ + "\n" + _)
+        val propertiesToStr = props.map(_.toConfString).reduce(_ + "\n" + _)
         s"\nSpark Properties:\n$propertiesToStr\n"
       } else {
         "Cannot recommend properties. See Comments.\n"

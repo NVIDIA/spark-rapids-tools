@@ -276,20 +276,14 @@ object GenerateTimeline {
 
     val semMetricsNs = semWaitIds.toList
       .flatMap(app.accumManager.accumInfoMap.get)
-      .flatMap(_.taskUpdatesMap.values).sum
+      .map(_.getTotalAcrossStages).sum
 
     val semMetricsMs = app.accumManager.accumInfoMap.flatMap {
         case (_, accumInfo: AccumInfo)
             if accumInfo.infoRef.name == AccumNameRef.NAMES_TABLE.get("gpuSemaphoreWait") =>
-            Some(accumInfo.taskUpdatesMap.values.sum)
+            Some(accumInfo.getTotalAcrossStages)
         case _ => None
       }.sum
-
-    val readMetrics = readTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
-
-    val opMetrics = opTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
-
-    val writeMetrics = writeTimeIds.toList.flatMap(app.accumManager.accumInfoMap.get)
 
     app.taskManager.getAllTasks().foreach { tc =>
       val host = tc.host
@@ -300,11 +294,9 @@ object GenerateTimeline {
       val finishTime = tc.finishTime
       val duration = tc.duration
       val semTimeMs = ( semMetricsNs / 1000000) + semMetricsMs
-      val readTimeMs = readMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000 +
-        tc.sr_fetchWaitTime
-      val opTimeMs = opMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000
-      val writeTimeMs = writeMetrics.flatMap(_.taskUpdatesMap.get(taskId)).sum / 1000000 +
-        tc.sw_writeTime / 1000000
+      val readTimeMs = tc.sr_fetchWaitTime
+      val opTimeMs = 0L
+      val writeTimeMs = tc.sw_writeTime / 1000000
       val taskInfo = new TimelineTaskInfo(stageId, taskId, launchTime, finishTime, duration,
         tc.executorDeserializeTime, readTimeMs, semTimeMs, opTimeMs, writeTimeMs)
       val execHost = s"$execId/$host"
