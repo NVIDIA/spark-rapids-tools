@@ -501,6 +501,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           stageAccumResult.min,
           stageAccumResult.median,
           stageAccumResult.max,
+          0,
           stageAccumResult.total
         )
       }
