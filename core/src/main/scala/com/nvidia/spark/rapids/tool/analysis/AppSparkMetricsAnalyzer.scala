@@ -358,13 +358,12 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
-   * Aggregates the SparkMetrics by stage. This is an internal method to populate the cached metrics
+   * Aggregates the SparkMetrics by completed stage information.
+   * This is an internal method to populate the cached metrics
    * to be used by other aggregators.
    * @param index AppIndex (used by the profiler tool)
    */
   private def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
-    // TODO: this has stage attempts. we should handle different attempts
-
     // For Photon apps, peak memory and shuffle write time need to be calculated from accumulators
     // instead of task metrics.
     // Approach:
