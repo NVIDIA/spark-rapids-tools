@@ -244,15 +244,35 @@ object DataWritingCommandExecParser {
         args.headOption.map(_.split("\\s+").last.trim).getOrElse(StringUtils.UNKNOWN_EXTRACT)
       // Extract the data format from the third argument
       val thirdArg = args.lift(2).getOrElse("").trim
-      val format = if (thirdArg.startsWith("[")) {
-        // Optional parameter is present in the eventlog. Get the fourth parameter by skipping the
-        // optional parameter string.
+      val rawFormat = if (thirdArg.startsWith("[")) {
+        // Optional parameter is present in the eventlog.
+        // Skip the optional parameters( `[params,*], FileFormat` )
+        // and pick the FileFormat
         thirdArg.split("(?<=],)")
           .map(_.trim).lift(1).getOrElse("").split(",").headOption.getOrElse("").trim
       } else {
         thirdArg.split(",").headOption.getOrElse("").trim
       }
+      val format = extractFormatName(rawFormat)
       (path, format)
+    }
+
+    /**
+     * Helper function to extract format name from strings like
+     * "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c"
+     * Currently RAPIDS plugin dumps raw object name instead
+     * of pretty file format.
+     * Refer: https://github.com/NVIDIA/spark-rapids-tools/issues/1561
+     *
+     * @param formatStr
+     * @return
+     */
+    def extractFormatName(formatStr: String): String = {
+      val formatRegex = """.*\.(Gpu[a-zA-Z]+FileFormat)(@.*)?""".r
+      formatStr match {
+        case formatRegex(formatName, _) => formatName
+        case _ => formatStr // Return original if no match
+      }
     }
 
     // Helper function to determine the write mode (e.g., Append, Overwrite) from the description.
