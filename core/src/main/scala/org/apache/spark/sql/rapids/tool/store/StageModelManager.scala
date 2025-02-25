@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,18 @@ class StageModelManager extends Logging {
    * @return Iterable of all StageModels
    */
   def getAllStages: Iterable[StageModel] = stageIdToInfo.values.flatMap(_.values)
+
+  /**
+   * Returns all successful StageModels that have been created as a result of handling
+   * StageSubmitted/StageCompleted-events.
+   *
+   * @return Iterable of all successful StageModels
+   */
+  def getAllCompletedStages: Iterable[StageModel] = {
+    stageIdToInfo.values.flatMap(_.values).filter(stage => {
+      stage.hasCompleted && !stage.hasFailed
+    })
+  }
 
   /**
    * Returns all Ids of stage objects created as a result of handling StageSubmitted/StageCompleted.
