@@ -258,8 +258,8 @@ object DataWritingCommandExecParser {
     }
 
     /**
-     * Helper function to extract format name from strings like
-     * "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c"
+     * Helper function to extract file format from class object strings
+     * like "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c"
      * Currently RAPIDS plugin dumps raw object name instead
      * of pretty file format.
      * Refer: https://github.com/NVIDIA/spark-rapids-tools/issues/1561
@@ -268,9 +268,13 @@ object DataWritingCommandExecParser {
      * @return
      */
     def extractFormatName(formatStr: String): String = {
-      val formatRegex = """.*\.(Gpu[a-zA-Z]+FileFormat)(@.*)?""".r
+      // Extracting file format from the full object string
+      // 1. `.*\.` - Matches sequence of character between literal dots
+      // 2. `([a-zA-Z]+)FileFormat` - Captures fileFormat from the class name
+      // 3. `(@.*)` - Group capturing @ followed by any character
+      val formatRegex = """.*\.Gpu([a-zA-Z]+)FileFormat(@.*)?""".r
       formatStr match {
-        case formatRegex(formatName, _) => formatName
+        case formatRegex(fileFormat, _) => fileFormat
         case _ => formatStr // Return original if no match
       }
     }

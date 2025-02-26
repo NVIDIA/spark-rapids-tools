@@ -103,6 +103,39 @@ class WriteOperationParserSuite extends FunSuite {
     )
   }
 
+  test("getWriteOpMetaFromNode - Gpu logs profiler case") {
+    val testFileFormats = Seq(
+      ("com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c", "Parquet"),
+      ("com.nvidia.spark.rapids.GpuOrcFileFormat@123abc", "Orc"),
+      ("com.nvidia.spark.rapids.GpuHiveTextFileFormat@123abc", "HiveText"),
+      ("com.nvidia.spark.rapids.GpuHiveParquetFileFormat@123abc", "HiveParquet"),
+      ("com.nvidia.spark.rapids.GpuDeltaFileFormat@123abc", "Delta")
+    )
+    testFileFormats.foreach { case (format, expectedDataFormat) =>
+      val node = new SparkPlanGraphNode(
+        id = 1,
+        name = "Execute InsertIntoHadoopFsRelationCommand",
+        desc = s"Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+          s"false, $format, " +
+          "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
+          "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+          "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
+          "[col01, col02, col03]",
+        Seq.empty
+      )
+      testGetWriteOpMetaFromNode(
+        node,
+        expectedExecName = "InsertIntoHadoopFsRelationCommand",
+        expectedDataFormat = expectedDataFormat,
+        expectedOutputPath = "gs://path/to/database/table1",
+        expectedOutputColumns = "col01;col02;col03",
+        expectedWriteMode = "Append",
+        expectedTableName = "table1",
+        expectedDatabaseName = "database"
+      )
+    }
+  }
+
   test("AppendDataExecV1 - delta format") {
     val node = new SparkPlanGraphNode(
       id = 3,
