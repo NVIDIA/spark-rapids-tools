@@ -258,14 +258,21 @@ object DataWritingCommandExecParser {
     }
 
     /**
-     * Helper function to extract file format from class object strings
-     * like "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c"
-     * Currently RAPIDS plugin dumps raw object name instead
-     * of pretty file format.
+     * Extracts the file format from a class object string, such as
+     * "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
+     *
+     * This function is designed to handle cases where the RAPIDS plugin logs raw object names
+     * instead of a user-friendly file format name. For example, it extracts "Parquet" from
+     * "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
      * Refer: https://github.com/NVIDIA/spark-rapids-tools/issues/1561
      *
-     * @param formatStr
-     * @return
+     * If the input string does not match the expected pattern, the function returns the original
+     * string as a fallback.
+     *
+     * @param formatStr The raw format string, typically containing the class name of the file
+     *                  format.
+     * @return A user-friendly file format name (e.g., "Parquet") or the original string if no
+     *         match is found.
      */
     def extractFormatName(formatStr: String): String = {
       // Extracting file format from the full object string

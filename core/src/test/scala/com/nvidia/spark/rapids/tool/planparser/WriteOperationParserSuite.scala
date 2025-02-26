@@ -114,8 +114,8 @@ class WriteOperationParserSuite extends FunSuite {
     testFileFormats.foreach { case (format, expectedDataFormat) =>
       val node = new SparkPlanGraphNode(
         id = 1,
-        name = "Execute InsertIntoHadoopFsRelationCommand",
-        desc = s"Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+        name = "Execute GpuInsertIntoHadoopFsRelationCommand",
+        desc = s"Execute GpuInsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
           s"false, $format, " +
           "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
           "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
