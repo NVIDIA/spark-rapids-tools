@@ -125,7 +125,7 @@ class WriteOperationParserSuite extends FunSuite {
       )
       testGetWriteOpMetaFromNode(
         node,
-        expectedExecName = "InsertIntoHadoopFsRelationCommand",
+        expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
         expectedDataFormat = expectedDataFormat,
         expectedOutputPath = "gs://path/to/database/table1",
         expectedOutputColumns = "col01;col02;col03",
