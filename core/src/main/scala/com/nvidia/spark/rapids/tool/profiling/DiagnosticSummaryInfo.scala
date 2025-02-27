@@ -22,5 +22,6 @@ package com.nvidia.spark.rapids.tool.profiling
  */
 case class DiagnosticSummaryInfo(
     stageDiagnostics: Seq[StageDiagnosticResult],
-    IODiagnostics: Seq[IODiagnosticResult]
+    IODiagnostics: Seq[IODiagnosticResult],
+    filteredDiagnostics: Seq[FilteredDiagnosticResult]
 )
