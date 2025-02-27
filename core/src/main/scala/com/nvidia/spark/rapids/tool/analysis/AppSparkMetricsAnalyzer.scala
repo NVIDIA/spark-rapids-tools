@@ -446,7 +446,16 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.swBytesWrittenSum,
         perStageRec.swRecordsWrittenSum,
         perStageRec.swWriteTimeSum)  // converted to milliseconds by the aggregator
-      stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
+      val existingStageProfileEntry = stageLevelSparkMetrics(index).get(sm.stageInfo.stageId)
+      if (existingStageProfileEntry.isDefined) {
+        // We already have a profile entry for this stage.
+        // Basically this means we have multiple attempts for the same stage.
+        // We need to aggregate the metrics from the new attempt with the existing one
+        val aggregatedStageProfileEntry = existingStageProfileEntry.get.aggregateWith(stageRow)
+        stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, aggregatedStageProfileEntry)
+      } else {
+        stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
+      }
     }
   }
 }

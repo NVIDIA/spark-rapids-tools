@@ -685,6 +685,52 @@ case class StageAggTaskMetricsProfileResult(
     swRecordsWrittenSum: Long,
     swWriteTimeSum: Long // milliseconds
   ) extends BaseJobStageAggTaskMetricsProfileResult {
+
+  def aggregateWith(other: StageAggTaskMetricsProfileResult): StageAggTaskMetricsProfileResult = {
+    // This assert ensures only two StageAggTaskMetricsProfileResult which
+    // have the same id are aggregated. This is important because we retain the
+    // id and appIndex of the first stage.
+    assert(this.id == other.id && this.appIndex == other.appIndex)
+    StageAggTaskMetricsProfileResult(
+      appIndex = this.appIndex,
+      id = this.id,
+      numTasks = this.numTasks + other.numTasks,
+      duration = Option(this.duration.getOrElse(0L) + other.duration.getOrElse(0L)),
+      diskBytesSpilledSum = this.diskBytesSpilledSum + other.diskBytesSpilledSum,
+      durationSum = this.durationSum + other.durationSum,
+      durationMax = Math.max(this.durationMax, other.durationMax),
+      durationMin = Math.min(this.durationMin, other.durationMin),
+      durationAvg = (this.durationAvg + other.durationAvg) / 2,
+      executorCPUTimeSum = this.executorCPUTimeSum + other.executorCPUTimeSum,
+      executorDeserializeCpuTimeSum = this.executorDeserializeCpuTimeSum +
+        other.executorDeserializeCpuTimeSum,
+      executorDeserializeTimeSum = this.executorDeserializeTimeSum +
+        other.executorDeserializeTimeSum,
+      executorRunTimeSum = this.executorRunTimeSum + other.executorRunTimeSum,
+      inputBytesReadSum = this.inputBytesReadSum + other.inputBytesReadSum,
+      inputRecordsReadSum = this.inputRecordsReadSum + other.inputRecordsReadSum,
+      jvmGCTimeSum = this.jvmGCTimeSum + other.jvmGCTimeSum,
+      memoryBytesSpilledSum = this.memoryBytesSpilledSum + other.memoryBytesSpilledSum,
+      outputBytesWrittenSum = this.outputBytesWrittenSum + other.outputBytesWrittenSum,
+      outputRecordsWrittenSum = this.outputRecordsWrittenSum + other.outputRecordsWrittenSum,
+      peakExecutionMemoryMax = Math.max(this.peakExecutionMemoryMax, other.peakExecutionMemoryMax),
+      resultSerializationTimeSum = this.resultSerializationTimeSum +
+        other.resultSerializationTimeSum,
+      resultSizeMax = Math.max(this.resultSizeMax, other.resultSizeMax),
+      srFetchWaitTimeSum = this.srFetchWaitTimeSum + other.srFetchWaitTimeSum,
+      srLocalBlocksFetchedSum = this.srLocalBlocksFetchedSum + other.srLocalBlocksFetchedSum,
+      srRemoteBlocksFetchSum = this.srRemoteBlocksFetchSum + other.srRemoteBlocksFetchSum,
+      srRemoteBytesReadSum = this.srRemoteBytesReadSum + other.srRemoteBytesReadSum,
+      srRemoteBytesReadToDiskSum = this.srRemoteBytesReadToDiskSum +
+        other.srRemoteBytesReadToDiskSum,
+      srTotalBytesReadSum = this.srTotalBytesReadSum + other.srTotalBytesReadSum,
+      srcLocalBytesReadSum = this.srcLocalBytesReadSum + other.srcLocalBytesReadSum,
+      swBytesWrittenSum = this.swBytesWrittenSum + other.swBytesWrittenSum,
+      swRecordsWrittenSum = this.swRecordsWrittenSum + other.swRecordsWrittenSum,
+      swWriteTimeSum = this.swWriteTimeSum + other.swWriteTimeSum
+    )
+  }
+
   override def idHeader = "stageId"
 }
 
