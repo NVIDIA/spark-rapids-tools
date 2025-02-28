@@ -686,11 +686,24 @@ case class StageAggTaskMetricsProfileResult(
     swWriteTimeSum: Long // milliseconds
   ) extends BaseJobStageAggTaskMetricsProfileResult {
 
-  def aggregateWith(other: StageAggTaskMetricsProfileResult): StageAggTaskMetricsProfileResult = {
-    // This assert ensures only two StageAggTaskMetricsProfileResult which
-    // have the same id are aggregated. This is important because we retain the
-    // id and appIndex of the first stage.
-    assert(this.id == other.id && this.appIndex == other.appIndex)
+  /**
+   * Combines two StageAggTaskMetricsProfileResults for the same stage.
+   * This method aggregates the metrics from the current instance and the provided `other` instance.
+   *
+   * Detailed explanation ->
+   * 1. A stage can have two successful attempts.
+   * 2. We store both of those attempt information using the StageManager
+   * 3. During aggregation, we combine the metrics for a stage at a stageID
+   *    level
+   * 4. For combining aggregated information for multiple stage attempts, we combine the
+   *    aggregated per attempt information into one using the below method
+   *
+   * @param other The StageAggTaskMetricsProfileResult to be combined with the current instance.
+   * @return A new StageAggTaskMetricsProfileResult with aggregated metrics.
+   */
+  def aggregateStageProfileMetric(
+      other: StageAggTaskMetricsProfileResult
+  ): StageAggTaskMetricsProfileResult = {
     StageAggTaskMetricsProfileResult(
       appIndex = this.appIndex,
       id = this.id,
