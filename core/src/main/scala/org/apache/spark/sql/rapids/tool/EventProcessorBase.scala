@@ -369,7 +369,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     // Parse task accumulables
     for (res <- event.taskInfo.accumulables) {
       try {
-        app.accumManager.addAccToTask(event.stageId, event.taskInfo.taskId, res)
+        app.accumManager.addAccToTask(event.stageId, res)
       } catch {
         case NonFatal(e) =>
           logWarning("Exception when parsing accumulables on task-completed "

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,6 +52,22 @@ class StageModelManager extends Logging {
    * @return Iterable of all StageModels
    */
   def getAllStages: Iterable[StageModel] = stageIdToInfo.values.flatMap(_.values)
+
+  /**
+   * Retrieves all successful stage attempts that have been created as a result of handling
+   * StageSubmitted/StageCompleted events. A stage attempt is considered successful if it has
+   * completed execution and has not failed. This method filters out any stage attempts that
+   * are marked as failed or incomplete.
+   * There can be multiple successful attempts for a stage.
+   *
+   * @return An Iterable collection of all successful StageModel instances, where each StageModel
+   *         represents a successful stage attempt.
+   */
+  def getAllSuccessfulStageAttempts: Iterable[StageModel] = {
+    stageIdToInfo.values.flatMap(_.values).filter(stage => {
+      stage.hasCompleted && !stage.hasFailed
+    })
+  }
 
   /**
    * Returns all Ids of stage objects created as a result of handling StageSubmitted/StageCompleted.
