@@ -484,17 +484,26 @@ case class FailedStagesProfileResults(appIndex: Int, stageId: Int, stageAttemptI
   }
 }
 
-case class FailedJobsProfileResults(appIndex: Int, jobId: Int,
-    jobResult: String, endReason: String) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "jobID", "jobResult", "failureReason")
+case class FailedJobsProfileResults(
+    appIndex: Int,
+    jobId: Int,
+    sqlID: Option[Long],  // sqlID is optional because Jobs might not have a SQL (i.e., RDDs)
+    jobResult: String,
+    endReason: String) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "jobID", "sqlID", "jobResult", "failureReason")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, jobId.toString,
+    Seq(appIndex.toString,
+      jobId.toString,
+      sqlID.map(_.toString).getOrElse(null),
       jobResult,
       StringUtils.renderStr(endReason, doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, jobId.toString, StringUtils.reformatCSVString(jobResult),
+    Seq(appIndex.toString,
+      jobId.toString,
+      sqlID.map(_.toString).getOrElse(null),
+      StringUtils.reformatCSVString(jobResult),
       StringUtils.reformatCSVString(
         StringUtils.renderStr(endReason, doEscapeMetaCharacters = true, maxLength = 0)))
   }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,7 @@ class HealthCheckSuite extends FunSuite {
     assert(apps.size == 1)
 
     val healthCheck = new HealthCheck(apps)
-    for (app <- apps) {
+    for (_ <- apps) {
       val failedTasks = healthCheck.getFailedTasks
       // the end reason gets the delimiter changed when writing to CSV so to compare properly
       // change it to be the same here
@@ -142,7 +142,7 @@ class HealthCheckSuite extends FunSuite {
     assert(apps.size == 1)
 
     val healthCheck = new HealthCheck(apps)
-    for (app <- apps) {
+    for (_ <- apps) {
       val unsupported = healthCheck.getPossibleUnsupportedSQLPlan
       import sparkSession.implicits._
       val unsupportedPlanAccums = unsupported.toDF
