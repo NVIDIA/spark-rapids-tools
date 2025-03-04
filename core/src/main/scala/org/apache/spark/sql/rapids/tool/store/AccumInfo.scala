@@ -84,10 +84,9 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    * attempt information with give no Stats at accumulable level
    *
    * @param stageId The ID of the stage containing the task
-   * @param taskId The ID of the completed task
    * @param accumulableInfo Accumulator information from the TaskEnd event
    */
-  def addAccumToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
+  def addAccumToTask(stageId: Int, accumulableInfo: AccumulableInfo): Unit = {
     // 1. We first extract the incoming task update value
     // 2. Then allocate a new Statistic metric object with min,max as incoming update
     // 3. Use count to calculate rolling average

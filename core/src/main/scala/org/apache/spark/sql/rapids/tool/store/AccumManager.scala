@@ -40,9 +40,9 @@ class AccumManager {
     accumInfoRef.addAccumToStage(stageId, accumulableInfo)
   }
 
-  def addAccToTask(stageId: Int, taskId: Long, accumulableInfo: AccumulableInfo): Unit = {
+  def addAccToTask(stageId: Int, accumulableInfo: AccumulableInfo): Unit = {
     val accumInfoRef = getOrCreateAccumInfo(accumulableInfo.id, accumulableInfo.name)
-    accumInfoRef.addAccumToTask(stageId, taskId, accumulableInfo)
+    accumInfoRef.addAccumToTask(stageId, accumulableInfo)
   }
 
   def getAccStageIds(id: Long): Set[Int] = {
