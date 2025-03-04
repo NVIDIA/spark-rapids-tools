@@ -320,7 +320,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       AccumProfileResults(0, 0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
     val emptyNodeNames = Seq.empty[String]
     val emptyDiagnosticMetrics = HashMap.empty[String, AccumProfileResults]
-    app.stageManager.getAllSuccessfulStageAttempts.map { sm =>
+    app.stageManager.getAllStages.map { sm =>
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
@@ -389,7 +389,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       }
     }
 
-    app.stageManager.getAllSuccessfulStageAttempts.foreach { sm =>
+    app.stageManager.getAllStages.foreach { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())

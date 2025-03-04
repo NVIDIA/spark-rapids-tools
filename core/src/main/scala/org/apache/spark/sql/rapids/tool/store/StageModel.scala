@@ -81,18 +81,6 @@ class StageModel private(sInfo: StageInfo) {
   }
 
   /**
-   * Returns true if a stage has completed.
-   * Now a failed stage attempt can still be completed.
-   * So complete here does not necessarily mean the stage has succeeded.
-   * Complete here means the stage for which the completionTime is set.
-   *
-   * @return True if completionTime is set
-   */
-  def hasCompleted: Boolean = {
-    stageInfo.completionTime.isDefined
-  }
-
-  /**
    * Returns the failure reason if the stage has failed.
    * Failure reason being set is the sure shot of a failed stage.
    *
