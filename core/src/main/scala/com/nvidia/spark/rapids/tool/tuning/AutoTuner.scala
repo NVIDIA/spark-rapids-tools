@@ -337,8 +337,8 @@ class AutoTuner(
   private def appendMissingComment(key: String): Unit = {
     val missingComment = TuningEntryDefinition.TUNING_TABLE.get(key)
       .flatMap(_.getMissingComment())
-      .getOrElse(s"'$key' was not set.")
-    appendComment(missingComment)
+      .getOrElse(s"was not set.")
+    appendComment(s"'$key' $missingComment")
   }
 
   /**
@@ -349,6 +349,19 @@ class AutoTuner(
   private def appendPersistentComment(key: String): Unit = {
     TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
       eDef.getPersistentComment().foreach { comment =>
+        appendComment(s"'$key' $comment")
+      }
+    }
+  }
+
+  /**
+   * Append a comment to the list by looking up the updated comment if any in the tuningEntry
+   * table. If it is not defined in the table, then add nothing.
+   * @param key the property set by the autotuner.
+   */
+  private def appendUpdatedComment(key: String): Unit = {
+    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+      eDef.getUpdatedComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
     }
@@ -368,6 +381,9 @@ class AutoTuner(
       if (recomRecord.originalValue.isEmpty) {
         // add missing comment if any
         appendMissingComment(key)
+      } else {
+        // add updated comment if any
+        appendUpdatedComment(key)
       }
       // add the persistent comment if any.
       appendPersistentComment(key)
