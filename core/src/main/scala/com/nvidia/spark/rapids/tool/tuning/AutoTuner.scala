@@ -691,30 +691,23 @@ class AutoTuner(
   // if the user set the serializer to use Kryo, make sure we recommend using the GPU version
   // of it.
   def recommendKryoSerializerSetting(): Unit = {
-      getPropertyValue("spark.serializer") match {
-        case Some(f) if f.contains("org.apache.spark.serializer.KryoSerializer") =>
-          val existingRegistrars = getPropertyValue("spark.kryo.registrator")
-          val regToUse = if (existingRegistrars.isDefined && !existingRegistrars.get.isEmpty) {
-            // spark.kryo.registrator is a comma separated list. If the user set some then
-            // we need to append our GpuKryoRegistrator to ones they specified.
-            existingRegistrars.get + ",com.nvidia.spark.rapids.GpuKryoRegistrator"
-          } else {
-            "com.nvidia.spark.rapids.GpuKryoRegistrator"
-          }
-          appendRecommendation("spark.kryo.registrator", regToUse)
-          // set the maxBuffer to prevent OOMs
-          getPropertyValue("spark.kryoserializer.buffer.max") match {
-            case Some(f) =>
-              val kryoBufferMax = StringUtils.convertToMB(f)
-              if (kryoBufferMax < 512) { // incrrease it to 512m
-                appendRecommendation("spark.kryoserializer.buffer.max", "512m")
-              }
-            case None =>
-              appendRecommendation("spark.kryoserializer.buffer.max", "512m")
-          }
-        case None =>
-          // do nothing
+    getPropertyValue("spark.serializer")
+      .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
+      val defaultRegistrator = "com.nvidia.spark.rapids.GpuKryoRegistrator"
+      val regToUse = getPropertyValue("spark.kryo.registrator")
+        .filter(_.nonEmpty)
+        .map(reg => s"$reg,$defaultRegistrator")
+        .getOrElse(defaultRegistrator)
+      appendRecommendation("spark.kryo.registrator", regToUse)
+      // set the kryo serializer buffer size to prevent OOMs
+      val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
+      val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
+        .map(StringUtils.convertToMB)
+        .getOrElse(0L)
+      if (currentBufferMaxMb < desiredBufferMax) {
+        appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMax")
       }
+    }
   }
 
   /**
@@ -1264,6 +1257,8 @@ trait AutoTunerConfigsProvider extends Logging {
   val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
   val AQE_MIN_INITIAL_PARTITION_NUM = 200
   val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
+  // Desired Kryo serializer buffer size to prevent OOMs. Spark sets the default to 64MB.
+  val KRYO_SERIALIZER_BUFFER_MAX_MB = 512L
   // Set of spark properties to be filtered out from the combined Spark properties.
   val filteredPropKeys: Set[String] = Set(
     "spark.app.id"
