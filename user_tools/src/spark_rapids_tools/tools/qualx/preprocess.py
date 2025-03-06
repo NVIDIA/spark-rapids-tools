@@ -55,10 +55,11 @@ expected_raw_features = \
         'decode_time',  # data_source_information
         'description',  # data_source_information
         'diskBytesSpilled_mean',  # job_level_aggregated_task_metrics (diskBytesSpilled_sum)
-        'diskBytesSpilledRatio',  # N/A
+        'diskBytesSpilledRatio',  # N/A (diskBytesSpilled_sum / input_bytesRead_sum)
         'duration_max',  # job_level_aggregated_task_metrics
         'duration_mean',  # job_level_aggregated_task_metrics (duration_avg)
         'duration_min',  # job_level_aggregated_task_metrics
+        'duration_ratio',  # N/A (duration_sum / Duration)
         'duration_sum',  # job_level_aggregated_task_metrics
         'Duration',  # job_level_aggregated_task_metrics
         'executorCores',  # executor_information
@@ -68,21 +69,23 @@ expected_raw_features = \
         'executorMemory',  # executor_information
         'executorOffHeap',  # executor_information
         'executorRunTime_mean',  # job_level_aggregated_task_metrics (executorCpuTime_sum)
-        'fraction_supported',  # N/A
+        'failed_tasks',  # failed_tasks (attempts)
+        'failed_tasks_ratio',  # N/A (failed_tasks / numTasks)
+        'fraction_supported',  # N/A fraction of stage durations supported by GPU
         'input_bytesRead_mean',  # job_level_aggregated_task_metrics (input_bytesRead_sum)
-        'input_bytesReadRatio',  # N/A
+        'input_bytesReadRatio',  # N/A (1, kept since byte features are generically used to compute _mean features)
         'input_recordsRead_sum',  # job_level_aggregated_task_metrics (input_recordsRead_sum)
         'jvmGCTime_mean',  # job_level_aggregated_task_metrics (jvmGCTime_sum)
         'maxMem',  # executor_information
         'maxOffHeapMem',  # executor_information
         'maxOnHeapMem',  # executor_information
         'memoryBytesSpilled_mean',  # job_level_aggregated_task_metrics (memoryBytesSpilled_sum)
-        'memoryBytesSpilledRatio',  # N/A
+        'memoryBytesSpilledRatio',  # N/A (memoryBytesSpilled_sum / input_bytesRead_sum)
         'numExecutors',  # executor_information
         'numGpusPerExecutor',  # executor_information
         'numTasks_sum',  # job_level_aggregated_task_metrics (numTasks)
         'output_bytesWritten_mean',  # job_level_aggregated_task_metrics (output_bytesWritten_sum)
-        'output_bytesWrittenRatio',  # N/A
+        'output_bytesWrittenRatio',  # N/A (output_bytesWritten_sum / input_bytesRead_sum)
         'output_recordsWritten_sum',  # job_level_aggregated_task_metrics
         'peakExecutionMemory_max',  # job_level_aggregated_task_metrics
         'platform_databricks-aws',  # N/A
@@ -93,12 +96,12 @@ expected_raw_features = \
         'pluginEnabled',  # application_information
         'resultSerializationTime_sum',  # job_level_aggregated_task_metrics
         'resultSize_max',  # job_level_aggregated_task_metrics
-        'runType',  # N/A
-        'scaleFactor',  # N/A
-        'scan_bw',  # N/A
+        'runType',  # N/A (CPU or GPU)
+        'scaleFactor',  # N/A (scale factor of training set, use 1 if only one scale factor)
+        'scan_bw',  # N/A (data_size / scan_time)
         'scan_time',  # data_source_information
-        'shuffle_read_bw',  # N/A
-        'shuffle_write_bw',  # N/A
+        'shuffle_read_bw',  # N/A (sr_totalBytesRead_sum / sr_fetchWaitTime_sum)
+        'shuffle_write_bw',  # N/A (sw_bytesWritten_sum / sw_writeTime_sum)
         'sparkRuntime',  # application_information
         'sparkVersion',  # application_information
         'sqlID',  # job_level_aggregated_task_metrics
@@ -160,16 +163,16 @@ expected_raw_features = \
         'sr_fetchWaitTime_mean',  # job_level_aggregated_task_metrics (sr_fetchWaitTime_sum)
         'sr_localBlocksFetched_sum',  # job_level_aggregated_task_metrics
         'sr_localBytesRead_mean',  # job_level_aggregated_task_metrics (sr_localBytesRead_sum)
-        'sr_localBytesReadRatio',  # N/A
+        'sr_localBytesReadRatio',  # N/A (sr_localBytesRead_sum / input_bytesRead_sum)
         'sr_remoteBlocksFetched_sum',  # job_level_aggregated_task_metrics
         'sr_remoteBytesRead_mean',  # job_level_aggregated_task_metrics (sr_remoteBytesRead_sum)
-        'sr_remoteBytesReadRatio',  # N/A
+        'sr_remoteBytesReadRatio',  # N/A (sr_remoteBytesRead_sum / input_bytesRead_sum)
         'sr_remoteBytesReadToDisk_mean',  # job_level_aggregated_task_metrics (sr_remoteBytesReadToDisk_sum)
-        'sr_remoteBytesReadToDiskRatio',  # N/A
+        'sr_remoteBytesReadToDiskRatio',  # N/A (sr_remoteBytesReadToDisk_sum / input_bytesRead_sum)
         'sr_totalBytesRead_mean',  # job_level_aggregated_task_metrics (sr_totalBytesRead_sum)
-        'sr_totalBytesReadRatio',  # N/A
+        'sr_totalBytesReadRatio',  # N/A (sr_totalBytesRead_sum / input_bytesRead_sum)
         'sw_bytesWritten_mean',  # job_level_aggregated_task_metrics (sw_bytesWritten_sum)
-        'sw_bytesWrittenRatio',  # N/A
+        'sw_bytesWrittenRatio',  # N/A (sw_bytesWritten_sum / input_bytesRead_sum)
         'sw_recordsWritten_sum',  # job_level_aggregated_task_metrics
         'sw_writeTime_mean',  # job_level_aggregated_task_metrics (sw_writeTime_sum)
         'taskCpu',  # executor_information
@@ -596,6 +599,16 @@ def extract_raw_features(
     app_runtype = toc[['appId', 'runType']].drop_duplicates()
     full_tbl = full_tbl.merge(app_runtype, on='appId')
 
+    # add duration_ratio feature
+    full_tbl['duration_ratio'] = full_tbl['duration_sum'] / full_tbl['Duration']
+    full_tbl['duration_ratio'] = full_tbl['duration_ratio'].replace([np.inf, -np.inf], 0).fillna(0)
+
+    # add failed tasks features
+    failed_tasks_tbl = combine_tables('failed_tasks_tbl')
+    full_tbl = full_tbl.merge(failed_tasks_tbl, on=['appName', 'appId', 'sqlID'], how='left')
+    full_tbl['failed_tasks_ratio'] = full_tbl['failed_tasks'] / full_tbl['numTasks_sum']
+    full_tbl.fillna({'failed_tasks': 0, 'failed_tasks_ratio': 0.0}, inplace=True)
+
     # impute missing ops and fix dtype
     full_tbl[sql_ops_list] = full_tbl[sql_ops_list].fillna(0).astype(int)
     full_tbl = full_tbl.copy()  # defragment dataframe
@@ -753,11 +766,10 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
         extra = sorted(actual_features - expected_raw_features)
         if missing:
             logger.warning('Imputing missing features: %s', missing)
-            for col in missing:
-                if col != 'fraction_supported':
-                    full_tbl[col] = 0
-                else:
-                    full_tbl[col] = 1.0
+            if 'fraction_supported' in missing:
+                full_tbl['fraction_supported'] = 1.0
+                missing.remove('fraction_supported')
+            full_tbl.loc[:, missing] = 0
 
         if extra:
             logger.warning('Removing extra features: %s', extra)
@@ -1119,6 +1131,23 @@ def load_csv_files(
     else:
         app_info_mg = pd.DataFrame()
 
+    # Read failed_tasks table
+    failed_tasks = scan_tbl('failed_tasks', warn_on_error=False)
+    if not failed_tasks.empty:
+        # add appId and appName
+        failed_tasks['appId'] = app_info['appId'].iloc[0]
+        failed_tasks['appName'] = app_name
+        # aggregate failed tasks per appName, appId, sqlID
+        failed_tasks = failed_tasks.groupby(['appName', 'appId', 'stageId'])['attempt'].count().reset_index()
+        failed_tasks = failed_tasks.merge(sql_to_stage[['stageId', 'sqlID']], on=['stageId'])
+        failed_tasks = failed_tasks.groupby(['appName', 'appId', 'sqlID'])['attempt'].sum().reset_index()
+        failed_tasks = failed_tasks.rename(columns={'attempt': 'failed_tasks'})
+    else:
+        failed_tasks = pd.DataFrame(
+            columns=['appName', 'appId', 'sqlID', 'failed_tasks']
+        ).astype({'sqlID': int, 'failed_tasks': int})
+
+    # Read data_source_information table
     ds_tbl = scan_tbl('data_source_information')
     if not ds_tbl.empty:
         ds_tbl['appId'] = app_info['appId'].iloc[0]
@@ -1131,6 +1160,7 @@ def load_csv_files(
         'job_stage_agg_tbl': job_stage_agg_tbl,
         'wholestage_tbl': whole_stage_tbl,
         'ds_tbl': ds_tbl,
+        'failed_tasks_tbl': failed_tasks,
     }
 
     return out
