@@ -702,6 +702,16 @@ class AutoTuner(
             "com.nvidia.spark.rapids.GpuKryoRegistrator"
           }
           appendRecommendation("spark.kryo.registrator", regToUse)
+          // set the maxBuffer to prevent OOMs
+          getPropertyValue("spark.kryoserializer.buffer.max") match {
+            case Some(f) =>
+              val kryoBufferMax = StringUtils.convertToMB(f)
+              if (kryoBufferMax < 512) { // incrrease it to 512m
+                appendRecommendation("spark.kryoserializer.buffer.max", "512m")
+              }
+            case None =>
+              appendRecommendation("spark.kryoserializer.buffer.max", "512m")
+          }
         case None =>
           // do nothing
       }

@@ -79,6 +79,17 @@ tuningDefinitions:
     comments:
       missing: should include GpuKryoRegistrator when using Kryo serialization.
       updated: GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
+  - label: spark.kryoserializer.buffer.max
+    description: >-
+      This property helps manage the buffer used by Kryo during serialization, preventing out-of-memory
+      errors when dealing with large objects.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "64MB"
+    comments:
+      missing: setting the max buffer to prevent out-of-memory errors.
+      updated: increasing the max buffer to prevent out-of-memory errors.
   - label: spark.kubernetes.memoryOverheadFactor
     description: >-
       Specific to K8s. Fraction of executor memory to be allocated as additional non-heap memory per executor process.
