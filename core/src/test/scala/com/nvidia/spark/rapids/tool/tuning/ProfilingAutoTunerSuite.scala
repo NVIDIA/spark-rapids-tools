@@ -2917,6 +2917,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -2941,7 +2942,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
-          |- 'spark.kryo.registrator' was not set.
+          |- 'spark.kryo.registrator' should include GpuKryoRegistrator when using Kryo serialization.
+          |- 'spark.kryoserializer.buffer.max' increasing the max buffer to prevent out-of-memory errors.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -2991,6 +2993,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -3015,6 +3018,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.kryo.registrator' GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
+          |- 'spark.kryoserializer.buffer.max' increasing the max buffer to prevent out-of-memory errors.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
@@ -3064,6 +3069,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |--conf spark.executor.memory=32768m
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4096m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -3088,6 +3094,8 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
           |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.kryo.registrator' GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
+          |- 'spark.kryoserializer.buffer.max' increasing the max buffer to prevent out-of-memory errors.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
