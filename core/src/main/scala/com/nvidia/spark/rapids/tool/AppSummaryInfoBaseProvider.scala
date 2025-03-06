@@ -32,6 +32,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSqlTaskAggMetricsVisitor
   with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
+  val hasScanStagesWithFailedOomTasks: Boolean = false
   def isAppInfoAvailable = false
   override def getAllProperties: Map[String, String] = Map[String, String]()
   override def getSparkProperty(propKey: String): Option[String] = None

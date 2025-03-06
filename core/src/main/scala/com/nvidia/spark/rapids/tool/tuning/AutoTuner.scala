@@ -948,21 +948,34 @@ class AutoTuner(
   }
 
   /**
-   * Recommendation for 'spark.sql.files.maxPartitionBytes' based on input size for each task.
+   * Recommends optimal 'spark.sql.files.maxPartitionBytes' value based on task behavior.
+   * Logic:
+   * - Halves current value if OOM failures occurred in scan stages
+   * - Otherwise uses calculated value based on input size for each task.
+   *
    * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
    * which is one of the arguments of [[getRecommendedProperties]].
    */
   private def recommendMaxPartitionBytes(): Unit = {
-    val maxPartitionProp =
-      getPropertyValue("spark.sql.files.maxPartitionBytes")
-        .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
-    val recommended =
-      if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
-        calculateMaxPartitionBytes(maxPartitionProp)
-      } else {
-        s"${StringUtils.convertToMB(maxPartitionProp)}"
-      }
-    appendRecommendationForMemoryMB("spark.sql.files.maxPartitionBytes", recommended)
+    val propKey = "spark.sql.files.maxPartitionBytes"
+    val currentValue = getPropertyValue(propKey)
+
+    val recommendedValue = currentValue match {
+      case Some(value) if appInfoProvider.hasScanStagesWithFailedOomTasks =>
+        // If 'maxPartitionBytes' is defined,and there were OOM task failures in scan stages,
+        // reduce the 'maxPartitionBytes' value by half.
+        (StringUtils.convertToMB(value) / 2).toString
+      case _ =>
+        // Otherwise calculate the new value (if enabled) or use the existing value.
+        val defaultBytes = currentValue.getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
+        if (isCalculationEnabled(propKey)) {
+          calculateMaxPartitionBytes(defaultBytes)
+        } else {
+          StringUtils.convertToMB(defaultBytes).toString
+        }
+    }
+
+    appendRecommendationForMemoryMB(propKey, recommendedValue)
   }
 
   /**

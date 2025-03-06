@@ -196,4 +196,24 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
       0.0
     }
   }
+
+  /**
+   * Determines if there are any Scan Stages with failed tasks due to OOM errors
+   * (e.g. GpuRetryOOM, GpuSplitAndRetryOOM).
+   */
+  override val hasScanStagesWithFailedOomTasks: Boolean = {
+    // Calculate stageIds of scan stages
+    val scanStages = app.stageMetrics.collect {
+      case metric if metric.accMetaRef.getName().toLowerCase.contains("scan") => metric.stageId
+    }.toSet
+
+    if (scanStages.isEmpty) {
+      false
+    } else {
+      // Check for tasks that failed due to OOM errors in scan stages
+      app.failedTasks.exists { task =>
+        scanStages.contains(task.stageId) && task.endReason.contains("RetryOOM")
+      }
+    }
+  }
 }

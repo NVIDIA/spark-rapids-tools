@@ -3322,4 +3322,36 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("test max partition bytes is halved when scan stages have failed OOM tasks") {
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.instances" -> "1",
+        "spark.sql.files.maxPartitionBytes" -> "10g",
+        "spark.task.resource.gpu.amount" -> "0.001",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "false",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion), hasScanStagesWithFailedOomTasks = true)
+    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
+    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
+      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // assert that max partition bytes is halved from 10g to 5g
+    val expectedResults = Seq(
+      "--conf spark.sql.files.maxPartitionBytes=5120m"
+    )
+    assert(expectedResults.forall(autoTunerOutput.contains))
+  }
 }

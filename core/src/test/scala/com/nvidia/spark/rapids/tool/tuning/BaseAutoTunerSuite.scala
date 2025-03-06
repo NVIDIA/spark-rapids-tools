@@ -46,7 +46,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val meanInput: Double,
     val meanShuffleRead: Double,
     val shuffleStagesWithPosSpilling: Set[Long],
-    val shuffleSkewStages: Set[Long]) extends AppSummaryInfoBaseProvider {
+    val shuffleSkewStages: Set[Long],
+    override val hasScanStagesWithFailedOomTasks: Boolean) extends AppSummaryInfoBaseProvider {
   override def isAppInfoAvailable = true
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
@@ -139,10 +140,11 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
       meanInput: Double = 0.0,
       meanShuffleRead: Double = 0.0,
       shuffleStagesWithPosSpilling: Set[Long] = Set(),
-      shuffleSkewStages: Set[Long] = Set()): AppSummaryInfoBaseProvider = {
+      shuffleSkewStages: Set[Long] = Set(),
+      hasScanStagesWithFailedOomTasks: Boolean = false): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
-      shuffleStagesWithPosSpilling, shuffleSkewStages)
+      shuffleStagesWithPosSpilling, shuffleSkewStages, hasScanStagesWithFailedOomTasks)
   }
 
   /**
