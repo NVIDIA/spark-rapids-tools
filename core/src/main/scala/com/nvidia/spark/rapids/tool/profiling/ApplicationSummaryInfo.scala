@@ -201,7 +201,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
    * Determines if there are any Scan Stages with failed tasks due to OOM errors
    * (e.g. GpuRetryOOM, GpuSplitAndRetryOOM).
    */
-  override val hasScanStagesWithFailedOomTasks: Boolean = {
+  override def hasScanStagesWithFailedOomTasks: Boolean = {
     // Calculate stageIds of scan stages
     val scanStages = app.stageMetrics.collect {
       case metric if metric.accMetaRef.getName().toLowerCase.contains("scan") => metric.stageId

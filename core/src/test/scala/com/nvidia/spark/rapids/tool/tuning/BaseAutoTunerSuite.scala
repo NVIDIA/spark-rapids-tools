@@ -47,8 +47,9 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val meanShuffleRead: Double,
     val shuffleStagesWithPosSpilling: Set[Long],
     val shuffleSkewStages: Set[Long],
-    override val hasScanStagesWithFailedOomTasks: Boolean) extends AppSummaryInfoBaseProvider {
+    val scanStagesWithFailedOomTasks: Boolean) extends AppSummaryInfoBaseProvider {
   override def isAppInfoAvailable = true
+  override def hasScanStagesWithFailedOomTasks: Boolean = scanStagesWithFailedOomTasks
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
   override def getMeanShuffleRead: Double = meanShuffleRead
