@@ -14,6 +14,7 @@
 
 """Add common helpers and utilities for unit-tests"""
 import glob
+import os
 import sys
 from pathlib import Path
 
@@ -24,9 +25,8 @@ def get_jar_path():
     # get path to main repository
     repo_root = Path(__file__).parent.parent.parent.parent
     jar_path = repo_root / 'core' / 'target' / 'rapids-4-spark-tools_*-SNAPSHOT.jar'
-    jar_path = Path(glob.glob(str(jar_path))[0])
-    assert jar_path.exists()
-    return jar_path
+    jar_paths = glob.glob(str(jar_path))
+    return jar_paths[0] if jar_paths else ''
 
 
 def get_test_resources_path():

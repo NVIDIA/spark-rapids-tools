@@ -38,7 +38,11 @@ class TestPreprocess(SparkRapidsToolsUT):
         os.environ['QUALX_DATA_DIR'] = str(get_ut_data_dir / 'eventlogs')
         os.environ['QUALX_CACHE_DIR'] = str(get_ut_data_dir / 'qualx_cache')
         os.environ['QUALX_LABEL'] = label
-        os.environ['SPARK_RAPIDS_TOOLS_JAR'] = str(get_jar_path)
+        jar_path = get_jar_path
+        if jar_path:
+            os.environ['SPARK_RAPIDS_TOOLS_JAR'] = str(jar_path)
+        else:
+            raise Exception("No jar found: {}".format(os.listdir('/home/runner/work/spark-rapids-tools/spark-rapids-tools/core/target')))
         # if running in a tox virtual environment, set SPARK_HOME to the venv's pyspark path
         venv_path = os.environ.get('VIRTUAL_ENV', None)
         if venv_path:
