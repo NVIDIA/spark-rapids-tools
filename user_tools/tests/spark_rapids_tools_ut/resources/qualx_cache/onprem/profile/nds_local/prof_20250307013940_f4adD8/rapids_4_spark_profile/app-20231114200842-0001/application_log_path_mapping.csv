@@ -1,0 +1,2 @@
+appIndex,appName,appId,eventLogPath
+1,"NDS - Power Run","app-20231114200842-0001","file:/home/leey/devpub/spark-rapids-tools/user_tools/tests/spark_rapids_tools_ut/resources/eventlogs/onprem/nds/power/eventlogs/gpu/app-20231114200842-0001.zstd"

@@ -1,0 +1,6 @@
+propertyName,appIndex_1
+"spark.rapids.driver.user.timezone","Z"
+"spark.rapids.memory.host.spillStorageSize","32G"
+"spark.rapids.memory.pinnedPool.size","8g"
+"spark.rapids.sql.concurrentGpuTasks","2"
+"spark.rapids.sql.multiThreadedRead.numThreads","20"

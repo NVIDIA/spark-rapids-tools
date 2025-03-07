@@ -1,0 +1,6 @@
+[ {
+  "sparkRapidsBuildInfo" : { },
+  "sparkRapidsJniBuildInfo" : { },
+  "cudfBuildInfo" : { },
+  "sparkRapidsPrivateBuildInfo" : { }
+} ]

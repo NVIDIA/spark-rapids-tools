@@ -1,0 +1,2 @@
+appIndex,appName,appId,sparkUser,startTime,endTime,duration,durationStr,sparkRuntime,sparkVersion,pluginEnabled
+1,"NDS - Power Run","app-20231122005806-0064","leey",1700614686297,1700615218223,531926,"8.9 min","SPARK","3.5.0",false

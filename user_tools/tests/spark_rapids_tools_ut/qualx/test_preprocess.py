@@ -16,7 +16,6 @@
 
 import os
 import glob
-import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -32,35 +31,39 @@ from ..conftest import SparkRapidsToolsUT
 
 class TestPreprocess(SparkRapidsToolsUT):
     """Test class for qualx_preprocess module"""
+
+    def get_jar_path(self):
+        # get path to main repository
+        # note: this only works in dev environment and is used to populate the qualx_cache
+        repo_root = Path(__file__).parent.parent.parent.parent
+        jar_path = repo_root / 'core' / 'target' / 'rapids-4-spark-tools_*-SNAPSHOT.jar'
+        jar_paths = glob.glob(str(jar_path))
+        return jar_paths[0] if jar_paths else ''
+
     @pytest.mark.parametrize('label', ['Duration', 'duration_sum'])
-    def test_load_datasets(self, get_ut_data_dir, get_jar_path, label):
+    def test_load_datasets(self, get_ut_data_dir, label):
         # set up environment variables used during preprocessing
         os.environ['QUALX_DATA_DIR'] = str(get_ut_data_dir / 'eventlogs')
         os.environ['QUALX_CACHE_DIR'] = str(get_ut_data_dir / 'qualx_cache')
         os.environ['QUALX_LABEL'] = label
-        jar_path = get_jar_path
+        jar_path = self.get_jar_path()
         if jar_path:
-            os.environ['SPARK_RAPIDS_TOOLS_JAR'] = str(jar_path)
-        else:
-            raise Exception("No jar found: {}".format(os.listdir('/home/runner/work/spark-rapids-tools/spark-rapids-tools/core/target')))
+            os.environ['SPARK_RAPIDS_TOOLS_JAR'] = jar_path
+
+        # remove any preprocessed.parquet files if present, but keep any profiler CSV files
+        # this exercises the preprocessing code, without having to re-run the profiler tool
+        cache_dir = Path(os.environ['QUALX_CACHE_DIR'])
+        if cache_dir.exists():
+            preprocessed_files = glob.glob(str(cache_dir) + '/**/preprocessed.parquet')
+            for f in preprocessed_files:
+                os.remove(f)
+
         # if running in a tox virtual environment, set SPARK_HOME to the venv's pyspark path
         venv_path = os.environ.get('VIRTUAL_ENV', None)
         if venv_path:
             spark_home = glob.glob(f'{venv_path}/lib/*/site-packages/pyspark')
             if spark_home:
                 os.environ['SPARK_HOME'] = spark_home[0]
-
-        # remove cache if already present
-        cache_dir = Path(os.environ['QUALX_CACHE_DIR'])
-        if cache_dir.exists():
-            if os.environ.get('QUALX_DEV', 'false') == 'true':
-                # for development, remove preprocessed files, but keep profiler CSV files
-                preprocessed_files = glob.glob(str(cache_dir) + '/**/preprocessed.parquet')
-                for f in preprocessed_files:
-                    os.remove(f)
-            else:
-                # for CI/CD, remove cache if exists
-                shutil.rmtree(cache_dir)
 
         # Load the datasets
         datasets_dir = str(get_ut_data_dir / 'datasets')
