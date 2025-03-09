@@ -16,20 +16,56 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import java.io.{File, FileNotFoundException}
+
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, PlatformFactory, PlatformNames, T4Gpu}
+import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, PlatformFactory, PlatformNames, T4Gpu, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{DriverLogUnsupportedOperators, Profiler}
+import com.nvidia.spark.rapids.tool.profiling.{DriverLogUnsupportedOperators, ProfileArgs, ProfileMain, Profiler}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
 
-import org.apache.spark.sql.rapids.tool.util.WebCrawlerUtil
+import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, WebCrawlerUtil}
 
 /**
  * Suite to test the Profiling Tool's AutoTuner
  */
 class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
+
+  private val profilingLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
+
+  /**
+   * Helper method to get the path to the output file
+   */
+  def getOutputFilePath(outputDir: File, fileName: String): String = {
+    val profilerOutputDir = new File(outputDir, s"${Profiler.SUBDIR}")
+    val outputFile = profilerOutputDir.listFiles()
+      .filter(_.isDirectory)
+      .flatMap(dir => dir.listFiles().filter(file => file.isFile && file.getName == fileName))
+      .headOption
+
+    outputFile match {
+      case Some(file) => file.getAbsolutePath
+      case None => throw new FileNotFoundException(
+        s"File $fileName not found in ${profilerOutputDir.getAbsolutePath}")
+    }
+  }
+
+  /**
+   * Helper method to extract the AutoTuner results from the profile log content
+   * TODO: We should store the AutoTuner results in a separate file.
+   */
+  def extractAutoTunerResults(profileLogContent: String): String = {
+    val startSubstring = "### D. Recommended Configuration ###"
+    val indexOfAutoTunerOutput = profileLogContent.indexOf(startSubstring)
+    if (indexOfAutoTunerOutput > 0) {
+      profileLogContent.substring(indexOfAutoTunerOutput + startSubstring.length).trim
+    } else {
+      ""
+    }
+  }
 
   /**
    * Helper method to build a worker info string with GPU properties
@@ -3323,35 +3359,55 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("test max partition bytes is halved when scan stages have failed OOM tasks") {
-    // mock the properties loaded from eventLog
-    val logEventsProps: mutable.Map[String, String] =
-      mutable.LinkedHashMap[String, String](
-        "spark.executor.cores" -> "16",
-        "spark.executor.instances" -> "1",
-        "spark.executor.memory" -> "80g",
-        "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
-        "spark.sql.files.maxPartitionBytes" -> "10g",
-        "spark.task.resource.gpu.amount" -> "0.001",
-        "spark.rapids.memory.pinnedPool.size" -> "5g",
-        "spark.rapids.sql.enabled" -> "false",
-        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion), hasScanStagesWithFailedOomTasks = true)
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // assert that max partition bytes is halved from 10g to 5g
-    val expectedResults = Seq(
-      "--conf spark.sql.files.maxPartitionBytes=5120m"
-    )
-    assert(expectedResults.forall(autoTunerOutput.contains))
+  test("test AutoTuner halves maxPartitionBytes when scan stages have GPU OOM failures") {
+    val eventLog = s"$profilingLogDir/gpu_oom_eventlog.zstd"
+    TrampolineUtil.withTempDir { tempDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--auto-tuner",
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        eventLog))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      // Assert that the maxPartitionBytes was 10gb in the source GPU event log
+      val sparkPropertiesFile = getOutputFilePath(tempDir, "spark_properties.csv")
+      val sparkProperties = FSUtils.readFileContentAsUTF8(sparkPropertiesFile)
+      assert(sparkProperties.contains("\"spark.sql.files.maxPartitionBytes\",\"10gb\""))
+
+      // Compare the auto-tuner output to the expected results and assert that
+      // the maxPartitionBytes was halved to 5gb
+      val logFile = getOutputFilePath(tempDir, "profile.log")
+      val profileLogContent = FSUtils.readFileContentAsUTF8(logFile)
+      val actualResults = extractAutoTunerResults(profileLogContent)
+
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |Spark Properties:
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.sql.files.maxPartitionBytes=5120m
+            |--conf spark.sql.shuffle.partitions=400
+            |
+            |Comments:
+            |- 'spark.executor.cores' should be set to 16.
+            |- 'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.
+            |- 'spark.executor.memory' should be set to at least 2GB/core.
+            |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
+            |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
+            |- 'spark.rapids.sql.enabled' was not set.
+            |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+            |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+            |- 'spark.task.resource.gpu.amount' should be set to 0.001.
+            |- Could not infer the cluster configuration, recommendations are generated using default values!
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin.trim
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, actualResults)
+    }
   }
 }

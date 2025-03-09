@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
-import com.nvidia.spark.rapids.tool.views.WriteOpProfileResult
+import com.nvidia.spark.rapids.tool.views.{IoMetrics, WriteOpProfileResult}
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -198,22 +198,30 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   /**
-   * Determines if there are any Scan Stages with failed tasks due to OOM errors
-   * (e.g. GpuRetryOOM, GpuSplitAndRetryOOM).
+   * Check if there are any scan stages with failed tasks due to GPU OOM errors
+   * (GpuRetryOOM and GpuSplitAndRetryOOM).
    */
-  override def hasScanStagesWithFailedOomTasks: Boolean = {
-    // Calculate stageIds of scan stages
+  override def hasScanStagesWithGpuOom: Boolean = {
+    // Find stages with failed tasks due to GPU OOM errors
+    val failedStagesWithGpuOom = app.failedTasks.collect {
+      case task if SparkRapidsOomExceptions.gpuExceptionClassNames
+        .exists(task.endReason.contains) => task.stageId
+    }
+
+    if (failedStagesWithGpuOom.isEmpty) {
+      return false
+    }
+
+    // Calculate stageIds of scan stages (i.e. stages with 'scan time' metrics)
     val scanStages = app.stageMetrics.collect {
-      case metric if metric.accMetaRef.getName().toLowerCase.contains("scan") => metric.stageId
+      case metric if metric.accMetaRef.getName() == IoMetrics.SCAN_TIME_LABEL => metric.stageId
     }.toSet
 
     if (scanStages.isEmpty) {
-      false
-    } else {
-      // Check for tasks that failed due to OOM errors in scan stages
-      app.failedTasks.exists { task =>
-        scanStages.contains(task.stageId) && task.endReason.contains("RetryOOM")
-      }
+      return false
     }
+
+    // Check if any failed GPU OOM stage is also a scan stage
+    failedStagesWithGpuOom.exists(scanStages.contains)
   }
 }

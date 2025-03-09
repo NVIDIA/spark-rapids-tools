@@ -1391,3 +1391,12 @@ case class RecommendedPropertyResult(property: String, value: String) {
 case class RecommendedCommentResult(comment: String) {
   override def toString: String = "- %s".format(comment)
 }
+
+/**
+ * Helper object to store the list of SparkRapids OOM exceptions.
+ */
+object SparkRapidsOomExceptions {
+  val gpuExceptionClassNames: Set[String] = {
+    Set("GpuSplitAndRetryOOM", "GpuRetryOOM")
+  }
+}

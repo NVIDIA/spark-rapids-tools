@@ -33,7 +33,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoSQLTaskInputSizes
   with AppInfoReadMetrics {
   def isAppInfoAvailable = false
-  def hasScanStagesWithFailedOomTasks: Boolean = false
+  def hasScanStagesWithGpuOom: Boolean = false
   override def getAllProperties: Map[String, String] = Map[String, String]()
   override def getSparkProperty(propKey: String): Option[String] = None
   override def getRapidsProperty(propKey: String): Option[String] = None
