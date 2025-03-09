@@ -33,4 +33,4 @@ jobs:
       - name: Label PR
         uses: actions/labeler@v5
         with:
-          configuration-path: '.github/labeler.yml'
+          configuration-path: "${{ github.workspace }}/.github/labeler.yml"
