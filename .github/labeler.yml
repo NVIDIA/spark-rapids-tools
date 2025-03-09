@@ -16,6 +16,3 @@
 core_tools:
   - changed-files:
       any-glob-to-any-file: 'core/**/*' # Changes applied to the core scala module
-user_tools:
-  - changed-files:
-      any-glob-to-any-file: 'user_tools/**/*' # Changes related to the python wrapper
