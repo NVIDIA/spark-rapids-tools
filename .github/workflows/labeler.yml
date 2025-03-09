@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Check if labeler.yml exists
+        run: ls -la .github/labeler.yml
       - name: Label PR
         uses: actions/labeler@v5
         with:
