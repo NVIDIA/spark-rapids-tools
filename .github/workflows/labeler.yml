@@ -36,3 +36,4 @@ jobs:
         uses: actions/labeler@v5
         with:
           configuration-path: "${{ github.workspace }}/.github/labeler.yml"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
