@@ -202,6 +202,11 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
    * (GpuRetryOOM and GpuSplitAndRetryOOM).
    */
   def hasScanStagesWithGpuOom: Boolean = {
+    // If the plugin is not enabled (i.e. non-GPU app), return false
+    if (!app.appInfo.exists(_.pluginEnabled)) {
+      return false
+    }
+
     // Find stages with failed tasks due to GPU OOM errors
     val failedStagesWithGpuOom = app.failedTasks.collect {
       case task if SparkRapidsOomExceptions.gpuExceptionClassNames
