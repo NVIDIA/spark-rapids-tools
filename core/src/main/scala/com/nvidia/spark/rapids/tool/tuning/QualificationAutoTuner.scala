@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
  */
 class QualificationAutoTuner(
     clusterProps: ClusterProperties,
-    appInfoProvider: AppSummaryInfoBaseProvider,
+    appInfoProvider: QualAppSummaryInfoProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider)
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
@@ -56,6 +56,12 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
-    new QualificationAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
+    appInfoProvider match {
+      case qualAppProvider: QualAppSummaryInfoProvider =>
+        new QualificationAutoTuner(clusterProps, qualAppProvider, platform, driverInfoProvider)
+      case _ =>
+        throw new IllegalArgumentException(
+          "'appInfoProvider' must be an instance of QualAppSummaryInfoProvider")
+    }
   }
 }

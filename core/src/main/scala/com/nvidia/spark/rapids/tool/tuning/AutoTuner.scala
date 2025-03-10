@@ -1511,7 +1511,7 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
         new ProfilingAutoTuner(clusterProps, singleAppProvider, platform, driverInfoProvider)
       case _ =>
         throw new IllegalArgumentException(
-          "AppSummaryInfoBaseProvider must be an instance of SingleAppSummaryInfoProvider")
+          "'appInfoProvider' must be an instance of SingleAppSummaryInfoProvider")
     }
   }
 }
