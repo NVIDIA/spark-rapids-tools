@@ -903,12 +903,12 @@ class AutoTuner(
    *             taskInputSize = 512m,
    *     Output: newMaxPartitionBytes = 2g / (512m/128m) = 512m
    */
-  private def calculateMaxPartitionBytes(maxPartitionBytes: String): String = {
+  protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
     val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
     if (inputBytesMax == 0.0) {
-      maxPartitionBytesNum.toString
+      Some(maxPartitionBytesNum)
     } else {
       if (inputBytesMax > 0 &&
         inputBytesMax < autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB) {
@@ -917,17 +917,17 @@ class AutoTuner(
           maxPartitionBytesNum *
             (autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB / inputBytesMax),
           autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        calculatedMaxPartitionBytes.toLong.toString
+        Some(calculatedMaxPartitionBytes.toLong)
       } else if (inputBytesMax > autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB) {
         // Decrease partition size
         val calculatedMaxPartitionBytes = Math.min(
           maxPartitionBytesNum /
             (inputBytesMax / autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB),
           autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        calculatedMaxPartitionBytes.toLong.toString
+        Some(calculatedMaxPartitionBytes.toLong)
       } else {
         // Do not recommend maxPartitionBytes
-        null
+        None
       }
     }
   }
@@ -952,13 +952,14 @@ class AutoTuner(
    * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
    * which is one of the arguments of [[getRecommendedProperties]].
    */
-  protected def recommendMaxPartitionBytes(): Unit = {
+  def recommendMaxPartitionBytes(): Unit = {
     val maxPartitionProp =
       getPropertyValue("spark.sql.files.maxPartitionBytes")
         .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
     val recommended =
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
-        calculateMaxPartitionBytes(maxPartitionProp)
+        // TODO: Add a lower bound for maxPartitionBytes (say 64M).
+        calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
       } else {
         s"${StringUtils.convertToMB(maxPartitionProp)}"
       }
@@ -1187,27 +1188,37 @@ class AutoTuner(
  */
 class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
-    appInfoProvider: AppSummaryInfoBaseProvider,
+    appInfoProvider: SingleAppSummaryInfoProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider)
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
     ProfilingAutoTunerConfigsProvider) {
 
   /**
-   * Overrides the default recommendation for 'spark.sql.files.maxPartitionBytes'.
+   * Overrides the calculation for 'spark.sql.files.maxPartitionBytes'.
    * Logic:
-   * - If GPU OOM errors occurred in scan stages, halve the maxPartitionBytes.
-   * - Otherwise, calculate using the default implementation (based on input sizes).
+   * - First, calculate the recommendation based on input sizes (parent implementation).
+   * - If GPU OOM errors occurred in scan stages,
+   *     - If calculated value is defined, choose the minimum between the calculated value and
+   *       half of the current value.
+   *     - Else, halve the current value.
+   * - Else, use the value from the parent implementation.
    */
-  override def recommendMaxPartitionBytes(): Unit = {
-    val propKey = "spark.sql.files.maxPartitionBytes"
-    getPropertyValue(propKey) match {
-      case Some(value) if appInfoProvider.hasScanStagesWithGpuOom =>
-        // If GPU OOM errors occurred in scan stages, halve the maxPartitionBytes
-        val recommendedValue = (StringUtils.convertToMB(value) / 2).toString
-        appendRecommendationForMemoryMB(propKey, recommendedValue)
+  override def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
+    // First, calculate the recommendation based on input sizes
+    val calculatedValueFromInputSize = super.calculateMaxPartitionBytesInMB(maxPartitionBytes)
+    getPropertyValue("spark.sql.files.maxPartitionBytes") match {
+      case Some(currentValue) if appInfoProvider.hasScanStagesWithGpuOom =>
+        // GPU OOM detected. We may want to reduce max partition size.
+        val halvedValue = StringUtils.convertToMB(currentValue) / 2
+        // Choose the minimum between the calculated value and half of the current value.
+        calculatedValueFromInputSize match {
+          case Some(calculatedValue) => Some(math.min(calculatedValue, halvedValue))
+          case None => Some(halvedValue)
+        }
       case _ =>
-        super.recommendMaxPartitionBytes()
+        // Else, use the value from the parent implementation
+        calculatedValueFromInputSize
     }
   }
 }
@@ -1495,6 +1506,12 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
-    new ProfilingAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
+    appInfoProvider match {
+      case singleAppProvider: SingleAppSummaryInfoProvider =>
+        new ProfilingAutoTuner(clusterProps, singleAppProvider, platform, driverInfoProvider)
+      case _ =>
+        throw new IllegalArgumentException(
+          "AppSummaryInfoBaseProvider must be an instance of SingleAppSummaryInfoProvider")
+    }
   }
 }

@@ -201,7 +201,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
    * Check if there are any scan stages with failed tasks due to GPU OOM errors
    * (GpuRetryOOM and GpuSplitAndRetryOOM).
    */
-  override def hasScanStagesWithGpuOom: Boolean = {
+  def hasScanStagesWithGpuOom: Boolean = {
     // Find stages with failed tasks due to GPU OOM errors
     val failedStagesWithGpuOom = app.failedTasks.collect {
       case task if SparkRapidsOomExceptions.gpuExceptionClassNames

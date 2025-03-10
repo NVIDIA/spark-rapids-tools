@@ -3359,7 +3359,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("test AutoTuner halves maxPartitionBytes when scan stages have GPU OOM failures") {
+  test("test AutoTuner reduces maxPartitionBytes when scan stages have GPU OOM failures") {
     val eventLog = s"$profilingLogDir/gpu_oom_eventlog.zstd"
     TrampolineUtil.withTempDir { tempDir =>
       val appArgs = new ProfileArgs(Array(
@@ -3377,7 +3377,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       assert(sparkProperties.contains("\"spark.sql.files.maxPartitionBytes\",\"10gb\""))
 
       // Compare the auto-tuner output to the expected results and assert that
-      // the maxPartitionBytes was halved to 5gb
+      // the maxPartitionBytes is reduced.
       val logFile = getOutputFilePath(tempDir, "profile.log")
       val profileLogContent = FSUtils.readFileContentAsUTF8(logFile)
       val actualResults = extractAutoTunerResults(profileLogContent)
@@ -3388,7 +3388,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
             |Spark Properties:
             |--conf spark.rapids.sql.batchSizeBytes=2147483647
             |--conf spark.rapids.sql.enabled=true
-            |--conf spark.sql.files.maxPartitionBytes=5120m
+            |--conf spark.sql.files.maxPartitionBytes=1851m
             |--conf spark.sql.shuffle.partitions=400
             |
             |Comments:
