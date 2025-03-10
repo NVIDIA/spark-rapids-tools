@@ -320,9 +320,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       AccumProfileResults(0, 0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
     val emptyNodeNames = Seq.empty[String]
     val emptyDiagnosticMetrics = HashMap.empty[String, AccumProfileResults]
-    // TODO: this has stage attempts. we should handle different attempts
     app.stageManager.getAllStages.map { sm =>
-      // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
       // count duplicate task attempts
@@ -358,13 +356,12 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
-   * Aggregates the SparkMetrics by stage. This is an internal method to populate the cached metrics
+   * Aggregates the SparkMetrics by completed stage information.
+   * This is an internal method to populate the cached metrics
    * to be used by other aggregators.
    * @param index AppIndex (used by the profiler tool)
    */
   private def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
-    // TODO: this has stage attempts. we should handle different attempts
-
     // For Photon apps, peak memory and shuffle write time need to be calculated from accumulators
     // instead of task metrics.
     // Approach:
@@ -447,7 +444,15 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.swBytesWrittenSum,
         perStageRec.swRecordsWrittenSum,
         perStageRec.swWriteTimeSum)  // converted to milliseconds by the aggregator
-      stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, stageRow)
+      // This logic is to handle the case where there are multiple attempts for a stage.
+      // We check if the StageLevelCache already has a row for the stage.
+      // If yes, we aggregate the metrics of the new row with the existing row.
+      // If no, we just store the new row.
+      val rowToStore = stageLevelSparkMetrics(index)
+        .get(sm.stageInfo.stageId)
+        .map(_.aggregateStageProfileMetric(stageRow))
+        .getOrElse(stageRow)
+      stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, rowToStore)
     }
   }
 }
