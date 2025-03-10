@@ -14,9 +14,9 @@
 
 # configs of labeler
 core_tools:
-  - files:
-      - 'core/**/*' # Changes applied to the core scala module
+- changed-files:
+  - any-glob-to-any-file: 'core/**/*'
+  
 user_tools:
-  - files:
-      - 'user_tools/**/*'
-
+- changed-files:
+  - any-glob-to-any-file: 'user_tools/**/*'
