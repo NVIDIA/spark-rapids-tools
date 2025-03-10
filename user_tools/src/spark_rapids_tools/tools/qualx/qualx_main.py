@@ -618,7 +618,8 @@ def predict(
         datasets=datasets,
         node_level_supp=node_level_supp,
         qual_tool_filter=qual_tool_filter,
-        qual_tool_output=qual_tool_output
+        qual_tool_output=qual_tool_output,
+        remove_failed_sql=False,
     )
     if profile_df.empty:
         raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will default to 1.0.')
