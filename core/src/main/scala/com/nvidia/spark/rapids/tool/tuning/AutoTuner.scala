@@ -1187,8 +1187,9 @@ class AutoTuner(
 }
 
 /**
- * Implementation of the `AutoTuner` designed for the Profiling Tool. This class can be used to
- * implement the logic to recommend AutoTuner configurations by the Profiling Tool.
+ * Implementation of the `AutoTuner` specific for the Profiling Tool.
+ * This class implements the logic to recommend AutoTuner configurations
+ * specifically for GPU event logs.
  */
 class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
