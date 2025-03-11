@@ -3359,6 +3359,83 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  Seq(true, false).foreach { hasGpuOOm =>
+    test(s"test AutoTuner recommends default max partition bytes when not set " +
+      s"[hasScanStagesWithGpuOom = $hasGpuOOm]") {
+      // mock the properties loaded from eventLog
+      val logEventsProps: mutable.Map[String, String] =
+        mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> "16",
+          "spark.executor.instances" -> "1",
+          "spark.executor.memory" -> "80g",
+          "spark.executor.resource.gpu.amount" -> "1",
+          "spark.executor.instances" -> "1",
+          "spark.task.resource.gpu.amount" -> "0.001",
+          "spark.rapids.memory.pinnedPool.size" -> "5g",
+          "spark.rapids.sql.enabled" -> "true",
+          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+          "spark.rapids.sql.concurrentGpuTasks" -> "4")
+      val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+      val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+        logEventsProps, Some(testSparkVersion), scanStagesWithGpuOom = hasGpuOOm)
+      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
+        .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+      val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
+      val autoTuner = ProfilingAutoTunerConfigsProvider
+        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+      val (properties, comments) = autoTuner.getRecommendedProperties()
+      val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |Spark Properties:
+            |--conf spark.dataproc.enhanced.execution.enabled=false
+            |--conf spark.dataproc.enhanced.optimizer.enabled=false
+            |--conf spark.executor.instances=8
+            |--conf spark.executor.memory=32768m
+            |--conf spark.executor.memoryOverhead=17612m
+            |--conf spark.locality.wait=0
+            |--conf spark.rapids.memory.pinnedPool.size=4096m
+            |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647
+            |--conf spark.rapids.sql.concurrentGpuTasks=2
+            |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+            |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+            |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+            |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+            |--conf spark.sql.files.maxPartitionBytes=512m
+            |
+            |Comments:
+            |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+            |- 'spark.executor.memoryOverhead' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+            |- 'spark.shuffle.manager' was not set.
+            |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+            |- 'spark.sql.files.maxPartitionBytes' was not set.
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, autoTunerOutput)
+    }
+  }
+
   test("test AutoTuner reduces maxPartitionBytes when scan stages have GPU OOM failures") {
     val eventLog = s"$profilingLogDir/gpu_oom_eventlog.zstd"
     TrampolineUtil.withTempDir { tempDir =>

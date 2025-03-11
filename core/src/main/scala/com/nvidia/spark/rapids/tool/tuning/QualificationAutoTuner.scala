@@ -27,7 +27,7 @@ import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
  */
 class QualificationAutoTuner(
     clusterProps: ClusterProperties,
-    appInfoProvider: QualAppSummaryInfoProvider,
+    appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider)
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
@@ -56,12 +56,8 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
-    appInfoProvider match {
-      case qualAppProvider: QualAppSummaryInfoProvider =>
-        new QualificationAutoTuner(clusterProps, qualAppProvider, platform, driverInfoProvider)
-      case _ =>
-        throw new IllegalArgumentException(
-          "'appInfoProvider' must be an instance of QualAppSummaryInfoProvider")
-    }
+    // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
+    //       passed to the `QualificationAutoTuner` instance.
+    new QualificationAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
   }
 }

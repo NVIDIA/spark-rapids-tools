@@ -83,6 +83,16 @@ trait AppInfoReadMetrics {
   def getRedundantReadSize: Long
 }
 
+trait AppInfoGpuOomCheck {
+  def hasScanStagesWithGpuOom: Boolean = false
+}
+
+/**
+ * Abstract class for Profiling App Summary Info Provider.
+ */
+abstract class BaseProfilingAppSummaryInfoProvider
+  extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck
+
 /**
  * A wrapper class to process the information embedded in a valid instance of
  * [[ApplicationSummaryInfo]].
@@ -91,7 +101,7 @@ trait AppInfoReadMetrics {
  * @param app the object resulting from profiling a single app.
  */
 class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
-  extends AppSummaryInfoBaseProvider {
+  extends BaseProfilingAppSummaryInfoProvider {
 
   private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
   override def isAppInfoAvailable: Boolean = Option(app).isDefined
@@ -201,7 +211,7 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
    * Check if there are any scan stages with failed tasks due to GPU OOM errors
    * (GpuRetryOOM and GpuSplitAndRetryOOM).
    */
-  def hasScanStagesWithGpuOom: Boolean = {
+  override def hasScanStagesWithGpuOom: Boolean = {
     // If the plugin is not enabled (i.e. non-GPU app), return false
     if (!app.appInfo.exists(_.pluginEnabled)) {
       return false

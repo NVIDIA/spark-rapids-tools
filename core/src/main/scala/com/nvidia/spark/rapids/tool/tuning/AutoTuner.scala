@@ -952,7 +952,7 @@ class AutoTuner(
    * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
    * which is one of the arguments of [[getRecommendedProperties]].
    */
-  def recommendMaxPartitionBytes(): Unit = {
+  private def recommendMaxPartitionBytes(): Unit = {
     val maxPartitionProp =
       getPropertyValue("spark.sql.files.maxPartitionBytes")
         .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
@@ -1188,7 +1188,7 @@ class AutoTuner(
  */
 class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
-    appInfoProvider: SingleAppSummaryInfoProvider,
+    appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider)
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
@@ -1507,11 +1507,11 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     appInfoProvider match {
-      case singleAppProvider: SingleAppSummaryInfoProvider =>
-        new ProfilingAutoTuner(clusterProps, singleAppProvider, platform, driverInfoProvider)
+      case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
+        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform, driverInfoProvider)
       case _ =>
-        throw new IllegalArgumentException(
-          "'appInfoProvider' must be an instance of SingleAppSummaryInfoProvider")
+        throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
+          s"${classOf[BaseProfilingAppSummaryInfoProvider]}")
     }
   }
 }

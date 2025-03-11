@@ -17,8 +17,7 @@
 package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
-
-import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 
 /**
@@ -47,6 +46,24 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
        systemMemory: Option[String] = Some("122880MiB"),
        numWorkers: Option[Int] = Some(4)): String = {
     buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers)
+  }
+
+  protected def getCpuMockInfoProvider(maxInput: Double,
+      spilledMetrics: Seq[Long],
+      jvmGCFractions: Seq[Double],
+      propsFromLog: mutable.Map[String, String],
+      sparkVersion: Option[String],
+      rapidsJars: Seq[String] = Seq(),
+      distinctLocationPct: Double = 0.0,
+      redundantReadSize: Long = 0,
+      meanInput: Double = 0.0,
+      meanShuffleRead: Double = 0.0,
+      shuffleStagesWithPosSpilling: Set[Long] = Set(),
+      shuffleSkewStages: Set[Long] = Set(),
+      scanStagesWithGpuOom: Boolean = false): AppSummaryInfoBaseProvider = {
+    new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
+      sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
+      shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom)
   }
 
   /**
