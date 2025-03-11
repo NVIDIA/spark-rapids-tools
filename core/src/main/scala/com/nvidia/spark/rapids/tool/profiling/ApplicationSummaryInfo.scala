@@ -88,9 +88,9 @@ trait AppInfoGpuOomCheck {
 }
 
 /**
- * Abstract class for Profiling App Summary Info Provider.
+ * Base class for Profiling App Summary Info Provider.
  */
-abstract class BaseProfilingAppSummaryInfoProvider
+class BaseProfilingAppSummaryInfoProvider
   extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck
 
 /**

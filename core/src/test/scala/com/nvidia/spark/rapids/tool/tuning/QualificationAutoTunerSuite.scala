@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
+
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 

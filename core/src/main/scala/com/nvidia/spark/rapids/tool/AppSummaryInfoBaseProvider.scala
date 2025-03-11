@@ -17,8 +17,9 @@
 package com.nvidia.spark.rapids.tool
 
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSQLTaskInputSizes, AppInfoSqlTaskAggMetricsVisitor, ApplicationSummaryInfo, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
+
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
 

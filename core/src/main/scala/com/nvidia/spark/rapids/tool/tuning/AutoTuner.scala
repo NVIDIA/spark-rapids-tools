@@ -916,14 +916,14 @@ class AutoTuner(
         val calculatedMaxPartitionBytes = Math.min(
           maxPartitionBytesNum *
             (autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB / inputBytesMax),
-          autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
+          autoTunerConfigsProvider.MAX_PARTITION_BYTES_UPPER_BOUND_MB)
         Some(calculatedMaxPartitionBytes.toLong)
       } else if (inputBytesMax > autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB) {
         // Decrease partition size
         val calculatedMaxPartitionBytes = Math.min(
           maxPartitionBytesNum /
             (inputBytesMax / autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB),
-          autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
+          autoTunerConfigsProvider.MAX_PARTITION_BYTES_UPPER_BOUND_MB)
         Some(calculatedMaxPartitionBytes.toLong)
       } else {
         // Do not recommend maxPartitionBytes
@@ -958,8 +958,12 @@ class AutoTuner(
         .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
     val recommended =
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
-        // TODO: Add a lower bound for maxPartitionBytes (say 64M).
-        calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
+        // Ensure that the calculated value is within bounds
+        val lowerBound = autoTunerConfigsProvider.MAX_PARTITION_BYTES_LOWER_BOUND_MB
+        val upperBound = autoTunerConfigsProvider.MAX_PARTITION_BYTES_UPPER_BOUND_MB
+        calculateMaxPartitionBytesInMB(maxPartitionProp)
+          .map(value => math.max(lowerBound, math.min(upperBound, value)).toString)
+          .orNull
       } else {
         s"${StringUtils.convertToMB(maxPartitionProp)}"
       }
@@ -1258,7 +1262,10 @@ trait AutoTunerConfigsProvider extends Logging {
   // value in MB
   val MAX_PARTITION_BYTES_RANGE_MB = 256L
   // value in MB
-  val MAX_PARTITION_BYTES_BOUND_MB: Int = 4 * 1024
+  val MAX_PARTITION_BYTES_UPPER_BOUND_MB: Int = 4 * 1024
+  // Lower bound for maxPartitionBytes (default value for row group size)
+  // Ref: https://parquet.apache.org/docs/file-format/configurations/
+  val MAX_PARTITION_BYTES_LOWER_BOUND_MB: Int = 512
   val MAX_PARTITION_BYTES: String = "512m"
   val DEF_SHUFFLE_PARTITIONS = "200"
   val DEF_SHUFFLE_PARTITION_MULTIPLIER: Int = 2
