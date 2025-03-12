@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,6 +56,8 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+    // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
+    //       passed to the `QualificationAutoTuner` instance.
     new QualificationAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
   }
 }

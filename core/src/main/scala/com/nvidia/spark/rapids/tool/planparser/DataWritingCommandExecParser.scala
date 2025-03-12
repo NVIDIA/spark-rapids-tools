@@ -244,15 +244,44 @@ object DataWritingCommandExecParser {
         args.headOption.map(_.split("\\s+").last.trim).getOrElse(StringUtils.UNKNOWN_EXTRACT)
       // Extract the data format from the third argument
       val thirdArg = args.lift(2).getOrElse("").trim
-      val format = if (thirdArg.startsWith("[")) {
-        // Optional parameter is present in the eventlog. Get the fourth parameter by skipping the
-        // optional parameter string.
+      val rawFormat = if (thirdArg.startsWith("[")) {
+        // Optional parameter is present in the eventlog.
+        // Skip the optional parameters( `[params,*], FileFormat` )
+        // and pick the FileFormat
         thirdArg.split("(?<=],)")
           .map(_.trim).lift(1).getOrElse("").split(",").headOption.getOrElse("").trim
       } else {
         thirdArg.split(",").headOption.getOrElse("").trim
       }
+      val format = extractFormatName(rawFormat)
       (path, format)
+    }
+
+    // Extracts the file format from a class object string, such as
+    // "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
+    //
+    // This function is designed to handle cases where the RAPIDS plugin logs raw object names
+    // instead of a user-friendly file format name. For example, it extracts "Parquet" from
+    // "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
+    // Refer: https://github.com/NVIDIA/spark-rapids-tools/issues/1561
+    //
+    // If the input string does not match the expected pattern, the function returns the original
+    // string as a fallback.
+    //
+    // @param formatStr The raw format string, typically containing the class name of the file
+    //                  format.
+    // @return A user-friendly file format name (e.g., "Parquet") or the original string if no
+    //         match is found.
+    def extractFormatName(formatStr: String): String = {
+      // Extracting file format from the full object string
+      // 1. `.*\.` - Matches sequence of character between literal dots
+      // 2. `([a-zA-Z]+)FileFormat` - Captures fileFormat from the class name
+      // 3. `(@.*)` - Group capturing @ followed by any character
+      val formatRegex = """.*\.Gpu([a-zA-Z]+)FileFormat(@.*)?""".r
+      formatStr match {
+        case formatRegex(fileFormat, _) => fileFormat
+        case _ => formatStr // Return original if no match
+      }
     }
 
     // Helper function to determine the write mode (e.g., Append, Overwrite) from the description.

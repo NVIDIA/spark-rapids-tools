@@ -45,13 +45,14 @@ trait AppFailedJobsViewTrait extends ViewableTrait[FailedJobsProfileResults] {
     }
     jobsFailed.map { case (id, jc) =>
       val failureStr = jc.failedReason.getOrElse("")
-      FailedJobsProfileResults(index, id, jc.jobResult.getOrElse(StringUtils.UNKNOWN_EXTRACT),
+      FailedJobsProfileResults(index, id, jc.sqlID,
+        jc.jobResult.getOrElse(StringUtils.UNKNOWN_EXTRACT),
         StringUtils.renderStr(failureStr, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 
   override def sortView(rows: Seq[FailedJobsProfileResults]): Seq[FailedJobsProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.jobId, cols.jobResult))
+    rows.sortBy(cols => (cols.appIndex, cols.jobId, cols.sqlID, cols.jobResult))
   }
 }
 
