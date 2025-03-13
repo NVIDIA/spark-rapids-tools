@@ -660,6 +660,7 @@ class AutoTuner(
       }
       configureShuffleReaderWriterNumThreads(execCores)
       configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
+      // TODO: Should we recommend AQE even if cluster properties are not enabled?
       recommendAQEProperties()
     } else {
       addDefaultComments()
@@ -772,6 +773,7 @@ class AutoTuner(
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
       .getOrElse("false").toLowerCase
     if (aqeEnabled == "false") {
+      // TODO: Should we recommend enabling AQE if not set?
       appendComment(autoTunerConfigsProvider.commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
     appInfoProvider.getSparkVersion match {
@@ -787,6 +789,7 @@ class AutoTuner(
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
             // The ideal setting is for the parallelism of the cluster
             val numCoresPerExec = calcNumExecutorCores
+            // TODO: Should this based on the recommended cluster instead of source cluster props?
             val numExecutorsPerWorker = clusterProps.gpu.getCount
             val numWorkers = clusterProps.system.getNumWorkers
             if (numExecutorsPerWorker != 0 && numWorkers != 0) {
@@ -810,6 +813,7 @@ class AutoTuner(
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
       }
     }
+    var recInitialPartitionNum = 0
     if (appInfoProvider.getMeanInput > autoTunerConfigsProvider.AQE_INPUT_SIZE_BYTES_THRESHOLD &&
       appInfoProvider.getMeanShuffleRead >
         autoTunerConfigsProvider.AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
@@ -821,16 +825,35 @@ class AutoTuner(
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
-        platform.getGpuOrDefault.getInitialPartitionNum.foreach { initialPartitionNum =>
-          appendRecommendation(
-            "spark.sql.adaptive.coalescePartitions.initialPartitionNum", initialPartitionNum)
-        }
+        recInitialPartitionNum = platform.getGpuOrDefault.getInitialPartitionNum.getOrElse(0)
       }
       // We need to set this to false, else Spark ignores the target size specified by
       // spark.sql.adaptive.advisoryPartitionSizeInBytes.
       // Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html
       appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst", "false")
     }
+
+    val recShufflePartitions = recommendations.get("spark.sql.shuffle.partitions")
+      .map(_.getTuneValue().toInt)
+
+    // scalastyle:off line.size.limit
+    // Determine whether to recommend initialPartitionNum based on shuffle partitions recommendation
+    recShufflePartitions match {
+      case Some(shufflePartitions) if shufflePartitions >= recInitialPartitionNum =>
+        // Skip recommending 'initialPartitionNum' when:
+        // - AutoTuner has already recommended 'spark.sql.shuffle.partitions' AND
+        // - The recommended shuffle partitions value is sufficient (>= recInitialPartitionNum)
+        // This is because AQE will use the recommended 'spark.sql.shuffle.partitions' by default.
+        // Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html#coalescing-post-shuffle-partitions
+      case _ =>
+        // Set 'initialPartitionNum' when either:
+        // - AutoTuner has not recommended 'spark.sql.shuffle.partitions' OR
+        // - Recommended shuffle partitions is small (< recInitialPartitionNum)
+        appendRecommendation("spark.sql.adaptive.coalescePartitions.initialPartitionNum",
+          recInitialPartitionNum)
+        appendRecommendation("spark.sql.shuffle.partitions", recInitialPartitionNum)
+    }
+    // scalastyle:on line.size.limit
 
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
@@ -985,32 +1008,43 @@ class AutoTuner(
   }
 
   /**
+   * Internal method to recommend 'spark.sql.shuffle.partitions' based on spills and skew.
+   * This method can be overridden by Profiling/Qualification AutoTuners to provide custom logic.
+   */
+  protected def recommendShufflePartitionsInternal(inputShufflePartitions: Int): Int = {
+    var shufflePartitions = inputShufflePartitions
+    val lookup = "spark.sql.shuffle.partitions"
+    val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
+    if (shuffleStagesWithPosSpilling.nonEmpty) {
+      val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
+      if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
+        appendOptionalComment(lookup,
+          "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
+            s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
+            s"  case since keys will still hash to the same task.")
+      } else {
+        shufflePartitions *= autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
+        // Could be memory instead of partitions
+        appendOptionalComment(lookup,
+          s"'$lookup' should be increased since spilling occurred in shuffle stages.")
+      }
+    }
+    shufflePartitions
+  }
+
+  /**
    * Recommendations for 'spark.sql.shuffle.partitions' based on spills and skew in shuffle stages.
    * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
    * which is one of the arguments of [[getRecommendedProperties]].
    */
-  def recommendShufflePartitions(): Unit = {
+  private def recommendShufflePartitions(): Unit = {
     val lookup = "spark.sql.shuffle.partitions"
     var shufflePartitions =
       getPropertyValue(lookup).getOrElse(autoTunerConfigsProvider.DEF_SHUFFLE_PARTITIONS).toInt
 
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
-      val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
-      if (shuffleStagesWithPosSpilling.nonEmpty) {
-        val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
-        if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-          appendOptionalComment(lookup,
-            "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
-            s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
-            s"  case since keys will still hash to the same task.")
-        } else {
-           shufflePartitions *= autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
-          // Could be memory instead of partitions
-          appendOptionalComment(lookup,
-            s"'$lookup' should be increased since spilling occurred in shuffle stages.")
-        }
-      }
+      shufflePartitions = recommendShufflePartitionsInternal(shufflePartitions)
     }
     // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
     // feature before recommending shuffle partitions.
@@ -1238,6 +1272,27 @@ class ProfilingAutoTuner(
       case _ =>
         // Else, use the value from the parent implementation
         calculatedValueFromInputSize
+    }
+  }
+
+  /**
+   * Overrides the calculation for 'spark.sql.shuffle.partitions'.
+   * This method checks for task OOM errors in shuffle stages and recommends to increase
+   * shuffle partitions if task OOM errors occurred.
+   */
+  override def recommendShufflePartitionsInternal(inputShufflePartitions: Int): Int = {
+    val calculatedValue = super.recommendShufflePartitionsInternal(inputShufflePartitions)
+    val lookup = "spark.sql.shuffle.partitions"
+    getPropertyValue(lookup) match {
+      case Some(currentValue) if appInfoProvider.hasShuffleStagesWithOom =>
+        // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
+        val shufflePartitions = currentValue.toInt *
+          autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
+        appendOptionalComment(lookup,
+          s"'$lookup' should be increased since task OOM occurred in shuffle stages.")
+        shufflePartitions
+      case _ =>
+        calculatedValue
     }
   }
 }

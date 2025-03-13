@@ -20,6 +20,8 @@ import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
 import com.nvidia.spark.rapids.tool.views.{IoMetrics, WriteOpProfileResult}
 
+import org.apache.spark.ExecutorLostFailure
+
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
     dsInfo: Seq[DataSourceProfileResult],
@@ -85,6 +87,7 @@ trait AppInfoReadMetrics {
 
 trait AppInfoGpuOomCheck {
   def hasScanStagesWithGpuOom: Boolean = false
+  def hasShuffleStagesWithOom: Boolean = false
 }
 
 /**
@@ -238,5 +241,45 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
 
     // Check if any failed GPU OOM stage is also a scan stage
     failedStagesWithGpuOom.exists(scanStages.contains)
+  }
+
+  /**
+   * Check if there are any shuffle stages with failed tasks due to OOM errors.
+   * This method checks for failed shuffle stages with OOM errors in the task's end reason.
+   */
+  override def hasShuffleStagesWithOom: Boolean = {
+    // If the plugin is not enabled (i.e. non-GPU app) return false
+    if (!app.appInfo.exists(_.pluginEnabled)) {
+      return false
+    }
+
+    // Get stage IDs of failed shuffle stages
+    val failedStagesWithShuffle = app.failedStages.collect {
+      case stage if stage.name.contains(SparkRapidsOomExceptions.gpuShuffleClassName) =>
+        stage.stageId
+    }.toSet
+
+    if (failedStagesWithShuffle.isEmpty) {
+      return false
+    }
+
+    // Regular expressions to identify OOM failures in task's end reason
+    // - ExecutorLostFailure
+    // - Exit code 137 (i.e. process was terminated with SIGKILL)
+    val oomFailurePatterns = Seq(
+      classOf[ExecutorLostFailure].getSimpleName,
+      UnixExitCode.FORCE_KILLED.toString
+    ).map(_.r)
+
+    // Check if any failed task in shuffle stages have OOM failures
+    app.failedTasks.exists { task =>
+      if (failedStagesWithShuffle.contains(task.stageId)) {
+        // Check if the task failed due to OOM
+        oomFailurePatterns.forall(p => p.findFirstIn(task.endReason).isDefined)
+      } else {
+        // Ignore if the failed task is not in a shuffle stage
+        false
+      }
+    }
   }
 }

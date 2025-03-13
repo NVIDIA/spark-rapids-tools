@@ -47,7 +47,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val meanShuffleRead: Double,
     val shuffleStagesWithPosSpilling: Set[Long],
     val shuffleSkewStages: Set[Long],
-    val scanStagesWithGpuOom: Boolean) extends BaseProfilingAppSummaryInfoProvider {
+    val scanStagesWithGpuOom: Boolean,
+    val shuffleStagesWithOom: Boolean) extends BaseProfilingAppSummaryInfoProvider {
   override def isAppInfoAvailable = true
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
@@ -64,6 +65,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
   override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
   override def hasScanStagesWithGpuOom: Boolean = scanStagesWithGpuOom
+  override def hasShuffleStagesWithOom: Boolean = shuffleStagesWithOom
 }
 
 /**
@@ -142,10 +144,11 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
       meanShuffleRead: Double = 0.0,
       shuffleStagesWithPosSpilling: Set[Long] = Set(),
       shuffleSkewStages: Set[Long] = Set(),
-      scanStagesWithGpuOom: Boolean = false): AppSummaryInfoBaseProvider = {
+      scanStagesWithGpuOom: Boolean = false,
+      shuffleStagesWithOom: Boolean = false): AppSummaryInfoBaseProvider = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
-      shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom)
+      shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom, shuffleStagesWithOom)
   }
 
   /**
