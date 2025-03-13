@@ -27,6 +27,8 @@ import org.apache.spark.internal.Logging
 object StringUtils extends Logging {
   // Constant used to replace the unknown values
   val UNKNOWN_EXTRACT: String = "unknown"
+  // Constant used to replace values that do not apply in a specific context.
+  val INAPPLICABLE_EXTRACT: String = "inapplicable"
   // Regular expression for duration-format 'H+:MM:SS.FFF'
   // Note: this is not time-of-day. Hours can be larger than 12.
   private val regExDurationFormat = "^(\\d+):([0-5]\\d):([0-5]\\d\\.\\d+)$"
@@ -87,7 +89,7 @@ object StringUtils extends Logging {
       doEscapeMetaCharacters: Boolean,
       maxLength: Int = 100,
       showEllipses: Boolean = false): String = {
-    val truncatedStr = if (maxLength > 0) {
+    val truncatedStr = if (maxLength > 0 && str.length > maxLength) {
       val tmpStr = str.substring(0, Math.min(str.size, maxLength))
       if (showEllipses && tmpStr.length > 4) {
         // do not show ellipses for strings shorter than 4 characters.

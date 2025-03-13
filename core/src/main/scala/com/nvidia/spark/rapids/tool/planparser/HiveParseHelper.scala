@@ -37,7 +37,7 @@ case class HiveScanSerdeClasses(className: String, format: String) extends Loggi
 
 // Utilities used to handle Hive Ops.
 object HiveParseHelper extends Logging {
-  val SCAN_HIVE_LABEL = "scan hive"
+  private val SCAN_HIVE_LABEL = "scan hive"
   val SCAN_HIVE_EXEC_NAME = "HiveTableScanExec"
   val INSERT_INTO_HIVE_LABEL = "InsertIntoHiveTable"
 
@@ -67,8 +67,12 @@ object HiveParseHelper extends Logging {
     isHiveTableScanNode(node.name)
   }
 
+  def getOptionalHiveFormat(data: String): Option[String] = {
+    LOADED_SERDE_CLASSES.find(_.accepts(data)).map(_.format)
+  }
+
   def getHiveFormatFromSimpleStr(str: String): String = {
-    LOADED_SERDE_CLASSES.find(_.accepts(str)).map(_.format).getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    getOptionalHiveFormat(str).getOrElse(StringUtils.UNKNOWN_EXTRACT)
   }
 
   // Given a "scan hive" NodeGraph, construct the MetaData based on the SerDe class.

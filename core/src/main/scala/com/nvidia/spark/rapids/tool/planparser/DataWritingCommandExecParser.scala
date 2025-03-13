@@ -179,163 +179,6 @@ object DataWritingCommandExecParser {
   }
 
   /**
-   * Extracts metadata information from a write operation node description.
-   * This method is specifically designed to parse the description of
-   * `InsertIntoHadoopFsRelationCommand` nodes and extract relevant details
-   * such as the output path, data format, write mode, catalog information,
-   * and output columns.
-   * An example of the pattern is:
-   * Execute InsertIntoHadoopFsRelationCommand /path/to/warehouse/database/table, false, format,
-   *   [key1=value1, key2=value2], Append, `SparkCatalog`.`database`.`table`, ClassName,
-   *   [outputColumns]
-   *
-   * The method performs the following steps:
-   * — Extracts the output path and data format from the node description.
-   * — Determines the write mode (e.g., Append, Overwrite) based on specific keywords in the
-   *   description.
-   * — Extracts catalog information (database and table name) from the output path.
-   * — Extracts the output columns if available in the description.
-   * — Builds and returns a `WriteOperationMetadataTrait` object encapsulating the extracted
-   *   metadata.
-   *
-   * This method includes error handling to ensure graceful fallback to default values
-   * (e.g., `UNKNOWN_EXTRACT`) in case of unexpected input or parsing errors.
-   *
-   * @param execName The name of the execution command (e.g., `InsertIntoHadoopFsRelationCommand`).
-   * @param nodeDescr The description of the node, typically containing details about the write
-   *                  operation.
-   * @return A `WriteOperationMetadataTrait` object containing the extracted metadata.
-   */
-  private def extractWriteOpRecord(
-      execName: String, nodeDescr: String): WriteOperationMetadataTrait = {
-    // Helper function to extract catalog information (database and table name) from the output
-    // path.
-    def extractCatalog(path: String): (String, String) = {
-      try {
-        // The location path contains the database and the table as the last 2 entries.
-        // Example: gs:///path/to/warehouse/database/table
-        // Split the URI into parts by "/"
-        val pathParts = path.split("/").filter(_.nonEmpty)
-        if (pathParts.length >= 2) {
-          // Extract the last two parts as database and table name
-          val database = pathParts(pathParts.length - 2)
-          val tableName = pathParts.last
-          (database, tableName)
-        } else {
-          // If not enough parts, return UNKNOWN_EXTRACT
-          (StringUtils.UNKNOWN_EXTRACT, StringUtils.UNKNOWN_EXTRACT)
-        }
-      } catch {
-        // Handle any unexpected errors gracefully
-        case _: Exception => (StringUtils.UNKNOWN_EXTRACT, StringUtils.UNKNOWN_EXTRACT)
-      }
-    }
-
-    // Helper function to extract the output path and data format from the node description.
-    def extractPathAndFormat(args: Array[String]): (String, String) = {
-      // This method expects the arguments to be nodeDescr.split(",", 3)
-      // `Execute cmd path/to/warehouse/db/table, false, parquet, [write options],.*`.
-      // — 1st arg is always the cmd followed by the path.
-      // — 2nd arg is boolean argument that we do not care about.
-      // — 3rd arg is either the format, or the list of write options.
-
-      // Extract the path from the first argument
-      val path =
-        args.headOption.map(_.split("\\s+").last.trim).getOrElse(StringUtils.UNKNOWN_EXTRACT)
-      // Extract the data format from the third argument
-      val thirdArg = args.lift(2).getOrElse("").trim
-      val rawFormat = if (thirdArg.startsWith("[")) {
-        // Optional parameter is present in the eventlog.
-        // Skip the optional parameters( `[params,*], FileFormat` )
-        // and pick the FileFormat
-        thirdArg.split("(?<=],)")
-          .map(_.trim).lift(1).getOrElse("").split(",").headOption.getOrElse("").trim
-      } else {
-        thirdArg.split(",").headOption.getOrElse("").trim
-      }
-      val format = extractFormatName(rawFormat)
-      (path, format)
-    }
-
-    // Extracts the file format from a class object string, such as
-    // "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
-    //
-    // This function is designed to handle cases where the RAPIDS plugin logs raw object names
-    // instead of a user-friendly file format name. For example, it extracts "Parquet" from
-    // "com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c".
-    // Refer: https://github.com/NVIDIA/spark-rapids-tools/issues/1561
-    //
-    // If the input string does not match the expected pattern, the function returns the original
-    // string as a fallback.
-    //
-    // @param formatStr The raw format string, typically containing the class name of the file
-    //                  format.
-    // @return A user-friendly file format name (e.g., "Parquet") or the original string if no
-    //         match is found.
-    def extractFormatName(formatStr: String): String = {
-      // Extracting file format from the full object string
-      // 1. `.*\.` - Matches sequence of character between literal dots
-      // 2. `([a-zA-Z]+)FileFormat` - Captures fileFormat from the class name
-      // 3. `(@.*)` - Group capturing @ followed by any character
-      val formatRegex = """.*\.Gpu([a-zA-Z]+)FileFormat(@.*)?""".r
-      formatStr match {
-        case formatRegex(fileFormat, _) => fileFormat
-        case _ => formatStr // Return original if no match
-      }
-    }
-
-    // Helper function to determine the write mode (e.g., Append, Overwrite) from the description.
-    def extractWriteMode(description: String): String = {
-      val modes = Map(
-        ", Append," -> "Append",
-        ", Overwrite," -> "Overwrite",
-        ", ErrorIfExists," -> "ErrorIfExists",
-        ", Ignore," -> "Ignore"
-      )
-      // Match the description against known write modes
-      modes.collectFirst { case (key, mode) if description.contains(key) => mode }
-        .getOrElse(StringUtils.UNKNOWN_EXTRACT)
-    }
-
-    // Helper function to extract output columns from the node description.
-    def extractOutputColumns(description: String): Option[String] = {
-      // The output columns is found as the last sequence inside a bracket. This method, uses a
-      // regex to match on string values inside a bracket. Then it picks the last one.
-      // Use a regular expression to find column definitions enclosed in square brackets.
-      val columnsRegex = """\[(.*?)\]""".r
-      columnsRegex.findAllMatchIn(description).map(_.group(1)).toList.lastOption
-        .map(_.replaceAll(",\\s+", ";"))  // Replace commas with semicolons for better readability
-    }
-
-    // Parse the node description into arguments
-    val splitArgs = nodeDescr.split(",", 3)
-
-    // Extract the output path and data format
-    val (path, format) = extractPathAndFormat(splitArgs)
-
-    // Extract the write mode (e.g., Append, Overwrite)
-    val writeMode = extractWriteMode(nodeDescr)
-
-    // Extract catalog information (database and table name) from the output path
-    val (catalogDB, catalogTable) = extractCatalog(path)
-
-    // Extract the output columns, if available
-    val outColumns = extractOutputColumns(nodeDescr)
-
-    // Build and return the metadata object encapsulating all extracted information
-    WriteOperationMetaBuilder.build(
-      execName = execName,
-      dataFormat = format,
-      outputPath = Option(path),
-      outputColumns = outColumns,
-      writeMode = writeMode,
-      tableName = catalogTable,
-      dataBaseName = catalogDB,
-      fullDescr = Some(nodeDescr)
-    )
-  }
-
-  /**
    * Extracts metadata information from a given SparkPlanGraphNode representing a write operation.
    *
    * This method determines the type of write operation (e.g., Delta Lake or other supported
@@ -368,8 +211,10 @@ object DataWritingCommandExecParser {
     cmdWrapper match {
       case Some(cmdWrapper) =>
         // If the command is InsertIntoHadoopFsRelationCommand, extract detailed metadata.
-        if (cmdWrapper.execName == DataWritingCommandExecParser.insertIntoHadoopCMD) {
-          extractWriteOpRecord(cmdWrapper.execName, node.desc)
+        if (InsertIntoHadoopExtract.accepts(cmdWrapper.execName)) {
+          InsertIntoHadoopExtract.buildWriteOp(nodeDescr = node.desc)
+        } else if (InsertIntoHiveExtract.accepts(node.name)) {
+          InsertIntoHiveExtract.buildWriteOp(nodeDescr = node.desc)
         } else {
           // For other commands, build metadata using the command wrapper information.
           WriteOperationMetaBuilder.build(

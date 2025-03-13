@@ -46,7 +46,8 @@ class WriteOperationParserSuite extends FunSuite {
     expectedOutputColumns: String,
     expectedWriteMode: String,
     expectedTableName: String,
-    expectedDatabaseName: String): Unit = {
+    expectedDatabaseName: String,
+    expectedPartitionCols: String): Unit = {
 
     val metadata: WriteOperationMetadataTrait =
       DataWritingCommandExecParser.getWriteOpMetaFromNode(node)
@@ -58,33 +59,12 @@ class WriteOperationParserSuite extends FunSuite {
     assert(metadata.writeMode() == expectedWriteMode, "writeMode")
     assert(metadata.table() == expectedTableName, "tableName")
     assert(metadata.dataBase() == expectedDatabaseName, "databaseName")
-  }
-  // scalastyle:off line.size.limit
-  test("InsertIntoHadoopFsRelationCommand - Common case") {
-    val node = new SparkPlanGraphNode(
-      id = 1,
-      name = "Execute InsertIntoHadoopFsRelationCommand",
-      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
-        "false, Parquet, " +
-        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
-        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
-        "[col01, col02, col03]",
-      Seq.empty
-    )
-    testGetWriteOpMetaFromNode(
-      node,
-      expectedExecName = "InsertIntoHadoopFsRelationCommand",
-      expectedDataFormat = "Parquet",
-      expectedOutputPath = "gs://path/to/database/table1",
-      expectedOutputColumns = "col01;col02;col03",
-      expectedWriteMode = "Append",
-      expectedTableName = "table1",
-      expectedDatabaseName = "database"
-    )
+    assert(metadata.partitions() == expectedPartitionCols, "partitionCols")
   }
 
-  test("getWriteOpMetaFromNode - Unknown command") {
+  // scalastyle:off line.size.limit
+  test("getWriteOpMetaFromNode  — Unknown command") {
+    // unknown cmd should return unknown values
     val node = new SparkPlanGraphNode(
       id = 2,
       name = "UnknownWrite",
@@ -99,11 +79,164 @@ class WriteOperationParserSuite extends FunSuite {
       expectedOutputColumns = StringUtils.UNKNOWN_EXTRACT,
       expectedWriteMode = StringUtils.UNKNOWN_EXTRACT,
       expectedTableName = StringUtils.UNKNOWN_EXTRACT,
-      expectedDatabaseName = StringUtils.UNKNOWN_EXTRACT
+      expectedDatabaseName = StringUtils.UNKNOWN_EXTRACT,
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
     )
   }
 
-  test("getWriteOpMetaFromNode - Gpu logs profiler case") {
+  test("InsertIntoHadoopFsRelationCommand — No CatalogMeta") {
+    // the writeOp writes into a table, without "catalogTable" information
+    val node = new SparkPlanGraphNode(
+      id = 1,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+        "false, Parquet, " +
+        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
+        "Append, `spark_catalog`.`database`.`table1`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
+        "[col01, col02, col03]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "gs://path/to/database/table1",
+      expectedOutputColumns = "col01;col02;col03",
+      expectedWriteMode = "Append",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — Format is 4th element") {
+    // verify that the format is extracted correctly when the format is the 4th element in the
+    // arguments list.
+    val node = new SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+        "false, [paths=(path)], Parquet, " +
+        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
+        "Append, `spark_catalog`.`database`.`table1`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
+        "[col01]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "gs://path/to/database/table1",
+      expectedOutputColumns = "col01",
+      expectedWriteMode = "Append",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database",
+      expectedPartitionCols = "paths=(path)"
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — Empty output columns") {
+    // empty output columns appear as empty string.
+    val node = new SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+        "false, Parquet, " +
+        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
+        "Append, `database`.`table1`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
+        "[]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "gs://path/to/database/table1",
+      expectedOutputColumns = "",
+      expectedWriteMode = "Append",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — Long schema") {
+    // Long schema shows up as ellipses in the description.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
+        "false, [paths=(path)], Parquet, " +
+        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
+        "Append, `spark_catalog`.`database`.`table1`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
+        "[col01, col02, col03, ... 4 more fields]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "gs://path/to/database/table1",
+      expectedOutputColumns = "col01;col02;col03;... 4 more fields",
+      expectedWriteMode = "Append",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database",
+      expectedPartitionCols = "paths=(path)"
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — CatalogEntry and Partitions") {
+    // Long schema shows up as ellipses in the description.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/metastore/database1.db/tableName, " +
+        "false, [pcol_00#298], Parquet, [serialization.format=1, mergeSchema=false, " +
+        "__hive_compatible_bucketed_table_insertion__=true, \npartitionOverwriteMode=DYNAMIC], " +
+        "Overwrite, CatalogTable(\n" +
+        "Database: database1\nTable: tableName\nOwner: spark\n" +
+        "Created Time: Wed Feb 19 00:07:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.5.1\n" +
+        "Type: MANAGED\nProvider: hive\nTable Properties: [transient_lastDdlTime=1739923634]\n" +
+        "Location: gs://path/to/metastore/database1.db/tableName\n" +
+        "Serde Library: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe\n" +
+        "InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat\n" +
+        "OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat\n" +
+        "Storage Properties: [serialization.format=1]\nPartition Provider: Catalog\n" +
+        "Partition Columns: [`pcol_00`]\nSchema: root\n |-- col_00: string (nullable = true)\n" +
+        " |-- col_01: string (nullable = true)\n |-- col_02: integer (nullable = true)\n" +
+        " |-- col_03: decimal(18,2) (nullable = true)\n |-- col_04: string (nullable = true)\n" +
+        " |-- col_05: string (nullable = true)\n |-- col_06: integer (nullable = true)\n" +
+        " |-- col_07: decimal(18,2) (nullable = true)\n |-- col_08: string (nullable = true)\n" +
+        " |-- col_09: string (nullable = true)\n |-- col_10: integer (nullable = true)\n" +
+        " |-- col_11: decimal(18,2) (nullable = true)\n |-- col_12: decimal(18,2) (nullable = true)\n" +
+        " |-- col_13: long (nullable = true)\n |-- pcol_00: string (nullable = true)\n" +
+        "), org.apache.spark.sql.execution.datasources.CatalogFileIndex@1eaf6b4e, " +
+        "[col_00, col_01, col_02, col_03, col_04, col_05, col_06, col_07, col_08, col_09, col_10, " +
+        "col_11, col_12, col_13, pcol_00]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "HiveParquet",
+      expectedOutputPath = "gs://path/to/metastore/database1.db/tableName",
+      expectedOutputColumns = "col_00;col_01;col_02;col_03;col_04;col_05;col_06;col_07;col_08;col_09;col_10;col_11;col_12;col_13;pcol_00",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = "tableName",
+      expectedDatabaseName = "database1",
+      expectedPartitionCols = "pcol_00"
+    )
+  }
+
+  test("GpuInsertIntoHadoopFsRelationCommand — Broken RAPIDS formats") {
+    // The GPU eventlog may have incorrect formats
+    // https://github.com/NVIDIA/spark-rapids-tools/issues/1561
+    // this test ensures that the tools can tolerate the broken formats by converting them to
+    // proper formats.
     val testFileFormats = Seq(
       ("com.nvidia.spark.rapids.GpuParquetFileFormat@9f5022c", "Parquet"),
       ("com.nvidia.spark.rapids.GpuOrcFileFormat@123abc", "Orc"),
@@ -118,25 +251,133 @@ class WriteOperationParserSuite extends FunSuite {
         desc = s"Execute GpuInsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
           s"false, $format, " +
           "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-          "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+          "Append, `spark_catalog`.`database`.`table1`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
           "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
           "[col01, col02, col03]",
         Seq.empty
       )
       testGetWriteOpMetaFromNode(
         node,
-        expectedExecName = "InsertIntoHadoopFsRelationCommand",
+        expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
         expectedDataFormat = expectedDataFormat,
         expectedOutputPath = "gs://path/to/database/table1",
         expectedOutputColumns = "col01;col02;col03",
         expectedWriteMode = "Append",
         expectedTableName = "table1",
-        expectedDatabaseName = "database"
+        expectedDatabaseName = "database",
+        expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
       )
     }
   }
 
-  test("AppendDataExecV1 - delta format") {
+  test("GpuInsertIntoHadoopFsRelationCommand — Gpu log with CatalogTable entry") {
+    // This test ensures that we can parse GpuInsert when there is a CatalogTable defined.
+    // The format in this test should be HiveParquet because we extract the format from the serDe
+    // library.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute GpuInsertIntoHadoopFsRelationCommand",
+      desc = "Execute GpuInsertIntoHadoopFsRelationCommand gs://path/to/metastore/databaseName/table1, " +
+        "false, [p0#23, p1#30], com.nvidia.spark.rapids.GpuParquetFileFormat@4be4680b, " +
+        "[serialization.format=1, mergeSchema=false, __hive_compatible_bucketed_table_insertion__=true, " +
+        "partitionOverwriteMode=DYNAMIC], " +
+        "Overwrite, " +
+        "CatalogTable(\nDatabase: databaseName\nTable: table1\nOwner: root\n" +
+        "Created Time: Tue Feb 25 16:58:00 UTC 2025\\nLast Access: UNKNOWN\nCreated By: Spark 3.3.2\n" +
+        "Type: EXTERNAL\nProvider: hive\nTable Properties: [transient_lastDdlTime=1740502680]\n" +
+        "Location: gs://path/to/metastore/databaseName/table1\n" +
+        "Serde Library: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe\n" +
+        "InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat\n" +
+        "OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat\n" +
+        "Storage Properties: [serialization.format=1]\\nPartition Provider: Catalog\n" +
+        "Partition Columns: [`p0`, `p1`]\n" +
+        "Schema: root\n |-- col_00: string (nullable = true)\\n" +
+        " |-- col_01: string (nullable = true)\n |-- col_02: string (nullable = true)\n" +
+        " |-- col_03: double (nullable = true)\n |-- col_04: integer (nullable = true)\n" +
+        " |-- col_05: double (nullable = true)\n |-- p0: string (nullable = true)\n" +
+        " |-- p1: string (nullable = true)\n), " +
+        "org.apache.spark.sql.execution.datasources.CatalogFileIndex@8fc69d8f, " +
+        "[col_00, col_01, col_02, col_03, col_04, col_05, p0, p1], false, 0",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "HiveParquet",
+      expectedOutputPath = "gs://path/to/metastore/databaseName/table1",
+      expectedOutputColumns = "col_00;col_01;col_02;col_03;col_04;col_05;p0;p1",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = "table1",
+      expectedDatabaseName = "databaseName",
+      expectedPartitionCols = "p0;p1"
+    )
+  }
+
+  test("GpuInsertIntoHadoopFsRelationCommand — Insert into file (no Database/Table)") {
+    // This tests when an exec does not have a table. Instead, it writes immediately to a file.
+    // In that case, the write operation should not have a database/table names.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute GpuInsertIntoHadoopFsRelationCommand",
+      desc = "Execute GpuInsertIntoHadoopFsRelationCommand " +
+        "file:/tmp/local/file/random-uuid, false, " +
+        "com.nvidia.spark.rapids.GpuParquetFileFormat@421e46ed, " +
+        "[path=/tmp/local/file/random-uuid/], " +
+        "Overwrite, [age, name], false, 0",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "file:/tmp/local/file/random-uuid",
+      expectedOutputColumns = "age;name",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = StringUtils.INAPPLICABLE_EXTRACT,
+      expectedDatabaseName = StringUtils.INAPPLICABLE_EXTRACT,
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("GpuInsertIntoHadoopFsRelationCommand — CatalogTable entry with path enclosed in brackets") {
+    // Tests GPU eventlog that has defined a path between brackets
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute GpuInsertIntoHadoopFsRelationCommand",
+      desc = "Execute GpuInsertIntoHadoopFsRelationCommand " +
+        "file:/home/work/spark_test/data/temporary_test.db/table1, " +
+        "false, com.nvidia.spark.rapids.GpuParquetFileFormat@406479dc, " +
+        "[path=file:/home/work/spark_test/data/temporary_test.db/table1], " +
+        "Overwrite, CatalogTable(\n" +
+        "Database: temporary_test\nTable: table1\nOwner: turing\n" +
+        "Created Time: Fri Sep 01 16:31:17 UTC 2023\\nLast Access: UNKNOWN\n" +
+        "Created By: Spark 3.3.1\nType: MANAGED\nProvider: parquet\n" +
+        "Location: file:/home/work/spark_test/data/temporary_test.db/table1\n" +
+        "Serde Library: org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe\n" +
+        "InputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat\n" +
+        "OutputFormat: org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat\n" +
+        "Schema: root\n" +
+        " |-- _c0: integer (nullable = false)\n" +
+        "), org.apache.spark.sql.execution.datasources.InMemoryFileIndex@f0ed3e64, [_c0], false, 0",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "HiveParquet",
+      expectedOutputPath = "file:/home/work/spark_test/data/temporary_test.db/table1",
+      expectedOutputColumns = "_c0",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = "table1",
+      expectedDatabaseName = "temporary_test",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("AppendDataExecV1 — delta format") {
     val node = new SparkPlanGraphNode(
       id = 3,
       name = "AppendDataExecV1",
@@ -180,80 +421,107 @@ class WriteOperationParserSuite extends FunSuite {
       expectedOutputColumns = StringUtils.UNKNOWN_EXTRACT,
       expectedWriteMode = StringUtils.UNKNOWN_EXTRACT,
       expectedTableName = StringUtils.UNKNOWN_EXTRACT,
-      expectedDatabaseName = StringUtils.UNKNOWN_EXTRACT
+      expectedDatabaseName = StringUtils.UNKNOWN_EXTRACT,
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
     )
   }
 
-  test("InsertIntoHadoopFsRelationCommand - Empty output columns") {
-    val node = new SparkPlanGraphNode(
-      id = 5,
-      name = "Execute InsertIntoHadoopFsRelationCommand",
-      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
-        "false, Parquet, " +
-        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
-        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
-        "[]",
-      Seq.empty
-    )
-    testGetWriteOpMetaFromNode(
-      node,
-      expectedExecName = "InsertIntoHadoopFsRelationCommand",
-      expectedDataFormat = "Parquet",
-      expectedOutputPath = "gs://path/to/database/table1",
-      expectedOutputColumns = "",
-      expectedWriteMode = "Append",
-      expectedTableName = "table1",
-      expectedDatabaseName = "database"
-    )
-  }
-
-  test("InsertIntoHadoopFsRelationCommand - Format is 4th element") {
-    val node = new SparkPlanGraphNode(
-      id = 5,
-      name = "Execute InsertIntoHadoopFsRelationCommand",
-      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
-        "false, [paths=(path)], Parquet, " +
-        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, `spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
-        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
-        "[col01]",
-      Seq.empty
-    )
-    testGetWriteOpMetaFromNode(
-      node,
-      expectedExecName = "InsertIntoHadoopFsRelationCommand",
-      expectedDataFormat = "Parquet",
-      expectedOutputPath = "gs://path/to/database/table1",
-      expectedOutputColumns = "col01",
-      expectedWriteMode = "Append",
-      expectedTableName = "table1",
-      expectedDatabaseName = "database"
-    )
-  }
-
-  test("InsertIntoHadoopFsRelationCommand - Long schema") {
-    // Long schema will show up as ellipses in the description
+  test("InsertIntoHiveTable cmd — No catalog prefix") {
+    // The catalog piece has `database`.`table`
     val node = new ui.SparkPlanGraphNode(
       id = 5,
-      name = "Execute InsertIntoHadoopFsRelationCommand",
-      desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
-        "false, [paths=(path)], Parquet, " +
-        "[serialization.format=1, mergeschema=false, __hive_compatible_bucketed_table_insertion__=true], " +
-        "Append, spark_catalog`.`database`.`table`, org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
-        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(gs://path/to/database/table1), " +
-        "[col01, col02, col03, ... 4 more fields]",
+      name = "Execute InsertIntoHiveTable",
+      desc = "Execute InsertIntoHiveTable `database1`.`table1`, " +
+        "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, [dt=Some(2025-01-01)], true, false, " +
+        "[col1, col2, col3]",
       Seq.empty
     )
     testGetWriteOpMetaFromNode(
       node,
-      expectedExecName = "InsertIntoHadoopFsRelationCommand",
-      expectedDataFormat = "Parquet",
-      expectedOutputPath = "gs://path/to/database/table1",
-      expectedOutputColumns = "col01;col02;col03;... 4 more fields",
+      expectedExecName = "InsertIntoHiveTable",
+      expectedDataFormat = "HiveText",
+      expectedOutputPath = StringUtils.UNKNOWN_EXTRACT,
+      expectedOutputColumns = "col1;col2;col3",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database1",
+      expectedPartitionCols = "dt=Some(2025-01-01)"
+    )
+  }
+
+  test("InsertIntoHiveTable cmd — Catalog prefix") {
+    // The catalog piece has `spark_catalog`.`database`.`table`
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHiveTable",
+      desc = "Execute InsertIntoHiveTable `spark_catalog`.`database1`.`table1`, " +
+        "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, [dt=Some(2025-01-01)], false, false, " +
+        "[col1, col2, col3]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHiveTable",
+      expectedDataFormat = "HiveText",
+      expectedOutputPath = StringUtils.UNKNOWN_EXTRACT,
+      expectedOutputColumns = "col1;col2;col3",
       expectedWriteMode = "Append",
       expectedTableName = "table1",
-      expectedDatabaseName = "database"
+      expectedDatabaseName = "database1",
+      expectedPartitionCols = "dt=Some(2025-01-01)"
+    )
+  }
+
+  test("InsertIntoHiveTable cmd — Dynamic partitions") {
+    // The partitions argument is missing
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHiveTable",
+      desc = "Execute InsertIntoHiveTable `spark_catalog`.`database1`.`table1`, " +
+        "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe, false, True, " +
+        "[col1, col2, col3]",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHiveTable",
+      expectedDataFormat = "HiveText",
+      expectedOutputPath = StringUtils.UNKNOWN_EXTRACT,
+      expectedOutputColumns = "col1;col2;col3",
+      expectedWriteMode = "Append",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database1",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("GpuInsertIntoHiveTable — Gpu logs profiler case") {
+    // The GPU eventlog has 2 different format arguments. For now, we pick the serDe library.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute GpuInsertIntoHiveTable",
+      desc = "Execute GpuInsertIntoHiveTable `database1`.`table1`, " +
+        "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "[date=Some(20240621)], " +
+        "org.apache.spark.sql.hive.rapids.GpuHiveParquetFileFormat@3dcbd2c4, true, false, " +
+        "[col_00, col_01, col_02, col_03, col_04, col_05, col_06, col_07, col_08, col_09, col_10, " +
+        "col_11, col_12, col_13, col_14, col_15, col_16, col_17, col_18, col_19, col_20, col_21, " +
+        "col_22, col_23, ... 122 more fields]",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "GpuInsertIntoHiveTable",
+      expectedDataFormat = "HiveParquet",
+      expectedOutputPath = StringUtils.UNKNOWN_EXTRACT,
+      expectedOutputColumns = "col_00;col_01;col_02;col_03;col_04;col_05;col_06;col_07;col_08;col_09;" +
+        "col_10;col_11;col_12;col_13;col_14;col_15;col_16;col_17;col_18;col_19;col_20;col_21;" +
+        "col_22;col_23;... 122 more fields",
+      expectedWriteMode = "Overwrite",
+      expectedTableName = "table1",
+      expectedDatabaseName = "database1",
+      expectedPartitionCols = "date=Some(20240621)"
     )
   }
   // scalastyle:on line.size.limit
