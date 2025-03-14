@@ -113,6 +113,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       dataprocWorkerInfo, infoProvider, platform)
   }
 
+  /**
+   * Helper method to return the latest Spark RAPIDS plugin jar URL.
+   */
+  private lazy val latestPluginJarUrl: String = {
+    val latestRelease = WebCrawlerUtil.getLatestPluginRelease match {
+      case Some(v) => v
+      case None => fail("Could not find pull the latest release successfully")
+    }
+    "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
+      s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
+  }
+
   test("verify 3.2.0+ auto conf setting") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -1701,13 +1713,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
     // 1. Pull the latest release from mvn.
     // 2. The Autotuner should warn the users that they are using an older release
     // 3. Compare the output
-    val jarVer = "23.02.0"
-    val latestRelease = WebCrawlerUtil.getLatestPluginRelease match {
-      case Some(v) => v
-      case None => fail("Could not find pull the latest release successfully")
-    }
-    val pluginJarMvnURl = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
-      s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
+    val testAppJarVer = "23.02.0"
     // scalastyle:off line.size.limit
     val expectedResults =
       s"""|
@@ -1739,13 +1745,11 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- A newer RAPIDS Accelerator for Apache Spark plugin is available:
-          |  $pluginJarMvnURl
-          |  Version used in application is $jarVer.
+          |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$jarVer.jar")
+    val rapidsJarsArr = Seq(s"rapids-4-spark_2.12-$testAppJarVer.jar")
     val autoTunerOutput = generateRecommendationsForRapidsJars(rapidsJarsArr)
     compareOutput(expectedResults, autoTunerOutput)
   }
@@ -3467,6 +3471,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       val profileLogContent = FSUtils.readFileContentAsUTF8(logFile)
       val actualResults = extractAutoTunerResults(profileLogContent)
 
+      val testAppJarVer = "25.02.0"
       // scalastyle:off line.size.limit
       val expectedResults =
         s"""|
@@ -3488,6 +3493,7 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
             |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
             |- 'spark.task.resource.gpu.amount' should be set to 0.001.
+            |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
             |- Could not infer the cluster configuration, recommendations are generated using default values!
             |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
