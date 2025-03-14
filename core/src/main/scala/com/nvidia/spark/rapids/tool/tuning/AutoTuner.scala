@@ -1490,6 +1490,13 @@ trait AutoTunerConfigsProvider extends Logging {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
   }
 
+  def latestPluginJarComment(latestJarMvnUrl: String, currentJarVer: String): String = {
+    s"""
+       |A newer RAPIDS Accelerator for Apache Spark plugin is available:
+       |$latestJarMvnUrl
+       |Version used in application is $currentJarVer.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
 
   /**
    * Find the label of the memory overhead based on the spark master configuration and the spark
