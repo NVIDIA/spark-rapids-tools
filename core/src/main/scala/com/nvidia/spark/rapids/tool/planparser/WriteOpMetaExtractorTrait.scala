@@ -421,6 +421,8 @@ class InsertIntoHadoopExtractNoCatalog(
 case class InsertIntoHiveExtractor(
     override val nodeDescr: String) extends InsertIntoHadoopExtractNoCatalog(nodeDescr) {
 
+  import InsertIntoHadoopExtract._
+
   // Overrides extractFormat to obtain the Hive SerDe format.
   // The second element in the components sequence is expected to hold the Hive SerDe class string.
   // HiveParseHelper.getOptionalHiveFormat extracts the user-friendly format,
@@ -432,8 +434,10 @@ case class InsertIntoHiveExtractor(
   }
 
   // Overrides extractLocation.
-  // For InsertIntoHiveExtractor the location is not applicable, so it always returns None.
-  override def extractLocation(components: Seq[String]): Option[String] = None
+  // For InsertIntoHiveExtractor the location is not applicable, so it always returns Inapplicable.
+  override def extractLocation(components: Seq[String]): Option[String] = {
+    INAPPLICABLE_EXTRACT_OPTION
+  }
 
   // Overrides extractWriteMode to determine the write operation mode.
   // It interprets the 3rd-to-last component (if present and if the last component starts with "[")
@@ -502,6 +506,8 @@ object InsertIntoHadoopExtract extends InsertCmdExtractorTrait {
   // Regular expression to capture text enclosed in backticks. This is used to
   // extract potential catalog details like database and table names.
   val BACKTICKS_CATALOG_REG_EX: Regex = """`([^`]+)`""".r
+  // Capture the reference to inapplicable extracts instead of a llocating a new one for each call.
+  val INAPPLICABLE_EXTRACT_OPTION: Option[String] = Some(StringUtils.INAPPLICABLE_EXTRACT)
 
   // Builds the write operation metadata based on the node description.
   // If the description contains a CatalogTable entry, it uses InsertIntoHadoopExtractWithCatalog;
