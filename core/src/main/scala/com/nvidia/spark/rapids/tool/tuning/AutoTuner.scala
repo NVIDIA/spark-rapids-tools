@@ -1283,16 +1283,18 @@ class ProfilingAutoTuner(
   override def recommendShufflePartitionsInternal(inputShufflePartitions: Int): Int = {
     val calculatedValue = super.recommendShufflePartitionsInternal(inputShufflePartitions)
     val lookup = "spark.sql.shuffle.partitions"
-    getPropertyValue(lookup) match {
-      case Some(currentValue) if appInfoProvider.hasShuffleStagesWithOom =>
-        // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
-        val shufflePartitions = currentValue.toInt *
-          autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
-        appendOptionalComment(lookup,
-          s"'$lookup' should be increased since task OOM occurred in shuffle stages.")
-        shufflePartitions
-      case _ =>
-        calculatedValue
+    val currentValue = getPropertyValue(lookup).getOrElse(
+      autoTunerConfigsProvider.DEF_SHUFFLE_PARTITIONS).toInt
+    if (appInfoProvider.hasShuffleStagesWithOom) {
+      // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
+      val recShufflePartitions = currentValue *
+        autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
+      appendOptionalComment(lookup,
+        s"'$lookup' should be increased since task OOM occurred in shuffle stages.")
+      math.max(calculatedValue, recShufflePartitions)
+    } else {
+      // Else, return the calculated value from the parent implementation
+      calculatedValue
     }
   }
 }
