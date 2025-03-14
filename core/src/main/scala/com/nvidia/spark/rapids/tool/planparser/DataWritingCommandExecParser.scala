@@ -191,7 +191,7 @@ object DataWritingCommandExecParser {
    * 2. Checks if the node is a Delta Lake write operation using DeltaLakeHelper.
    * 3. Retrieves the appropriate command wrapper (logical or physical) for the node.
    * 4. If the command is `InsertIntoHadoopFsRelationCommand`, it invokes a specialized method
-   *    `extractWriteOpRecord` to extract detailed metadata.
+   *    `buildWriteOp` to extract detailed metadata.
    * 5. For other commands, it builds a metadata object using the command wrapper's information.
    * 6. If no command wrapper is found, it falls back to building a metadata object with minimal
    *    information.

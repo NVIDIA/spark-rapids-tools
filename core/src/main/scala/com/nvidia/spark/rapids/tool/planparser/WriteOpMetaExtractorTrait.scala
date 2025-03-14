@@ -35,29 +35,34 @@ trait WriteOpMetaExtractorTrait {
   /**
    * Given a string, this helper functions will break down the string into components.
    * The string is formed of a sequence of substrings separated by ",".
-   * A single component can contain arrays surrounded by "[]".
+   * A single component can contain arrays surrounded by "[]/()".
    * The helper iterates character‐by‐character, tracking bracket depth so that commas
-   * inside [ and ] are not used as delimiters. Each extracted component is trimmed
+   * inside [ and ] or ( and ) are not used as delimiters. Each extracted component is trimmed.
    * @param input a sequence of strings separated by comma.
    * @return a sequence of trimmed components.
    */
   def parseComponents(input: String): Seq[String] = {
     val result = scala.collection.mutable.ListBuffer[String]()
     val current = new StringBuilder
-    var depth = 0
+    var bracketDepth = 0
+    var parenDepth = 0
     var i = 0
     while (i < input.length) {
       val ch = input.charAt(i)
-      if (ch == ',' && depth == 0) {
-        // Found a delimiter outside brackets.
+      if (ch == ',' && bracketDepth == 0 && parenDepth == 0) {
+        // Found a delimiter outside brackets and parentheses.
         result += current.toString.trim
         current.clear()
         i += 1  // Skip the delimiter.
       } else {
         if (ch == '[') {
-          depth += 1
+          bracketDepth += 1
         } else if (ch == ']') {
-          depth = math.max(depth - 1, 0)
+          bracketDepth = math.max(bracketDepth - 1, 0)
+        } else if (ch == '(') {
+          parenDepth += 1
+        } else if (ch == ')') {
+          parenDepth = math.max(parenDepth - 1, 0)
         }
         current.append(ch)
         i += 1
@@ -91,8 +96,6 @@ trait WriteOpMetaExtractorTrait {
   def extractOutputColumns(components: Seq[String]): Option[String]
   def extractWriteMode(components: Seq[String]): String
   def extractPartitions(components: Seq[String]): Option[String] = None
-  def extractWriteOpRecord(nodeDescr: String,
-      execName: Option[String] = None): WriteOperationMetadataTrait
 }
 
 // This abstract class extracts metadata for Hadoop write operations from log nodes.
@@ -205,29 +208,6 @@ abstract class InsertIntoHadoopExtract(val nodeDescr: String) extends WriteOpMet
       }
     }
     StringUtils.UNKNOWN_EXTRACT
-  }
-
-  override def extractWriteOpRecord(
-    nodeDescr: String, execName: Option[String] = None): WriteOperationMetadataTrait = {
-    val components = parseComponents(nodeDescr)
-    val exec = execName.getOrElse(extractExecName(components))
-    val format = extractFormat(components)
-    val location = extractLocation(components)
-    val (database, table) = extractCatalog(components)
-    val outputColumns = extractOutputColumns(components)
-    val writeMode = extractWriteMode(components)
-    val partitions = extractPartitions(components)
-    WriteOperationMetaBuilder.build(
-      execName = exec,
-      dataFormat = format,
-      outputPath = location,
-      outputColumns = outputColumns,
-      writeMode = writeMode,
-      tableName = table,
-      dataBaseName = database,
-      partitionCols = partitions,
-      fullDescr = Some(nodeDescr)
-    )
   }
 
   /**

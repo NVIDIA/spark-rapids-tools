@@ -294,10 +294,11 @@ class WriteOperationParserSuite extends FunSuite {
         "Schema: root\n |-- col_00: string (nullable = true)\\n" +
         " |-- col_01: string (nullable = true)\n |-- col_02: string (nullable = true)\n" +
         " |-- col_03: double (nullable = true)\n |-- col_04: integer (nullable = true)\n" +
-        " |-- col_05: double (nullable = true)\n |-- p0: string (nullable = true)\n" +
+        " |-- col_05: double (nullable = true)\n |-- col_06: decimal (2, 4)\n" +
+        " |-- p0: string (nullable = true)\n" +
         " |-- p1: string (nullable = true)\n), " +
         "org.apache.spark.sql.execution.datasources.CatalogFileIndex@8fc69d8f, " +
-        "[col_00, col_01, col_02, col_03, col_04, col_05, p0, p1], false, 0",
+        "[col_00, col_01, col_02, col_03, col_04, col_05, col_06, p0, p1], false, 0",
       Seq.empty
     )
 
@@ -306,7 +307,7 @@ class WriteOperationParserSuite extends FunSuite {
       expectedExecName = "GpuInsertIntoHadoopFsRelationCommand",
       expectedDataFormat = "HiveParquet",
       expectedOutputPath = "gs://path/to/metastore/databaseName/table1",
-      expectedOutputColumns = "col_00;col_01;col_02;col_03;col_04;col_05;p0;p1",
+      expectedOutputColumns = "col_00;col_01;col_02;col_03;col_04;col_05;col_06;p0;p1",
       expectedWriteMode = "Overwrite",
       expectedTableName = "table1",
       expectedDatabaseName = "databaseName",
