@@ -91,7 +91,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
    * Retrieves the top 7 stage IDs with the highest execution durations.
    * 7 is a magic number that was chosen from past experiences.
    */
-  def topDurationStageIds: Set[Int] = {
+  lazy val topDurationStageIds: Set[Int] = {
     // Get all stage IDs and their durations
     val stageIds = app.stageManager.getAllStageIds.toSeq
     val stageIdsWithDurations = stageIds.map { stageId =>
