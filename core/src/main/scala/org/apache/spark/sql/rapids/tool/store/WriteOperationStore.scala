@@ -49,6 +49,7 @@ trait WriteOperationMetadataTrait {
   def fullDescr(): String = "..." // Full description of the operation
   def execNameCSV: String // CSV-compatible execution name
   def formatCSV: String // CSV-compatible data format
+  def partitions(): String = StringUtils.UNKNOWN_EXTRACT // Partitions involved in the operation
 }
 
 /**
@@ -58,9 +59,9 @@ trait WriteOperationMetadataTrait {
  * @param descr Optional description of the operation.
  */
 class WriteOperationMetaWithFormat(
-    writeExecName: UniqueNameRef,
-    format: UniqueNameRef,
-    descr: Option[String]) extends WriteOperationMetadataTrait {
+    val writeExecName: UniqueNameRef,
+    val format: UniqueNameRef,
+    val descr: Option[String]) extends WriteOperationMetadataTrait {
   override def dataFormat(): String = format.value
   override def fullDescr(): String = descr.getOrElse("")
   override def execName(): String = writeExecName.value
@@ -80,14 +81,15 @@ class WriteOperationMetaWithFormat(
  * @param descr Optional description of the operation.
  */
 case class WriteOperationMeta(
-    writeExecName: UniqueNameRef,
-    format: UniqueNameRef,
+    override val writeExecName: UniqueNameRef,
+    override val format: UniqueNameRef,
     outputPathValue: Option[String],
     outputColumnsValue: Option[String],
     saveMode: Option[SaveMode],
     tableName: String,
     dataBaseName: String,
-    descr: Option[String]) extends WriteOperationMetaWithFormat(
+    partitionCols: Option[String],
+    override val descr: Option[String]) extends WriteOperationMetaWithFormat(
       writeExecName, format, descr) {
   override def writeMode(): String = {
     saveMode match {
@@ -99,6 +101,7 @@ case class WriteOperationMeta(
   override def outputColumns(): String = outputColumnsValue.getOrElse(StringUtils.UNKNOWN_EXTRACT)
   override def table(): String = tableName
   override def dataBase(): String = dataBaseName
+  override def partitions(): String = partitionCols.getOrElse(StringUtils.UNKNOWN_EXTRACT)
 }
 
 /**
@@ -192,6 +195,7 @@ object WriteOperationMetaBuilder {
    * @param writeMode The save mode.
    * @param tableName The table name.
    * @param dataBaseName The database name.
+   * @param partitionCols Optional partition columns.
    * @param fullDescr Optional full description.
    * @return A WriteOperationMetadataTrait instance.
    */
@@ -200,11 +204,12 @@ object WriteOperationMetaBuilder {
     writeMode: String,
     tableName: String,
     dataBaseName: String,
+    partitionCols: Option[String],
     fullDescr: Option[String]): WriteOperationMetadataTrait = {
     WriteOperationMeta(getOrCreateExecRef(execName), getOrCreateFormatRef(dataFormat),
       outputPath, outputColumns, getSaveModeFromString(writeMode),
       defaultIfUnknown(tableName), defaultIfUnknown(dataBaseName),
-      fullDescr)
+      partitionCols, fullDescr)
   }
 
   /**
