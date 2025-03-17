@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
+import com.nvidia.spark.rapids.tool.tuning.{SparkMaster, Yarn}
 import com.nvidia.spark.rapids.tool.views.{IoMetrics, WriteOpProfileResult}
 
 import org.apache.spark.ExecutorLostFailure
@@ -244,16 +245,19 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
   }
 
   /**
-   * Check if there are any shuffle stages with failed tasks due to OOM errors.
    * This method checks for failed shuffle stages with OOM errors in the task's end reason.
+   * Note: This check is enabled only if the plugin is enabled (i.e. GPU app) and running on YARN.
+   * """
    */
   override def hasShuffleStagesWithOom: Boolean = {
-    // If the plugin is not enabled (i.e. non-GPU app) return false
-    if (!app.appInfo.exists(_.pluginEnabled)) {
+    // If the plugin is not enabled (i.e. non-GPU app) or not running on YARN, return false
+    val sparkMaster = SparkMaster(getSparkProperty("spark.master"))
+    if (!app.appInfo.exists(_.pluginEnabled) || !sparkMaster.contains(Yarn)) {
       return false
     }
 
     // Get stage IDs of failed shuffle stages
+    // Sample stage name: "submitShuffleJob$ at GpuShuffleExchangeExec.scala:53"
     val failedStagesWithShuffle = app.failedStages.collect {
       case stage if stage.name.contains(SparkRapidsOomExceptions.gpuShuffleClassName) =>
         stage.stageId
@@ -263,12 +267,17 @@ class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
       return false
     }
 
+    // scalastyle:off line.size.limit
+    // Check if the failed task's end reason contains OOM errors
+    // Sample end reason for failed tasks on YARN: "ExecutorLostFailure (executor 2 exited caused by one of the running tasks) Reason: Container from a bad node: container_e02_17xxx on host: test-cluster-w-0. Exit status: 137"
+    // Reference: https://github.com/apache/spark/blob/master/resource-managers/yarn/src/main/scala/org/apache/spark/deploy/yarn/YarnAllocator.scala
+    // scalastyle:on line.size.limit
     // Regular expressions to identify OOM failures in task's end reason
     // - ExecutorLostFailure
-    // - Exit code 137 (i.e. process was terminated with SIGKILL)
+    // - Exit status: 137 (i.e. process was terminated with SIGKILL)
     val oomFailurePatterns = Seq(
       classOf[ExecutorLostFailure].getSimpleName,
-      UnixExitCode.FORCE_KILLED.toString
+      s"Exit status: ${UnixExitCode.FORCE_KILLED}"
     ).map(_.r)
 
     // Check if any failed task in shuffle stages have OOM failures
