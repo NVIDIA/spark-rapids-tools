@@ -484,17 +484,26 @@ case class FailedStagesProfileResults(appIndex: Int, stageId: Int, stageAttemptI
   }
 }
 
-case class FailedJobsProfileResults(appIndex: Int, jobId: Int,
-    jobResult: String, endReason: String) extends ProfileResult {
-  override val outputHeaders = Seq("appIndex", "jobID", "jobResult", "failureReason")
+case class FailedJobsProfileResults(
+    appIndex: Int,
+    jobId: Int,
+    sqlID: Option[Long],  // sqlID is optional because Jobs might not have a SQL (i.e., RDDs)
+    jobResult: String,
+    endReason: String) extends ProfileResult {
+  override val outputHeaders = Seq("appIndex", "jobID", "sqlID", "jobResult", "failureReason")
 
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString, jobId.toString,
+    Seq(appIndex.toString,
+      jobId.toString,
+      sqlID.map(_.toString).getOrElse(null),
       jobResult,
       StringUtils.renderStr(endReason, doEscapeMetaCharacters = true))
   }
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString, jobId.toString, StringUtils.reformatCSVString(jobResult),
+    Seq(appIndex.toString,
+      jobId.toString,
+      sqlID.map(_.toString).getOrElse(null),
+      StringUtils.reformatCSVString(jobResult),
       StringUtils.reformatCSVString(
         StringUtils.renderStr(endReason, doEscapeMetaCharacters = true, maxLength = 0)))
   }
@@ -685,6 +694,65 @@ case class StageAggTaskMetricsProfileResult(
     swRecordsWrittenSum: Long,
     swWriteTimeSum: Long // milliseconds
   ) extends BaseJobStageAggTaskMetricsProfileResult {
+
+  /**
+   * Combines two StageAggTaskMetricsProfileResults for the same stage.
+   * This method aggregates the metrics from the current instance and the provided `other` instance.
+   *
+   * Detailed explanation ->
+   * 1. A stage can have two successful attempts.
+   * 2. We store both of those attempt information using the StageManager
+   * 3. During aggregation, we combine the metrics for a stage at a stageID
+   *    level
+   * 4. For combining aggregated information for multiple stage attempts, we combine the
+   *    aggregated per attempt information into one using the below method
+   *
+   * @param other The StageAggTaskMetricsProfileResult to be combined with the current instance.
+   * @return A new StageAggTaskMetricsProfileResult with aggregated metrics.
+   */
+  def aggregateStageProfileMetric(
+      other: StageAggTaskMetricsProfileResult
+  ): StageAggTaskMetricsProfileResult = {
+    StageAggTaskMetricsProfileResult(
+      appIndex = this.appIndex,
+      id = this.id,
+      numTasks = this.numTasks + other.numTasks,
+      duration = Option(this.duration.getOrElse(0L) + other.duration.getOrElse(0L)),
+      diskBytesSpilledSum = this.diskBytesSpilledSum + other.diskBytesSpilledSum,
+      durationSum = this.durationSum + other.durationSum,
+      durationMax = Math.max(this.durationMax, other.durationMax),
+      durationMin = Math.min(this.durationMin, other.durationMin),
+      durationAvg = (this.durationAvg + other.durationAvg) / 2,
+      executorCPUTimeSum = this.executorCPUTimeSum + other.executorCPUTimeSum,
+      executorDeserializeCpuTimeSum = this.executorDeserializeCpuTimeSum +
+        other.executorDeserializeCpuTimeSum,
+      executorDeserializeTimeSum = this.executorDeserializeTimeSum +
+        other.executorDeserializeTimeSum,
+      executorRunTimeSum = this.executorRunTimeSum + other.executorRunTimeSum,
+      inputBytesReadSum = this.inputBytesReadSum + other.inputBytesReadSum,
+      inputRecordsReadSum = this.inputRecordsReadSum + other.inputRecordsReadSum,
+      jvmGCTimeSum = this.jvmGCTimeSum + other.jvmGCTimeSum,
+      memoryBytesSpilledSum = this.memoryBytesSpilledSum + other.memoryBytesSpilledSum,
+      outputBytesWrittenSum = this.outputBytesWrittenSum + other.outputBytesWrittenSum,
+      outputRecordsWrittenSum = this.outputRecordsWrittenSum + other.outputRecordsWrittenSum,
+      peakExecutionMemoryMax = Math.max(this.peakExecutionMemoryMax, other.peakExecutionMemoryMax),
+      resultSerializationTimeSum = this.resultSerializationTimeSum +
+        other.resultSerializationTimeSum,
+      resultSizeMax = Math.max(this.resultSizeMax, other.resultSizeMax),
+      srFetchWaitTimeSum = this.srFetchWaitTimeSum + other.srFetchWaitTimeSum,
+      srLocalBlocksFetchedSum = this.srLocalBlocksFetchedSum + other.srLocalBlocksFetchedSum,
+      srRemoteBlocksFetchSum = this.srRemoteBlocksFetchSum + other.srRemoteBlocksFetchSum,
+      srRemoteBytesReadSum = this.srRemoteBytesReadSum + other.srRemoteBytesReadSum,
+      srRemoteBytesReadToDiskSum = this.srRemoteBytesReadToDiskSum +
+        other.srRemoteBytesReadToDiskSum,
+      srTotalBytesReadSum = this.srTotalBytesReadSum + other.srTotalBytesReadSum,
+      srcLocalBytesReadSum = this.srcLocalBytesReadSum + other.srcLocalBytesReadSum,
+      swBytesWrittenSum = this.swBytesWrittenSum + other.swBytesWrittenSum,
+      swRecordsWrittenSum = this.swRecordsWrittenSum + other.swRecordsWrittenSum,
+      swWriteTimeSum = this.swWriteTimeSum + other.swWriteTimeSum
+    )
+  }
+
   override def idHeader = "stageId"
 }
 
@@ -1381,4 +1449,13 @@ case class RecommendedPropertyResult(property: String, value: String) {
 
 case class RecommendedCommentResult(comment: String) {
   override def toString: String = "- %s".format(comment)
+}
+
+/**
+ * Helper object to store the list of SparkRapids OOM exceptions.
+ */
+object SparkRapidsOomExceptions {
+  val gpuExceptionClassNames: Set[String] = {
+    Set("GpuSplitAndRetryOOM", "GpuRetryOOM")
+  }
 }

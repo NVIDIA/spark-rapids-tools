@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool
 
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, DataSourceProfileResult, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -61,10 +61,11 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
 
 
 object AppSummaryInfoBaseProvider {
-  def fromAppInfo(appInfoInst: Option[ApplicationSummaryInfo]): AppSummaryInfoBaseProvider = {
+  def fromAppInfo(
+      appInfoInst: Option[ApplicationSummaryInfo]): BaseProfilingAppSummaryInfoProvider = {
     appInfoInst match {
       case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
-      case _ => new AppSummaryInfoBaseProvider()
+      case _ => new BaseProfilingAppSummaryInfoProvider()
     }
   }
 

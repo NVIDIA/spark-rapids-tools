@@ -337,8 +337,8 @@ class AutoTuner(
   private def appendMissingComment(key: String): Unit = {
     val missingComment = TuningEntryDefinition.TUNING_TABLE.get(key)
       .flatMap(_.getMissingComment())
-      .getOrElse(s"'$key' was not set.")
-    appendComment(missingComment)
+      .getOrElse(s"was not set.")
+    appendComment(s"'$key' $missingComment")
   }
 
   /**
@@ -349,6 +349,19 @@ class AutoTuner(
   private def appendPersistentComment(key: String): Unit = {
     TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
       eDef.getPersistentComment().foreach { comment =>
+        appendComment(s"'$key' $comment")
+      }
+    }
+  }
+
+  /**
+   * Append a comment to the list by looking up the updated comment if any in the tuningEntry
+   * table. If it is not defined in the table, then add nothing.
+   * @param key the property set by the autotuner.
+   */
+  private def appendUpdatedComment(key: String): Unit = {
+    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+      eDef.getUpdatedComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
     }
@@ -368,6 +381,9 @@ class AutoTuner(
       if (recomRecord.originalValue.isEmpty) {
         // add missing comment if any
         appendMissingComment(key)
+      } else {
+        // add updated comment if any
+        appendUpdatedComment(key)
       }
       // add the persistent comment if any.
       appendPersistentComment(key)
@@ -675,20 +691,23 @@ class AutoTuner(
   // if the user set the serializer to use Kryo, make sure we recommend using the GPU version
   // of it.
   def recommendKryoSerializerSetting(): Unit = {
-      getPropertyValue("spark.serializer") match {
-        case Some(f) if f.contains("org.apache.spark.serializer.KryoSerializer") =>
-          val existingRegistrars = getPropertyValue("spark.kryo.registrator")
-          val regToUse = if (existingRegistrars.isDefined && !existingRegistrars.get.isEmpty) {
-            // spark.kryo.registrator is a comma separated list. If the user set some then
-            // we need to append our GpuKryoRegistrator to ones they specified.
-            existingRegistrars.get + ",com.nvidia.spark.rapids.GpuKryoRegistrator"
-          } else {
-            "com.nvidia.spark.rapids.GpuKryoRegistrator"
-          }
-          appendRecommendation("spark.kryo.registrator", regToUse)
-        case None =>
-          // do nothing
+    getPropertyValue("spark.serializer")
+      .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
+      val defaultRegistrator = "com.nvidia.spark.rapids.GpuKryoRegistrator"
+      val regToUse = getPropertyValue("spark.kryo.registrator")
+        .filter(_.nonEmpty)
+        .map(reg => s"$reg,$defaultRegistrator")
+        .getOrElse(defaultRegistrator)
+      appendRecommendation("spark.kryo.registrator", regToUse)
+      // set the kryo serializer buffer size to prevent OOMs
+      val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
+      val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
+        .map(StringUtils.convertToMB)
+        .getOrElse(0L)
+      if (currentBufferMaxMb < desiredBufferMax) {
+        appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMax")
       }
+    }
   }
 
   /**
@@ -903,12 +922,12 @@ class AutoTuner(
    *             taskInputSize = 512m,
    *     Output: newMaxPartitionBytes = 2g / (512m/128m) = 512m
    */
-  private def calculateMaxPartitionBytes(maxPartitionBytes: String): String = {
+  protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
     val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
     if (inputBytesMax == 0.0) {
-      maxPartitionBytesNum.toString
+      Some(maxPartitionBytesNum)
     } else {
       if (inputBytesMax > 0 &&
         inputBytesMax < autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB) {
@@ -917,17 +936,17 @@ class AutoTuner(
           maxPartitionBytesNum *
             (autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB / inputBytesMax),
           autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        calculatedMaxPartitionBytes.toLong.toString
+        Some(calculatedMaxPartitionBytes.toLong)
       } else if (inputBytesMax > autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB) {
         // Decrease partition size
         val calculatedMaxPartitionBytes = Math.min(
           maxPartitionBytesNum /
             (inputBytesMax / autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB),
           autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        calculatedMaxPartitionBytes.toLong.toString
+        Some(calculatedMaxPartitionBytes.toLong)
       } else {
         // Do not recommend maxPartitionBytes
-        null
+        None
       }
     }
   }
@@ -958,7 +977,7 @@ class AutoTuner(
         .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
     val recommended =
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
-        calculateMaxPartitionBytes(maxPartitionProp)
+        calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
       } else {
         s"${StringUtils.convertToMB(maxPartitionProp)}"
       }
@@ -1182,6 +1201,48 @@ class AutoTuner(
 }
 
 /**
+ * Implementation of the `AutoTuner` specific for the Profiling Tool.
+ * This class implements the logic to recommend AutoTuner configurations
+ * specifically for GPU event logs.
+ */
+class ProfilingAutoTuner(
+    clusterProps: ClusterProperties,
+    appInfoProvider: BaseProfilingAppSummaryInfoProvider,
+    platform: Platform,
+    driverInfoProvider: DriverLogInfoProvider)
+  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+    ProfilingAutoTunerConfigsProvider) {
+
+  /**
+   * Overrides the calculation for 'spark.sql.files.maxPartitionBytes'.
+   * Logic:
+   * - First, calculate the recommendation based on input sizes (parent implementation).
+   * - If GPU OOM errors occurred in scan stages,
+   *     - If calculated value is defined, choose the minimum between the calculated value and
+   *       half of the current value.
+   *     - Else, halve the current value.
+   * - Else, use the value from the parent implementation.
+   */
+  override def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
+    // First, calculate the recommendation based on input sizes
+    val calculatedValueFromInputSize = super.calculateMaxPartitionBytesInMB(maxPartitionBytes)
+    getPropertyValue("spark.sql.files.maxPartitionBytes") match {
+      case Some(currentValue) if appInfoProvider.hasScanStagesWithGpuOom =>
+        // GPU OOM detected. We may want to reduce max partition size.
+        val halvedValue = StringUtils.convertToMB(currentValue) / 2
+        // Choose the minimum between the calculated value and half of the current value.
+        calculatedValueFromInputSize match {
+          case Some(calculatedValue) => Some(math.min(calculatedValue, halvedValue))
+          case None => Some(halvedValue)
+        }
+      case _ =>
+        // Else, use the value from the parent implementation
+        calculatedValueFromInputSize
+    }
+  }
+}
+
+/**
  * Trait defining configuration defaults and parameters for the AutoTuner.
  */
 trait AutoTunerConfigsProvider extends Logging {
@@ -1238,6 +1299,8 @@ trait AutoTunerConfigsProvider extends Logging {
   val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
   val AQE_MIN_INITIAL_PARTITION_NUM = 200
   val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
+  // Desired Kryo serializer buffer size to prevent OOMs. Spark sets the default to 64MB.
+  val KRYO_SERIALIZER_BUFFER_MAX_MB = 512L
   // Set of spark properties to be filtered out from the combined Spark properties.
   val filteredPropKeys: Set[String] = Set(
     "spark.app.id"
@@ -1427,6 +1490,13 @@ trait AutoTunerConfigsProvider extends Logging {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
   }
 
+  def latestPluginJarComment(latestJarMvnUrl: String, currentJarVer: String): String = {
+    s"""
+       |A newer RAPIDS Accelerator for Apache Spark plugin is available:
+       |$latestJarMvnUrl
+       |Version used in application is $currentJarVer.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
 
   /**
    * Find the label of the memory overhead based on the spark master configuration and the spark
@@ -1464,7 +1534,12 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
-    new AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-      ProfilingAutoTunerConfigsProvider)
+    appInfoProvider match {
+      case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
+        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform, driverInfoProvider)
+      case _ =>
+        throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
+          s"${classOf[BaseProfilingAppSummaryInfoProvider]}")
+    }
   }
 }

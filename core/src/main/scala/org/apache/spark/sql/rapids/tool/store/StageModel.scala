@@ -69,10 +69,23 @@ class StageModel private(sInfo: StageInfo) {
       ProfileUtils.optionLongMinusOptionLong(stageInfo.completionTime, stageInfo.submissionTime)
   }
 
+  /**
+   * Returns true if a stage attempt has failed.
+   * There can be multiple attempts( retries ) of a stage
+   * that can fail until the last attempt succeeds.
+   *
+   * @return true if a stage attempt has failed.
+   */
   def hasFailed: Boolean = {
     stageInfo.failureReason.isDefined
   }
 
+  /**
+   * Returns the failure reason if the stage has failed.
+   * Failure reason being set is the sure shot of a failed stage.
+   *
+   * @return the failure reason if the stage has failed, or an empty string otherwise
+   */
   def getFailureReason: String = {
     stageInfo.failureReason.getOrElse("")
   }

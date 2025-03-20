@@ -42,7 +42,8 @@ case class WriteOpProfileResult(
    */
   override val outputHeaders: Seq[String] = {
     Seq("appIndex", "sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
-      "location", "tableName", "dataBase", "outputColumns", "writeMode", "fullDescription")
+      "location", "tableName", "dataBase", "outputColumns", "writeMode",
+      "partitionColumns", "fullDescription")
   }
 
   /**
@@ -63,6 +64,7 @@ case class WriteOpProfileResult(
       record.operationMeta.dataBase(),
       record.operationMeta.outputColumns(),
       record.operationMeta.writeMode(),
+      record.operationMeta.partitions(),
       // Escape special characters in the description
       StringUtils.renderStr(record.operationMeta.fullDescr(), doEscapeMetaCharacters = true,
         maxLength = 500, showEllipses = true))
@@ -86,6 +88,7 @@ case class WriteOpProfileResult(
       StringUtils.reformatCSVString(record.operationMeta.dataBase()),
       StringUtils.reformatCSVString(record.operationMeta.outputColumns()),
       record.operationMeta.writeMode(),
+      StringUtils.reformatCSVString(record.operationMeta.partitions()),
       StringUtils.reformatCSVString(
         // Escape special characters in the description and trim at 500 characters.
         StringUtils.renderStr(record.operationMeta.fullDescr(), doEscapeMetaCharacters = true,
