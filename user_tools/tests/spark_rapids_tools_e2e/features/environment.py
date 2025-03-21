@@ -60,6 +60,13 @@ def after_scenario(context, scenario) -> None:
     if hasattr(context, 'after_scenario_fn'):
         context.after_scenario_fn()
 
+    # Restore original QUALX_LABEL if it existed
+    if hasattr(context, 'original_qualx_label'):
+        if context.original_qualx_label is not None:
+            os.environ['QUALX_LABEL'] = context.original_qualx_label
+        else:
+            os.environ.pop('QUALX_LABEL', None)
+
 
 def _set_verbose_mode(context) -> None:
     verbose_enabled = getattr(context.config, 'verbose', False)

@@ -13,17 +13,9 @@
 # limitations under the License.
 
 """Test qualx_preprocess module"""
-
-import os
-import glob
-import shutil
-from pathlib import Path
-
 import pandas as pd
-import pytest  # pylint: disable=import-error
 
 from spark_rapids_tools.tools.qualx.preprocess import (
-    load_datasets,
     expected_raw_features,
     impute
 )
@@ -32,47 +24,6 @@ from ..conftest import SparkRapidsToolsUT
 
 class TestPreprocess(SparkRapidsToolsUT):
     """Test class for qualx_preprocess module"""
-    @pytest.mark.parametrize('label', ['Duration', 'duration_sum'])
-    def test_load_datasets(self, get_ut_data_dir, get_jar_path, label):
-        # set up environment variables used during preprocessing
-        os.environ['QUALX_DATA_DIR'] = str(get_ut_data_dir / 'eventlogs')
-        os.environ['QUALX_CACHE_DIR'] = str(get_ut_data_dir / 'qualx_cache')
-        os.environ['QUALX_LABEL'] = label
-        os.environ['SPARK_RAPIDS_TOOLS_JAR'] = str(get_jar_path)
-        # if running in a tox virtual environment, set SPARK_HOME to the venv's pyspark path
-        venv_path = os.environ.get('VIRTUAL_ENV', None)
-        if venv_path:
-            spark_home = glob.glob(f'{venv_path}/lib/*/site-packages/pyspark')
-            if spark_home:
-                os.environ['SPARK_HOME'] = spark_home[0]
-
-        # remove cache if already present
-        cache_dir = Path(os.environ['QUALX_CACHE_DIR'])
-        if cache_dir.exists():
-            if os.environ.get('QUALX_DEV', 'false') == 'true':
-                # for development, remove preprocessed files, but keep profiler CSV files
-                preprocessed_files = glob.glob(str(cache_dir) + '/**/preprocessed.parquet')
-                for f in preprocessed_files:
-                    os.remove(f)
-            else:
-                # for CI/CD, remove cache if exists
-                shutil.rmtree(cache_dir)
-
-        # Load the datasets
-        datasets_dir = str(get_ut_data_dir / 'datasets')
-
-        all_datasets, profile_df = load_datasets(datasets_dir)
-
-        # Basic assertions
-        assert isinstance(all_datasets, dict)
-        assert 'nds_local' in all_datasets
-
-        assert isinstance(profile_df, pd.DataFrame)
-        assert not profile_df.empty
-        # assert profile_df.shape == (194, 127)
-        assert set(profile_df.columns) == expected_raw_features
-        assert label in profile_df.columns
-
     def test_impute(self):
         # Test impute function
         input_df = pd.DataFrame({

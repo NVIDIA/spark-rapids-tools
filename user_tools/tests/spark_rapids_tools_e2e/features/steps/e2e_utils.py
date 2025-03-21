@@ -16,6 +16,7 @@
 This module defines utility functions used by the end-to-end tests using behave.
 """
 
+import glob
 import logging
 import os
 import subprocess
@@ -110,6 +111,14 @@ class E2ETestUtils:
     @staticmethod
     def get_spark_rapids_cli() -> str:
         return os.path.join(os.environ['E2E_TEST_VENV_DIR'], 'bin', 'spark_rapids')
+
+    @staticmethod
+    def get_spark_home() -> str:
+        venv_path = os.environ['E2E_TEST_VENV_DIR']
+        spark_home = glob.glob(os.path.join(venv_path, 'lib', '*', 'site-packages', 'pyspark'))
+        if spark_home:
+            return spark_home[0]
+        raise RuntimeError("Spark home not found")
 
     @staticmethod
     def get_tools_jar_file() -> str:
