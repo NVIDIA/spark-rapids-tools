@@ -13,9 +13,7 @@
 # limitations under the License.
 
 """Add common helpers and utilities for unit-tests"""
-import glob
 import sys
-from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
