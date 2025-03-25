@@ -1114,7 +1114,7 @@ case class IODiagnosticResult(
     appId: String,
     sqlId: Long,
     stageId: Long,
-    duration: Long,
+    duration: Long, // milliseconds
     nodeId: Long,
     nodeName: String,
     outputRows: StatisticsMetrics,
@@ -1242,6 +1242,197 @@ case class IODiagnosticResult(
       gpuDecodeTime.total.toString)
   }
 }
+
+/**
+ * Represents filtered (top 7 stages - ordered by duration) operator and SQL diagnostic
+ * metrics results in a Spark SQL execution plan.
+ * Output file: filtered_diagnostic_metrics.csv.
+ * Collected metrics include:
+ * - Number of files read
+ * - Number of partitions
+ * - Metadata time (ns)
+ * - Output batches
+ * - Input batches
+ * - Output rows
+ * - Sort time (ns)
+ * - Peak memory
+ * - Shuffle bytes written
+ * - Shuffle write time (ns)
+ */
+case class FilteredDiagnosticResult(
+    appIndex: Int,
+    appName: String,
+    appId: String,
+    sqlId: Long,
+    stageId: Long,
+    duration: Long, // milliseconds
+    nodeId: Long,
+    nodeName: String,
+    numFilesRead: StatisticsMetrics,
+    numPartitions: StatisticsMetrics,
+    metadataTime: StatisticsMetrics,
+    outputBatches: StatisticsMetrics,
+    inputBatches: StatisticsMetrics,
+    outputRows: StatisticsMetrics,
+    sortTime: StatisticsMetrics,
+    peakMemory: StatisticsMetrics,
+    shuffleBytesWritten: StatisticsMetrics,
+    shuffleWriteTime: StatisticsMetrics) extends ProfileResult {
+
+  override val outputHeaders = {
+    Seq("appIndex",
+      "appName",
+      "appId",
+      "sqlId",
+      "stageId",
+      "stageDurationMs",
+      "nodeId",
+      "nodeName",
+      "numFilesReadMin",
+      "numFilesReadMedian",
+      "numFilesReadMax",
+      "numFilesReadTotal",
+      "numPartitionsMin",
+      "numPartitionsMedian",
+      "numPartitionsMax",
+      "numPartitionsTotal",
+      "metadataTimeMin",
+      "metadataTimeMedian",
+      "metadataTimeMax",
+      "metadataTimeTotal",
+      "outputBatchesMin",
+      "outputBatchesMedian",
+      "outputBatchesMax",
+      "outputBatchesTotal",
+      "inputBatchesMin",
+      "inputBatchesMedian",
+      "inputBatchesMax",
+      "inputBatchesTotal",
+      "outputRowsMin",
+      "outputRowsMedian",
+      "outputRowsMax",
+      "outputRowsTotal",
+      "sortTimeMin",
+      "sortTimeMedian",
+      "sortTimeMax",
+      "sortTimeTotal",
+      "peakMemoryMin",
+      "peakMemoryMedian",
+      "peakMemoryMax",
+      "peakMemoryTotal",
+      "shuffleBytesWrittenMin",
+      "shuffleBytesWrittenMedian",
+      "shuffleBytesWrittenMax",
+      "shuffleBytesWrittenTotal",
+      "shuffleWriteTimeMin",
+      "shuffleWriteTimeMedian",
+      "shuffleWriteTimeMax",
+      "shuffleWriteTimeTotal")
+  }
+
+  override def convertToSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      sqlId.toString,
+      stageId.toString,
+      duration.toString,
+      nodeId.toString,
+      nodeName,
+      numFilesRead.min.toString,
+      numFilesRead.med.toString,
+      numFilesRead.max.toString,
+      numFilesRead.total.toString,
+      numPartitions.min.toString,
+      numPartitions.med.toString,
+      numPartitions.max.toString,
+      numPartitions.total.toString,
+      metadataTime.min.toString,
+      metadataTime.med.toString,
+      metadataTime.max.toString,
+      metadataTime.total.toString,
+      outputBatches.min.toString,
+      outputBatches.med.toString,
+      outputBatches.max.toString,
+      outputBatches.total.toString,
+      inputBatches.min.toString,
+      inputBatches.med.toString,
+      inputBatches.max.toString,
+      inputBatches.total.toString,
+      outputRows.min.toString,
+      outputRows.med.toString,
+      outputRows.max.toString,
+      outputRows.total.toString,
+      sortTime.min.toString,
+      sortTime.med.toString,
+      sortTime.max.toString,
+      sortTime.total.toString,
+      peakMemory.min.toString,
+      peakMemory.med.toString,
+      peakMemory.max.toString,
+      peakMemory.total.toString,
+      shuffleBytesWritten.min.toString,
+      shuffleBytesWritten.med.toString,
+      shuffleBytesWritten.max.toString,
+      shuffleBytesWritten.total.toString,
+      shuffleWriteTime.min.toString,
+      shuffleWriteTime.med.toString,
+      shuffleWriteTime.max.toString,
+      shuffleWriteTime.total.toString)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(appIndex.toString,
+      appName,
+      appId,
+      sqlId.toString,
+      stageId.toString,
+      duration.toString,
+      nodeId.toString,
+      StringUtils.reformatCSVString(nodeName),
+      numFilesRead.min.toString,
+      numFilesRead.med.toString,
+      numFilesRead.max.toString,
+      numFilesRead.total.toString,
+      numPartitions.min.toString,
+      numPartitions.med.toString,
+      numPartitions.max.toString,
+      numPartitions.total.toString,
+      metadataTime.min.toString,
+      metadataTime.med.toString,
+      metadataTime.max.toString,
+      metadataTime.total.toString,
+      outputBatches.min.toString,
+      outputBatches.med.toString,
+      outputBatches.max.toString,
+      outputBatches.total.toString,
+      inputBatches.min.toString,
+      inputBatches.med.toString,
+      inputBatches.max.toString,
+      inputBatches.total.toString,
+      outputRows.min.toString,
+      outputRows.med.toString,
+      outputRows.max.toString,
+      outputRows.total.toString,
+      sortTime.min.toString,
+      sortTime.med.toString,
+      sortTime.max.toString,
+      sortTime.total.toString,
+      peakMemory.min.toString,
+      peakMemory.med.toString,
+      peakMemory.max.toString,
+      peakMemory.total.toString,
+      shuffleBytesWritten.min.toString,
+      shuffleBytesWritten.med.toString,
+      shuffleBytesWritten.max.toString,
+      shuffleBytesWritten.total.toString,
+      shuffleWriteTime.min.toString,
+      shuffleWriteTime.med.toString,
+      shuffleWriteTime.max.toString,
+      shuffleWriteTime.total.toString)
+  }
+}
+
 
 case class IOAnalysisProfileResult(
     appIndex: Int,
