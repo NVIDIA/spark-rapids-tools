@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.analysis
 
 import org.apache.spark.sql.rapids.tool.util.InPlaceMedianArrView.{chooseMidpointPivotInPlace, findMedianInPlace}
 
-// Store (min, median, max, count, total) for a given metric
+// Store (min, median, max, total) for a given metric
 case class StatisticsMetrics(min: Long, med: Long, max: Long, count: Long, total: Long)
 
 object StatisticsMetrics {
