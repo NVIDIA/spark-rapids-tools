@@ -1,6 +1,39 @@
 
 <br/>
 
+## Release [v25.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.0)
+Generated on 2025-03-26
+### User Tools
+
+- Revert "Update version by jenkins-spark-rapids-tools-auto-release-111" ([#1600](https://github.com/NVIDIA/spark-rapids-tools/pull/1600))
+- Qualx unit tests ([#1599](https://github.com/NVIDIA/spark-rapids-tools/pull/1599))
+- Qualx model updates from weekly KPI run 2025-03-09 ([#1584](https://github.com/NVIDIA/spark-rapids-tools/pull/1584))
+- Add new qualx features for custom model training ([#1573](https://github.com/NVIDIA/spark-rapids-tools/pull/1573))
+- Qualx model updates from weekly KPI run 2025-02-23 ([#1559](https://github.com/NVIDIA/spark-rapids-tools/pull/1559))
+
+### Core
+
+- Revert "[FEA] Add filtered diagnostic output for GPU slowness in Profiler tool (#1548)" ([#1602](https://github.com/NVIDIA/spark-rapids-tools/pull/1602))
+- Revert "Update version by jenkins-spark-rapids-tools-auto-release-111" ([#1600](https://github.com/NVIDIA/spark-rapids-tools/pull/1600))
+- [FEA] Add filtered diagnostic output for GPU slowness in Profiler tool ([#1548](https://github.com/NVIDIA/spark-rapids-tools/pull/1548))
+- AutoTuner recommends increasing shuffle partitions when shuffle stages have OOM failures on YARN ([#1593](https://github.com/NVIDIA/spark-rapids-tools/pull/1593))
+- Add insertIntoHiveTable to the WriteOps report ([#1591](https://github.com/NVIDIA/spark-rapids-tools/pull/1591))
+- Fix AutoTuner unit test with dynamic plugin JAR URL value ([#1592](https://github.com/NVIDIA/spark-rapids-tools/pull/1592))
+- Adjust maxPartitionBytes if the table scan stage had OOM task failures ([#1578](https://github.com/NVIDIA/spark-rapids-tools/pull/1578))
+- Adds aggregation across metrics for failed/succeeded and non completed stages ([#1558](https://github.com/NVIDIA/spark-rapids-tools/pull/1558))
+- Support Bin and Slice expressions in Qual tool ([#1581](https://github.com/NVIDIA/spark-rapids-tools/pull/1581))
+- Add kryo related settings to the AutoTuner's Bootstrap conf ([#1574](https://github.com/NVIDIA/spark-rapids-tools/pull/1574))
+- Add sqlID column to failed_jobs.csv ([#1567](https://github.com/NVIDIA/spark-rapids-tools/pull/1567))
+- Pretty print FileFormat in the write_operations file ([#1562](https://github.com/NVIDIA/spark-rapids-tools/pull/1562))
+
+### Miscellaneous
+
+- Change labeler workflow to pull_request_target ([#1596](https://github.com/NVIDIA/spark-rapids-tools/pull/1596))
+- Add Github workflow to add label to PR automatically ([#1585](https://github.com/NVIDIA/spark-rapids-tools/pull/1585))
+
+
+<br/>
+
 ## Release [v24.12.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v24.12.4)
 Generated on 2025-02-21
 ### User Tools
