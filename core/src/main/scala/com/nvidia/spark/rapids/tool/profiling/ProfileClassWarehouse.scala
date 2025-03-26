@@ -1458,4 +1458,13 @@ object SparkRapidsOomExceptions {
   val gpuExceptionClassNames: Set[String] = {
     Set("GpuSplitAndRetryOOM", "GpuRetryOOM")
   }
+
+  val gpuShuffleClassName: String = "GpuShuffleExchangeExec"
+}
+
+/**
+ * Helper object to store the exit codes for a UNIX process.
+ */
+object UnixExitCode {
+  val FORCE_KILLED = 137
 }

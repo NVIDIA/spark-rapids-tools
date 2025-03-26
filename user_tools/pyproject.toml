@@ -78,7 +78,7 @@ dependencies = [
     # used for spinner animation
     "progress==1.6",
     # used for model estimations python [3.9-3.11]
-    "xgboost==2.1.3",
+    "xgboost==2.1.4",
     # used for model interpretability. python [3.9, 3.12]
     "shap==0.46.0",
     # dependency of shap, python [3.9, 3.12]
