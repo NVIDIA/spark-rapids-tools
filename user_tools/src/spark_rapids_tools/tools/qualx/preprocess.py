@@ -760,19 +760,19 @@ def impute(full_tbl: pd.DataFrame) -> pd.DataFrame:
     """Impute missing columns and delete extra columns."""
     actual_features = set(full_tbl.columns)
     if actual_features == expected_raw_features:
-        logger.info('Dataset has all expected features')
+        logger.debug('Dataset has all expected features')
     else:
         missing = sorted(expected_raw_features - actual_features)
         extra = sorted(actual_features - expected_raw_features)
         if missing:
-            logger.warning('Imputing missing features: %s', missing)
+            logger.debug('Imputing missing features: %s', missing)
             if 'fraction_supported' in missing:
                 full_tbl['fraction_supported'] = 1.0
                 missing.remove('fraction_supported')
             full_tbl.loc[:, missing] = 0
 
         if extra:
-            logger.warning('Removing extra features: %s', extra)
+            logger.debug('Removing extra features: %s', extra)
             full_tbl = full_tbl.drop(columns=extra)
 
         # one last check after modifications (update expected_raw_features if needed)
@@ -806,7 +806,7 @@ def load_csv_files(
             )
         except Exception as ex:  # pylint: disable=broad-except
             if warn_on_error or abort_on_error:
-                logger.warning('Failed to load %s for %s.', tb_name, app_id)
+                logger.debug('Failed to load %s for %s.', tb_name, app_id)
             if abort_on_error:
                 raise ScanTblError() from ex
             scan_result = pd.DataFrame()
@@ -1030,7 +1030,6 @@ def load_csv_files(
             stage_times = total_stage_time.merge(
                 failed_stage_time, on='sqlID', how='inner'
             )
-            stage_times.info()
             sqls_to_drop = set(
                 stage_times.loc[
                     stage_times.Duration_y
@@ -1039,7 +1038,7 @@ def load_csv_files(
             )
 
         if sqls_to_drop:
-            logger.warning('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
+            logger.debug('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
 
         if node_level_supp is not None and (qualtool_filter == 'stage'):
             job_stage_agg_tbl = job_stage_agg_tbl[
@@ -1118,13 +1117,15 @@ def load_csv_files(
             aborted_sql_ids = set()
 
         if aborted_sql_ids:
-            logger.warning('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
+            logger.debug('Ignoring sqlIDs %s due to aborted jobs.', aborted_sql_ids)
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if sqls_to_drop:
             logger.warning(
-                'Ignoring a total of %s sqlIDs due to stage/job failures.', len(sqls_to_drop)
+                'Ignoring a total of %s sqlIDs due to stage/job failures for %s.',
+                len(sqls_to_drop),
+                app_id
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
 

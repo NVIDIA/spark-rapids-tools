@@ -77,7 +77,7 @@ def train(
         drop=True
     )
     if cpu_aug_tbl.shape[0] < original_num_rows:
-        logger.warning(
+        logger.debug(
             'Removed %d rows with NaN label values', original_num_rows - cpu_aug_tbl.shape[0]
         )
 
@@ -156,7 +156,7 @@ def predict(
     if missing:
         raise ValueError(f'Input is missing model features: {missing}')
     if extra:
-        logger.warning('Input had extra features not present in model: %s', extra)
+        logger.debug('Input had extra features not present in model: %s', extra)
 
     x = cpu_aug_tbl[model_features]
     y = cpu_aug_tbl[label_col] if label_col else None
@@ -248,7 +248,7 @@ def extract_model_features(
     gpu_aug_tbl = df[df['runType'] == 'GPU']
     if gpu_aug_tbl.shape[0] > 0:
         if gpu_aug_tbl.shape[0] != cpu_aug_tbl.shape[0]:
-            logger.warning(
+            logger.debug(
                 'Number of GPU rows (%d) does not match number of CPU rows (%d)',
                 gpu_aug_tbl.shape[0],
                 cpu_aug_tbl.shape[0],
@@ -276,7 +276,7 @@ def extract_model_features(
         if (
             num_na / num_rows > 0.05
         ):  # arbitrary threshold, misaligned sqlIDs still may 'match' most of the time
-            logger.warning(
+            logger.debug(
                 'Percentage of NaN GPU durations is high: %d / %d. Per-sql actual speedups may be inaccurate.',
                 num_na,
                 num_rows,
@@ -315,7 +315,7 @@ def extract_model_features(
         raise ValueError(f'Input data is missing model features: {missing}')
     if extra:
         # remove extra columns
-        logger.warning('Input data has extra features (removed): %s', extra)
+        logger.debug('Input data has extra features (removed): %s', extra)
         feature_cols = [c for c in feature_cols if c not in extra]
 
     # add train/val/test split column, if split function(s) provided
