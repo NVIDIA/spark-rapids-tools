@@ -18,7 +18,34 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.{breakOut, immutable, mutable}
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+
 import org.apache.spark.sql.execution.SparkPlanInfo
+
+case class SQLPlanInfoJsonWrapper(
+    executionId: Long,
+    sparkPlanInfo: SparkPlanInfo)
+
+object SQLPlanInfoSerializer {
+
+  def createJsonStringFromObject[T](obj: T): String = {
+    val mapper = new ObjectMapper()
+    mapper.registerModule(DefaultScalaModule)
+
+    @JsonIgnoreProperties(Array("metrics", "metadata"))
+    abstract class IgnorePropertiesMixin
+
+    mapper.addMixIn(classOf[SparkPlanInfo], classOf[IgnorePropertiesMixin])
+
+    mapper.writeValueAsString(obj)
+  }
+
+  def apply(executionId: Long, sparkPlanInfo: SparkPlanInfo): String = {
+    createJsonStringFromObject(SQLPlanInfoJsonWrapper(executionId, sparkPlanInfo))
+  }
+}
 
 /**
  * Container class to store the information about SqlPlans.
@@ -67,7 +94,7 @@ class SQLPlanModelManager {
   def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
     // TODO: in future we should pass more arguments to this method to capture the common
     //  information of an SqlPlan (i.e., startTime,..etc))
-    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelWithDSCaching(id))
+    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelPrimaryWithDSCaching(id))
     planModel.addPlan(planInfo, physicalDescription)
   }
 
@@ -102,6 +129,13 @@ class SQLPlanModelManager {
    */
   def getPhysicalPlans: immutable.Map[Long, String] = {
     immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
+  }
+
+  def getTruncatedPrimarySQLPlanInfo: immutable.Map[Long, String] = {
+    immutable.SortedMap[Long, String]() ++ sqlPlans.map{
+      case (sqlId, sparkPlanModel) =>
+        sqlId -> SQLPlanInfoSerializer(sqlId, sparkPlanModel.getPrimarySQLPlanInfo)
+    }
   }
 
   def remove(id: Long): Option[SQLPlanModel] = {

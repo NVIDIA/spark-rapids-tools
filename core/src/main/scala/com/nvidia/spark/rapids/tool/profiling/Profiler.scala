@@ -360,6 +360,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       CollectInformation.printSQLPlans(apps, outputDir)
     }
 
+    CollectInformation.generateSQLInformationFile(apps, outputDir)
+
     if (appArgs.generateDot()) {
       if (appArgs.compare() || appArgs.combined()) {
         logWarning("Dot graph does not compare or combine apps")

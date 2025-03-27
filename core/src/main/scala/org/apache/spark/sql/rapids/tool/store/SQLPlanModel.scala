@@ -114,4 +114,8 @@ class SQLPlanModel(val id: Long) {
     // TODO: Consider iterating on the node to add DSV2 as well.
     planVersions.dropRight(1).flatMap(_.getAllReadDS)
   }
+
+  def getPrimarySQLPlanInfo: SparkPlanInfo = {
+    planInfo
+  }
 }

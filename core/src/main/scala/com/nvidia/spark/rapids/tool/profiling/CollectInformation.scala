@@ -137,6 +137,21 @@ object CollectInformation extends Logging {
     }
   }
 
+  def generateSQLInformationFile(apps: Seq[ApplicationInfo], outputDir: String): Unit = {
+    for (app <- apps) {
+      val planFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
+        "sql_plan_info.log", "SQL Plan")
+      try {
+        for ((_, planDesc) <- app.sqlManager.getTruncatedPrimarySQLPlanInfo) {
+          planFileWriter.write(planDesc)
+          planFileWriter.write("\n")
+        }
+      } finally {
+        planFileWriter.close()
+      }
+    }
+  }
+
   def printSQLPlans(apps: Seq[ApplicationInfo], outputDir: String): Unit = {
     for (app <- apps) {
       val planFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
