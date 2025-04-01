@@ -18,32 +18,27 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.{breakOut, immutable, mutable}
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
 import org.apache.spark.sql.execution.SparkPlanInfo
 
 case class SQLPlanInfoJsonWrapper(
-    executionId: Long,
-    sparkPlanInfo: SparkPlanInfo)
+   sqlId: Long,
+   sparkPlanInfo: SQLPlanInfoJsonWrapper.SparkPlanInfoTruncated)
 
-object SQLPlanInfoSerializer {
+object SQLPlanInfoJsonWrapper {
 
-  def createJsonStringFromObject[T](obj: T): String = {
-    val mapper = new ObjectMapper()
-    mapper.registerModule(DefaultScalaModule)
+  case class SparkPlanInfoTruncated(
+     nodeName: String,
+     simpleString: String,
+     children: Seq[SparkPlanInfoTruncated])
 
-    @JsonIgnoreProperties(Array("metrics", "metadata"))
-    abstract class IgnorePropertiesMixin
-
-    mapper.addMixIn(classOf[SparkPlanInfo], classOf[IgnorePropertiesMixin])
-
-    mapper.writeValueAsString(obj)
+  def apply(sqlId: Long, sparkPlanInfo: SparkPlanInfo): SQLPlanInfoJsonWrapper = {
+    SQLPlanInfoJsonWrapper(sqlId, convertSparkPlanInfo(sparkPlanInfo))
   }
 
-  def apply(executionId: Long, sparkPlanInfo: SparkPlanInfo): String = {
-    createJsonStringFromObject(SQLPlanInfoJsonWrapper(executionId, sparkPlanInfo))
+  private def convertSparkPlanInfo(info: SparkPlanInfo): SparkPlanInfoTruncated = {
+    SparkPlanInfoTruncated(info.nodeName,
+      info.simpleString,
+      info.children.map(convertSparkPlanInfo))
   }
 }
 
@@ -131,11 +126,11 @@ class SQLPlanModelManager {
     immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
   }
 
-  def getTruncatedPrimarySQLPlanInfo: immutable.Map[Long, String] = {
-    immutable.SortedMap[Long, String]() ++ sqlPlans.map{
+  def getTruncatedPrimarySQLPlanInfo: Seq[SQLPlanInfoJsonWrapper] = {
+    sqlPlans.map{
       case (sqlId, sparkPlanModel) =>
-        sqlId -> SQLPlanInfoSerializer(sqlId, sparkPlanModel.getPrimarySQLPlanInfo)
-    }
+        SQLPlanInfoJsonWrapper(sqlId, sparkPlanModel.getPrimarySQLPlanInfo)
+    }.toSeq
   }
 
   def remove(id: Long): Option[SQLPlanModel] = {

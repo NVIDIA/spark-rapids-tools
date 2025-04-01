@@ -21,6 +21,8 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.views._
+import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.Serialization
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -138,16 +140,15 @@ object CollectInformation extends Logging {
   }
 
   def generateSQLInformationFile(apps: Seq[ApplicationInfo], outputDir: String): Unit = {
+    implicit val formats: Formats = DefaultFormats
     for (app <- apps) {
-      val planFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
-        "sql_plan_info.log", "SQL Plan")
+      val jsonFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
+        "sql_plan_info_v0.json", "SQL Plan")
       try {
-        for ((_, planDesc) <- app.sqlManager.getTruncatedPrimarySQLPlanInfo) {
-          planFileWriter.write(planDesc)
-          planFileWriter.write("\n")
-        }
+        val plans = app.sqlManager.getTruncatedPrimarySQLPlanInfo
+        jsonFileWriter.write(Serialization.writePretty(plans) + "\n")
       } finally {
-        planFileWriter.close()
+        jsonFileWriter.close()
       }
     }
   }
