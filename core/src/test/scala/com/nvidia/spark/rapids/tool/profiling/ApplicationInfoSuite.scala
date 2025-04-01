@@ -273,6 +273,26 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
+  test("test sql_plan_info_v0 file generation") {
+    TrampolineUtil.withTempDir { tempOutputDir =>
+      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
+      val appArgs = new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
+      var index: Int = 1
+      val eventlogPaths = appArgs.eventlog()
+      for (path <- eventlogPaths) {
+        apps += new ApplicationInfo(hadoopConf,
+          EventLogPathProcessor.getEventLogInfo(path,
+            sparkSession.sparkContext.hadoopConfiguration).head._1, index)
+        index += 1
+      }
+      assert(apps.size == 1)
+      CollectInformation.generateSQLInformationFile(apps, tempOutputDir.getAbsolutePath)
+      val outputDir = new File(tempOutputDir, apps.head.appId)
+      val dotDirs = ToolTestUtils.listFilesMatching(outputDir, _.endsWith("sql_plan_info_v0.json"))
+      assert(dotDirs.length === 1)
+    }
+  }
+
   test("test read GPU datasourcev1") {
     TrampolineUtil.withTempDir { _ =>
       val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()

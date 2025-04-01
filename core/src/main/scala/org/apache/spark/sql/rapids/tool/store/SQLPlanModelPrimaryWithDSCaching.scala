@@ -18,6 +18,11 @@ package org.apache.spark.sql.rapids.tool.store
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 
+/**
+ * An extension of SQLPlanModelWithDSCaching to also cache the
+ * primary plan version along with the DataSourceRecords from previous plan.
+ * @param sqlId the executionID of the sqlPlan.
+ */
 class SQLPlanModelPrimaryWithDSCaching(sqlID: Long) extends SQLPlanModelWithDSCaching(sqlID) {
 
   private var cachedPrimaryPlanVersion: SQLPlanVersion = _

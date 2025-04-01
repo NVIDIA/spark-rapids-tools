@@ -20,28 +20,6 @@ import scala.collection.{breakOut, immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 
-case class SQLPlanInfoJsonWrapper(
-   sqlId: Long,
-   sparkPlanInfo: SQLPlanInfoJsonWrapper.SparkPlanInfoTruncated)
-
-object SQLPlanInfoJsonWrapper {
-
-  case class SparkPlanInfoTruncated(
-     nodeName: String,
-     simpleString: String,
-     children: Seq[SparkPlanInfoTruncated])
-
-  def apply(sqlId: Long, sparkPlanInfo: SparkPlanInfo): SQLPlanInfoJsonWrapper = {
-    SQLPlanInfoJsonWrapper(sqlId, convertSparkPlanInfo(sparkPlanInfo))
-  }
-
-  private def convertSparkPlanInfo(info: SparkPlanInfo): SparkPlanInfoTruncated = {
-    SparkPlanInfoTruncated(info.nodeName,
-      info.simpleString,
-      info.children.map(convertSparkPlanInfo))
-  }
-}
-
 /**
  * Container class to store the information about SqlPlans.
  */

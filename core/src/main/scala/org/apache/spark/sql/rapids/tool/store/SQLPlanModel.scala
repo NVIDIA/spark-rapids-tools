@@ -119,3 +119,33 @@ class SQLPlanModel(val id: Long) {
     planInfo
   }
 }
+
+/**
+ * This JSON wrapper is used to serialize the SQLPlanInfo to a JSON format
+ * in a truncated form. We don't need to serialize the entire SparkPlanInfo
+ * Just the nodeName, simpleString and children.
+ * @param sqlId
+ * @param sparkPlanInfo
+ */
+
+case class SQLPlanInfoJsonWrapper(
+                                   sqlId: Long,
+                                   sparkPlanInfo: SQLPlanInfoJsonWrapper.SparkPlanInfoTruncated)
+
+object SQLPlanInfoJsonWrapper {
+
+  case class SparkPlanInfoTruncated(
+                                     nodeName: String,
+                                     simpleString: String,
+                                     children: Seq[SparkPlanInfoTruncated])
+
+  def apply(sqlId: Long, sparkPlanInfo: SparkPlanInfo): SQLPlanInfoJsonWrapper = {
+    SQLPlanInfoJsonWrapper(sqlId, convertSparkPlanInfo(sparkPlanInfo))
+  }
+
+  private def convertSparkPlanInfo(info: SparkPlanInfo): SparkPlanInfoTruncated = {
+    SparkPlanInfoTruncated(info.nodeName,
+      info.simpleString,
+      info.children.map(convertSparkPlanInfo))
+  }
+}
