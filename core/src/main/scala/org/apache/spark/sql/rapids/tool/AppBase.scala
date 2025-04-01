@@ -371,11 +371,41 @@ abstract class AppBase(
   }
 
   /**
-   * Builds cluster information based on executor nodes.
+   * Builds cluster information based on executor nodes and sets it in the
+   * platform so that it can be used later.
    * If executor nodes exist, calculates the number of hosts and total cores,
    * and extracts executor and driver instance types (databricks only)
    */
-  protected def buildClusterInfo: Unit = {}
+  def buildClusterInfo(): Unit = {
+    // try to figure out number of executors per node based on the executor info
+    // Group by host name, find max executors per host
+    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
+    // if we have different number of execs per node, then we blank it out to indicate
+    // not applicable (like when dynamic allocation is on in multi-tenant cluster)
+    // Since with dynamic allocation you could end up with more executors on a node then it
+    // has slots, just always set numExecsPerNode to -1 when its enabled.
+    val dynamicAllocEnabled = Platform.isDynamicAllocationEnabled(sparkProperties)
+    val numExecsPerNode = if (!dynamicAllocEnabled && execsPerNodeList.nonEmpty &&
+      execsPerNodeList.forall(_ == execsPerNodeList.head)) {
+      execsPerNodeList.head
+    } else {
+      -1
+    }
+    val execCoreCounts = executorIdToInfo.values.map(_.totalCores)
+    if (execCoreCounts.nonEmpty) {
+      if (execCoreCounts.toSet.size != 1) {
+        logWarning(s"Application $appId: Cluster with variable executor cores detected. " +
+          s"Using maximum value.")
+      }
+      // Create cluster information based on platform type
+      platform.foreach(_.configureClusterInfoFromEventLog(execCoreCounts.max,
+        numExecsPerNode, maxNumExecutorsRunning, maxNumNodesRunning,
+        sparkProperties, systemProperties))
+    } else {
+      logWarning("Could not determine if any executors were allocated or the number of cores " +
+        "used per executor. Can't build existing cluster information!")
+    }
+  }
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   def checkMetadataForReadSchema(
@@ -488,10 +518,11 @@ abstract class AppBase(
     }
   }
 
-  protected def postCompletion(): Unit = {
+  private def postCompletion(): Unit = {
     registerAttemptId()
     calculateAppDuration()
     validateSparkRuntime()
+    buildClusterInfo()
   }
 
   /**
