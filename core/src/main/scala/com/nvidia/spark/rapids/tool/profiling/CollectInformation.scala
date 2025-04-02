@@ -135,9 +135,20 @@ object CollectInformation extends Logging {
     }
   }
 
+
+  /**
+   * Generates a JSON file containing primary SQLPlanInfo information for each application.
+   * This is the truncated version of the SQLPlanInfo object that comes with the
+   * first SparkListenerSQLExecutionStart event
+   * V0 as there can be secondary version of the same plan due to
+   * AQE updates
+   *
+   * @param apps      Sequence of ApplicationInfo objects representing the applications.
+   * @param outputDir Directory where the JSON files will be saved.
+   */
   def generateSQLInformationFile(apps: Seq[ApplicationInfo], outputDir: String): Unit = {
     implicit val formats: Formats = DefaultFormats
-    for (app <- apps) {
+    apps.foreach { app =>
       val jsonFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
         "sql_plan_info_v0.json", "SQL Plan")
       try {
