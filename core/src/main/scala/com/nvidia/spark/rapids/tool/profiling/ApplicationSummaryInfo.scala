@@ -22,6 +22,7 @@ import com.nvidia.spark.rapids.tool.tuning.{SparkMaster, Yarn}
 import com.nvidia.spark.rapids.tool.views.{IoMetrics, WriteOpProfileResult}
 
 import org.apache.spark.ExecutorLostFailure
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 case class ApplicationSummaryInfo(
     appInfo: Seq[AppInfoProfileResults],
@@ -103,9 +104,12 @@ class BaseProfilingAppSummaryInfoProvider
  * [[ApplicationSummaryInfo]].
  * Note that this class does not handle combined mode and assume that the profiling results belong
  * to a single app.
- * @param app the object resulting from profiling a single app.
+ * @param appInfo Info object resulting from profiling a single app.
+ * @param app Summary object resulting from profiling a single app.
  */
-class SingleAppSummaryInfoProvider(val app: ApplicationSummaryInfo)
+class SingleAppSummaryInfoProvider(
+    val appInfo: ApplicationInfo,
+    val app: ApplicationSummaryInfo)
   extends BaseProfilingAppSummaryInfoProvider {
 
   private lazy val distinctLocations = app.dsInfo.groupBy(_.location)
