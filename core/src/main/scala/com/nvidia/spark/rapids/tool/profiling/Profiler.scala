@@ -360,8 +360,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       CollectInformation.printSQLPlans(apps, outputDir)
     }
 
-    CollectInformation.generateSQLInformationFile(apps, outputDir)
-
     if (appArgs.generateDot()) {
       if (appArgs.compare() || appArgs.combined()) {
         logWarning("Dot graph does not compare or combine apps")
@@ -407,7 +405,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
         unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
         appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
-        collect.getWriteOperationInfo),
+        collect.getWriteOperationInfo, collect.getSQLPlanInfoTruncated),
       compareRes,
       DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -507,7 +505,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         combineProps("system", appsSum).sortBy(_.key),
         appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
         appsSum.flatMap(_.sparkRapidsBuildInfo),
-        appsSum.flatMap(_.writeOpsInfo).sortBy(_.appIndex)
+        appsSum.flatMap(_.writeOpsInfo).sortBy(_.appIndex),
+        appsSum.flatMap(_.sqlPlanInfo).sortBy(_.sqlID) // sort by sqlID
       )
       Seq(reduced)
     } else {
@@ -535,6 +534,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfStageMetricView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
         Some(ProfSQLCodeGenView.getDescription))
+      profileOutputWriter.writeJson(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
       comparedRes.foreach { compareSum =>
         val matchingSqlIds = compareSum.matchingSqlIds
         val matchingStageIds = compareSum.matchingStageIds

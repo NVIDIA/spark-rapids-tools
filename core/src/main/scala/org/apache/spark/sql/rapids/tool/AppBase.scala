@@ -37,7 +37,7 @@ import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
@@ -151,6 +151,10 @@ abstract class AppBase(
 
   def getWriteDataFormats(): Set[String] = {
     sqlManager.getWriteFormats()
+  }
+
+  def getPrimarySQLPlanInfo(): immutable.Map[Long, SparkPlanInfoTruncated] = {
+    sqlManager.getTruncatedPrimarySQLPlanInfo
   }
 
   // Returns a boolean true/false. This is used to check whether processing an eventlog was

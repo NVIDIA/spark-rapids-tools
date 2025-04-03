@@ -20,6 +20,24 @@ import scala.collection.{breakOut, immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 
+// This SparkPlanInfoTruncated is used to trim and serialize
+// SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
+// 1. nodeName
+// 2. simpleString
+// 3. children - which is a list of SparkPlanInfoTruncated (calculated recursively)
+case class SparkPlanInfoTruncated(
+  nodeName: String,
+  simpleString: String,
+  children: Seq[SparkPlanInfoTruncated])
+
+object SparkPlanInfoTruncated {
+  def apply(info: SparkPlanInfo): SparkPlanInfoTruncated = {
+    SparkPlanInfoTruncated(info.nodeName,
+      info.simpleString,
+      info.children.map(apply))
+  }
+}
+
 /**
  * Container class to store the information about SqlPlans.
  */
@@ -104,11 +122,17 @@ class SQLPlanModelManager {
     immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
   }
 
-  def getTruncatedPrimarySQLPlanInfo: Seq[SQLPlanInfoJsonWrapper] = {
-    sqlPlans.collect {
-      case (sqlId, sparkPlanModel) if sparkPlanModel.getPrimarySQLPlanInfo.isDefined =>
-        SQLPlanInfoJsonWrapper(sqlId, sparkPlanModel.getPrimarySQLPlanInfo.get)
-    }.toSeq
+  /**
+   * This method returns the truncated version of the first(pre AQE) SparkPlanInfo object
+   * associated with all the SQLs for a given application
+   * @return
+   */
+  def getTruncatedPrimarySQLPlanInfo: immutable.Map[Long, SparkPlanInfoTruncated] = {
+    sqlPlans.collect { case (sqlId, sparkPlanModel) =>
+      sparkPlanModel.getPrimarySQLPlanInfo.map { planInfo =>
+        sqlId -> SparkPlanInfoTruncated(planInfo)
+      }
+    }.flatten.toMap
   }
 
   def remove(id: Long): Option[SQLPlanModel] = {
@@ -134,7 +158,7 @@ class SQLPlanModelManager {
   }
 
   /**
-   * Gets all the writeRecords of of the final plan of the SQL
+   * Gets all the writeRecords of the final plan of the SQL
    * @return Iterable of WriteOperationRecord representing the write operations.
    */
   def getWriteOperationRecords(): Iterable[WriteOperationRecord] = {

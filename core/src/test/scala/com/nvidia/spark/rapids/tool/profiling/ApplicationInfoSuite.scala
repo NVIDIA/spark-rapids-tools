@@ -273,20 +273,16 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test sql_plan_info_v0 file generation") {
+  test("test sql_plan_info_pre_aqe file generation") {
     TrampolineUtil.withTempDir { tempOutputDir =>
       val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
-      val appArgs = new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
-      var index: Int = 1
-      val eventlogPaths = appArgs.eventlog()
-      for (path <- eventlogPaths) {
-        apps += new ApplicationInfo(hadoopConf,
-          EventLogPathProcessor.getEventLogInfo(path,
-            sparkSession.sparkContext.hadoopConfiguration).head._1, index)
-        index += 1
-      }
-      assert(apps.size == 1)
-      CollectInformation.generateSQLInformationFile(apps, tempOutputDir.getAbsolutePath)
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempOutputDir.getAbsolutePath,
+        s"$logDir/rapids_join_eventlog.zstd"))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
       val outputDir = new File(tempOutputDir, apps.head.appId)
       val sqlPlanInfoFiles =
         ToolTestUtils.listFilesMatching(outputDir, _.endsWith("sql_plan_info_pre_aqe.json"))
@@ -294,7 +290,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test sql_plan_info_pre_aqe with SparkListenerSQLExecutionStart event") {
+  test("test sql_plan_info_pre_aqe.json with SparkListenerSQLExecutionStart event") {
     TrampolineUtil.withTempDir { tempDir =>
       val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
       // scalastyle:off line.size.limit

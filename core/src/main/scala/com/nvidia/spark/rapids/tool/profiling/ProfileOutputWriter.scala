@@ -80,6 +80,16 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
+  def writeJson(headerText: String, outRows: Seq[ProfileResult]): Unit = {
+    val fileName = headerText.replace(" ", "_").toLowerCase
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    try {
+      jsonWriter.write(Serialization.writePretty(outRows) + "\n")
+    } finally {
+      jsonWriter.close()
+    }
+  }
+
   def close(): Unit = {
     textFileWriter.close()
   }

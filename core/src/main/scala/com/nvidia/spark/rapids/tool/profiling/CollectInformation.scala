@@ -21,8 +21,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.views._
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.jackson.Serialization
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -97,6 +95,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanMetricsView.getRawView(apps)
   }
 
+  def getSQLPlanInfoTruncated: Seq[SQLPlanInfoProfileResult] = {
+    ProfAppSQLPlanInfoView.getRawView(apps)
+  }
+
   // Print all Stage level Metrics
   def getStageLevelMetrics: Seq[AccumProfileResults] = {
     ProfStageMetricView.getRawView(apps)
@@ -132,31 +134,6 @@ object CollectInformation extends Logging {
   def generateStageLevelAccums(apps: Seq[ApplicationInfo]): Seq[AccumProfileResults] = {
     apps.flatMap { app =>
       app.planMetricProcessor.generateStageLevelAccums()
-    }
-  }
-
-
-  /**
-   * Generates a JSON file containing primary SQLPlanInfo information for each application.
-   * This is the truncated version of the SQLPlanInfo object that comes with the
-   * first SparkListenerSQLExecutionStart event
-   * V0 as there can be secondary version of the same plan due to
-   * AQE updates
-   *
-   * @param apps      Sequence of ApplicationInfo objects representing the applications.
-   * @param outputDir Directory where the JSON files will be saved.
-   */
-  def generateSQLInformationFile(apps: Seq[ApplicationInfo], outputDir: String): Unit = {
-    implicit val formats: Formats = DefaultFormats
-    apps.foreach { app =>
-      val jsonFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
-        "sql_plan_info_pre_aqe.json", "SQL Plan")
-      try {
-        val plans = app.sqlManager.getTruncatedPrimarySQLPlanInfo
-        jsonFileWriter.write(Serialization.writePretty(plans) + "\n")
-      } finally {
-        jsonFileWriter.close()
-      }
     }
   }
 
