@@ -288,12 +288,13 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       assert(apps.size == 1)
       CollectInformation.generateSQLInformationFile(apps, tempOutputDir.getAbsolutePath)
       val outputDir = new File(tempOutputDir, apps.head.appId)
-      val dotDirs = ToolTestUtils.listFilesMatching(outputDir, _.endsWith("sql_plan_info_v0.json"))
-      assert(dotDirs.length === 1)
+      val sqlPlanInfoFiles =
+        ToolTestUtils.listFilesMatching(outputDir, _.endsWith("sql_plan_info_pre_aqe.json"))
+      assert(sqlPlanInfoFiles.length === 1)
     }
   }
 
-  test("test sql_plan_info_v0 with SparkSQLStartEvent") {
+  test("test sql_plan_info_pre_aqe with SparkListenerSQLExecutionStart event") {
     TrampolineUtil.withTempDir { tempDir =>
       val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
       // scalastyle:off line.size.limit
@@ -315,14 +316,13 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-16261043003")
       // assert that a json file was generated
-      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
-        f.endsWith("sql_plan_info_v0.json")
+      val sqlPlanInfoFiles = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+        f.endsWith("sql_plan_info_pre_aqe.json")
       })
-      assert(dotDirs.length === 1)
+      assert(sqlPlanInfoFiles.length === 1)
 
-      val actualFilePath = s"${tempSubDir.getAbsolutePath}/sql_plan_info_v0.json"
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/sql_plan_info_pre_aqe.json"
       val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
-      print(actualResult)
       val expectedResult =
         s"""|[ {
             |  "sqlId" : 0,

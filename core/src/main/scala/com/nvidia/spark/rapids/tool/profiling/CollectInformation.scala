@@ -150,7 +150,7 @@ object CollectInformation extends Logging {
     implicit val formats: Formats = DefaultFormats
     apps.foreach { app =>
       val jsonFileWriter = new ToolTextFileWriter(s"$outputDir/${app.appId}",
-        "sql_plan_info_v0.json", "SQL Plan")
+        "sql_plan_info_pre_aqe.json", "SQL Plan")
       try {
         val plans = app.sqlManager.getTruncatedPrimarySQLPlanInfo
         jsonFileWriter.write(Serialization.writePretty(plans) + "\n")

@@ -34,7 +34,12 @@ class SQLPlanModelPrimaryWithDSCaching(sqlID: Long) extends SQLPlanModelWithDSCa
     }
   }
 
-  override def getPrimarySQLPlanInfo: SparkPlanInfo = {
-    cachedPrimaryPlanVersion.planInfo
+  /**
+   * This returns the primary plan version of the SQLPlanModel which
+   * in this case is the cachedPrimaryPlanVersion.
+   * @return Option containing the primary SparkPlanInfo if it exists.
+   */
+  override def getPrimarySQLPlanInfo: Option[SparkPlanInfo] = {
+    Some(cachedPrimaryPlanVersion.planInfo)
   }
 }

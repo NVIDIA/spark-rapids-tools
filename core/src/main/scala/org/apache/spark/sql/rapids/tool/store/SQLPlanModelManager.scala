@@ -105,9 +105,9 @@ class SQLPlanModelManager {
   }
 
   def getTruncatedPrimarySQLPlanInfo: Seq[SQLPlanInfoJsonWrapper] = {
-    sqlPlans.map{
-      case (sqlId, sparkPlanModel) =>
-        SQLPlanInfoJsonWrapper(sqlId, sparkPlanModel.getPrimarySQLPlanInfo)
+    sqlPlans.collect {
+      case (sqlId, sparkPlanModel) if sparkPlanModel.getPrimarySQLPlanInfo.isDefined =>
+        SQLPlanInfoJsonWrapper(sqlId, sparkPlanModel.getPrimarySQLPlanInfo.get)
     }.toSeq
   }
 

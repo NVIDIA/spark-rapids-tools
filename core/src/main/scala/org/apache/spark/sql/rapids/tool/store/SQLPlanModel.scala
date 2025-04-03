@@ -115,8 +115,15 @@ class SQLPlanModel(val id: Long) {
     planVersions.dropRight(1).flatMap(_.getAllReadDS)
   }
 
-  def getPrimarySQLPlanInfo: SparkPlanInfo = {
-    planInfo
+  /**
+   * Get the primary SQLPlanInfo, which is the first version of the plan.
+   * In case no SQL version has been added, it should return None.
+   * Default scenarios warrant that in case a SQLPlanModel is created, it should have at least
+   * one version.
+   * @return Option containing the primary SparkPlanInfo if it exists.
+   */
+  def getPrimarySQLPlanInfo: Option[SparkPlanInfo] = {
+    planVersions.find(_.version == 0).map(_.planInfo)
   }
 }
 
@@ -124,28 +131,35 @@ class SQLPlanModel(val id: Long) {
  * This JSON wrapper is used to serialize the SQLPlanInfo to a JSON format
  * in a truncated form. We don't need to serialize the entire SparkPlanInfo
  * Just the nodeName, simpleString and children.
- * @param sqlId
- * @param sparkPlanInfo
+ * @param sqlId The id associated with the SQLPlanInfo
+ * @param sparkPlanInfo The SparkPlanInfo in a truncated form
  */
-
 case class SQLPlanInfoJsonWrapper(
-                                   sqlId: Long,
-                                   sparkPlanInfo: SQLPlanInfoJsonWrapper.SparkPlanInfoTruncated)
+     sqlId: Long,
+     sparkPlanInfo: SQLPlanInfoJsonWrapper.SparkPlanInfoTruncated)
 
 object SQLPlanInfoJsonWrapper {
 
+  // This SparkPlanInfoTruncated is used to serialize the SparkPlanInfo by removing
+  // the unnecessary fields. Only three fields are kept:
+  // 1. nodeName
+  // 2. simpleString
+  // 3. children - which is a list of SparkPlanInfoTruncated (calculated recursively)
   case class SparkPlanInfoTruncated(
-                                     nodeName: String,
-                                     simpleString: String,
-                                     children: Seq[SparkPlanInfoTruncated])
+     nodeName: String,
+     simpleString: String,
+     children: Seq[SparkPlanInfoTruncated])
 
   def apply(sqlId: Long, sparkPlanInfo: SparkPlanInfo): SQLPlanInfoJsonWrapper = {
-    SQLPlanInfoJsonWrapper(sqlId, convertSparkPlanInfo(sparkPlanInfo))
+    SQLPlanInfoJsonWrapper(sqlId, truncateSparkPlanInfo(sparkPlanInfo))
   }
 
-  private def convertSparkPlanInfo(info: SparkPlanInfo): SparkPlanInfoTruncated = {
+  // This function is used to recursively create a truncated version of the SparkPlanInfo
+  // by removing the unnecessary fields for the root SparkPlanInfo node
+  // as well as its children.
+  private def truncateSparkPlanInfo(info: SparkPlanInfo): SparkPlanInfoTruncated = {
     SparkPlanInfoTruncated(info.nodeName,
       info.simpleString,
-      info.children.map(convertSparkPlanInfo))
+      info.children.map(truncateSparkPlanInfo))
   }
 }

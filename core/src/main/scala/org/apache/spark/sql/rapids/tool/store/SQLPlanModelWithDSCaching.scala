@@ -18,6 +18,9 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.spark.sql.execution.SparkPlanInfo
+
+
 /**
  * An extension of SQLPlanModel to only cache the DataSourceRecords from previous plan.
  * @param sqlId the executionID of the sqlPlan.
@@ -38,6 +41,20 @@ class SQLPlanModelWithDSCaching(sqlId: Long) extends SQLPlanModel(sqlId) {
     cachedDataSources ++= plan.getAllReadDS
     // call any cleanup code necessary for the plan
     plan.cleanUpPlan()
+  }
+
+  /**
+   * Get the primary SQLPlanInfo, which is the first version of the plan.
+   * If there is only one version of the plan, return the planInfo of that version.
+   * Otherwise, if overridden by AQE, return None.
+   * @return Option containing the primary SparkPlanInfo if it exists.
+   */
+  override def getPrimarySQLPlanInfo: Option[SparkPlanInfo] = {
+    if (versionsCount == 1) {
+      Some(plan.planInfo)
+    } else {
+      None
+    }
   }
 
   /**
