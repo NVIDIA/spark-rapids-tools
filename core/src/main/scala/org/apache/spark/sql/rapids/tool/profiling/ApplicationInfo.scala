@@ -203,12 +203,6 @@ class ApplicationInfo(
     false
   }
 
-  override def postCompletion(): Unit = {
-    // finally aggregate the Info
-    super.postCompletion()
-    buildClusterInfo
-  }
-
   override def guestimateAppEndTimeCB(): () => Option[Long] = {
     () =>
       val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
