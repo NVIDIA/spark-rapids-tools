@@ -422,7 +422,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
         unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
         appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
-        collect.getWriteOperationInfo),
+        collect.getWriteOperationInfo, collect.getSQLPlanInfoTruncated),
       compareRes,
       DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
