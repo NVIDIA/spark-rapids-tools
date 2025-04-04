@@ -30,18 +30,15 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
  * This case class implements the `ProfileResult` trait and provides methods
  * to convert the result into sequences of strings for display or CSV export.
  *
- * @param appIndex The index of the application this result belongs to.
  * @param record The write operation record containing metadata and details.
  */
-case class WriteOpProfileResult(
-    appIndex: Int,
-    record: WriteOperationRecord) extends ProfileResult {
+case class WriteOpProfileResult(record: WriteOperationRecord) extends ProfileResult {
 
   /**
    * Defines the headers for the output display.
    */
   override val outputHeaders: Seq[String] = {
-    Seq("appIndex", "sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
+    Seq("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
       "location", "tableName", "dataBase", "outputColumns", "writeMode",
       "partitionColumns", "fullDescription")
   }
@@ -51,8 +48,7 @@ case class WriteOpProfileResult(
    * Escapes special characters in the description and truncates long strings.
    */
   override def convertToSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      record.sqlID.toString,
+    Seq(record.sqlID.toString,
       record.version.toString,
       record.nodeId.toString,
       record.fromFinalPlan.toString,
@@ -75,8 +71,7 @@ case class WriteOpProfileResult(
    * Escapes special characters and truncates long descriptions to a maximum length.
    */
   override def convertToCSVSeq: Seq[String] = {
-    Seq(appIndex.toString,
-      record.sqlID.toString,
+    Seq(record.sqlID.toString,
       record.version.toString,
       record.nodeId.toString,
       record.fromFinalPlan.toString,
@@ -117,7 +112,7 @@ trait WriteOpsViewTrait extends ViewableTrait[WriteOpProfileResult] {
    */
   def getRawView(app: AppBase, index: Int): Seq[WriteOpProfileResult] = {
     app.getWriteOperationRecords().map { w =>
-      WriteOpProfileResult(index, w)
+      WriteOpProfileResult(w)
     }(breakOut)
   }
 
@@ -129,7 +124,7 @@ trait WriteOpsViewTrait extends ViewableTrait[WriteOpProfileResult] {
    * @return A sorted sequence of profiling results.
    */
   override def sortView(rows: Seq[WriteOpProfileResult]): Seq[WriteOpProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.record.sqlID, cols.record.version,
+    rows.sortBy(cols => (cols.record.sqlID, cols.record.version,
       cols.record.nodeId))
   }
 }

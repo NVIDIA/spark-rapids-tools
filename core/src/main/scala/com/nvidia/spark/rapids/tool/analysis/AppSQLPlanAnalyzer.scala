@@ -22,13 +22,10 @@ import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSe
 import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
-import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
-import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
@@ -45,7 +42,7 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
  */
-class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(app) {
+class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -195,7 +192,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val ch = cluster.nodes
         ch.foreach { c =>
           wholeStage += WholeStageCodeGenResults(
-            appIndex, visitor.sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
+            visitor.sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
         }
       case _ =>
     }
@@ -314,7 +311,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           validNodes.map(n => s"${n.name}(${n.id.toString})")
         }.getOrElse(Seq.empty)
         stageToNodeNames(sModel.stageInfo.stageId) = nodeNames
-        SQLStageInfoProfileResult(appIndex, j.sqlID.get, jobId, sModel.stageInfo.stageId,
+        SQLStageInfoProfileResult(j.sqlID.get, jobId, sModel.stageInfo.stageId,
           sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
       }
     }(breakOut)
@@ -343,7 +340,7 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
-        val sqlAccumProileResult = SQLAccumProfileResults(appIndex, metric.sqlID,
+        val sqlAccumProileResult = SQLAccumProfileResults(metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds)
 
@@ -420,7 +417,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           None
         } else {
           Some(IODiagnosticResult(
-            appIndex,
             app.getAppName,
             app.appId,
             sqlId,
@@ -459,7 +455,6 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
           case Some(stat) =>
             // Reuse AccumProfileResults to avoid generating allocating new objects
             val accumProfileResults = AccumProfileResults(
-              appIndex,
               stageId,
               accumInfo.infoRef,
               min = stat.min,
@@ -478,13 +473,8 @@ class AppSQLPlanAnalyzer(app: AppBase, appIndex: Int) extends AppAnalysisBase(ap
 }
 
 object AppSQLPlanAnalyzer {
-  def apply(app: AppBase, appIndex: Integer = 1): AppSQLPlanAnalyzer = {
-    val sqlAnalyzer = app match {
-      case qApp: QualificationAppInfo =>
-        new QualSQLPlanAnalyzer(qApp, appIndex)
-      case pApp: ApplicationInfo =>
-        new AppSQLPlanAnalyzer(pApp, pApp.index)
-    }
+  def apply(app: AppBase): AppSQLPlanAnalyzer = {
+    val sqlAnalyzer = new AppSQLPlanAnalyzer(app)
     sqlAnalyzer.processSQLPlanMetrics()
     sqlAnalyzer
   }

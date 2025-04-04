@@ -58,7 +58,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   def writeSparkRapidsBuildInfo(headerText: String,
       sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
     val fileName = headerText.replace(" ", "_").toLowerCase
-    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"$fileName.json", s"$headerText JSON:")
     try {
       jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
     } finally {
@@ -118,13 +118,13 @@ object ProfileOutputWriter {
       // need to have separate CSV file per table, use header text
       // with spaces as _ and lowercase as filename
       val suffix = header.replace(" ", "_").toLowerCase
-      val csvWriter = new ToolTextFileWriter(outputDir, s"${suffix}.csv", s"$header CSV:")
+      val csvWriter = new ToolTextFileWriter(outputDir, s"$suffix.csv", s"$header CSV:")
       try {
         val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
         csvWriter.write(headerString + "\n")
         val rows = outRows.map(_.convertToCSVSeq)
         rows.foreach { row =>
-          val formattedRow = row.map(stringIfempty(_))
+          val formattedRow = row.map(stringIfempty)
           val outStr = formattedRow.mkString(CSVDelimiter)
           csvWriter.write(outStr + "\n")
         }
@@ -190,14 +190,12 @@ object ProfileOutputWriter {
         maxLength = 0))
 
     val schemaAndData = escapedSchema +: rows.map { row =>
-      row.map { cell =>
-        cell match {
-          case null => "null"
-          case str: String =>
-            // Escapes meta-characters not to break the `showString` format
-            org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
-              str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
-        }
+      row.map {
+        case null => "null"
+        case str: String =>
+          // Escapes meta-characters not to break the `showString` format
+          org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
+            str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
       }: Seq[String]
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,8 +32,10 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */
-  def getAggRawMetrics(app: AppBase, index: Int, sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None):
-      AggRawMetricsResult = {
+  def getAggRawMetrics(
+      app: AppBase,
+      index: Int = 1,
+      sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None): AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
     val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
     AggRawMetricsResult(
