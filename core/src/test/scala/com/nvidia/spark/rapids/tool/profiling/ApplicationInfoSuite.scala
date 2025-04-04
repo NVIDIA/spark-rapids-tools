@@ -16,16 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
-
-import scala.collection.mutable.ArrayBuffer
-
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
+import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
@@ -273,9 +271,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test sql_plan_info_pre_aqe file generation") {
+  test("test sql_plan_info_pre_aqe file generation Profiler") {
     TrampolineUtil.withTempDir { tempOutputDir =>
-      val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(
         "--csv",
         "--output-directory",
@@ -283,9 +280,11 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         s"$logDir/rapids_join_eventlog.zstd"))
       val (exit, _) = ProfileMain.mainInternal(appArgs)
       assert(exit == 0)
-      val outputDir = new File(tempOutputDir, apps.head.appId)
+      val outputDir = new File(tempOutputDir, s"${Profiler.SUBDIR}/local-1622814619968")
       val sqlPlanInfoFiles =
-        ToolTestUtils.listFilesMatching(outputDir, _.endsWith("sql_plan_info_pre_aqe.json"))
+        ToolTestUtils.listFilesMatching(outputDir, { f =>
+          f.endsWith("sql_plan_info_pre_aqe.json")
+        })
       assert(sqlPlanInfoFiles.length === 1)
     }
   }
@@ -321,7 +320,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
       val expectedResult =
         s"""|[ {
-            |  "sqlId" : 0,
+            |  "sqlID" : 0,
             |  "sparkPlanInfo" : {
             |    "nodeName" : "Execute CreateViewCommand",
             |    "simpleString" : "Execute CreateViewCommand",
