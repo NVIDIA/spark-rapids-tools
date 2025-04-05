@@ -126,7 +126,7 @@ case class SQLCleanAndAlignIdsProfileResult(
  */
 case class SQLPlanInfoProfileResult(sqlID: Long, sparkPlanInfo: SparkPlanInfoTruncated)
   extends ProfileResult {
-  override val outputHeaders = Seq("sqlID", "sparkPlanInfo")
+  override val outputHeaders = Seq("sqlID", "SparkPlanInfoTruncated")
 
   override def convertToSeq: Seq[String] = {
     Seq(sqlID.toString, sparkPlanInfo.toString)

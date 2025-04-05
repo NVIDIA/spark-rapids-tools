@@ -28,7 +28,30 @@ import org.apache.spark.sql.execution.SparkPlanInfo
 case class SparkPlanInfoTruncated(
   nodeName: String,
   simpleString: String,
-  children: Seq[SparkPlanInfoTruncated])
+  children: Seq[SparkPlanInfoTruncated]) {
+  /**
+   * This toString method creates an indented version of the class
+   * Example - >
+   * - nodeName: Project
+   *   simpleString: Project [value#1]
+   *   - nodeName: Filter
+   *     simpleString: Filter [value#1 > 10]
+   *   - nodeName: Sort
+   *     simpleString: Sort [value#1 ASC]
+   *     - nodeName: Exchange
+   *       simpleString: Exchange [hashpartitioning(value#1)]
+   *
+   */
+  override def toString: String = {
+    def stringify(plan: SparkPlanInfoTruncated, indentLevel: Int): String = {
+      val indent = " " * indentLevel
+      val childString = plan.children.map(child => stringify(child, indentLevel + 1)).mkString("\n")
+      s"$indent- nodeName: ${plan.nodeName}\n$indent  simpleString: ${plan.simpleString}" +
+        (if (children.nonEmpty) s"\n$childString" else "")
+    }
+    stringify(this, 0)
+  }
+}
 
 object SparkPlanInfoTruncated {
   def apply(info: SparkPlanInfo): SparkPlanInfoTruncated = {

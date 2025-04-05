@@ -318,15 +318,10 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
       val actualFilePath = s"${tempSubDir.getAbsolutePath}/sql_plan_info_pre_aqe.json"
       val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
+      // scalastyle:off line.size.limit
       val expectedResult =
-        s"""|[ {
-            |  "sqlID" : 0,
-            |  "sparkPlanInfo" : {
-            |    "nodeName" : "Execute CreateViewCommand",
-            |    "simpleString" : "Execute CreateViewCommand",
-            |    "children" : [ ]
-            |  }
-            |} ]""".stripMargin
+        s"""{"sqlID":0,"sparkPlanInfo":{"nodeName":"Execute CreateViewCommand","simpleString":"Execute CreateViewCommand","children":[]}}""".stripMargin
+      // scalastyle:on line.size.limit
       // assert that the spark rapids build info json file is same as expected
       assert(actualResult == expectedResult)
     }

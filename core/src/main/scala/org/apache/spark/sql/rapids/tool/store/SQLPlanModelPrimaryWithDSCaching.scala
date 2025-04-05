@@ -28,8 +28,8 @@ class SQLPlanModelPrimaryWithDSCaching(sqlID: Long) extends SQLPlanModelWithDSCa
   private var cachedPrimaryPlanVersion: SQLPlanVersion = _
 
   override def updatePlanField(newPlan: SQLPlanVersion): Unit = {
-    plan = newPlan
-    if(cachedPrimaryPlanVersion == null) {
+    super.updatePlanField(newPlan)
+    if (cachedPrimaryPlanVersion == null) {
       cachedPrimaryPlanVersion = newPlan
     }
   }

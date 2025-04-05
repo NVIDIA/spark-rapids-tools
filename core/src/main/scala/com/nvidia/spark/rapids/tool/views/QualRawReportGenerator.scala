@@ -78,7 +78,7 @@ object QualRawReportGenerator extends Logging {
       pWriter.write(QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
       pWriter.write(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
       val sqlPlanMetricsResults = generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
-      pWriter.writeJson(
+      pWriter.writeJsonL(
         QualAppSQLPlanInfoView.getLabel, QualAppSQLPlanInfoView.getRawView(Seq(app)))
       // Skipping writing to profile file as it would be too large
       dataSourceInfo = QualDataSourceView.getRawView(Seq(app), sqlPlanMetricsResults)
