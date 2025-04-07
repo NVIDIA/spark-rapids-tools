@@ -1171,10 +1171,10 @@ def load_csv_files(
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
         if remove_failed_sql and sqls_to_drop:
-            logger.warning(
-                'Ignoring a total of %s sqlIDs due to stage/job failures for %s.',
-                len(sqls_to_drop),
-                app_id
+            logger.debug(
+                'Ignoring failed sqlIDs due to stage/job failures for %s: %s',
+                app_id,
+                ', '.join(map(str, sqls_to_drop))
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
 
