@@ -95,6 +95,10 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfSQLPlanMetricsView.getRawView(apps)
   }
 
+  def getSQLPlanInfoTruncated: Seq[SQLPlanInfoProfileResult] = {
+    ProfAppSQLPlanInfoView.getRawView(apps)
+  }
+
   // Print all Stage level Metrics
   def getStageLevelMetrics: Seq[AccumProfileResults] = {
     ProfStageMetricView.getRawView(apps)

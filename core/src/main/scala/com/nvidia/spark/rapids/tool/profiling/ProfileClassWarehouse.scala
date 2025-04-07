@@ -21,14 +21,13 @@ import scala.collection.Map
 import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
-import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
+import org.apache.spark.sql.rapids.tool.store.{AccumMetaRef, SparkPlanInfoTruncated}
 import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
  * This is a warehouse to store all Classes
  * used for profiling and qualification.
  */
-
 trait ProfileResult {
   val outputHeaders: Seq[String]
   def convertToSeq: Seq[String]
@@ -116,6 +115,26 @@ case class SQLCleanAndAlignIdsProfileResult(
     Seq(appIndex.toString, sqlID.toString)
   }
   override def convertToCSVSeq: Seq[String] = convertToSeq
+}
+
+/**
+ * This result class is used in the Qual/Prof Views to
+ * display a SQL ID to truncated Spark Plan Info mapping
+ * extracted from the SparkListenerSQLExecutionStart event.
+ * @param sqlID The SQL ID associated with the profile result.
+ * @param sparkPlanInfo The truncated Spark plan information.
+ */
+case class SQLPlanInfoProfileResult(sqlID: Long, sparkPlanInfo: SparkPlanInfoTruncated)
+  extends ProfileResult {
+  override val outputHeaders = Seq("sqlID", "SparkPlanInfoTruncated")
+
+  override def convertToSeq: Seq[String] = {
+    Seq(sqlID.toString, sparkPlanInfo.toString)
+  }
+
+  override def convertToCSVSeq: Seq[String] = {
+    Seq(sqlID.toString, StringUtils.reformatCSVString(sparkPlanInfo.toString))
+  }
 }
 
 case class SQLStageInfoProfileResult(

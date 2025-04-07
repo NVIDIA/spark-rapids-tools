@@ -422,7 +422,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
         unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
         appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
-        collect.getWriteOperationInfo),
+        collect.getWriteOperationInfo, collect.getSQLPlanInfoTruncated),
       compareRes,
       DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -488,6 +488,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfStageMetricView.getDescription))
       profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
         Some(ProfSQLCodeGenView.getDescription))
+      profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
       comparedRes.foreach { compareSum =>
         val matchingSqlIds = compareSum.matchingSqlIds
         val matchingStageIds = compareSum.matchingStageIds

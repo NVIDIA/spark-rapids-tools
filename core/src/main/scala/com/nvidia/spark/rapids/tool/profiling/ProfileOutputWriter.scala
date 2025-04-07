@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,6 +77,24 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   def writeCSVTable(headerText: String, outRows: Seq[ProfileResult]): Unit = {
     if (outputCSV) {
       ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
+    }
+  }
+
+  /**
+   * Writes the given profile results as JSON Lines (JSONL) format to a file.
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+  */
+  def writeJsonL(headerText: String, outRows: Seq[ProfileResult]): Unit = {
+    val fileName = headerText.replace(" ", "_").toLowerCase
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    try {
+      outRows.foreach { row =>
+        jsonWriter.write(Serialization.write(row) + "\n")
+      }
+    } finally {
+      jsonWriter.close()
     }
   }
 

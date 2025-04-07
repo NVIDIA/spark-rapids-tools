@@ -114,4 +114,15 @@ class SQLPlanModel(val id: Long) {
     // TODO: Consider iterating on the node to add DSV2 as well.
     planVersions.dropRight(1).flatMap(_.getAllReadDS)
   }
+
+  /**
+   * Get the primary SQLPlanInfo, which is the first version of the plan.
+   * In case no SQL version has been added, it should return None.
+   * Default scenarios warrant that in case a SQLPlanModel is created, it should have at least
+   * one version.
+   * @return Option containing the primary SparkPlanInfo if it exists.
+   */
+  def getPrimarySQLPlanInfo: Option[SparkPlanInfo] = {
+    planVersions.find(_.version == 0).map(_.planInfo)
+  }
 }

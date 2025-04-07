@@ -16,8 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.views
 
+import scala.collection.breakOut
+
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, SQLPlanInfoProfileResult, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -30,6 +32,35 @@ trait AppSQLCodeGenViewTrait extends ViewableTrait[WholeStageCodeGenResults] {
       rows: Seq[WholeStageCodeGenResults]): Seq[WholeStageCodeGenResults] = {
     rows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID))
   }
+}
+
+/**
+ * This view is used during generation of the sql_plan_info_pre_aqe.json file
+ * This provides the mapping between the SQL ID and the corresponding
+ * SQLPlanInfo( trimmed down ) object.
+ */
+trait AppSQLPlanInfoViewTrait extends ViewableTrait[SQLPlanInfoProfileResult] {
+  override def getLabel: String = "SQL Plan Info PRE AQE"
+  override def getDescription: String = "SQLPlanInfo object Information"
+
+  def getRawView(app: AppBase, index: Int): Seq[SQLPlanInfoProfileResult] = {
+    app.getPrimarySQLPlanInfo().map { case (sqlID, sqlPlan) =>
+      SQLPlanInfoProfileResult(sqlID, sqlPlan)
+    }(breakOut)
+  }
+
+  override def sortView(
+      rows: Seq[SQLPlanInfoProfileResult]): Seq[SQLPlanInfoProfileResult] = {
+    rows.sortBy(cols => cols.sqlID)
+  }
+}
+
+object ProfAppSQLPlanInfoView extends AppSQLPlanInfoViewTrait with ProfAppIndexMapperTrait {
+  // Placeholder for future customization related to Profiler SQLPlanInfo output
+}
+
+object QualAppSQLPlanInfoView extends AppSQLPlanInfoViewTrait with QualAppIndexMapperTrait {
+  // Placeholder for future customization related to qualification SQLPlanInfo output
 }
 
 trait AppSQLPlanMetricsViewTrait extends ViewableTrait[SQLAccumProfileResults] {

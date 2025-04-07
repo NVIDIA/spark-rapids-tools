@@ -16,16 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths, StandardOpenOption}
-
-import scala.collection.mutable.ArrayBuffer
-
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
+import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
@@ -270,6 +268,62 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val outputDir = new File(tempOutputDir, apps.head.appId)
       val dotDirs = ToolTestUtils.listFilesMatching(outputDir, _.endsWith("planDescriptions.log"))
       assert(dotDirs.length === 1)
+    }
+  }
+
+  test("test sql_plan_info_pre_aqe file generation Profiler") {
+    TrampolineUtil.withTempDir { tempOutputDir =>
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempOutputDir.getAbsolutePath,
+        s"$logDir/rapids_join_eventlog.zstd"))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+      val outputDir = new File(tempOutputDir, s"${Profiler.SUBDIR}/local-1622814619968")
+      val sqlPlanInfoFiles =
+        ToolTestUtils.listFilesMatching(outputDir, { f =>
+          f.endsWith("sql_plan_info_pre_aqe.json")
+        })
+      assert(sqlPlanInfoFiles.length === 1)
+    }
+  }
+
+  test("test sql_plan_info_pre_aqe.json with SparkListenerSQLExecutionStart event") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
+      // scalastyle:off line.size.limit
+      val eventLogContent =
+        """{"Event":"SparkListenerLogStart","Spark Version":"3.2.1"}
+          |{"Event":"SparkListenerApplicationStart","App Name":"SQL_Plan_Info_Test", "App ID":"local-16261043003", "Timestamp":123456, "User":"User1"}
+          |{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart","executionId":0,"description":"createOrReplaceTempView at NativeMethodAccessorImpl.java:0","details":"SQLID","physicalPlanDescription":"== Parsed Logical Plan ==\nCreateViewCommand `temp`, false, true, LocalTempView, true\n   +- Relation [temp1#0,temp2] ","sparkPlanInfo":{"nodeName":"Execute CreateViewCommand","simpleString":"Execute CreateViewCommand","children":[],"metadata":{},"metrics":[]},"time":1716319724551,"modifiedConfigs":{}}
+          |{"Event":"SparkListenerTaskEnd","Stage ID":10,"Stage Attempt ID":0,"Task Type":"ShuffleMapTask","Task End Reason":{"Reason":"Success"},"Task Info":{"Task ID":5073,"Index":5054,"Attempt":0,"Partition ID":5054,"Launch Time":1712248533994,"Executor ID":"100","Host":"10.154.65.143","Locality":"PROCESS_LOCAL","Speculative":false,"Getting Result Time":0,"Finish Time":1712253284920,"Failed":false,"Killed":false,"Accumulables":[{"ID":1010,"Name":"gpuSemaphoreWait","Update":"00:00:00.492","Value":"03:13:31.359","Internal":false,"Count Failed Values":true},{"ID":1018,"Name":"gpuSpillToHostTime","Update":"00:00:00.845","Value":"00:29:39.521","Internal":false,"Count Failed Values":true},{"ID":1016,"Name":"gpuSplitAndRetryCount","Update":"1","Value":"2","Internal":false,"Count Failed Values":true}]}}}""".stripMargin
+      // scalastyle:on line.size.limit
+      Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+      val appArgs = new ProfileArgs(Array(
+        "--csv",
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        eventLogFilePath.toString))
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-16261043003")
+      // assert that a json file was generated
+      val sqlPlanInfoFiles = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+        f.endsWith("sql_plan_info_pre_aqe.json")
+      })
+      assert(sqlPlanInfoFiles.length === 1)
+
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/sql_plan_info_pre_aqe.json"
+      val actualResult = FSUtils.readFileContentAsUTF8(actualFilePath)
+      // scalastyle:off line.size.limit
+      val expectedResult =
+        s"""{"sqlID":0,"sparkPlanInfo":{"nodeName":"Execute CreateViewCommand","simpleString":"Execute CreateViewCommand","children":[]}}""".stripMargin
+      // scalastyle:on line.size.limit
+      // assert that the spark rapids build info json file is same as expected
+      assert(actualResult == expectedResult)
     }
   }
 
@@ -1033,7 +1087,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-16261043003")
       // assert that a json file was generated
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
-        f.endsWith(".json")
+        f.endsWith("build_info.json")
       })
       assert(dotDirs.length === 1)
 
@@ -1098,7 +1152,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
       // assert that a json file was generated
       val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
-        f.endsWith(".json")
+        f.endsWith("build_info.json")
       })
       assert(dotDirs.length === 1)
 
