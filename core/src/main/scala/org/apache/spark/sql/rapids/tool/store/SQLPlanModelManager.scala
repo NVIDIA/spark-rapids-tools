@@ -148,7 +148,8 @@ class SQLPlanModelManager {
   /**
    * This method returns the truncated version of the first(pre AQE) SparkPlanInfo object
    * associated with all the SQLs for a given application
-   * @return
+   * @return Map[Long, SparkPlanInfoTruncated] where the key is the sqlID and the value is
+   *         SparkPlanInfoTruncated( truncated version of the first SparkPlanInfo object)
    */
   def getTruncatedPrimarySQLPlanInfo: immutable.Map[Long, SparkPlanInfoTruncated] = {
     sqlPlans.collect { case (sqlId, sparkPlanModel) =>

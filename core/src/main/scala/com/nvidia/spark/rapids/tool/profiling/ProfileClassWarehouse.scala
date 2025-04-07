@@ -121,8 +121,8 @@ case class SQLCleanAndAlignIdsProfileResult(
  * This result class is used in the Qual/Prof Views to
  * display a SQL ID to truncated Spark Plan Info mapping
  * extracted from the SparkListenerSQLExecutionStart event.
- * @param sqlID
- * @param sparkPlanInfo
+ * @param sqlID The SQL ID associated with the profile result.
+ * @param sparkPlanInfo The truncated Spark plan information.
  */
 case class SQLPlanInfoProfileResult(sqlID: Long, sparkPlanInfo: SparkPlanInfoTruncated)
   extends ProfileResult {

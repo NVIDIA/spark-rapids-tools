@@ -80,6 +80,12 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
+  /**
+   * Writes the given profile results as JSON Lines (JSONL) format to a file.
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+  */
   def writeJsonL(headerText: String, outRows: Seq[ProfileResult]): Unit = {
     val fileName = headerText.replace(" ", "_").toLowerCase
     val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")

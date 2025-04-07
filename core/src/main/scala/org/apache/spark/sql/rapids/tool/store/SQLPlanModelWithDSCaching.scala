@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 /**
  * An extension of SQLPlanModel to only cache the DataSourceRecords from previous plan.
- * @param sqlID the executionID of the sqlPlan.
+ * @param sqlId the executionID of the sqlPlan.
  */
 class SQLPlanModelWithDSCaching(sqlId: Long) extends SQLPlanModel(sqlId) {
   // List that captures the DSV1Reads of previous PlanInfo versions excluding the most recent one.

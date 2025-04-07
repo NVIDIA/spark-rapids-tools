@@ -23,7 +23,7 @@ import org.apache.spark.sql.execution.SparkPlanInfo
  * primary plan version along with the DataSourceRecords from previous plan.
  * @param sqlId the executionID of the sqlPlan.
  */
-class SQLPlanModelPrimaryWithDSCaching(sqlID: Long) extends SQLPlanModelWithDSCaching(sqlID) {
+class SQLPlanModelPrimaryWithDSCaching(sqlId: Long) extends SQLPlanModelWithDSCaching(sqlId) {
 
   private var cachedPrimaryPlanVersion: SQLPlanVersion = _
 
