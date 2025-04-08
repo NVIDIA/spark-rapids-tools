@@ -135,8 +135,6 @@ Cbrt,S,`cbrt`,None,AST,input,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,N
 Cbrt,S,`cbrt`,None,AST,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Ceil,S,`ceil`; `ceiling`,None,project,input,NA,NA,NA,NA,S,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Ceil,S,`ceil`; `ceiling`,None,project,result,NA,NA,NA,NA,S,NA,S,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-CheckOverflow,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-CheckOverflow,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 CheckOverflowInTableInsert,S, ,None,project,input,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 CheckOverflowInTableInsert,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,S,S,S,S,PS,PS,PS,S,S,S
 Coalesce,S,`coalesce`,None,project,param,S,S,S,S,S,S,S,S,PS,S,S,S,S,NS,PS,PS,PS,NS,S,S
@@ -451,8 +449,6 @@ Pow,S,`pow`; `power`,None,AST,rhs,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Pow,S,`pow`; `power`,None,AST,result,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 PreciseTimestampConversion,S, ,None,project,input,NA,NA,NA,NA,S,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 PreciseTimestampConversion,S, ,None,project,result,NA,NA,NA,NA,S,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-PromotePrecision,S,`promote_precision`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
-PromotePrecision,S,`promote_precision`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
 PythonUDF,S, ,None,aggregation,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
 PythonUDF,S, ,None,aggregation,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
 PythonUDF,S, ,None,reduction,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
@@ -461,11 +457,18 @@ PythonUDF,S, ,None,window,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,
 PythonUDF,S, ,None,window,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
 PythonUDF,S, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
 PythonUDF,S, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
+CheckOverflow,S, ,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+CheckOverflow,S, ,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+PromotePrecision,S,`promote_precision`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+PromotePrecision,S,`promote_precision`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA
+
 Quarter,S,`quarter`,None,project,input,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 Quarter,S,`quarter`,None,project,result,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 RLike,S,`regexp_like`; `regexp`; `rlike`,None,project,str,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 RLike,S,`regexp_like`; `regexp`; `rlike`,None,project,regexp,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 RLike,S,`regexp_like`; `regexp`; `rlike`,None,project,result,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RaiseError,S, ,None,project,errorClass,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
+RaiseError,S, ,None,project,errorParams,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA
 RaiseError,S,`raise_error`,None,project,input,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 RaiseError,S,`raise_error`,None,project,result,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA
 Rand,S,`rand`; `random`,None,project,seed,NA,NA,NA,S,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
@@ -828,8 +831,6 @@ PythonUDAF,TNEW, ,None,window,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS
 PythonUDAF,TNEW, ,None,window,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
 PythonUDAF,TNEW, ,None,project,param,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NS,PS,NS,PS,NS,NS,NS
 PythonUDAF,TNEW, ,None,project,result,S,S,S,S,S,S,S,S,PS,S,NS,NS,NS,NA,PS,NS,PS,NA,NA,NA
-RaiseError,S, ,None,project,errorClass,NA,NA,NA,NA,NA,NA,NA,NA,NA,PS,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
-RaiseError,S, ,None,project,errorParams,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NA,NA
 EphemeralSubstring,S,`substr`; `substring`,None,project,str,NA,NA,NA,NA,NA,NA,NA,NA,NA,S,NA,NA,NS,NA,NA,NA,NA,NA,NS,NS
 EphemeralSubstring,S,`substr`; `substring`,None,project,pos,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
 EphemeralSubstring,S,`substr`; `substring`,None,project,len,NA,NA,NA,S,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NS,NS
