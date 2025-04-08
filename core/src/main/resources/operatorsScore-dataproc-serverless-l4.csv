@@ -293,3 +293,5 @@ TruncDate,1.5
 TruncTimestamp,1.5
 Bin,1.5
 Slice,1.5
+HyperLogLogPlusPlus,1.5
+ArrayPosition,1.5

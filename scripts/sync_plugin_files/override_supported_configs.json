@@ -274,6 +274,83 @@
           "value": "`hive-hash`"
         }
       ]
+    },
+    {
+      "Expression": "ArrayPosition",
+      "Context": "project",
+      "Params": "array",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "ArrayPosition",
+      "Context": "project",
+      "Params": "key",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "ArrayPosition",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "HyperLogLogPlusPlus",
+      "Context": "aggregation",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "HyperLogLogPlusPlus",
+      "Context": "aggregation",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "HyperLogLogPlusPlus",
+      "Context": "reduction",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "HyperLogLogPlusPlus",
+      "Context": "reduction",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
     }
   ]
 }
