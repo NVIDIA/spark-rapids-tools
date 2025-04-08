@@ -81,6 +81,7 @@ class BasePlanParserSuite extends BaseTestSuite {
       e.children.getOrElse(Seq.empty) :+ e
     }
   }
+
   def verifyPlanExecToStageMap(toolsPlanInfo: PlanInfo): Unit = {
     val allExecInfos = toolsPlanInfo.execInfo.flatMap { e =>
       e.children.getOrElse(Seq.empty) :+ e

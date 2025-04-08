@@ -697,6 +697,29 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     }
   }
 
+  test("approx_count_distinct is supported in aggregations") {
+    TrampolineUtil.withTempDir { eventLogDir =>
+      val (eventLog, _) =
+        ToolTestUtils.generateEventLog(eventLogDir, "ApproxCountDistinctTest") { spark =>
+        import spark.implicits._
+        // Test data with duplicates
+        val data = Seq(1, 1, 2, 3, 3, 3)
+        val df = data.toDF("value")
+
+        // Apply approx_count_distinct with tolerance
+        df.agg(approx_count_distinct("value", 0.05).alias("distinct_count"))
+      }
+      // Verify execution plan
+      val app = createAppFromEventlog(eventLog)
+      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", new PluginTypeChecker(), app)
+      }
+      val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+      val aggExprs = execInfo.filter(_.exec == "HashAggregate")
+      assertSizeAndSupported(2, aggExprs, checkDurations = false)
+    }
+  }
+
   test("Expressions not supported in SortMergeJoin") {
     TrampolineUtil.withTempDir { eventLogDir =>
       val broadcastConfs = Map("spark.sql.autoBroadcastJoinThreshold" -> "-1")
@@ -1079,6 +1102,15 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // months_between should be part of ProjectExec
       df2.select(months_between(df2("date1"), df2("date2")))
+    }}),
+    ("ArrayPosition", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq((1, Array(1, 2, 3), 2)).toDF("id", "array_col", "target")
+      val df3 = df1.withColumn("array_col", col("array_col").cast("array<int>"))
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df3, s"$parquetOutputLoc/testtext")
+      // months_between should be part of ProjectExec
+      df2.select(array_position(col("array_col"), col("target")))
     }}),
     // TruncDate is supported in ProjectExec
     ("TruncDate", { parquetOutputLoc => { spark =>
