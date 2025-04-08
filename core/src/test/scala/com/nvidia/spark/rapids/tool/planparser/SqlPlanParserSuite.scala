@@ -1109,7 +1109,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val df3 = df1.withColumn("array_col", col("array_col").cast("array<int>"))
       // write df1 to parquet to transform LocalTableScan to ProjectExec
       val df2 = writeAndReadParquet(spark, df3, s"$parquetOutputLoc/testtext")
-      // months_between should be part of ProjectExec
+      // array_position should be part of ProjectExec
       df2.select(array_position(col("array_col"), col("target")))
     }}),
     // TruncDate is supported in ProjectExec
