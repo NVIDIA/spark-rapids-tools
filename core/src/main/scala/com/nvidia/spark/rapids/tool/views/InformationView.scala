@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,13 +27,13 @@ trait AppInformationViewTrait extends ViewableTrait[AppInfoProfileResults] {
 
   def getRawView(app: AppBase, index: Int): Seq[AppInfoProfileResults] = {
     app.appMetaData.map { a =>
-      AppInfoProfileResults(index, a.appName, a.appId,
+      AppInfoProfileResults(a.appName, a.appId,
         a.sparkUser, a.startTime, a.endTime, app.getAppDuration,
         a.getDurationString, app.getSparkRuntime, app.sparkVersion, app.gpuMode)
     }.toSeq
   }
   override def sortView(rows: Seq[AppInfoProfileResults]): Seq[AppInfoProfileResults] = {
-    rows.sortBy(cols => cols.appIndex)
+    rows.sortBy(cols => cols.appId)
   }
 }
 
@@ -52,12 +52,12 @@ trait AppLogPathViewTrait extends ViewableTrait[AppLogPathProfileResults] {
 
   def getRawView(app: AppBase, index: Int): Seq[AppLogPathProfileResults] = {
     app.appMetaData.map { a =>
-      AppLogPathProfileResults(index, a.appName, a.appId, app.getEventLogPath)
+      AppLogPathProfileResults(a.appName, a.appId, app.getEventLogPath)
     }.toSeq
   }
 
   override def sortView(rows: Seq[AppLogPathProfileResults]): Seq[AppLogPathProfileResults] = {
-    rows.sortBy(cols => cols.appIndex)
+    rows.sortBy(cols => cols.appId)
   }
 }
 
@@ -81,11 +81,11 @@ trait AppRapidsJarViewTrait extends ViewableTrait[RapidsJarProfileResult] {
       val rapidsJars = app.classpathEntries.filterKeys(_ matches ToolUtils.RAPIDS_JAR_REGEX.regex)
       if (rapidsJars.nonEmpty) {
         val cols = rapidsJars.keys.toSeq
-        cols.map(jar => RapidsJarProfileResult(index, jar))
+        cols.map(jar => RapidsJarProfileResult(jar))
       } else {
         // Look for the rapids-4-spark and cuDF jars in Spark Properties
         ToolUtils.extractRAPIDSJarsFromProps(app.sparkProperties).map {
-          jar => RapidsJarProfileResult(index, jar)
+          jar => RapidsJarProfileResult(jar)
         }.toSeq
       }
     } else {
@@ -94,7 +94,7 @@ trait AppRapidsJarViewTrait extends ViewableTrait[RapidsJarProfileResult] {
   }
 
   override def sortView(rows: Seq[RapidsJarProfileResult]): Seq[RapidsJarProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.jar))
+    rows.sortBy(cols => cols.jar)
   }
 }
 

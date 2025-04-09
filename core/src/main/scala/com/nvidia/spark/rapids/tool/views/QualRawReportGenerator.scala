@@ -66,10 +66,9 @@ object QualRawReportGenerator extends Logging {
 
   def generateRawMetricQualViewAndGetDataSourceInfo(
       rootDir: String,
-      app: QualificationAppInfo,
-      appIndex: Int = 1): Seq[DataSourceProfileResult] = {
+      app: QualificationAppInfo): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
-    val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app, appIndex)
+    val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app)
     var dataSourceInfo: Seq[DataSourceProfileResult] = Seq.empty
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
@@ -99,7 +98,8 @@ object QualRawReportGenerator extends Logging {
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(QualSparkMetricsAnalyzer.
-        getAggRawMetrics(app, appIndex, Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
+        getAggRawMetrics(
+          app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
           if (label == STAGE_DIAGNOSTICS_LABEL) {
             pWriter.writeCSVTable(label, metrics)
           } else {

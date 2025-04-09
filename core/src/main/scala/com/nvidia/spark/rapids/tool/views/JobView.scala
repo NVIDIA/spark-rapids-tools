@@ -28,11 +28,11 @@ trait AppJobsViewTrait extends ViewableTrait[JobInfoProfileResult] {
 
   def getRawView(app: AppBase, index: Int): Seq[JobInfoProfileResult] = {
     app.jobIdToInfo.map { case (_, j) =>
-      JobInfoProfileResult(index, j.jobID, j.stageIds, j.sqlID, j.startTime, j.endTime)
+      JobInfoProfileResult(j.jobID, j.stageIds, j.sqlID, j.startTime, j.endTime)
     }.toSeq
   }
   override def sortView(rows: Seq[JobInfoProfileResult]): Seq[JobInfoProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.jobID))
+    rows.sortBy(cols => cols.jobID)
   }
 }
 
@@ -45,14 +45,14 @@ trait AppFailedJobsViewTrait extends ViewableTrait[FailedJobsProfileResults] {
     }
     jobsFailed.map { case (id, jc) =>
       val failureStr = jc.failedReason.getOrElse("")
-      FailedJobsProfileResults(index, id, jc.sqlID,
+      FailedJobsProfileResults(id, jc.sqlID,
         jc.jobResult.getOrElse(StringUtils.UNKNOWN_EXTRACT),
         StringUtils.renderStr(failureStr, doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
   }
 
   override def sortView(rows: Seq[FailedJobsProfileResults]): Seq[FailedJobsProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.jobId, cols.sqlID, cols.jobResult))
+    rows.sortBy(cols => (cols.jobId, cols.sqlID, cols.jobResult))
   }
 }
 

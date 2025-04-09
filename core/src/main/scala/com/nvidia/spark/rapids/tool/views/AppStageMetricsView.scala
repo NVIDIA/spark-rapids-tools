@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ trait AppStageMetricsViewTrait extends ViewableTrait[AccumProfileResults] {
 
   override def sortView(
       rows: Seq[AccumProfileResults]): Seq[AccumProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.stageId, cols.accMetaRef.id))
+    rows.sortBy(cols => (cols.stageId, cols.accMetaRef.id))
   }
 }
 

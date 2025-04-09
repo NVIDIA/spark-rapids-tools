@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,14 +45,14 @@ trait AppExecutorViewTrait extends ViewableTrait[ExecutorInfoProfileResult] {
       val exec = execs.head._2
       // We could print a lot more information here if we decided, more like the Spark UI
       // per executor info.
-      ExecutorInfoProfileResult(index, rpId, numExecutors,
+      ExecutorInfoProfileResult(rpId, numExecutors,
         exec.totalCores, exec.maxMemory, exec.totalOnHeap,
         exec.totalOffHeap, execMem, execGpus, execOffHeap, taskCpus, taskGpus)
     }.toSeq
   }
 
   override def sortView(rows: Seq[ExecutorInfoProfileResult]): Seq[ExecutorInfoProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.resourceProfileId))
+    rows.sortBy(cols => cols.resourceProfileId)
   }
 }
 
@@ -64,13 +64,13 @@ trait AppRemovedExecutorView extends ViewableTrait[ExecutorsRemovedProfileResult
       !exec.isActive
     }
     execsRemoved.map { case (id, exec) =>
-      ExecutorsRemovedProfileResult(index, id, exec.removeTime, exec.removeReason)
+      ExecutorsRemovedProfileResult(id, exec.removeTime, exec.removeReason)
     }.toSeq
   }
 
   override def sortView(
       rows: Seq[ExecutorsRemovedProfileResult]): Seq[ExecutorsRemovedProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.executorId))
+    rows.sortBy(cols => cols.executorId)
   }
 }
 
@@ -79,13 +79,13 @@ trait AppRemovedBlockManagerView extends ViewableTrait[BlockManagerRemovedProfil
 
   override def getRawView(app: AppBase, index: Int): Seq[BlockManagerRemovedProfileResult] = {
     app.blockManagersRemoved.map { bm =>
-      BlockManagerRemovedProfileResult(index, bm.executorId, bm.time)
+      BlockManagerRemovedProfileResult(bm.executorId, bm.time)
     }
   }
 
   override def sortView(
       rows: Seq[BlockManagerRemovedProfileResult]): Seq[BlockManagerRemovedProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.executorId))
+    rows.sortBy(cols => cols.executorId)
   }
 }
 

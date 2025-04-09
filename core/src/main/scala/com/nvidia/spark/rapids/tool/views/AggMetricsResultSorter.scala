@@ -38,7 +38,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, cols.id)
+        (-sortDur, cols.id)
       }
     }
   }
@@ -50,7 +50,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, cols.sqlId, cols.executorCPUTimeSum)
+        (-sortDur, cols.sqlId, cols.executorCPUTimeSum)
       }
     }
   }
@@ -63,7 +63,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, cols.sqlID, sortDur)
+        (cols.sqlID, sortDur)
       }
     }
   }
@@ -75,7 +75,7 @@ object AggMetricsResultSorter {
       Seq.empty
     } else {
       rows.sortBy { cols =>
-        (cols.appIndex, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId)
+        (cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId)
       }
     }
   }
@@ -87,7 +87,7 @@ object AggMetricsResultSorter {
       Seq.empty
     } else {
       rows.sortBy { cols =>
-        (cols.appIndex, cols.sqlId)
+        cols.sqlId
       }
     }
   }
@@ -100,7 +100,7 @@ object AggMetricsResultSorter {
     } else {
       rows.sortBy { cols =>
         val sortDur = cols.duration.getOrElse(0L)
-        (cols.appIndex, -sortDur, -cols.memoryBytesSpilled.total)
+        (-sortDur, -cols.memoryBytesSpilled.total)
       }
     }
   }
