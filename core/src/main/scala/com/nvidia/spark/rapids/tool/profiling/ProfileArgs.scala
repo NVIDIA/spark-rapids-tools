@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,6 +119,10 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
         "./worker_info.yaml",
       default = Some(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH))
+  val enableDiagnosticViews: ScallopOption[Boolean] =
+    opt[Boolean](required = false,
+      descr = "Toggle diagnostic views generation. Disabled by default.",
+      default = Some(false))
 
   validate(filterCriteria) {
     case crit if (crit.endsWith("-newest-filesystem") ||

@@ -56,6 +56,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+  private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -531,10 +532,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
       profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
         app.sparkRapidsBuildInfo)
-      profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
-        profilerResult.diagnostics.stageDiagnostics)
-      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
-        profilerResult.diagnostics.IODiagnostics)
+
+      if (enableDiagnosticViews) {
+        profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
+          profilerResult.diagnostics.stageDiagnostics)
+        profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
+          profilerResult.diagnostics.IODiagnostics)
+      }
     }
   }
 
