@@ -697,18 +697,22 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     }
   }
 
-  test("approx_count_distinct is supported in aggregations") {
+  test("HyperLogLogPlusPlus is supported in aggregations(non databricks support only)") {
+    // Currently only supported for non-databricks environments
+    // Being tracked here - https://github.com/NVIDIA/spark-rapids/issues/12388
+    // Current test is a generic one for just testing the functionality
+    // Can be extended later to support environments based testing
     TrampolineUtil.withTempDir { eventLogDir =>
       val (eventLog, _) =
         ToolTestUtils.generateEventLog(eventLogDir, "ApproxCountDistinctTest") { spark =>
-        import spark.implicits._
-        // Test data with duplicates
-        val data = Seq(1, 1, 2, 3, 3, 3)
-        val df = data.toDF("value")
+          import spark.implicits._
+          // Test data with duplicates
+          val data = Seq(1, 1, 2, 3, 3, 3)
+          val df = data.toDF("value")
 
-        // Apply approx_count_distinct with tolerance
-        df.agg(approx_count_distinct("value", 0.05).alias("distinct_count"))
-      }
+          // Apply approx_count_distinct with tolerance
+          df.agg(approx_count_distinct("value", 0.05).alias("distinct_count"))
+        }
       // Verify execution plan
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
@@ -1103,15 +1107,6 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       // months_between should be part of ProjectExec
       df2.select(months_between(df2("date1"), df2("date2")))
     }}),
-    ("ArrayPosition", { parquetOutputLoc => { spark =>
-      import spark.implicits._
-      val df1 = Seq((1, Array(1, 2, 3), 2)).toDF("id", "array_col", "target")
-      val df3 = df1.withColumn("array_col", col("array_col").cast("array<int>"))
-      // write df1 to parquet to transform LocalTableScan to ProjectExec
-      val df2 = writeAndReadParquet(spark, df3, s"$parquetOutputLoc/testtext")
-      // array_position should be part of ProjectExec
-      df2.select(array_position(col("array_col"), col("target")))
-    }}),
     // TruncDate is supported in ProjectExec
     ("TruncDate", { parquetOutputLoc => { spark =>
       import spark.implicits._
@@ -1190,6 +1185,16 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
       val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
       // map_from_arrays should be part of ProjectExec
       df2.select(map_from_arrays(df2("keys"), df2("values")).as("map"))
+    }}),
+    // ArrayPosition is supported in ProjectExec
+    ("ArrayPosition", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      val df1 = Seq((1, Array(1, 2, 3), 2)).toDF("id", "array_col", "target")
+      val df3 = df1.withColumn("array_col", col("array_col").cast("array<int>"))
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df3, s"$parquetOutputLoc/testtext")
+      // array_position should be part of ProjectExec
+      df2.select(array_position(col("array_col"), col("target")))
     }})
   )
 

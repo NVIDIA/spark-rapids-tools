@@ -23,6 +23,28 @@
       ]
     },
     {
+      "Expression": "RaiseError",
+      "Context": "project",
+      "Params": "errorClass",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`raise_error`"
+        }
+      ]
+    },
+    {
+      "Expression": "RaiseError",
+      "Context": "project",
+      "Params": "errorParams",
+      "override": [
+        {
+          "key": "SQL Func",
+          "value": "`raise_error`"
+        }
+      ]
+    },
+    {
       "Expression": "BloomFilterMightContain",
       "Context": "project",
       "Params": "lhs",
