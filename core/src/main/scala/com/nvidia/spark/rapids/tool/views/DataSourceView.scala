@@ -16,10 +16,9 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
+import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, SQLAccumProfileResults}
-import com.nvidia.spark.rapids.tool.qualification.QualSQLPlanAnalyzer
 
 import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedMetricNameException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -74,7 +73,7 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       case qApp: QualificationAppInfo =>
         // TODO: We are currently processing SQL plan metrics twice, once in AppSQLPlanAnalyzer and
         //       once here. We should refactor this to avoid the duplicate calculation.
-        val sqlAnalyzer = new QualSQLPlanAnalyzer(qApp, appIndex)
+        val sqlAnalyzer = new AppSQLPlanAnalyzer(qApp)
         sqlAnalyzer.processSQLPlanMetrics()
         QualSQLPlanMetricsView.getRawViewFromSqlProcessor(sqlAnalyzer)
       case pApp: ApplicationInfo =>
@@ -85,8 +84,8 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
   def getRawView(
       apps: Seq[AppBase],
       appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
-    val allRows = zipAppsWithIndex(apps).flatMap { case (app, index) =>
-      getRawView(app, index, appSqlAccums)
+    val allRows = zipAppsWithIndex(apps).flatMap { case (app, _) =>
+      getRawView(app, appSqlAccums)
     }
     if (allRows.isEmpty) {
       allRows
@@ -97,12 +96,11 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
 
   def getRawView(app: AppBase, index: Int): Seq[DataSourceProfileResult] = {
     val appSqlAccums = getSQLAccums(app, index)
-    getRawView(app, index, appSqlAccums)
+    getRawView(app, appSqlAccums)
   }
 
   def getRawView(
       app: AppBase,
-      index: Int,
       appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
     // Filter appSqlAccums to get only required metrics
     val dataSourceMetrics = appSqlAccums.filter(sqlAccum =>
@@ -117,13 +115,13 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       } else {
         IoMetrics.EMPTY_IO_METRICS
       }
-      DataSourceProfileResult(index, ds.sqlID, ds.version, ds.nodeId,
+      DataSourceProfileResult(ds.sqlID, ds.version, ds.nodeId,
         ds.format, ioMetrics.bufferTime, ioMetrics.scanTime, ioMetrics.dataSize,
         ioMetrics.decodeTime, ds.location, ds.pushedFilters, ds.schema, ds.dataFilters,
         ds.partitionFilters, ds.isFromFinalPlan)
     }
     val dsFromOrigPlans = app.sqlManager.getDataSourcesFromOrigPlans.map { ds =>
-      DataSourceProfileResult(index, ds.sqlID, ds.version, ds.nodeId, ds.format,
+      DataSourceProfileResult(ds.sqlID, ds.version, ds.nodeId, ds.format,
         IoMetrics.EMPTY_IO_METRICS.bufferTime, IoMetrics.EMPTY_IO_METRICS.scanTime,
         IoMetrics.EMPTY_IO_METRICS.dataSize, IoMetrics.EMPTY_IO_METRICS.decodeTime,
         ds.location, ds.pushedFilters, ds.schema, ds.dataFilters, ds.partitionFilters,
@@ -133,7 +131,7 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
   }
 
   override def sortView(rows: Seq[DataSourceProfileResult]): Seq[DataSourceProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.version, cols.location, cols.schema))
+    rows.sortBy(cols => (cols.sqlID, cols.version, cols.location, cols.schema))
   }
 }
 

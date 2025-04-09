@@ -55,10 +55,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val matchEventLogs: ScallopOption[String] =
     opt[String](required = false,
       descr = "Filter event logs whose filenames contain the input string.")
-  val compare: ScallopOption[Boolean] =
-    opt[Boolean](required = false,
-      descr = "Compare Applications (Note this may require more memory if comparing " +
-          "a large number of applications. Default is false.")
   val numOutputRows: ScallopOption[Int] =
     opt[Int](required = false,
       descr = "Number of output rows for each Application. Default is 1000.")
@@ -90,9 +86,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val csv: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Output each table to a CSV file as well creating the summary text file.")
-  val combined: ScallopOption[Boolean] =
-    opt[Boolean](required = false,
-      descr = "Collect mode but combine all applications into the same tables.")
   val timeout: ScallopOption[Long] =
     opt[Long](required = false,
       descr = "Maximum time in seconds to wait for the event logs to be processed. " +
@@ -125,19 +118,19 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       default = Some(false))
 
   validate(filterCriteria) {
-    case crit if (crit.endsWith("-newest-filesystem") ||
-        crit.endsWith("-oldest-filesystem")) => Right(Unit)
+    case crit if crit.endsWith("-newest-filesystem") ||
+        crit.endsWith("-oldest-filesystem") => Right(Unit)
     case _ => Left("Error, the filter criteria must end with either -newest-filesystem " +
         "or -oldest-filesystem")
   }
 
   validate(timeout) {
-    case timeout if (timeout > 3) => Right(Unit)
+    case timeout if timeout > 3 => Right(Unit)
     case _ => Left("Error, timeout must be greater than 3 seconds.")
   }
 
   validate(startAppTime) {
-    case time if (AppFilterImpl.parseAppTimePeriod(time) > 0L) => Right(Unit)
+    case time if AppFilterImpl.parseAppTimePeriod(time) > 0L => Right(Unit)
     case _ => Left("Time period specified, must be greater than 0 and valid periods " +
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
   }
@@ -169,13 +162,15 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   }
   verify()
 
-  override def onError(e: Throwable) = e match {
-    case ScallopException(message) =>
-      if (args.contains("--help")) {
-        printHelp
-        System.exit(0)
-      }
-      errorMessageHandler(message)
-    case ex => super.onError(ex)
+  override def onError(e: Throwable): Unit = {
+    e match {
+      case ScallopException(message) =>
+        if (args.contains("--help")) {
+          printHelp
+          System.exit(0)
+        }
+        errorMessageHandler(message)
+      case ex => super.onError(ex)
+    }
   }
 }

@@ -46,7 +46,7 @@ object ProfileMain extends Logging {
     val driverLog = appArgs.driverlog.getOrElse("")
     val filterN = appArgs.filterCriteria
     val matchEventLogs = appArgs.matchEventLogs
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
     val timeout = appArgs.timeout.toOption
     val nThreads = appArgs.numThreads.getOrElse(

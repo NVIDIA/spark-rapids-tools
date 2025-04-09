@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ trait AppFailedTaskViewTrait extends ViewableTrait[FailedTaskProfileResults] {
 
   override def getRawView(app: AppBase, index: Int): Seq[FailedTaskProfileResults] = {
     app.taskManager.getAllFailedTasks.map { t =>
-      FailedTaskProfileResults(index, t.stageId, t.stageAttemptId,
+      FailedTaskProfileResults(t.stageId, t.stageAttemptId,
         t.taskId, t.attempt, StringUtils.renderStr(t.endReason,
           doEscapeMetaCharacters = false, maxLength = 0))
     }.toSeq
@@ -37,7 +37,7 @@ trait AppFailedTaskViewTrait extends ViewableTrait[FailedTaskProfileResults] {
   override def sortView(
       rows: Seq[FailedTaskProfileResults]): Seq[FailedTaskProfileResults] = {
     rows.sortBy(
-      cols => (cols.appIndex, cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId))
+      cols => (cols.stageId, cols.stageAttemptId, cols.taskId, cols.taskAttemptId))
   }
 }
 
@@ -48,4 +48,3 @@ object QualFailedTaskView extends AppFailedTaskViewTrait with QualAppIndexMapper
 object ProfFailedTaskView extends AppFailedTaskViewTrait with ProfAppIndexMapperTrait {
   // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
 }
-

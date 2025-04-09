@@ -54,12 +54,12 @@ class HealthCheck(apps: Seq[ApplicationInfo]) {
         // truncates the node description to 100 characters
         val renderedNodeDesc = StringUtils.renderStr(unsup.nodeDesc,
           doEscapeMetaCharacters = false)
-        UnsupportedOpsProfileResult(app.index, unsup.sqlID, unsup.nodeID, unsup.nodeName,
+        UnsupportedOpsProfileResult(unsup.sqlID, unsup.nodeID, unsup.nodeName,
           renderedNodeDesc, unsup.reason)
       }
     }
-    if (res.size > 0) {
-      res.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID))
+    if (res.nonEmpty) {
+      res.sortBy(cols => (cols.sqlID, cols.nodeID))
     } else {
       Seq.empty
     }

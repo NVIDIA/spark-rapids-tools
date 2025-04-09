@@ -932,8 +932,6 @@ def load_csv_files(
         sql_duration = sql_duration.drop(columns=['Potential Problems'])
 
     sql_app_metrics = scan_tbl('sql_level_aggregated_task_metrics')
-    if not sql_app_metrics.empty:
-        sql_app_metrics = sql_app_metrics.drop(columns='appIndex')
 
     # filter out sql ids that have no execs associated with them
     # this should remove root sql ids in 3.4.1+
@@ -967,7 +965,6 @@ def load_csv_files(
     sql_ops_metrics = scan_tbl('sql_plan_metrics_for_application')
     stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
     if not sql_ops_metrics.empty and not app_info.empty:
-        sql_ops_metrics = sql_ops_metrics.drop(columns='appIndex')
         sql_ops_metrics['appId'] = app_info['appId'].iloc[0].strip()
         sql_ops_metrics['appName'] = app_name
         if node_level_supp is not None:
@@ -1040,7 +1037,6 @@ def load_csv_files(
         # TODO: This is a temporary solution to minimize changes in existing code.
         #        We should refactor this once we have updated the code with latest changes.
         job_stage_agg_tbl = pd.concat([job_df, stage_df], ignore_index=True)
-        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns='appIndex')
         job_stage_agg_tbl = job_stage_agg_tbl.rename(
             columns={'numTasks': 'numTasks_sum', 'duration_avg': 'duration_mean'}
         )
@@ -1132,7 +1128,10 @@ def load_csv_files(
     if not any(
         [app_info.empty, exec_info.empty, sql_app_metrics.empty, sql_duration.empty]
     ):
-        app_info_mg = app_info.merge(exec_info, on='appIndex')
+        if len(exec_info) > 1:
+            # The assumption that exec_info has only 1 row. Put a warning message to capture that case.
+            logger.warning('executor_information csv file has multiple rows. AppID [%s]', app_id)
+        app_info_mg = app_info.merge(exec_info, how='cross')
         app_info_mg = app_info_mg.merge(
             sql_app_metrics, left_on='appId', right_on='appID'
         )
@@ -1147,7 +1146,7 @@ def load_csv_files(
             left_on=['appId', 'sqlID'],
             right_on=['App ID', 'sqlID'],
         )
-        app_info_mg = app_info_mg.drop(columns=['appID', 'appIndex', 'App ID'])
+        app_info_mg = app_info_mg.drop(columns=['appID', 'App ID'])
 
         # filter out sqlIDs with aborted jobs (these are jobs failed due to sufficiently many (configurable) failed
         # attempts of a stage due to error conditions). these are failed sqlIDs that we shouldn't model,
