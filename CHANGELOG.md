@@ -1,6 +1,26 @@
 
 <br/>
 
+## Release [v25.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.1)
+Generated on 2025-04-10
+### User Tools
+
+- Remove Compare/Combined modes from Profiling tool ([#1619](https://github.com/NVIDIA/spark-rapids-tools/pull/1619))
+- Disable dropping sqlIDs with failures during qualx prediction ([#1615](https://github.com/NVIDIA/spark-rapids-tools/pull/1615))
+- Qualx model updates from weekly KPI run 2025-03-30 ([#1604](https://github.com/NVIDIA/spark-rapids-tools/pull/1604))
+- Fix unused global warnings from new flake8 7.2.0 ([#1609](https://github.com/NVIDIA/spark-rapids-tools/pull/1609))
+- Reduce qualx logging noise ([#1603](https://github.com/NVIDIA/spark-rapids-tools/pull/1603))
+
+### Core
+
+- Sync supported ops with RAPIDS plugin as of 04-01-2025 ([#1618](https://github.com/NVIDIA/spark-rapids-tools/pull/1618))
+- Remove Compare/Combined modes from Profiling tool ([#1619](https://github.com/NVIDIA/spark-rapids-tools/pull/1619))
+- Adding sql_plan_info.json file generation for qualX consumption ([#1612](https://github.com/NVIDIA/spark-rapids-tools/pull/1612))
+- Improve Profiling AutoTuner to provide cluster-aware configuration recommendations ([#1607](https://github.com/NVIDIA/spark-rapids-tools/pull/1607))
+
+
+<br/>
+
 ## Release [v25.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.0)
 Generated on 2025-03-26
 ### User Tools
