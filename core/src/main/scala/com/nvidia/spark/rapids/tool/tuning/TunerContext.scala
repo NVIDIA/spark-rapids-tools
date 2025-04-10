@@ -53,7 +53,7 @@ case class TunerContext (
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult],
       platform: Platform): Option[TuningResult] = {
-    val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo, appIndex)
+    val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo)
     val rawAggMetrics =
       QualSparkMetricsAnalyzer.getAggRawMetrics(appInfo, appIndex, Some(sqlAnalyzer))
     QualificationAutoTunerRunner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {

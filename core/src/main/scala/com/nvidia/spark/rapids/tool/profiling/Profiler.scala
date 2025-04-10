@@ -16,13 +16,12 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.util.concurrent.{ConcurrentLinkedQueue, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, Platform, PlatformFactory, ToolBase}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
 import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
@@ -32,6 +31,20 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
 
+/**
+ * Represents the complete profiling results for a Spark application.
+ * Contains the raw application information, processed summary, and diagnostic data.
+ *
+ * @param app Raw application information including events, metrics, and configuration
+ * @param summary Processed summary information including aggregated metrics,
+ *                health checks, and properties
+ * @param diagnostics Diagnostic information including stage diagnostics and I/O metrics
+ */
+case class ProfilerResult(
+    app: ApplicationInfo,
+    summary: ApplicationSummaryInfo,
+    diagnostics: DiagnosticSummaryInfo)
+
 class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolean)
   extends ToolBase(appArgs.timeout.toOption) {
 
@@ -40,85 +53,31 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
   private val outputCSV: Boolean = appArgs.csv()
-  private val outputCombined: Boolean = appArgs.combined()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
-  // Unlike qualification tool, profiler tool does not require platform per app
-  private val platform: Platform = PlatformFactory.createInstance(appArgs.platform())
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
 
   /**
-   * Profiles application according to the mode requested. The main difference in processing for
-   * the modes is which parts are done in parallel. All of them create the ApplicationInfo
-   * by processing the event logs in parallel but after that it depends on the mode as to
-   * what else we can do in parallel.
+   * Profiles application by creating the ApplicationInfo by processing the event logs in parallel.
    */
   def profile(eventLogInfos: Seq[EventLogInfo]): Unit = {
     generateRuntimeReport()
     if (enablePB && eventLogInfos.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Profile Tool", eventLogInfos.length))
     }
-    if (appArgs.compare()) {
-      if (outputCombined) {
-        logError("Output combined option not valid with compare mode!")
-      } else {
-        if (useAutoTuner) {
-          logError("Autotuner is currently not supported with compare mode!")
-        } else {
-          // create all the apps in parallel
-          val apps = createApps(eventLogInfos)
-
-          if (apps.size < 2) {
-            progressBar.foreach(_.reportUnknownStatusProcesses(apps.size))
-            logError("At least 2 applications are required for comparison mode. Exiting!")
-          } else {
-            val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/compare",
-              Profiler.COMPARE_LOG_FILE_NAME_PREFIX, numOutputRows, outputCSV = outputCSV)
-            try {
-              // we need the info for all of the apps to be able to compare so this happens serially
-              val (sums, comparedRes, diagnostics) =
-                processApps(apps, printPlans = false, profileOutputWriter)
-              progressBar.foreach(_.reportSuccessfulProcesses(apps.size))
-              writeSafelyToOutput(profileOutputWriter, Seq(sums), false, comparedRes,
-                Seq(diagnostics))
-            } catch {
-              case _: Exception =>
-                progressBar.foreach(_.reportFailedProcesses(apps.size))
-            } finally {
-              profileOutputWriter.close()
-            }
-          }
-        }
-      }
-    } else if (outputCombined) {
-      if (useAutoTuner) {
-        logError("Autotuner is currently not supported with combined mode!")
-      } else {
-        // same as collection but combine the output so all apps are in single tables
-        // We can process all the apps in parallel and get the summary for them and then
-        // combine them into single tables in the output.
-        val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/combined",
-          Profiler.COMBINED_LOG_FILE_NAME_PREFIX, numOutputRows, outputCSV = outputCSV)
-        val (sums, diagnostics) = createAppsAndSummarize(eventLogInfos, profileOutputWriter)
-        writeSafelyToOutput(profileOutputWriter, sums, outputCombined, diagnosticSum = diagnostics)
-        profileOutputWriter.close()
-      }
-    } else {
-      // Read each application and process it separately to save memory.
-      // Memory usage will be controlled by number of threads running.
-      // use appIndex as 1 for all since we output separate file for each now
-      eventLogInfos.foreach { log =>
-        createAppAndProcess(Seq(log), 1)
-      }
-      // wait for the threads to finish processing the files
-      threadPool.shutdown()
-      if (!threadPool.awaitTermination(waitTimeInSec, TimeUnit.SECONDS)) {
-        logError(s"Processing log files took longer then $waitTimeInSec seconds," +
-          " stopping processing any more event logs")
-        threadPool.shutdownNow()
-      }
+    // Read each application and process it separately to save memory.
+    // Memory usage depends on the amount of threads running.
+    eventLogInfos.foreach { log =>
+      createAppAndProcess(log)
+    }
+    // wait for the threads to finish processing the files
+    threadPool.shutdown()
+    if (!threadPool.awaitTermination(waitTimeInSec, TimeUnit.SECONDS)) {
+      logError(s"Processing log files took longer then $waitTimeInSec seconds," +
+        " stopping processing any more event logs")
+      threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
 
@@ -153,7 +112,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    */
   private def profileApp(
       path: EventLogInfo,
-      index: Int,
       processSuccessApp: ApplicationInfo => Unit): Unit = {
     val pathStr = path.eventLog.toString
     try {
@@ -165,7 +123,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         case _ => // No action needed for other cases
       }
       val startTime = System.currentTimeMillis()
-      val appOpt = createApp(path, index, hadoopConf)
+      val appOpt = createApp(path, hadoopConf)
       val profAppResult = appOpt match {
         case Left(FailureApp("skipped", errorMessage)) =>
           // Case to be skipped
@@ -192,7 +150,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         progressBar.foreach(_.reportFailedProcess())
         val failureAppResult = FailureAppResult(pathStr,
           s"Unexpected exception processing log, skipping!")
-        failureAppResult.logMessage(Some(new Exception(e.getMessage(), e)))
+        failureAppResult.logMessage(Some(new Exception(e.getMessage, e)))
         appStatusReporter.put(pathStr, failureAppResult)
       case oom: OutOfMemoryError =>
         logError(s"OOM error while processing large file: $pathStr." +
@@ -204,102 +162,44 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
   }
 
-  private def createApps(allPaths: Seq[EventLogInfo]): Seq[ApplicationInfo] = {
-    val allApps = new ConcurrentLinkedQueue[ApplicationInfo]()
-
-    class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = profileApp(path, index, (app => allApps.add(app)))
-    }
-
-    var appIndex = 1
-    allPaths.foreach { path =>
-      try {
-        threadPool.submit(new ProfileThread(path, appIndex))
-        appIndex += 1
-      } catch {
-        case e: Exception =>
-          logError(s"Unexpected exception submitting log ${path.eventLog.toString}, skipping!", e)
-      }
-    }
-    // wait for the threads to finish processing the files
-    threadPool.shutdown()
-    if (!threadPool.awaitTermination(waitTimeInSec, TimeUnit.SECONDS)) {
-      logError(s"Processing log files took longer then $waitTimeInSec seconds," +
-        " stopping processing any more event logs")
-      threadPool.shutdownNow()
-    }
-    allApps.asScala.toSeq
-  }
-
-  private def createAppsAndSummarize(
-      allPaths: Seq[EventLogInfo],
-      profileOutputWriter: ProfileOutputWriter)
-    : (Seq[ApplicationSummaryInfo], Seq[DiagnosticSummaryInfo]) = {
-    val allApps = new ConcurrentLinkedQueue[ApplicationSummaryInfo]()
-    val allDiagnostics = new ConcurrentLinkedQueue[DiagnosticSummaryInfo]()
-
-    class ProfileThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = profileApp(path, index, { app =>
-        val (s, _, d) = processApps(Seq(app), false, profileOutputWriter)
-        allApps.add(s)
-        allDiagnostics.add(d)
-      })
-    }
-
-    var appIndex = 1
-    allPaths.foreach { path =>
-      try {
-        threadPool.submit(new ProfileThread(path, appIndex))
-        appIndex += 1
-      } catch {
-        case e: Exception =>
-          logError(s"Unexpected exception submitting log ${path.eventLog.toString}, skipping!", e)
-      }
-    }
-    // wait for the threads to finish processing the files
-    threadPool.shutdown()
-    if (!threadPool.awaitTermination(waitTimeInSec, TimeUnit.SECONDS)) {
-      logError(s"Processing log files took longer then $waitTimeInSec seconds," +
-        " stopping processing any more event logs")
-      threadPool.shutdownNow()
-    }
-    (allApps.asScala.toSeq, allDiagnostics.asScala.toSeq)
-  }
-
   private def createAppAndProcess(
-      allPaths: Seq[EventLogInfo],
-      startIndex: Int): Unit = {
-    class ProfileProcessThread(path: EventLogInfo, index: Int) extends Runnable {
-      def run: Unit = profileApp(path, index, { app =>
+      evLogPath: EventLogInfo): Unit = {
+    class ProfileProcessThread(path: EventLogInfo) extends Runnable {
+      def run(): Unit = profileApp(path, { app =>
         val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/${app.appId}",
           Profiler.PROFILE_LOG_NAME, numOutputRows, outputCSV = outputCSV)
         try {
-          val (sum, _, diagnostics) =
-            processApps(Seq(app), appArgs.printPlans(), profileOutputWriter)
-          writeSafelyToOutput(profileOutputWriter, Seq(sum), false,
-            diagnosticSum = Seq(diagnostics))
+          val (sum, diagnostics) =
+            processApp(Seq(app), appArgs.printPlans(), profileOutputWriter)
+          writeSafelyToOutput(profileOutputWriter, ProfilerResult(app, sum, diagnostics))
         } finally {
           profileOutputWriter.close()
         }
       })
     }
-
-    allPaths.foreach { path =>
-      try {
-        threadPool.submit(new ProfileProcessThread(path, startIndex))
-      } catch {
-        case e: Exception =>
-          logError(s"Unexpected exception submitting log ${path.eventLog.toString}, skipping!", e)
-      }
+    try {
+      threadPool.submit(new ProfileProcessThread(evLogPath))
+    } catch {
+      case e: Exception =>
+        logError(s"Unexpected exception submitting log ${evLogPath.eventLog.toString}, skipping!",
+          e)
     }
   }
 
-  private def createApp(path: EventLogInfo, index: Int,
+  private def createApp(path: EventLogInfo,
       hadoopConf: Configuration): Either[FailureApp, ApplicationInfo] = {
     try {
       // These apps only contains 1 app in each loop.
       val startTime = System.currentTimeMillis()
-      val app = new ApplicationInfo(hadoopConf, path, index, platform)
+      // we need a platform per application because it is storing cluster information, which could
+      // vary between applications, especially when using dynamic allocation.
+      val platform = {
+        val workerInfoPath = appArgs.workerInfo
+          .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
+        val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
+        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
+      }
+      val app = new ApplicationInfo(hadoopConf, path, platform = platform)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
       if (!app.isAppMetaDefined) {
@@ -318,53 +218,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * and returns the summary information. The summary information is much smaller than
    * the ApplicationInfo because it has processed and combined many of the raw events.
    */
-  private def processApps(
-      apps: Seq[ApplicationInfo],
+  private def processApp(
+      analyzedApps: Seq[ApplicationInfo],
       printPlans: Boolean,
-      profileOutputWriter: ProfileOutputWriter)
-    : (ApplicationSummaryInfo, Option[CompareSummaryInfo], DiagnosticSummaryInfo) = {
+      profileOutputWriter: ProfileOutputWriter): (ApplicationSummaryInfo, DiagnosticSummaryInfo) = {
     val startTime = System.currentTimeMillis()
+    val collect = new CollectInformation(analyzedApps)
 
-    val collect = new CollectInformation(apps)
-    val appInfo = collect.getAppInfo
-    val appLogPath = collect.getAppLogPath
-    val rapidsProps = collect.getRapidsProperties
-    val sparkProps = collect.getSparkProperties
-    val systemProps = collect.getSystemProperties
-    val rapidsJar = collect.getRapidsJARInfo
-    val sqlMetrics = collect.getSQLPlanMetrics
-    val dsInfo = collect.getDataSourceInfo(sqlMetrics)
-    val stageMetrics = collect.getStageLevelMetrics
-    val wholeStage = collect.getWholeStageCodeGenMapping
-    val sparkRapidsBuildInfo = collect.getSparkRapidsInfo
-
-    // for compare mode we just add in extra tables for matching across applications
-    // the rest of the tables simply list all applications specified
-    val compareRes = if (appArgs.compare()) {
-      val compare = new CompareApplications(apps)
-      val (matchingSqlIds, matchingStageIds) = compare.findMatchingStages()
-      Some(CompareSummaryInfo(matchingSqlIds, matchingStageIds))
-    } else {
-      None
-    }
-
-    val healthCheck = new HealthCheck(apps)
-    val failedTasks = healthCheck.getFailedTasks
-    val failedStages = healthCheck.getFailedStages
-    val failedJobs = healthCheck.getFailedJobs
-    val removedBMs = healthCheck.getRemovedBlockManager
-    val removedExecutors = healthCheck.getRemovedExecutors
-    val unsupportedOps = healthCheck.getPossibleUnsupportedSQLPlan
+    val healthCheck = new HealthCheck(analyzedApps)
 
     if (printPlans) {
-      CollectInformation.printSQLPlans(apps, outputDir)
+      CollectInformation.printSQLPlans(analyzedApps, outputDir)
     }
 
     if (appArgs.generateDot()) {
-      if (appArgs.compare() || appArgs.combined()) {
-        logWarning("Dot graph does not compare or combine apps")
-      }
-      apps.foreach { app =>
+      analyzedApps.foreach { app =>
         val start = System.nanoTime()
         GenerateDot(app, s"$outputDir/${app.appId}")
         val duration = TimeUnit.SECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS)
@@ -374,10 +242,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
 
     if (appArgs.generateTimeline()) {
-      if (appArgs.compare() || appArgs.combined()) {
-        logWarning("Timeline graph does not compare or combine apps")
-      }
-      apps.foreach { app =>
+      analyzedApps.foreach { app =>
         val start = System.nanoTime()
         GenerateTimeline.generateFor(app, s"$outputDir/${app.appId}")
         val duration = TimeUnit.SECONDS.convert(System.nanoTime() - start, TimeUnit.NANOSECONDS)
@@ -385,7 +250,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
-    val analysis = RawMetricProfilerView.getAggMetrics(apps)
+    val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
     val maxTaskInputInfo = if (useAutoTuner) {
       analysis.maxTaskInputSizes
     } else {
@@ -397,37 +262,65 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Seq.empty
     }
     val endTime = System.currentTimeMillis()
-    logInfo(s"Took ${endTime - startTime}ms to Process [${appInfo.head.appId}]")
-    (ApplicationSummaryInfo(appInfo, dsInfo,
-        collect.getExecutorInfo, collect.getJobInfo, rapidsProps,
-        rapidsJar, sqlMetrics, stageMetrics, analysis.jobAggs, analysis.stageAggs,
-        analysis.sqlAggs, analysis.sqlDurAggs, analysis.taskShuffleSkew,
-        failedTasks, failedStages, failedJobs, removedBMs, removedExecutors,
-        unsupportedOps, sparkProps, collect.getSQLToStage, wholeStage, maxTaskInputInfo,
-        appLogPath, analysis.ioAggs, systemProps, sqlIdAlign, sparkRapidsBuildInfo,
-        collect.getWriteOperationInfo),
-      compareRes,
+    val appInfo = collect.getAppInfo
+    val sqlMetrics = collect.getSQLPlanMetrics
+    logInfo(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
+    val appInfoSummary = ApplicationSummaryInfo(
+      appInfo = appInfo,
+      dsInfo = collect.getDataSourceInfo(sqlMetrics),
+      execInfo = collect.getExecutorInfo,
+      jobInfo = collect.getJobInfo,
+      rapidsProps = collect.getRapidsProperties,
+      rapidsJar = collect.getRapidsJARInfo,
+      sqlMetrics = sqlMetrics,
+      stageMetrics = collect.getStageLevelMetrics,
+      jobAggMetrics = analysis.jobAggs,
+      stageAggMetrics = analysis.stageAggs,
+      sqlTaskAggMetrics = analysis.sqlAggs,
+      durAndCpuMet = analysis.sqlDurAggs,
+      skewInfo = analysis.taskShuffleSkew,
+      failedTasks = healthCheck.getFailedTasks,
+      failedStages = healthCheck.getFailedStages,
+      failedJobs = healthCheck.getFailedJobs,
+      removedBMs = healthCheck.getRemovedBlockManager,
+      removedExecutors = healthCheck.getRemovedExecutors,
+      unsupportedOps = healthCheck.getPossibleUnsupportedSQLPlan,
+      sparkProps = collect.getSparkProperties,
+      sqlStageInfo = collect.getSQLToStage,
+      wholeStage = collect.getWholeStageCodeGenMapping,
+      maxTaskInputBytesRead = maxTaskInputInfo,
+      appLogPath = collect.getAppLogPath,
+      ioMetrics = analysis.ioAggs,
+      sysProps = collect.getSystemProperties,
+      sqlCleanedAlignedIds = sqlIdAlign,
+      sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
+      writeOpsInfo = collect.getWriteOperationInfo,
+      sqlPlanInfo = collect.getSQLPlanInfoTruncated)
+    (appInfoSummary,
       DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
 
   /**
    * A wrapper method to run the AutoTuner.
-   * @param appInfo     Summary of the application for tuning.
+   * @param profilerResult     ProfilerResult object storing the app info, summary and diagnostics
    * @param driverInfoProvider Entity that implements APIs needed to extract information from the
    *                           driver log if any
    */
-  private def runAutoTuner(appInfo: Option[ApplicationSummaryInfo],
+  private def runAutoTuner(
+      profilerResult: Option[ProfilerResult],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
   : (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     // only run the auto tuner on GPU event logs for profiling tool right now. There are
     // assumptions made in the code
-    if (appInfo.isDefined && appInfo.get.appInfo.head.pluginEnabled) {
-      val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(appInfo)
-      val workerInfoPath = appArgs.workerInfo
-        .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
-      val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
+    val appInfoFromSummary = profilerResult.flatMap(_.summary.appInfo.headOption)
+    if (appInfoFromSummary.isDefined && appInfoFromSummary.get.pluginEnabled) {
+      val appInfoProvider = AppSummaryInfoBaseProvider.fromAppInfo(profilerResult)
+      val platform = profilerResult.get.app.platform.getOrElse {
+        throw new IllegalStateException("Profiling AutoTuner requires a platform. " +
+          "Please provide a valid platform using --platform option.")
+      }
       val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider,
-        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt), driverInfoProvider)
+        platform, driverInfoProvider)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
@@ -440,154 +333,74 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     }
   }
 
-  def writeOutput(profileOutputWriter: ProfileOutputWriter,
-      appsSum: Seq[ApplicationSummaryInfo], outputCombined: Boolean,
-      comparedRes: Option[CompareSummaryInfo] = None,
-      diagnosticSum: Seq[DiagnosticSummaryInfo]): Unit = {
+  private def writeOutput(
+      profileOutputWriter: ProfileOutputWriter,
+      profilerResult: ProfilerResult): Unit = {
 
-    val sums = if (outputCombined) {
-      // the properties table here has the column names as the app indexes so we have to
-      // handle special
+    val app = profilerResult.summary
+    profileOutputWriter.writeText("### A. Information Collected ###")
+    profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
+    profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
+    profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
+    profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
+    profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
+    profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+    profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+      Some(RapidsQualPropertiesView.getDescription))
+    profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+      Some(SparkQualPropertiesView.getDescription))
+    profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+      Some(SystemQualPropertiesView.getDescription))
+    profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+      Some(ProfRapidsJarView.getDescription))
+    profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+      Some(ProfSQLPlanMetricsView.getDescription))
+    profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
+      Some(ProfStageMetricView.getDescription))
+    profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
+      Some(ProfSQLCodeGenView.getDescription))
+    profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
 
-      def combineProps(propSource: String,
-          sums: Seq[ApplicationSummaryInfo]): Seq[RapidsPropertyProfileResult] = {
-        var numApps = 0
-        val props = HashMap[String, ArrayBuffer[String]]()
-        val outputHeaders = ArrayBuffer("propertyName")
-        sums.foreach { app =>
-          val inputProps = if (propSource.equals("rapids")) {
-            app.rapidsProps
-          } else if (propSource.equals("spark")) {
-            app.sparkProps
-          } else { // this is for system properties
-            app.sysProps
-          }
-          if (inputProps.nonEmpty) {
-            numApps += 1
-            val appMappedProps = inputProps.map { p =>
-              p.rows(0) -> p.rows(1)
-            }.toMap
+    profileOutputWriter.writeText("\n### B. Analysis ###\n")
+    profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+      Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
+    profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+      Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
+    profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+      Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
+    profileOutputWriter.write(IO_LABEL, app.ioMetrics)
+    profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+    // writeOps are generated in only CSV format
+    profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
+    val skewHeader = TASK_SHUFFLE_SKEW
+    val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
+    profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
-            outputHeaders += inputProps.head.outputHeaders(1)
-            CollectInformation.addNewProps(appMappedProps, props, numApps)
-          }
-        }
-        val allRows = props.map { case (k, v) => Seq(k) ++ v }.toSeq
-        val resRows = allRows.map(r => RapidsPropertyProfileResult(r(0), outputHeaders, r))
-        resRows.sortBy(cols => cols.key)
-      }
-      val reduced = ApplicationSummaryInfo(
-        appsSum.flatMap(_.appInfo).sortBy(_.appIndex),
-        appsSum.flatMap(_.dsInfo).sortBy(_.appIndex),
-        appsSum.flatMap(_.execInfo).sortBy(_.appIndex),
-        appsSum.flatMap(_.jobInfo).sortBy(_.appIndex),
-        combineProps("rapids", appsSum).sortBy(_.key),
-        appsSum.flatMap(_.rapidsJar).sortBy(_.appIndex),
-        appsSum.flatMap(_.sqlMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.stageMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.jobAggMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.stageAggMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.sqlTaskAggMetrics).sortBy(_.appIndex),
-        appsSum.flatMap(_.durAndCpuMet).sortBy(_.appIndex),
-        appsSum.flatMap(_.skewInfo).sortBy(_.appIndex),
-        appsSum.flatMap(_.failedTasks).sortBy(_.appIndex),
-        appsSum.flatMap(_.failedStages).sortBy(_.appIndex),
-        appsSum.flatMap(_.failedJobs).sortBy(_.appIndex),
-        appsSum.flatMap(_.removedBMs).sortBy(_.appIndex),
-        appsSum.flatMap(_.removedExecutors).sortBy(_.appIndex),
-        appsSum.flatMap(_.unsupportedOps).sortBy(_.appIndex),
-        combineProps("spark", appsSum).sortBy(_.key),
-        appsSum.flatMap(_.sqlStageInfo).sortBy(_.duration)(Ordering[Option[Long]].reverse),
-        appsSum.flatMap(_.wholeStage).sortBy(_.appIndex),
-        appsSum.flatMap(_.maxTaskInputBytesRead).sortBy(_.appIndex),
-        appsSum.flatMap(_.appLogPath).sortBy(_.appIndex),
-        appsSum.flatMap(_.ioMetrics).sortBy(_.appIndex),
-        combineProps("system", appsSum).sortBy(_.key),
-        appsSum.flatMap(_.sqlCleanedAlignedIds).sortBy(_.appIndex),
-        appsSum.flatMap(_.sparkRapidsBuildInfo),
-        appsSum.flatMap(_.writeOpsInfo).sortBy(_.appIndex)
-      )
-      Seq(reduced)
-    } else {
-      appsSum
+    profileOutputWriter.writeText("\n### C. Health Check###\n")
+    profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
+    profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
+    profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
+    profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+    profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
+    profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
+      Some("Unsupported SQL Ops"))
+    if (outputAlignedSQLIds) {
+      profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+        Some(ProfSQLPlanAlignedView.getDescription))
     }
-    sums.foreach { app: ApplicationSummaryInfo =>
-      profileOutputWriter.writeText("### A. Information Collected ###")
-      profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
-      profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
-      profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
-      profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
-      profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
-      profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-      profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
-        Some(RapidsQualPropertiesView.getDescription))
-      profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
-        Some(SparkQualPropertiesView.getDescription))
-      profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
-        Some(SystemQualPropertiesView.getDescription))
-      profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
-        Some(ProfRapidsJarView.getDescription))
-      profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
-        Some(ProfSQLPlanMetricsView.getDescription))
-      profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
-        Some(ProfStageMetricView.getDescription))
-      profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
-        Some(ProfSQLCodeGenView.getDescription))
-      comparedRes.foreach { compareSum =>
-        val matchingSqlIds = compareSum.matchingSqlIds
-        val matchingStageIds = compareSum.matchingStageIds
-        profileOutputWriter.write("Matching SQL IDs Across Applications", matchingSqlIds)
-        profileOutputWriter.write("Matching Stage IDs Across Applications", matchingStageIds)
-      }
-
-      profileOutputWriter.writeText("\n### B. Analysis ###\n")
-      profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
-        Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
-      profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
-        Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
-      profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
-        Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
-      profileOutputWriter.write(IO_LABEL, app.ioMetrics)
-      profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
-      // writeOps are generated in only CSV format
-      profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
-      val skewHeader = TASK_SHUFFLE_SKEW
-      val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
-      profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
-
-      profileOutputWriter.writeText("\n### C. Health Check###\n")
-      profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
-      profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
-      profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
-      profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
-      profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
-      profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
-        Some("Unsupported SQL Ops"))
-      if (outputAlignedSQLIds) {
-        profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
-          Some(ProfSQLPlanAlignedView.getDescription))
-      }
-      if (useAutoTuner) {
-        val (properties, comments) = runAutoTuner(Some(app))
-        profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
-        profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
-      }
-
-      profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
-        app.sparkRapidsBuildInfo)
+    if (useAutoTuner) {
+      val (properties, comments) = runAutoTuner(Some(profilerResult))
+      profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
+      profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }
-    // Write diagnostic related results to CSV files
-    val diagnostics = if (outputCombined) {
-      Seq(DiagnosticSummaryInfo(diagnosticSum.flatMap(_.stageDiagnostics),
-        diagnosticSum.flatMap(_.IODiagnostics)))
-    } else {
-      diagnosticSum
-    }
-    diagnostics.foreach { diagnostoic =>
-      profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL, diagnostoic.stageDiagnostics)
-      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
-        diagnostoic.IODiagnostics)
-    }
+
+    profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
+      app.sparkRapidsBuildInfo)
+    profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
+      profilerResult.diagnostics.stageDiagnostics)
+    profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
+      profilerResult.diagnostics.IODiagnostics)
+
   }
 
   /**
@@ -595,12 +408,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    * If an exception occurs during the writing process, it will be caught and logged, preventing
    * it from propagating further.
    */
-  private def writeSafelyToOutput(profileOutputWriter: ProfileOutputWriter,
-      appsSum: Seq[ApplicationSummaryInfo], outputCombined: Boolean,
-      comparedRes: Option[CompareSummaryInfo] = None,
-      diagnosticSum: Seq[DiagnosticSummaryInfo]): Unit = {
+  private def writeSafelyToOutput(
+      profileOutputWriter: ProfileOutputWriter,
+      profilerResults: ProfilerResult): Unit = {
     try {
-      writeOutput(profileOutputWriter, appsSum, outputCombined, comparedRes, diagnosticSum)
+      writeOutput(profileOutputWriter, profilerResults)
     } catch {
       case e: Exception =>
         logError("Exception thrown while writing", e)
@@ -610,10 +422,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
 object Profiler {
   // This tool's output log file name
+  private val DRIVER_LOG_NAME = "driver"
   val PROFILE_LOG_NAME = "profile"
-  val DRIVER_LOG_NAME = "driver"
-  val COMPARE_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_compare"
-  val COMBINED_LOG_FILE_NAME_PREFIX = "rapids_4_spark_tools_combined"
   val SUBDIR = "rapids_4_spark_profile"
 
   def getAutoTunerResultsAsString(props: Seq[TuningEntryTrait],

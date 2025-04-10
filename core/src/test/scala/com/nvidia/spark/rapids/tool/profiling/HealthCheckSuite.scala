@@ -21,6 +21,7 @@ import java.io.File
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
+import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 import org.apache.spark.sql.SparkSession
@@ -29,7 +30,7 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 class HealthCheckSuite extends FunSuite {
 
-  lazy val sparkSession = {
+  lazy val sparkSession: SparkSession = {
     SparkSession
         .builder()
         .master("local[*]")
@@ -37,7 +38,7 @@ class HealthCheckSuite extends FunSuite {
         .getOrCreate()
   }
 
-  lazy val hadoopConf = sparkSession.sparkContext.hadoopConfiguration
+  lazy val hadoopConf: Configuration = sparkSession.sparkContext.hadoopConfiguration
 
   private val expRoot = ToolTestUtils.getTestResourceFile("ProfilingExpectations")
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
@@ -46,12 +47,10 @@ class HealthCheckSuite extends FunSuite {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"))
-    var index: Int = 1
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
-      index += 1
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1)
     }
     assert(apps.size == 1)
 
@@ -59,7 +58,7 @@ class HealthCheckSuite extends FunSuite {
     for (_ <- apps) {
       val failedTasks = healthCheck.getFailedTasks
       // the end reason gets the delimiter changed when writing to CSV so to compare properly
-      // change it to be the same here
+      // change it to be the same here.
       val failedWithDelimiter = failedTasks.map { t =>
         val delimited = StringUtils.renderStr(t.endReason, doEscapeMetaCharacters = true,
           maxLength = 0)
@@ -70,7 +69,7 @@ class HealthCheckSuite extends FunSuite {
       val tasksResultExpectation =
         new File(expRoot, "tasks_failure_eventlog_expectation.csv")
       val tasksDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, tasksResultExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, tasksResultExpectation.getPath)
       ToolTestUtils.compareDataFrames(taskAccums, tasksDfExpect)
 
       val failedStages = healthCheck.getFailedStages.map { s =>
@@ -82,7 +81,7 @@ class HealthCheckSuite extends FunSuite {
       val stagesResultExpectation =
         new File(expRoot, "stages_failure_eventlog_expectation.csv")
       val stagesDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, stagesResultExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, stagesResultExpectation.getPath)
       ToolTestUtils.compareDataFrames(stageAccums, stagesDfExpect)
 
       val failedJobs = healthCheck.getFailedJobs
@@ -90,7 +89,7 @@ class HealthCheckSuite extends FunSuite {
       val jobsResultExpectation =
         new File(expRoot, "jobs_failure_eventlog_expectation.csv")
       val jobsDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, jobsResultExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, jobsResultExpectation.getPath)
       ToolTestUtils.compareDataFrames(jobsAccums, jobsDfExpect)
     }
   }
@@ -99,23 +98,21 @@ class HealthCheckSuite extends FunSuite {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"))
-    var index: Int = 1
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
-      index += 1
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1)
     }
     assert(apps.size == 1)
     val healthCheck = new HealthCheck(apps)
-    for (app <- apps) {
+    for (_ <- apps) {
       val removedBMs = healthCheck.getRemovedBlockManager
       import sparkSession.implicits._
       val blockManagersAccums = removedBMs.toDF
       val blockManagersResultExpectation =
         new File(expRoot, "removed_blockManagers_eventlog_expectation.csv")
       val blockManagersDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, blockManagersResultExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, blockManagersResultExpectation.getPath)
       ToolTestUtils.compareDataFrames(blockManagersAccums, blockManagersDfExpect)
 
       val removedExecs = healthCheck.getRemovedExecutors
@@ -123,7 +120,7 @@ class HealthCheckSuite extends FunSuite {
       val executorRemovedResultExpectation =
         new File(expRoot, "executors_removed_eventlog_expectation.csv")
       val executorsRemovedDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, executorRemovedResultExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, executorRemovedResultExpectation.getPath)
       ToolTestUtils.compareDataFrames(executorRemovedAccums, executorsRemovedDfExpect)
     }
   }
@@ -132,12 +129,10 @@ class HealthCheckSuite extends FunSuite {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs =
       new ProfileArgs(Array(s"$logDir/dataset_eventlog"))
-    var index: Int = 1
     val eventlogPaths = appArgs.eventlog()
     for (path <- eventlogPaths) {
       apps += new ApplicationInfo(hadoopConf,
-        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1, index)
-      index += 1
+        EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1)
     }
     assert(apps.size == 1)
 
@@ -149,7 +144,7 @@ class HealthCheckSuite extends FunSuite {
       val unSupportedPlanExpectation =
         new File(expRoot, "unsupported_sql_eventlog_expectation.csv")
       val unSupportedPlanDfExpect =
-        ToolTestUtils.readExpectationCSV(sparkSession, unSupportedPlanExpectation.getPath())
+        ToolTestUtils.readExpectationCSV(sparkSession, unSupportedPlanExpectation.getPath)
       ToolTestUtils.compareDataFrames(unsupportedPlanAccums, unSupportedPlanDfExpect)
     }
   }

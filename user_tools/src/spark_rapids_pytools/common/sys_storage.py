@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -239,7 +239,7 @@ class FSUtil:
         dir_count = 0
 
         def inner(dir_p: pathlib.Path, prefix: str = '', level=-1):
-            nonlocal files_count, dir_count, dir_patterns, file_patterns
+            nonlocal files_count, dir_count
             if not level:
                 return  # 0, stop iterating
             sub_items = []

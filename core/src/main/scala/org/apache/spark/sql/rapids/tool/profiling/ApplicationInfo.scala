@@ -186,7 +186,6 @@ object SparkPlanInfoWithStage {
 class ApplicationInfo(
     hadoopConf: Configuration,
     eLogInfo: EventLogInfo,
-    val index: Int,
     platform: Platform = PlatformFactory.createInstance())
   extends AppBase(Some(eLogInfo), Some(hadoopConf), Some(platform)) with Logging {
 
@@ -196,17 +195,11 @@ class ApplicationInfo(
   processEvents()
 
   // Process SQL Plan Metrics after all events are processed
-  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this, index)
+  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this)
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)
     false
-  }
-
-  override def postCompletion(): Unit = {
-    // finally aggregate the Info
-    super.postCompletion()
-    buildClusterInfo
   }
 
   override def guestimateAppEndTimeCB(): () => Option[Long] = {
@@ -214,14 +207,14 @@ class ApplicationInfo(
       val jobEndTimes = jobIdToInfo.map { case (_, jc) => jc.endTime }.filter(_.isDefined)
       val sqlEndTimes = sqlIdToInfo.map { case (_, sc) => sc.endTime }.filter(_.isDefined)
       val estimatedResult =
-        if (sqlEndTimes.size == 0 && jobEndTimes.size == 0) {
+        if (sqlEndTimes.isEmpty && jobEndTimes.isEmpty) {
           None
         } else {
           logWarning("Application End Time is unknown, estimating based on" +
             " job and sql end times!")
           // estimate the app end with job or sql end times
-          val sqlEndTime = if (sqlEndTimes.size == 0) 0L else sqlEndTimes.map(_.get).max
-          val jobEndTime = if (jobEndTimes.size == 0) 0L else jobEndTimes.map(_.get).max
+          val sqlEndTime = if (sqlEndTimes.isEmpty) 0L else sqlEndTimes.map(_.get).max
+          val jobEndTime = if (jobEndTimes.isEmpty) 0L else jobEndTimes.map(_.get).max
           val maxEndTime = math.max(sqlEndTime, jobEndTime)
           if (maxEndTime == 0) None else Some(maxEndTime)
         }

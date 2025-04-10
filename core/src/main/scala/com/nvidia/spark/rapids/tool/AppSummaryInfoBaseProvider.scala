@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool
 
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, ApplicationSummaryInfo, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, ProfilerResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -61,10 +61,17 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
 
 
 object AppSummaryInfoBaseProvider {
+  /**
+   * Constructs an application information provider based on the results of Profiler tool.
+   * @param profilerResult  Profiler result containing application information,
+   *                        summary and diagnostics
+   * @return object that can be used by the AutoTuner to calculate the recommendations
+   */
   def fromAppInfo(
-      appInfoInst: Option[ApplicationSummaryInfo]): BaseProfilingAppSummaryInfoProvider = {
-    appInfoInst match {
-      case Some(appSummaryInfo) => new SingleAppSummaryInfoProvider(appSummaryInfo)
+      profilerResult: Option[ProfilerResult]): BaseProfilingAppSummaryInfoProvider = {
+    profilerResult match {
+      case Some(profilerResult) => new SingleAppSummaryInfoProvider(
+        profilerResult.app, profilerResult.summary)
       case _ => new BaseProfilingAppSummaryInfoProvider()
     }
   }

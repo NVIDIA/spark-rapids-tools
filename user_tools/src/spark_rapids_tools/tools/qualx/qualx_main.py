@@ -146,7 +146,7 @@ def _get_model(platform: str,
     xgb.Booster model file.
     """
     model_path = _get_model_path(platform, model, variant)
-    logger.info('Loading model from: %s', model_path)
+    logger.debug('Loading model from: %s', model_path)
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
     return xgb_model
@@ -290,7 +290,7 @@ def _predict(
             if any(input_df['fraction_supported'] != 1.0)
             else 'raw'
         )
-        logger.info('Predicting dataset (%s): %s', filter_str, dataset)
+        logger.debug('Predicting dataset (%s): %s', filter_str, dataset)
         features, feature_cols, label_col = extract_model_features(input_df, {'default': split_fn})
         # note: dataset name is already stored in the 'appName' field
         try:
@@ -345,7 +345,7 @@ def _read_dataset_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
+        logger.debug('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     return df
 
@@ -395,7 +395,7 @@ def _read_platform_scores(
             nan_df['model'] + '/' + nan_df['platform'] + '/' + nan_df['dataset']
         )
         keys = list(nan_df['key'].unique())
-        logger.warning('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
+        logger.debug('Dropped rows w/ NaN values from: %s: %s', eval_dir, keys)
 
     # compute accuracy by platform
     scores = {}
@@ -507,7 +507,7 @@ def train(
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
-            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
+            logger.debug('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_functions[ds_name] = plugin.split_function
 
@@ -613,12 +613,13 @@ def predict(
         'platform': platform,
     }
 
-    logger.info('Loading dataset: %s', dataset_name)
+    logger.debug('Loading dataset: %s', dataset_name)
     profile_df = load_profiles(
         datasets=datasets,
         node_level_supp=node_level_supp,
         qual_tool_filter=qual_tool_filter,
-        qual_tool_output=qual_tool_output
+        qual_tool_output=qual_tool_output,
+        remove_failed_sql=False,
     )
     if profile_df.empty:
         raise ValueError('Data preprocessing resulted in an empty dataset. Speedup predictions will default to 1.0.')
@@ -655,7 +656,7 @@ def predict(
         if node_level_supp is not None and any(profile_df['fraction_supported'] != 1.0)
         else 'raw'
     )
-    logger.info('Predicting dataset (%s): %s', filter_str, dataset_name)
+    logger.debug('Predicting dataset (%s): %s', filter_str, dataset_name)
 
     try:
         features_list = []
@@ -684,17 +685,17 @@ def predict(
         if output_info:
             # save features for troubleshooting
             output_file = output_info['features']['path']
-            logger.info('Writing features to: %s', output_file)
+            logger.debug('Writing features to: %s', output_file)
             features.to_csv(output_file, index=False)
 
             feature_importance, shapley_values = compute_shapley_values(xgb_model, features)
 
             output_file = output_info['featureImportance']['path']
-            logger.info('Writing shapley feature importances to: %s', output_file)
+            logger.debug('Writing shapley feature importances to: %s', output_file)
             feature_importance.to_csv(output_file)
 
             output_file = output_info['shapValues']['path']
-            logger.info('Writing shapley values to: %s', output_file)
+            logger.debug('Writing shapley values to: %s', output_file)
             shapley_values.to_csv(output_file, index=False)
 
         # compute per-app speedups
@@ -853,10 +854,10 @@ def evaluate(
             plugin = load_plugin(plugin_path)
             split_fn = plugin.split_function
 
-    logger.info('Loading qualification tool CSV files.')
+    logger.debug('Loading qualification tool CSV files.')
     node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
 
-    logger.info('Loading profiler tool CSV files.')
+    logger.debug('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
         datasets, profile_dir, node_level_supp, qual_tool_filter, qual_tool_output

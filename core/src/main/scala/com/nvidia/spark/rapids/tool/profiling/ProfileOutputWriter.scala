@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   def writeSparkRapidsBuildInfo(headerText: String,
       sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
     val fileName = headerText.replace(" ", "_").toLowerCase
-    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"$fileName.json", s"$headerText JSON:")
     try {
       jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
     } finally {
@@ -77,6 +77,24 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   def writeCSVTable(headerText: String, outRows: Seq[ProfileResult]): Unit = {
     if (outputCSV) {
       ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
+    }
+  }
+
+  /**
+   * Writes the given profile results as JSON Lines (JSONL) format to a file.
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+  */
+  def writeJsonL(headerText: String, outRows: Seq[ProfileResult]): Unit = {
+    val fileName = headerText.replace(" ", "_").toLowerCase
+    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+    try {
+      outRows.foreach { row =>
+        jsonWriter.write(Serialization.write(row) + "\n")
+      }
+    } finally {
+      jsonWriter.close()
     }
   }
 
@@ -100,13 +118,13 @@ object ProfileOutputWriter {
       // need to have separate CSV file per table, use header text
       // with spaces as _ and lowercase as filename
       val suffix = header.replace(" ", "_").toLowerCase
-      val csvWriter = new ToolTextFileWriter(outputDir, s"${suffix}.csv", s"$header CSV:")
+      val csvWriter = new ToolTextFileWriter(outputDir, s"$suffix.csv", s"$header CSV:")
       try {
         val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
         csvWriter.write(headerString + "\n")
         val rows = outRows.map(_.convertToCSVSeq)
         rows.foreach { row =>
-          val formattedRow = row.map(stringIfempty(_))
+          val formattedRow = row.map(stringIfempty)
           val outStr = formattedRow.mkString(CSVDelimiter)
           csvWriter.write(outStr + "\n")
         }
@@ -172,14 +190,12 @@ object ProfileOutputWriter {
         maxLength = 0))
 
     val schemaAndData = escapedSchema +: rows.map { row =>
-      row.map { cell =>
-        cell match {
-          case null => "null"
-          case str: String =>
-            // Escapes meta-characters not to break the `showString` format
-            org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
-              str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
-        }
+      row.map {
+        case null => "null"
+        case str: String =>
+          // Escapes meta-characters not to break the `showString` format
+          org.apache.spark.sql.rapids.tool.util.StringUtils.renderStr(
+            str, doEscapeMetaCharacters = true, maxLength = truncate, showEllipses = true)
       }: Seq[String]
     }
 

@@ -277,13 +277,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedComment =
-      s"""This node/worker configuration is not ideal for using the Spark Rapids
-Accelerator because it doesn't have enough memory for the executors.
-We recommend using nodes/workers with more memory. Need at least 17496MB memory.""".stripMargin.replaceAll("\n", "")
-    // scalastyle:on line.size.limit
-    assert(autoTunerOutput.replaceAll("\n", "").contains(expectedComment))
+    val expectedComment = ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17496)
+    assert(autoTunerOutput.contains(expectedComment))
   }
 
   test("Load cluster properties with CPU memory missing") {
@@ -3476,26 +3471,27 @@ We recommend using nodes/workers with more memory. Need at least 17496MB memory.
       val expectedResults =
         s"""|
             |Spark Properties:
+            |--conf spark.executor.instances=2
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
             |--conf spark.rapids.sql.batchSizeBytes=2147483647
+            |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
             |--conf spark.sql.files.maxPartitionBytes=1851m
             |--conf spark.sql.shuffle.partitions=400
+            |--conf spark.task.resource.gpu.amount=0.001
             |
             |Comments:
-            |- 'spark.executor.cores' should be set to 16.
-            |- 'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.
-            |- 'spark.executor.memory' should be set to at least 2GB/core.
-            |- 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
+            |- 'spark.executor.instances' was not set.
             |- 'spark.rapids.sql.batchSizeBytes' was not set.
-            |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).
-            |- 'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.
             |- 'spark.rapids.sql.enabled' was not set.
-            |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
-            |- 'spark.task.resource.gpu.amount' should be set to 0.001.
             |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
-            |- Could not infer the cluster configuration, recommendations are generated using default values!
             |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17734)}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)

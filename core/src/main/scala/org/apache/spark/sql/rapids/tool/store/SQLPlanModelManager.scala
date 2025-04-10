@@ -20,6 +20,47 @@ import scala.collection.{breakOut, immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 
+// This SparkPlanInfoTruncated is used to trim and serialize
+// SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
+// 1. nodeName
+// 2. simpleString
+// 3. children - which is a list of SparkPlanInfoTruncated (calculated recursively)
+case class SparkPlanInfoTruncated(
+  nodeName: String,
+  simpleString: String,
+  children: Seq[SparkPlanInfoTruncated]) {
+  /**
+   * This toString method creates an indented version of the class
+   * Example - >
+   * - nodeName: Project
+   *   simpleString: Project [value#1]
+   *   - nodeName: Filter
+   *     simpleString: Filter [value#1 > 10]
+   *   - nodeName: Sort
+   *     simpleString: Sort [value#1 ASC]
+   *     - nodeName: Exchange
+   *       simpleString: Exchange [hashpartitioning(value#1)]
+   *
+   */
+  override def toString: String = {
+    def stringify(plan: SparkPlanInfoTruncated, indentLevel: Int): String = {
+      val indent = " " * indentLevel
+      val childString = plan.children.map(child => stringify(child, indentLevel + 1)).mkString("\n")
+      s"$indent- nodeName: ${plan.nodeName}\n$indent  simpleString: ${plan.simpleString}" +
+        (if (children.nonEmpty) s"\n$childString" else "")
+    }
+    stringify(this, 0)
+  }
+}
+
+object SparkPlanInfoTruncated {
+  def apply(info: SparkPlanInfo): SparkPlanInfoTruncated = {
+    SparkPlanInfoTruncated(info.nodeName,
+      info.simpleString,
+      info.children.map(apply))
+  }
+}
+
 /**
  * Container class to store the information about SqlPlans.
  */
@@ -67,7 +108,7 @@ class SQLPlanModelManager {
   def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
     // TODO: in future we should pass more arguments to this method to capture the common
     //  information of an SqlPlan (i.e., startTime,..etc))
-    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelWithDSCaching(id))
+    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelPrimaryWithDSCaching(id))
     planModel.addPlan(planInfo, physicalDescription)
   }
 
@@ -104,6 +145,20 @@ class SQLPlanModelManager {
     immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
   }
 
+  /**
+   * This method returns the truncated version of the first(pre AQE) SparkPlanInfo object
+   * associated with all the SQLs for a given application
+   * @return Map[Long, SparkPlanInfoTruncated] where the key is the sqlID and the value is
+   *         SparkPlanInfoTruncated( truncated version of the first SparkPlanInfo object)
+   */
+  def getTruncatedPrimarySQLPlanInfo: immutable.Map[Long, SparkPlanInfoTruncated] = {
+    sqlPlans.collect { case (sqlId, sparkPlanModel) =>
+      sparkPlanModel.getPrimarySQLPlanInfo.map { planInfo =>
+        sqlId -> SparkPlanInfoTruncated(planInfo)
+      }
+    }.flatten.toMap
+  }
+
   def remove(id: Long): Option[SQLPlanModel] = {
     sqlPlans.remove(id)
   }
@@ -127,7 +182,7 @@ class SQLPlanModelManager {
   }
 
   /**
-   * Gets all the writeRecords of of the final plan of the SQL
+   * Gets all the writeRecords of the final plan of the SQL
    * @return Iterable of WriteOperationRecord representing the write operations.
    */
   def getWriteOperationRecords(): Iterable[WriteOperationRecord] = {

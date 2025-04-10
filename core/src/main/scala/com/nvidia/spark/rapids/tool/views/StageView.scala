@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ trait AppFailedStageViewTrait extends ViewableTrait[FailedStagesProfileResults] 
 
   override def getRawView(app: AppBase, index: Int): Seq[FailedStagesProfileResults] = {
     app.stageManager.getFailedStages.map { fsm =>
-      FailedStagesProfileResults(index, fsm.stageInfo.stageId,
+      FailedStagesProfileResults(fsm.stageInfo.stageId,
         fsm.stageInfo.attemptNumber(),
         fsm.stageInfo.name, fsm.stageInfo.numTasks,
         StringUtils.renderStr(fsm.getFailureReason, doEscapeMetaCharacters = false, maxLength = 0))
@@ -37,7 +37,7 @@ trait AppFailedStageViewTrait extends ViewableTrait[FailedStagesProfileResults] 
 
   override def sortView(
       rows: Seq[FailedStagesProfileResults]): Seq[FailedStagesProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.stageId, cols.stageAttemptId))
+    rows.sortBy(cols => (cols.stageId, cols.stageAttemptId))
   }
 }
 
@@ -53,7 +53,7 @@ trait AppSQLToStageViewTrait extends ViewableTrait[SQLStageInfoProfileResult] {
 
     // intentionally sort this table by the duration to be able to quickly
     // see the stage that took the longest
-    rows.sortBy(cols => (cols.appIndex, Reverse(cols.duration)))
+    rows.sortBy(cols => (Reverse(cols.duration)))
   }
 }
 

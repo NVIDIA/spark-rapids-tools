@@ -523,12 +523,14 @@ class AutoTuner(
         // For now just throw so we don't get any tunings and its obvious to user this isn't a good
         // setup. In the future we may just recommend them to use larger nodes. This would be more
         // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
-        warnNotEnoughMem(minExecHeapMem + minOverhead)
+        appendComment(autoTunerConfigsProvider.notEnoughMemComment(
+          minExecHeapMem + minOverhead))
         (0, 0, 0, false)
       } else {
         val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
         if (leftOverMemUsingMinHeap < 0) {
-          warnNotEnoughMem(minExecHeapMem + minOverhead)
+          appendComment(autoTunerConfigsProvider.notEnoughMemComment(
+            minExecHeapMem + minOverhead))
         }
         // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
         val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
@@ -539,14 +541,6 @@ class AutoTuner(
         (pinnedMem, executorMemOverhead, minExecHeapMem, setMaxBytesInFlight)
       }
     }
-  }
-
-  private def warnNotEnoughMem(minSize: Long): Unit = {
-    // in the future it would be nice to enhance the error message with a recommendation of size
-    val msg = "This node/worker configuration is not ideal for using the Spark Rapids\n" +
-      "Accelerator because it doesn't have enough memory for the executors.\n" +
-      s"We recommend using nodes/workers with more memory. Need at least ${minSize}MB memory."
-    appendComment(msg)
   }
 
   /**
@@ -1552,6 +1546,14 @@ trait AutoTunerConfigsProvider extends Logging {
        |A newer RAPIDS Accelerator for Apache Spark plugin is available:
        |$latestJarMvnUrl
        |Version used in application is $currentJarVer.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
+
+  def notEnoughMemComment(minSizeInMB: Long): String = {
+    s"""
+       |This node/worker configuration is not ideal for using the RAPIDS Accelerator
+       |for Apache Spark because it doesn't have enough memory for the executors.
+       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB memory.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 
