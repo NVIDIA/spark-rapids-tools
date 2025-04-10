@@ -148,7 +148,8 @@ class RunningQualificationApp(
   def getPerSqlTextAndCSVSummary(sqlID: Long): (String, String) = {
     val sqlInfo = aggregatePerSQLStats(sqlID)
     val csvResult =
-      constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER, false, escapeCSV = true)
+      constructPerSqlResult(sqlInfo, QualOutputWriter.CSV_DELIMITER,
+        prettyPrint = false, escapeCSV = true)
     val textResult = constructPerSqlResult(sqlInfo, QualOutputWriter.TEXT_DELIMITER,
       prettyPrint = true)
     (csvResult, textResult)
@@ -179,7 +180,7 @@ class RunningQualificationApp(
       case Some(info) =>
         perSqlHeadersAndSizes(SQL_DESC_STR) = sqlDescLength
         QualOutputWriter.constructPerSqlSummaryInfo(info, perSqlHeadersAndSizes,
-          appId.size, delimiter, prettyPrint, sqlDescLength, escapeCSV)
+          appId.length, delimiter, prettyPrint, sqlDescLength, escapeCSV)
       case None =>
         logWarning(s"Unable to get qualification information for this application")
         ""
@@ -222,14 +223,22 @@ class RunningQualificationApp(
             (QualOutputWriter.CLUSTER_ID_STR_SIZE, QualOutputWriter.JOB_ID_STR_SIZE,
               QualOutputWriter.RUN_NAME_STR_SIZE)
           }
-          val appHeadersAndSizes = QualOutputWriter.getSummaryHeaderStringsAndSizes(
-            getAppName.size, info.appId.size, unSupExecMaxSize, unSupExprMaxSize,
-            estimatedFrequencyMaxSize, hasClusterTags, clusterIdMax, jobIdMax, runNameMax)
+          val appHeadersAndSizes =
+            QualOutputWriter.getSummaryHeaderStringsAndSizes(
+              appNameMaxSize = getAppName.length,
+              appIdMaxSize = info.appId.length,
+              unSupExecMaxSize = unSupExecMaxSize,
+              unSupExprMaxSize = unSupExprMaxSize,
+              estimatedFrequencyMaxSize = estimatedFrequencyMaxSize,
+              hasClusterTags = hasClusterTags,
+              clusterIdMaxSize = clusterIdMax,
+              jobIdMaxSize = jobIdMax,
+              runNameMaxSize = runNameMax)
           val headerStr = QualOutputWriter.constructOutputRowFromMap(appHeadersAndSizes,
             delimiter, prettyPrint)
           val appInfoStr = QualOutputWriter.constructAppSummaryInfo(
             EstimatedSummaryInfo(info.estimatedInfo),
-            appHeadersAndSizes, appId.size, unSupExecMaxSize, unSupExprMaxSize,
+            appHeadersAndSizes, appId.length, unSupExecMaxSize, unSupExprMaxSize,
             estimatedFrequencyMaxSize, hasClusterTags, clusterIdMax, jobIdMax, runNameMax,
             delimiter, prettyPrint)
           headerStr + appInfoStr

@@ -42,6 +42,7 @@ import org.apache.spark.sql.types._
 case class TestQualificationSummary(
     appName: String,
     appId: String,
+    attemptId: Int,
     sqlDataframeDuration: Long,
     sqlDataframeTaskDuration: Long,
     appDuration: Long,
@@ -72,6 +73,7 @@ class QualificationSuite extends BaseTestSuite {
   private val csvDetailedFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.ATTEMPT_ID_STR, IntegerType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
     (QualOutputWriter.TASK_DUR_STR, LongType),
     (QualOutputWriter.APP_DUR_STR, LongType),
@@ -123,7 +125,7 @@ class QualificationSuite extends BaseTestSuite {
       appSums: Seq[QualificationSummaryInfo]): Seq[TestQualificationSummary] = {
     appSums.map { appInfoRec =>
       val sum = QualOutputWriter.createFormattedQualSummaryInfo(appInfoRec, ",")
-      TestQualificationSummary(sum.appName, sum.appId, sum.sqlDataframeDuration,
+      TestQualificationSummary(sum.appName, sum.appId, sum.attemptId, sum.sqlDataframeDuration,
         sum.sqlDataframeTaskDuration, sum.appDuration,
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
@@ -1271,7 +1273,9 @@ class QualificationSuite extends BaseTestSuite {
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
-        val sqlIdToLookup = allSQLIds.head
+        // We want to pick the last SqlID. Otherwise, we could pick the sqlIds related to Parquet
+        // or Json.
+        val sqlIdToLookup = allSQLIds.max
         val (csvOut, txtOut) = qualApp.getPerSqlTextAndCSVSummary(sqlIdToLookup)
         assert(csvOut.contains("collect at ToolTestUtils.scala:67") && csvOut.contains(","),
           s"CSV output was: $csvOut")
@@ -1291,9 +1295,9 @@ class QualificationSuite extends BaseTestSuite {
         assert(headers.size ==
           QualOutputWriter.getSummaryHeaderStringsAndSizes(30, 30).keys.size)
         assert(values.size == headers.size)
-        // 3 should be the SQL DF Duration
-        assert(headers(3).contains("SQL DF"))
-        assert(values(3).toInt > 0)
+        // 4 should be the SQL DF Duration
+        assert(headers(4).contains("SQL DF"))
+        assert(values(4).toInt > 0)
         val detailedOut = qualApp.getDetailed(":", prettyPrint = false, reportReadSchema = true)
         val rowsDetailedOut = detailedOut.split("\n")
         assert(rowsDetailedOut.size == 2)
@@ -1802,6 +1806,15 @@ class QualificationSuite extends BaseTestSuite {
       // Status counts: 1 SUCCESS, 0 FAILURE, 3 SKIPPED, 0 UNKNOWN
       val expectedStatusCount = StatusReportCounts(1, 0, 3, 0)
       ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount, statusResultFile)
+
+      // verify that the app_summary contains the valid attempt id.
+      val outputResults = s"$outPath/rapids_4_spark_qualification_output/" +
+        s"rapids_4_spark_qualification_output.csv"
+      val outputActual = readExpectedFile(new File(outputResults), "\"")
+      val attemptId = {
+        outputActual.select(QualOutputWriter.ATTEMPT_ID_STR).first.getInt(0)
+      }
+      assert(attemptId == 4, "attemptId is not correct in the app summary.")
     }
   }
 
