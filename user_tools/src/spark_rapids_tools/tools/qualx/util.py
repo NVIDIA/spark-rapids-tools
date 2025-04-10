@@ -266,14 +266,7 @@ def compute_precision_recall(
 
 
 def load_plugin(plugin_path: str) -> types.ModuleType:
-    """Dynamically load plugin modules with helper functions for dataset-specific code.
-
-    Supported APIs:
-
-    def load_profiles_hook(df: pd.DataFrame) -> pd.DataFrame:
-        # add dataset-specific modifications
-        return df
-    """
+    """Dynamically load plugin modules with helper functions for dataset-specific code."""
     plugin_path = os.path.expandvars(plugin_path)
     plugin_name = Path(plugin_path).name.split('.')[0]
     if not os.path.exists(plugin_path):

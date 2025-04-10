@@ -507,7 +507,7 @@ def train(
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
             plugin_path = ds_meta['split_function']
-            logger.debug('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
+            logger.debug('Using split function for %s: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_functions[ds_name] = plugin.split_function
 
@@ -850,7 +850,7 @@ def evaluate(
         if 'split_function' in ds_meta:
             # get split_function from plugin
             plugin_path = ds_meta['split_function']
-            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
+            logger.debug('Using split function for %s: %s', ds_name, plugin_path)
             plugin = load_plugin(plugin_path)
             split_fn = plugin.split_function
 
@@ -858,9 +858,18 @@ def evaluate(
     node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
 
     logger.debug('Loading profiler tool CSV files.')
-    profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
+    profile_df = load_profiles(
+        datasets,
+        profile_dir=profile_dir,
+        remove_failed_sql=False,
+    )  # w/ GPU rows
     filtered_profile_df = load_profiles(
-        datasets, profile_dir, node_level_supp, qual_tool_filter, qual_tool_output
+        datasets,
+        profile_dir=profile_dir,
+        node_level_supp=node_level_supp,
+        qual_tool_filter=qual_tool_filter,
+        qual_tool_output=qual_tool_output,
+        remove_failed_sql=False,
     )  # w/o GPU rows
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')

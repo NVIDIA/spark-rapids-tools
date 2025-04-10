@@ -20,6 +20,7 @@ from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest  # pylint: disable=import-error
+from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
     find_paths,
@@ -137,6 +138,7 @@ class TestUtils(SparkRapidsToolsUT):
     @pytest.mark.parametrize('label', ['Duration', 'duration_sum'])
     def test_create_row_with_default_speedup(self, label):
         os.environ['QUALX_LABEL'] = label
+        get_config(reload=True)  # reload config
         data = pd.Series({
             'App Name': 'app1',
             'App ID': 'id1',

@@ -1,0 +1,13 @@
+cache_dir: qualx_cache
+datasets: datasets
+featurizers:
+  - default.py
+label: Duration
+split_functions:
+  train: split_stratified.py
+  test: split_all_test.py
+model_type: xgboost
+xgboost:
+  model_name: xgb_model.json
+  n_trials: 200
+  qual_tool_filter: stage

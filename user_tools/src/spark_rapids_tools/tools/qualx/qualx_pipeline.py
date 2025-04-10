@@ -120,12 +120,12 @@ def _unzip_eventlogs(delta_df: pd.DataFrame, cpu_eventlogs: str, gpu_eventlogs: 
         Path to directory containing GPU eventlogs
     """
     # get appIds from delta_df
-    gpu_appIds = delta_df['appId_gpu'].unique()
-    cpu_appIds = delta_df['appId_cpu'].unique()
+    gpu_app_ids = delta_df['appId_gpu'].unique()
+    cpu_app_ids = delta_df['appId_cpu'].unique()
 
     # get eventlogs for new CPU and GPU appIds
-    cpu_logs = find_paths(cpu_eventlogs, lambda f: any(appId in f for appId in cpu_appIds))
-    gpu_logs = find_paths(gpu_eventlogs, lambda f: any(appId in f for appId in gpu_appIds))
+    cpu_logs = find_paths(cpu_eventlogs, lambda f: any(app_id in f for app_id in cpu_app_ids))
+    gpu_logs = find_paths(gpu_eventlogs, lambda f: any(app_id in f for app_id in gpu_app_ids))
 
     # Get path to QUAL_DATA_DIR destination directory
     eventlog_dir = os.path.join(os.path.expandvars(ds_path), ds_name)
@@ -134,7 +134,7 @@ def _unzip_eventlogs(delta_df: pd.DataFrame, cpu_eventlogs: str, gpu_eventlogs: 
         return eventlog_dir
 
     ensure_directory(eventlog_dir, parent=True)
-    logger.info("Unzipping eventlogs to %s", eventlog_dir)
+    logger.info('Unzipping eventlogs to %s', eventlog_dir)
     # unzip cpu eventlogs using zipfile
     for cpu_log in cpu_logs:
         with zipfile.ZipFile(cpu_log, 'r') as zip_ref:
@@ -144,7 +144,7 @@ def _unzip_eventlogs(delta_df: pd.DataFrame, cpu_eventlogs: str, gpu_eventlogs: 
     # unzip gpu eventlogs using zipfile
     for gpu_log in gpu_logs:
         with zipfile.ZipFile(gpu_log, 'r') as zip_ref:
-            logger.debug('Unzipping GPU eventlog: %s to %s', gpu_log)
+            logger.debug('Unzipping GPU eventlog: %s', gpu_log)
             zip_ref.extractall(f'{eventlog_dir}/gpu')
 
     return eventlog_dir
@@ -171,7 +171,7 @@ def train_and_evaluate(
     """
     # Read YAML config
     cfg_dir = Path(config).parent
-    with open(config, 'r') as f:
+    with open(config, 'r', encoding='utf-8') as f:
         cfg = yaml.safe_load(f)
 
     def _get_abs_path(cwd: str, path: str) -> str:
@@ -208,7 +208,7 @@ def train_and_evaluate(
         ds_name = f'{dataset_basename}_{suffix}'
         alignment_file = inprogress_file
     else:
-        suffix = datetime.now().strftime("%Y%m%d%H%M%S")
+        suffix = datetime.now().strftime('%Y%m%d%H%M%S')
         ds_name = f'{dataset_basename}_{suffix}'
         inprogress_file = f'{alignment_dir}/{alignment_basename}_{suffix}.inprogress'
 

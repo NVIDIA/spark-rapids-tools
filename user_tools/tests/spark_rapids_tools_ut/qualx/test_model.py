@@ -21,6 +21,8 @@ import pandas as pd
 import numpy as np
 
 from xgboost import Booster
+
+from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
@@ -42,7 +44,7 @@ class TestModel(SparkRapidsToolsUT):
 
         # fill in random features and random labels
         fixed_features = set(['appName', 'description', 'runType', 'scaleFactor', 'sqlID'])
-        random_features = expected_raw_features - fixed_features
+        random_features = expected_raw_features() - fixed_features
         features = {}
         for feature in random_features:
             features[feature] = np.random.rand(200)
@@ -64,6 +66,7 @@ class TestModel(SparkRapidsToolsUT):
     def test_train_and_predict(self, monkeypatch, label) -> None:
         # mock os.environ
         monkeypatch.setenv('QUALX_LABEL', label)
+        get_config(reload=True)  # reload config
 
         # Create test data
         df = self.generate_test_data(label)
