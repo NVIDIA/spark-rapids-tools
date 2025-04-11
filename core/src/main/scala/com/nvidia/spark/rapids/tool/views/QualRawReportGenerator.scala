@@ -100,9 +100,7 @@ object QualRawReportGenerator extends Logging {
       constructLabelsMaps(QualSparkMetricsAnalyzer.
         getAggRawMetrics(
           app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
-          if (label == STAGE_DIAGNOSTICS_LABEL) {
-            pWriter.writeCSVTable(label, metrics)
-          } else {
+          if (label != STAGE_DIAGNOSTICS_LABEL) {
             pWriter.write(label, metrics, AGG_DESCRIPTION.get(label))
           }
       }
