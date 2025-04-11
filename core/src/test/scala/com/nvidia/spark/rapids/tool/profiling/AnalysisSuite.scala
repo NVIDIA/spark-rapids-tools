@@ -247,7 +247,7 @@ class AnalysisSuite extends FunSuite {
     collect.getSQLToStage
     collect.getStageLevelMetrics
 
-    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps)
+    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps, enableDiagnosticViews = true)
     import org.apache.spark.sql.functions._
     import sparkSession.implicits._
     val actualDf = createTestStageDiagnosticResult(diagnosticResults.stageDiagnostics).toDF.
@@ -264,7 +264,7 @@ class AnalysisSuite extends FunSuite {
     val collect = new CollectInformation(apps)
     // Computes IO diagnostic metrics mapping which is later used in getIODiagnosticMetrics
     collect.getSQLPlanMetrics
-    val diagnosticResults = collect.getIODiagnosticMetrics
+    val diagnosticResults = collect.getIODiagnosticMetrics(enableDiagnosticViews = true)
 
     import sparkSession.implicits._
     val actualDf = createTestIODiagnosticResult(diagnosticResults).toDF

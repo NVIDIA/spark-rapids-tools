@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,8 @@ case class ProfilerAggregatedView(
     stageDiagnostics: Seq[StageDiagnosticResult])
 
 object RawMetricProfilerView  {
-  def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
-    val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps)
+  def getAggMetrics(apps: Seq[ApplicationInfo], enableDiagnosticViews: Boolean = false): ProfilerAggregatedView = {
+    val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps, enableDiagnosticViews)
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.stageAggs),
