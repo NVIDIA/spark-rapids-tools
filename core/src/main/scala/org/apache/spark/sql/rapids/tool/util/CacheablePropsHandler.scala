@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ trait CacheablePropsHandler {
    */
   protected def getRetainedSystemProps: Set[String] = Set(
     "file.encoding", "java.version", "os.arch", "os.name",
-    "os.version", "user.timezone")
+    "os.version", "sun.java.command", "user.timezone")
 
   // Patterns to be used to redact sensitive values from Spark Properties.
   private val REDACTED_PROPERTIES = Set[String](
