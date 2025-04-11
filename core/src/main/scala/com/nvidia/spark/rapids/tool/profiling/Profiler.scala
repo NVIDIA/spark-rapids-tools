@@ -298,7 +298,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       writeOpsInfo = collect.getWriteOperationInfo,
       sqlPlanInfo = collect.getSQLPlanInfoTruncated)
     (appInfoSummary,
-      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics(enableDiagnosticViews)))
+     DiagnosticSummaryInfo(analysis.stageDiagnostics,
+                           collect.getIODiagnosticMetrics(enableDiagnosticViews)))
   }
 
   /**
