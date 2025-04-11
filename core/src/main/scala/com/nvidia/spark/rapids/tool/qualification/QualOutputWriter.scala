@@ -110,9 +110,17 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     } else {
       (CLUSTER_ID_STR_SIZE, JOB_ID_STR_SIZE, RUN_NAME_STR_SIZE)
     }
-    val headersAndSizes = QualOutputWriter.getSummaryHeaderStringsAndSizes(
-      appNameMaxSize, appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize,
-      hasClusterTags, clusterIdMaxSize, jobIdMaxSize, runNameMaxSize)
+    val headersAndSizes =
+      QualOutputWriter.getSummaryHeaderStringsAndSizes(
+        appNameMaxSize = appNameMaxSize,
+        appIdMaxSize = appIdMaxSize,
+        unSupExecMaxSize = unSupExecMaxSize,
+        unSupExprMaxSize = unSupExprMaxSize,
+        estimatedFrequencyMaxSize = estimatedFrequencyMaxSize,
+        hasClusterTags = hasClusterTags,
+        clusterIdMaxSize = clusterIdMaxSize,
+        jobIdMaxSize = jobIdMaxSize,
+        runNameMaxSize = runNameMaxSize)
     val entireHeader = QualOutputWriter.constructOutputRowFromMap(headersAndSizes,
       TEXT_DELIMITER, prettyPrint = true)
     val sep = "=" * (entireHeader.size - 1)
@@ -130,7 +138,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     finalSums.foreach { sumInfo =>
       val wStr = QualOutputWriter.constructAppSummaryInfo(sumInfo, headersAndSizes,
         appIdMaxSize, unSupExecMaxSize, unSupExprMaxSize, estimatedFrequencyMaxSize, hasClusterTags,
-        clusterIdMaxSize, jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, true)
+        clusterIdMaxSize, jobIdMaxSize, runNameMaxSize, TEXT_DELIMITER, prettyPrint = true)
       writer.write(wStr)
       if (printStdout) print(wStr)
     }
@@ -453,6 +461,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 case class FormattedQualificationSummaryInfo(
     appName: String,
     appId: String,
+    attemptId: Int,
     sqlDataframeDuration: Long,
     sqlDataframeTaskDuration: Long,
     appDuration: Long,
@@ -484,6 +493,7 @@ object QualOutputWriter {
   val SQL_DESC_STR = "SQL Description"
   val STAGE_ID_STR = "Stage ID"
   val APP_ID_STR = "App ID"
+  val ATTEMPT_ID_STR = "Attempt ID"
   val APP_NAME_STR = "App Name"
   val APP_DUR_STR = "App Duration"
   val SQL_DUR_STR = "SQL DF Duration"
@@ -715,6 +725,7 @@ object QualOutputWriter {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_NAME_STR -> getMaxSizeForHeader(appInfos.map(_.appName.size), APP_NAME_STR),
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
+      ATTEMPT_ID_STR -> ATTEMPT_ID_STR.length,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       TASK_DUR_STR -> TASK_DUR_STR.size,
       APP_DUR_STR -> APP_DUR_STR_SIZE,
@@ -760,6 +771,7 @@ object QualOutputWriter {
   private[qualification] def getSummaryHeaderStringsAndSizes(
       appNameMaxSize: Int,
       appIdMaxSize: Int,
+      attemptIdMaxSize: Int = ATTEMPT_ID_STR.length,
       unSupExecMaxSize: Int = UNSUPPORTED_EXECS_MAX_SIZE,
       unSupExprMaxSize: Int = UNSUPPORTED_EXPRS_MAX_SIZE,
       estimatedFrequencyMaxSize: Int = ESTIMATED_FREQUENCY_MAX_SIZE,
@@ -770,6 +782,7 @@ object QualOutputWriter {
     val data = LinkedHashMap[String, Int](
       APP_NAME_STR -> appNameMaxSize,
       APP_ID_STR -> appIdMaxSize,
+      ATTEMPT_ID_STR -> attemptIdMaxSize,
       APP_DUR_STR -> APP_DUR_STR_SIZE,
       SQL_DUR_STR -> SQL_DUR_STR_SIZE,
       GPU_OPPORTUNITY_STR -> GPU_OPPORTUNITY_STR_SIZE,
@@ -801,6 +814,7 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       sumInfo.estimatedInfo.appName -> headersAndSizes(APP_NAME_STR),
       sumInfo.estimatedInfo.appId -> appIdMaxSize,
+      sumInfo.estimatedInfo.attemptId.toString -> headersAndSizes(ATTEMPT_ID_STR),
       sumInfo.estimatedInfo.appDur.toString -> APP_DUR_STR_SIZE,
       sumInfo.estimatedInfo.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
       sumInfo.estimatedInfo.gpuOpportunity.toString -> GPU_OPPORTUNITY_STR_SIZE,
@@ -864,8 +878,8 @@ object QualOutputWriter {
       if (reformatCSV) str => StringUtils.reformatCSVString(str) else str => str
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(sumInfo.info.appId) -> appIdMaxSize,
-      reformatCSVFunc(sumInfo.rootExecutionID.getOrElse("").toString)-> ROOT_SQL_ID_STR.size,
-      sumInfo.sqlID.toString -> SQL_ID_STR.size,
+      reformatCSVFunc(sumInfo.rootExecutionID.getOrElse("").toString)-> ROOT_SQL_ID_STR.length,
+      sumInfo.sqlID.toString -> SQL_ID_STR.length,
       reformatCSVFunc(formatSQLDescription(sumInfo.sqlDesc, maxSQLDescLength, delimiter)) ->
         headersAndSizes(SQL_DESC_STR),
       sumInfo.info.sqlDfDuration.toString -> SQL_DUR_STR_SIZE,
@@ -1221,6 +1235,7 @@ object QualOutputWriter {
     FormattedQualificationSummaryInfo(
       appInfo.appName,
       appInfo.appId,
+      appInfo.estimatedInfo.attemptId,
       appInfo.estimatedInfo.sqlDfDuration,
       appInfo.sqlDataframeTaskDuration,
       appInfo.estimatedInfo.appDur,
@@ -1256,6 +1271,7 @@ object QualOutputWriter {
     val data = ListBuffer[(String, Int)](
       reformatCSVFunc(appInfo.appName) -> headersAndSizes(APP_NAME_STR),
       reformatCSVFunc(appInfo.appId) -> headersAndSizes(APP_ID_STR),
+      appInfo.attemptId.toString -> headersAndSizes(ATTEMPT_ID_STR),
       appInfo.sqlDataframeDuration.toString -> headersAndSizes(SQL_DUR_STR),
       appInfo.sqlDataframeTaskDuration.toString -> headersAndSizes(TASK_DUR_STR),
       appInfo.appDuration.toString -> headersAndSizes(APP_DUR_STR),

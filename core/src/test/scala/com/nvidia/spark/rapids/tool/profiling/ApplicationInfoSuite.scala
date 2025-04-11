@@ -113,6 +113,8 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(rp.isDefined)
     val memory = rp.get.executorResources(ResourceProfile.MEMORY)
     assert(memory.amount.equals(1024L))
+    // assert attemptID
+    assert(firstApp.attemptId == 1)
   }
 
   test("test rapids jar") {
@@ -142,6 +144,9 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(rapidsJarResults.count(_.jar.contains("cudf-0.19.2-cuda11.jar")) === 1)
 
     assert(apps.head.getEventLogPath == s"file:$logDir/rapids_join_eventlog.zstd")
+
+    // assert attemptID
+    assert(apps.head.attemptId == 1)
   }
 
   test("test sql and resourceprofile eventlog") {

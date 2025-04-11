@@ -121,7 +121,7 @@ case class SQLCleanAndAlignIdsProfileResult(
  */
 case class SQLPlanInfoProfileResult(sqlID: Long, sparkPlanInfo: SparkPlanInfoTruncated)
   extends ProfileResult {
-  override val outputHeaders = Seq("sqlID", "SparkPlanInfoTruncated")
+  override val outputHeaders: Seq[String] = Seq("sqlID", "SparkPlanInfoTruncated")
 
   override def convertToSeq: Seq[String] = {
     Seq(sqlID.toString, sparkPlanInfo.toString)
@@ -381,11 +381,13 @@ case class UnsupportedOpsProfileResult(
 
 case class AppInfoProfileResults(
     appName: String,
-    appId: Option[String], sparkUser: String,
+    appId: Option[String],
+    attemptId: Option[Int],
+    sparkUser: String,
     startTime: Long, endTime: Option[Long], duration: Option[Long],
     durationStr: String, sparkRuntime: SparkRuntime.SparkRuntime, sparkVersion: String,
     pluginEnabled: Boolean)  extends ProfileResult {
-  override val outputHeaders: Seq[String] = Seq("appName", "appId",
+  override val outputHeaders: Seq[String] = Seq("appName", "appId", "attemptId",
     "sparkUser", "startTime", "endTime", "duration", "durationStr",
     "sparkRuntime", "sparkVersion", "pluginEnabled")
 
@@ -403,14 +405,31 @@ case class AppInfoProfileResults(
     }
   }
 
+  private def appIdToStr: String = {
+    appId match {
+      case Some(t) => t
+      case None => ""
+    }
+  }
+
+  private def attemptIdToStr: String = {
+    attemptId match {
+      case Some(t) => t.toString
+      case None => ""
+    }
+  }
+
   override def convertToSeq: Seq[String] = {
-    Seq(appName, appId.getOrElse(""),
+    Seq(appName, appIdToStr, attemptIdToStr,
       sparkUser, startTime.toString, endTimeToStr, durToStr,
       durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString)
   }
+
   override def convertToCSVSeq: Seq[String] = {
     Seq(StringUtils.reformatCSVString(appName),
-      StringUtils.reformatCSVString(appId.getOrElse("")), StringUtils.reformatCSVString(sparkUser),
+      StringUtils.reformatCSVString(appIdToStr),
+      StringUtils.reformatCSVString(attemptIdToStr),
+      StringUtils.reformatCSVString(sparkUser),
       startTime.toString, endTimeToStr, durToStr, StringUtils.reformatCSVString(durationStr),
       StringUtils.reformatCSVString(sparkRuntime.toString),
       StringUtils.reformatCSVString(sparkVersion), pluginEnabled.toString)

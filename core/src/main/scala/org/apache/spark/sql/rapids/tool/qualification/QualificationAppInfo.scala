@@ -617,7 +617,8 @@ class QualificationAppInfo(
       // TestQualificationSummary to truncate the same fields to match the CSV static samples.
       val estimatedInfo = QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
         sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio,
-        appDuration, appName, appId, unSupportedExecs, unSupportedExprs, allClusterTagsMap)
+        appDuration, appName, appId, attemptId, unSupportedExecs, unSupportedExprs,
+        allClusterTagsMap)
 
       val clusterSummary = ClusterSummary(info.appName, appId,
         eventLogInfo.map(_.eventLog.toString), platform.clusterInfoFromEventLog,
@@ -693,7 +694,7 @@ class QualificationAppInfo(
 
     QualificationAppInfo.calculateEstimatedInfoSummary(appDurationNoOverhead,
       sqlDfWallEstimatedRatio, supportedsqlDfWallEstimatedRatio,
-      appDuration, appName, appId)
+      appDuration, appName, appId, attemptId)
   }
 
   private def getAllSQLDurations: Seq[Long] = {
@@ -842,6 +843,7 @@ case class MLFunctionReportInfo(
 case class EstimatedAppInfo(
     appName: String,
     appId: String,
+    attemptId: Int,
     appDur: Long,
     sqlDfDuration: Long,
     gpuOpportunity: Long, // Projected opportunity for acceleration on GPU in ms
@@ -959,6 +961,7 @@ object QualificationAppInfo extends Logging {
       appDuration: Long,
       appName: String,
       appId: String,
+      attemptId: Int,
       unSupportedExecs: String = "",
       unSupportedExprs: String = "",
       allClusterTagsMap: Map[String, String] = Map.empty[String, String]): EstimatedAppInfo = {
@@ -976,6 +979,7 @@ object QualificationAppInfo extends Logging {
     // TestQualificationSummary to truncate the same fields to match the CSV static samples.
     EstimatedAppInfo(appName,
       appId,
+      attemptId,
       appDuration,
       sqlDfWallDuration.toLong,
       supportedSqlDfWallDuration.toLong,

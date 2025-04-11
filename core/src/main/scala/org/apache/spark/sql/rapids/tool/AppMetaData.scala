@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import com.nvidia.spark.rapids.tool.Identifiable
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
 import org.apache.spark.scheduler.SparkListenerApplicationStart
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 import org.apache.spark.ui.UIUtils
 
 /**
@@ -38,7 +40,29 @@ class AppMetaData(
     val sparkUser: String,
     val startTime: Long,
     var endTime: Option[Long] = None,
-    var attemptId: Int = 1) {
+    var attemptId: Int = 1) extends Identifiable[String] {
+
+  // A private field to store the default identifier for the application.
+  // This is derived from the event log path.
+  private val _id: String = getEventLogPath
+
+  /**
+   * Retrieves the unique identifier for the application.
+   * If `appId` is defined, the identifier is constructed using the application ID
+   * and the attempt ID. Otherwise, the default identifier (`_id`) is used, which
+   * is based on the event log path.
+   *
+   * @return A `String` representing the unique identifier of the application.
+   */
+  override def id: String = appId match {
+    case Some(aId) => s"${aId}_$attemptId"
+    // use the default id if appId is not defined based on the eventLogPath
+    case None => _id
+  }
+
+  def getEventLogPath: String = {
+    eventLogPath.getOrElse(StringUtils.UNKNOWN_EXTRACT)
+  }
 
   // Calculated as time in ms
   var duration: Option[Long] = _
