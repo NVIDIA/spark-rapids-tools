@@ -23,7 +23,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification._
-import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -850,11 +849,6 @@ case class EstimatedAppInfo(
     unsupportedExecs: String,
     unsupportedExprs: String,
     allTagsMap: Map[String, String])
-
-// Used by writers, estimated app summary with estimated frequency
-case class EstimatedSummaryInfo(
-    estimatedInfo: EstimatedAppInfo,
-    estimatedFrequency: Long = DEFAULT_JOB_FREQUENCY)
 
 // Estimate based on wall clock times for each SQL query
 case class EstimatedPerSQLSummaryInfo(

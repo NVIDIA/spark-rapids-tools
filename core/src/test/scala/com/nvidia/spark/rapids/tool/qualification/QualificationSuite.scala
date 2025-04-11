@@ -62,7 +62,6 @@ case class TestQualificationSummary(
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
     unsupportedExprs: String,
-    estimatedFrequency: Long,
     totalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
@@ -93,7 +92,6 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
-    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType),
     (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
@@ -133,7 +131,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
-        sum.estimatedFrequency, sum.totalCoreSec)
+        sum.totalCoreSec)
     }
   }
 
@@ -1073,9 +1071,9 @@ class QualificationSuite extends BaseTestSuite {
       val stdOut = sumOut.split("\n")
       val stdOutValues = stdOut(1).split("\\|")
       // index of unsupportedExecs
-      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
+      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 2)
       // index of unsupportedExprs
-      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2)
+      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 1)
       val expectedstdOutExecs = "Scan unknown;Filter;Se..."
       assert(stdOutunsupportedExecs == expectedstdOutExecs)
       // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
@@ -1294,7 +1292,8 @@ class QualificationSuite extends BaseTestSuite {
         assert(appInfo.nonEmpty)
         assert(headers.size ==
           QualOutputWriter.getSummaryHeaderStringsAndSizes(30, 30).keys.size)
-        assert(values.size == headers.size)
+        // the unsupported expression is empty so, it does not appear as an entry in the values.
+        assert(values.size == headers.size - 1)
         // 4 should be the SQL DF Duration
         assert(headers(4).contains("SQL DF"))
         assert(values(4).toInt > 0)
@@ -1476,7 +1475,7 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test frequency of repeated job") {
+  test("test repeated jobName") {
     val logFiles = Array(s"$logDir/empty_eventlog", s"$logDir/nested_type_eventlog")
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
