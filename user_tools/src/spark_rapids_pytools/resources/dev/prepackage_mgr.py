@@ -36,7 +36,8 @@ prepackage_conf = {
     '_supported_platforms': [csp.value for csp in CspEnv if csp != CspEnv.NONE],
     '_configs_suffix': '-configs.json',
     '_mvn_base_url': 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12',
-    '_folder_name': 'csp-resources'
+    '_folder_name': 'csp-resources',
+    '_tools_folder_name': 'tools-resources'
 }
 
 
@@ -70,17 +71,20 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                  resource_dir: str,
                  dest_dir: str = None,
                  tools_jar: str = None,
-                 archive_enabled: bool = True):
+                 archive_enabled: bool = True,
+                 fetch_all_csp:bool = False):
         for field_name in prepackage_conf:
             setattr(self, field_name, prepackage_conf.get(field_name))
         self.resource_dir = resource_dir
         self.dest_dir = dest_dir
         self.tools_jar = tools_jar
         self.archive_enabled = archive_enabled
+        self.fetch_all_csp = fetch_all_csp
         # process the arguments for default values
         print(f'Resource directory is: {self.resource_dir}')
         print(f'tools_jar = {tools_jar}')
         self.resource_dir = FSUtil.get_abs_path(self.resource_dir)
+        self.tools_resources_dir = FSUtil.build_full_path(self.resource_dir, self._tools_folder_name)
         if self.dest_dir is None:
             self.dest_dir = FSUtil.build_full_path(self.resource_dir, self._folder_name)  # pylint: disable=no-member
         else:
@@ -110,32 +114,39 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             jar_file_name = FSUtil.get_resource_name(tools_jar_url)
         resource_uris[tools_jar_url] = {
             'depItem': RuntimeDependency(name=jar_file_name, uri=tools_jar_url),
-            'prettyName': jar_file_name
+            'prettyName': jar_file_name,
+            'isToolsResource': True
         }
 
-        for platform in self._supported_platforms:  # pylint: disable=no-member
-            config_file = FSUtil.build_full_path(self.resource_dir,
-                                                 f'{platform}{self._configs_suffix}')  # pylint: disable=no-member
-            platform_conf = JSONPropertiesContainer(config_file)
-            dependency_list = RapidsTool.get_rapids_tools_dependencies('LOCAL', platform_conf)
-            for dependency in dependency_list:
-                if dependency.uri:
-                    uri_str = str(dependency.uri)
-                    pretty_name = FSUtil.get_resource_name(uri_str)
-                    resource_uris[uri_str] = {
-                        'depItem': dependency,
-                        'prettyName': pretty_name
-                    }
+        if self.fetch_all_csp:
+            for platform in self._supported_platforms:  # pylint: disable=no-member
+                config_file = FSUtil.build_full_path(self.resource_dir,
+                                                     f'{platform}{self._configs_suffix}')  # pylint: disable=no-member
+                platform_conf = JSONPropertiesContainer(config_file)
+                dependency_list = RapidsTool.get_rapids_tools_dependencies('LOCAL', platform_conf)
+                for dependency in dependency_list:
+                    if dependency.uri:
+                        uri_str = str(dependency.uri)
+                        pretty_name = FSUtil.get_resource_name(uri_str)
+                        resource_uris[uri_str] = {
+                            'depItem': dependency,
+                            'prettyName': pretty_name,
+                            'isToolsResource': False
+                        }
+        else:
+            print("Skipping fetching all CSP resources")
         return resource_uris
 
     def _download_resources(self, resource_uris: dict):
         download_tasks = []
         for res_uri, res_info in resource_uris.items():
             resource_name = res_info.get('prettyName')
+            is_tools_resource = res_info.get('isToolsResource')
+            dest_folder = self.tools_resources_dir if is_tools_resource else self.dest_dir
             print(f'Creating download task: {resource_name}')
             # All the downloadTasks enforces download
             download_tasks.append(DownloadTask(src_url=res_uri,     # pylint: disable=no-value-for-parameter)
-                                               dest_folder=self.dest_dir,
+                                               dest_folder=dest_folder,
                                                configs={'forceDownload': True}))
         # Begin downloading the resources
         download_results = DownloadManager(download_tasks, max_workers=12).submit()

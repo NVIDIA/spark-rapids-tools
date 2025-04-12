@@ -29,6 +29,7 @@ WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pw
 
 # Define resource directory
 RESOURCE_DIR="src/spark_rapids_pytools/resources"
+TOOLS_RESOURCE_FOLDER="tools-resources"
 PREPACKAGED_FOLDER="csp-resources"
 
 # Constants and variables of core module
@@ -65,8 +66,15 @@ build_jar_from_source() {
 # Function to run the dependency downloader script for fat mode
 download_web_dependencies() {
   local res_dir="$1"
+  local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
-  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE"
+  if [ "$is_fat_mode" = "true" ]; then
+    echo "Downloading dependencies for fat mode"
+    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=True
+  else
+    echo "Downloading dependencies for non-fat mode"
+    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=False
+  fi
   if [ $? -ne 0 ]; then
     echo "Dependency download failed for fat mode. Exiting"
     exit 1
@@ -76,6 +84,8 @@ download_web_dependencies() {
 # Function to remove dependencies from the fat directory
 remove_web_dependencies() {
   local res_dir="$1"
+  # remove tools jar
+  rm -rf "${res_dir:?}"/"$TOOLS_RESOURCE_FOLDER"
   # remove folder recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
@@ -91,10 +101,13 @@ pre_build() {
 # Build process
 build() {
   remove_web_dependencies "$RESOURCE_DIR"
+  build_jar_from_source
   if [ "$build_mode" = "fat" ]; then
     echo "Building in fat mode"
-    build_jar_from_source
-    download_web_dependencies "$RESOURCE_DIR"
+    download_web_dependencies "$RESOURCE_DIR" "true"
+  else
+    echo "Building in non-fat mode"
+    download_web_dependencies "$RESOURCE_DIR" "false"
   fi
   python -m build --wheel
 }
