@@ -38,6 +38,8 @@ TOOLS_JAR_FILE=""
 
 
 # Function to run mvn command to build the tools jar
+# This function skips the test cases and builds the jar file and only
+# picks the jar file without sources/javadoc/tests..
 build_jar_from_source() {
   # store teh current directory
   local curr_dir
@@ -63,7 +65,11 @@ build_jar_from_source() {
   cd "$curr_dir" || exit
 }
 
-# Function to run the dependency downloader script for fat mode
+# Function to run the dependency downloader script for non-fat/fat mode
+# prepackage_mgr.py file downloads the dependencies for the csp-related resources
+# in case of fat mode.
+# In case of non-fat mode, it just copies the tools jar into the tools-resources folder
+# --fetch_all_csp=True toggles the fat/non-fat mode for the script
 download_web_dependencies() {
   local res_dir="$1"
   local is_fat_mode="$2"
@@ -100,15 +106,23 @@ pre_build() {
 
 # Build process
 build() {
+  # Deletes pre-existing csp-resources.tgz folder
   remove_web_dependencies "$RESOURCE_DIR"
+  # Build the tools jar from source
   build_jar_from_source
   if [ "$build_mode" = "fat" ]; then
     echo "Building in fat mode"
+    # This will download the dependencies and create the csp-resources
+    # and copy the dependencies into the csp-resources folder
+    # Tools resources are copied into the tools-resources folder
     download_web_dependencies "$RESOURCE_DIR" "true"
   else
     echo "Building in non-fat mode"
+    # This will just copy the tools jar built from source into the tools-resources folder
     download_web_dependencies "$RESOURCE_DIR" "false"
   fi
+  # Builds the python wheel file
+  # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
 }
 

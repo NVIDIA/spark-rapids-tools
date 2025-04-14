@@ -145,24 +145,9 @@ class ToolContext(YAMLPropertiesContainer):
         self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
 
-    # def _identify_fat_wheel_jar(self, resource_files: List[str]) -> None:
-    #     """
-    #     Identifies the tools JAR file from resource files in fat wheel mode and sets its name in the context.
-    #     :param resource_files: List of resource files to search for the tools JAR file.
-    #     :raises AssertionError: If the number of matching files is not exactly one.
-    #     """
-    #     tools_jar_regex_str = self.get_value('sparkRapids', 'toolsJarRegex')
-    #     tools_jar_regex = re.compile(tools_jar_regex_str)
-    #     matched_files = [f for f in resource_files if tools_jar_regex.search(f)]
-    #     assert len(matched_files) == 1, \
-    #         (f'Expected exactly one tools JAR file, found {len(matched_files)}. '
-    #          'Rebuild the wheel package with the correct tools JAR file.')
-    #     # set the tools JAR file name in the context
-    #     self.set_ctxt('fatWheelModeJarFileName', FSUtil.get_resource_name(matched_files[0]))
-
     def _identify_tools_wheel_jar(self, resource_files: List[str]) -> None:
         """
-        Identifies the tools JAR file from resource files in fat wheel mode and sets its name in the context.
+        Identifies the tools JAR file from resource files and sets its name in the context.
         :param resource_files: List of resource files to search for the tools JAR file.
         :raises AssertionError: If the number of matching files is not exactly one.
         """
@@ -181,12 +166,17 @@ class ToolContext(YAMLPropertiesContainer):
         Checks if the packaging includes the CSP dependencies. If so, it moves the dependencies
         into the tmp folder. This allows the tool to pick the resources from cache folder.
         """
-        for tools_related_files in self.tools_resources:
+        for tools_related_files in self.tools_resource_path:
+            # This function uses a regex based comparison to identify the tools jar file
+            # from the tools-resources directory. The jar is pre-packed in the wheel file
+            # and moved to the work directory when user runs the tool.
+            self.logger.info("Checking for tools related files in %s", tools_related_files)
             if os.path.exists(tools_related_files):
                 FSUtil.copy_resource(tools_related_files, self.get_cache_folder())
                 self._identify_tools_wheel_jar(FSUtil.get_all_files(tools_related_files))
 
         if not self.are_resources_prepackaged():
+            self.logger.info('No prepackaged resources found.')
             return
 
         self.set_ctxt('fatWheelModeEnabled', True)
@@ -216,15 +206,8 @@ class ToolContext(YAMLPropertiesContainer):
         return self.get_local('depFolder')
 
     def get_rapids_jar_url(self) -> str:
-        self.logger.info('Fetching the Rapids Jar URL')
-        # get the version from the package, instead of the yaml file
-        # jar_version = self.get_value('sparkRapids', 'version')
-        # if self.is_fat_wheel_mode():
+        self.logger.info('Fetching the Rapids Jar URL from local context')
         return self._get_tools_jar()
-        # mvn_base_url = self.get_value('sparkRapids', 'mvnUrl')
-        # jar_version = Utilities.get_latest_mvn_jar_from_metadata(mvn_base_url)
-        # rapids_url = self.get_value('sparkRapids', 'repoUrl').format(mvn_base_url, jar_version, jar_version)
-        # return rapids_url
 
     def get_tool_main_class(self) -> str:
         return self.get_value('sparkRapids', 'mainClass')
@@ -260,26 +243,6 @@ class ToolContext(YAMLPropertiesContainer):
         """
         return CspEnv.pretty_print(self.platform.type_id)
 
-    def _get_tools_jar_in_fat_wheel_mode(self) -> str:
-        """
-        Extracts the tools JAR file from the context and returns its path from the cache folder.
-        """
-        jar_filename = self.get_ctxt('fatWheelModeJarFileName')
-        if jar_filename is None:
-            raise ValueError(
-                'In Fat Mode. Tools JAR file name not found in context. '
-                'Rebuild the wheel package or re-run without fat wheel mode.'
-            )
-        # construct the path to the tools JAR file in the cache folder
-        jar_filepath = FSUtil.build_path(self.get_cache_folder(), jar_filename)
-        if not FSUtil.resource_exists(jar_filepath):
-            raise FileNotFoundError(
-                f'In Fat Mode. Tools JAR not found in cache folder: {jar_filepath}. '
-                'Rebuild the wheel package or re-run without fat wheel mode.'
-            )
-        self.logger.info('Using jar from wheel file %s', jar_filepath)
-        return jar_filepath
-
     def _get_tools_jar(self) -> str:
         """
         Extracts the tools JAR file from the context and returns its path from the cache folder.
@@ -287,15 +250,15 @@ class ToolContext(YAMLPropertiesContainer):
         jar_filename = self.get_ctxt('toolsJarFileName')
         if jar_filename is None:
             raise ValueError(
-                'In Fat Mode. Tools JAR file name not found in context. '
-                'Rebuild the wheel package or re-run without fat wheel mode.'
+                'Tools JAR file name not found in context.'
+                'Rebuild the wheel package'
             )
         # construct the path to the tools JAR file in the cache folder
         jar_filepath = FSUtil.build_path(self.get_cache_folder(), jar_filename)
         if not FSUtil.resource_exists(jar_filepath):
             raise FileNotFoundError(
-                f'In Fat Mode. Tools JAR not found in cache folder: {jar_filepath}. '
-                'Rebuild the wheel package or re-run without fat wheel mode.'
+                f'Tools JAR not found in cache folder: {jar_filepath}. '
+                'Rebuild the wheel package'
             )
         self.logger.info('Using jar from wheel file %s', jar_filepath)
         return jar_filepath

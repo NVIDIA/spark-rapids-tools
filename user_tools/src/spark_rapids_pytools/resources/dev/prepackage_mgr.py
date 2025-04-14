@@ -98,6 +98,8 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
     def _fetch_resources(self) -> dict:
         """
         Fetches the resource information from configuration files for each supported platform.
+        Tools jar if passed explicitly is set as a dependency. Else it is build from source
+        and added as a dependency.
         Returns a dictionary of resource details.
         """
         resource_uris = {}
@@ -172,11 +174,19 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
     def run(self):
         """
         Main method to fetch and download dependencies.
+        This function goes through the following steps:
+        1. Fetches the resources from the configuration files.
+        2. Downloads the resources to the specified directory.
+        3. Optionally compresses the resources into a tar file.
+        4. Cleans up the resources if compression is enabled.
         """
         resources_to_download = self._fetch_resources()
         self._download_resources(resources_to_download)
-        output_res = self._compress_resources()
-        print(f'CSP-prepackaged resources stored as {output_res}')
+        if self.fetch_all_csp:
+            output_res = self._compress_resources()
+            print(f'CSP-prepackaged resources stored as {output_res}')
+        else:
+            print(f'Packaged with tools resources only.')
 
 
 if __name__ == '__main__':
