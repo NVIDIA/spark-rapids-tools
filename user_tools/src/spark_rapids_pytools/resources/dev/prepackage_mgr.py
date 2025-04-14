@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -186,7 +186,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
             output_res = self._compress_resources()
             print(f'CSP-prepackaged resources stored as {output_res}')
         else:
-            print(f'Packaged with tools resources only.')
+            print('Packaged with tools resources only.')
 
 
 if __name__ == '__main__':
