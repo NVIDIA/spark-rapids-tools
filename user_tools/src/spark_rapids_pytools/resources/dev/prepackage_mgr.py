@@ -72,7 +72,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                  dest_dir: str = None,
                  tools_jar: str = None,
                  archive_enabled: bool = True,
-                 fetch_all_csp:bool = False):
+                 fetch_all_csp: bool = False):
         for field_name in prepackage_conf:
             setattr(self, field_name, prepackage_conf.get(field_name))
         self.resource_dir = resource_dir
@@ -80,11 +80,10 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
         self.tools_jar = tools_jar
         self.archive_enabled = archive_enabled
         self.fetch_all_csp = fetch_all_csp
-        # process the arguments for default values
         print(f'Resource directory is: {self.resource_dir}')
         print(f'tools_jar = {tools_jar}')
         self.resource_dir = FSUtil.get_abs_path(self.resource_dir)
-        self.tools_resources_dir = FSUtil.build_full_path(self.resource_dir, self._tools_folder_name)
+        self.tools_resources_dir = FSUtil.build_full_path(self.resource_dir, self._tools_folder_name)  # pylint: disable=no-member
         if self.dest_dir is None:
             self.dest_dir = FSUtil.build_full_path(self.resource_dir, self._folder_name)  # pylint: disable=no-member
         else:
@@ -136,7 +135,7 @@ class PrepackageMgr:   # pylint: disable=too-few-public-methods
                             'isToolsResource': False
                         }
         else:
-            print("Skipping fetching all CSP resources")
+            print('Skipping fetching all CSP resources')
         return resource_uris
 
     def _download_resources(self, resource_uris: dict):

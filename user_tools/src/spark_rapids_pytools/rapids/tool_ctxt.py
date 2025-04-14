@@ -169,7 +169,7 @@ class ToolContext(YAMLPropertiesContainer):
             # This function uses a regex based comparison to identify the tools jar file
             # from the tools-resources directory. The jar is pre-packed in the wheel file
             # and moved to the work directory when user runs the tool.
-            self.logger.info("Checking for tools related files in %s", tools_related_files)
+            self.logger.info('Checking for tools related files in %s', tools_related_files)
             if os.path.exists(tools_related_files):
                 FSUtil.copy_resource(tools_related_files, self.get_cache_folder())
                 self._identify_tools_wheel_jar(FSUtil.get_all_files(tools_related_files))
