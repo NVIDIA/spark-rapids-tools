@@ -2,6 +2,7 @@ cache_dir: qualx_cache
 datasets: datasets
 featurizers:
   - default.py
+  - hash_plan.py
 label: Duration
 split_functions:
   train: split_stratified.py

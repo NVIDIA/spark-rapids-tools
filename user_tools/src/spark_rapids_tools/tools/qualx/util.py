@@ -275,7 +275,7 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    logger.info('Successfully loaded plugin: %s', plugin_path)
+    logger.info('Loaded plugin: %s', plugin_path)
     return module
 
 
