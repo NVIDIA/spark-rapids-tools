@@ -433,6 +433,19 @@
         <delta.core.artifactory>delta-core_${scala.binary.version}</delta.core.artifactory>
         <delta.core.artifactory.post35>delta-spark_${scala.binary.version}</delta.core.artifactory.post35>
         <!-- environment properties -->
+        <!--
+            Set the elide level to 2001 to disable Scala asserts in source code by default.
+            The assertion value in elide is ASSERTION = 2000.
+            For building a release, the elide.level should be set to 2001.
+            For debugging/development and testing, the elide.level should be set to WARNING.
+        -->
+        <elide.level.release>2001</elide.level.release>
+        <elide.level.dev>MAXIMUM</elide.level.dev>
+        <!--
+            Temporarily set the default elid level to RELEASE until we modify the CI/CD release to
+            build with RELEASE profile that disables the Scala asserts.
+        -->
+        <elide.level>${elide.level.release}</elide.level>
         <java.version>1.8</java.version>
         <platform-encoding>UTF-8</platform-encoding>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
@@ -708,6 +721,8 @@
                         <arg>-Xlint:missing-interpolator</arg>
                         <arg>-Xfatal-warnings</arg>
                         <arg>-Wconf:cat=lint-adapted-args:e</arg>
+                        <arg>-Xelide-below</arg>
+                        <arg>${elide.level}</arg>
                     </args>
                     <jvmArgs>
                         <jvmArg>-Xms1024m</jvmArg>
