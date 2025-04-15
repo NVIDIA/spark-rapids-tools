@@ -31,7 +31,7 @@ import org.apache.spark.sql.rapids.tool.ToolUtils
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
-  extends BaseDriverLogInfoProvider(None) {
+  extends BaseDriverLogInfoProvider() {
   override def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = unsupportedOps
 }
 
