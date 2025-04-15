@@ -1,6 +1,23 @@
 
 <br/>
 
+## Release [v25.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.2)
+Generated on 2025-04-15
+### User Tools
+
+- Disable assertions in core-tools ([#1635](https://github.com/NVIDIA/spark-rapids-tools/pull/1635))
+
+### Core
+
+- Fix handling of driver logs in core-tools ([#1636](https://github.com/NVIDIA/spark-rapids-tools/pull/1636))
+- Disable assertions in core-tools ([#1635](https://github.com/NVIDIA/spark-rapids-tools/pull/1635))
+- Remove the calculation of job frequency from core-tools ([#1630](https://github.com/NVIDIA/spark-rapids-tools/pull/1630))
+- Add java-cmd to the system-properties CSV file ([#1632](https://github.com/NVIDIA/spark-rapids-tools/pull/1632))
+- Add attemptId to app summaries ([#1627](https://github.com/NVIDIA/spark-rapids-tools/pull/1627))
+
+
+<br/>
+
 ## Release [v25.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.1)
 Generated on 2025-04-10
 ### User Tools
