@@ -87,11 +87,17 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
-  def profileDriver(driverLogInfos: String, eventLogsEmpty: Boolean): Unit = {
+  def profileDriver(
+      driverLogInfos: String,
+      hadoopConf: Option[Configuration],
+      eventLogsEmpty: Boolean): Unit = {
     val profileOutputWriter = new ProfileOutputWriter(s"$outputDir/driver",
       Profiler.DRIVER_LOG_NAME, numOutputRows, true)
     try {
-      val driverLogProcessor = new DriverLogProcessor(driverLogInfos)
+      val driverLogProcessor =
+        BaseDriverLogInfoProvider(
+          logPath = Option(driverLogInfos),
+          hadoopConf = hadoopConf)
       val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
       profileOutputWriter.write(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
