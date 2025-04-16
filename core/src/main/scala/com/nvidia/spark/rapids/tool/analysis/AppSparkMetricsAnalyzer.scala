@@ -93,7 +93,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         if (perJobRec.isEmptyAggregates) {
           None
         } else {
-          Some(JobAggTaskMetricsProfileResult(index,
+          Some(JobAggTaskMetricsProfileResult(
             id,
             perJobRec.numTasks,
             jc.duration,
@@ -159,7 +159,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           tc => (tc.sr_totalBytesRead > 3 * avg.avgShuffleReadBytes)
             && (tc.sr_totalBytesRead > 100 * 1024 * 1024)))
       definedTasks.map { tc =>
-        ShuffleSkewProfileResult(index, stageId, attemptId,
+        ShuffleSkewProfileResult(stageId, attemptId,
           tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
           avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason)
       }
@@ -187,7 +187,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         } else {
           // set this here, so make sure we don't get it again until later
           sqlCase.sqlCpuTimePercent = preSqlRec.executorCpuRatio
-          Some(SQLTaskAggMetricsProfileResult(index,
+          Some(SQLTaskAggMetricsProfileResult(
             app.appId,
             sqlId,
             sqlCase.description,
@@ -239,7 +239,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   def aggregateIOMetricsBySql(
       sqlMetricsAggs: Seq[SQLTaskAggMetricsProfileResult]): Seq[IOAnalysisProfileResult] = {
     sqlMetricsAggs.map { sqlAgg =>
-      IOAnalysisProfileResult(sqlAgg.appIndex,
+      IOAnalysisProfileResult(
         app.appId,
         sqlAgg.sqlId,
         sqlAgg.inputBytesReadSum,
@@ -276,7 +276,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     } else {
       0L
     }
-    SQLMaxTaskInputSizes(index, app.appId, maxVal)
+    SQLMaxTaskInputSizes(app.appId, maxVal)
   }
 
   /**
@@ -294,7 +294,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         ""
       }
       // Then, build the SQLDurationExecutorTimeProfileResult
-      SQLDurationExecutorTimeProfileResult(index, app.appId, sqlCase.rootExecutionID,
+      SQLDurationExecutorTimeProfileResult(app.appId, sqlCase.rootExecutionID,
         sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
         app.getAppDuration.orElse(Option(0L)), sqlIssues, sqlCase.sqlCpuTimePercent)
     }(breakOut)
@@ -317,7 +317,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         app.asInstanceOf[ApplicationInfo].planMetricProcessor
     }
     val zeroAccumProfileResults =
-      AccumProfileResults(0, 0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
+      AccumProfileResults(0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
     val emptyNodeNames = Seq.empty[String]
     val emptyDiagnosticMetrics = HashMap.empty[String, AccumProfileResults]
     app.stageManager.getAllStages.map { sm =>
@@ -333,7 +333,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val srTotalBytesMetrics =
         StatisticsMetrics.createFromArr(tasksInStage.map(_.sr_totalBytesRead)(breakOut))
 
-      StageDiagnosticResult(index,
+      StageDiagnosticResult(
         app.getAppName,
         app.appId,
         sm.stageInfo.stageId,
@@ -411,7 +411,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         new AggAccumHelper()
       }
       val perStageRec = accumHelperObj.accumPerStage(tasksInStage)
-      val stageRow = StageAggTaskMetricsProfileResult(index,
+      val stageRow = StageAggTaskMetricsProfileResult(
         sm.stageInfo.stageId,
         // numTasks includes duplicate task attempts
         perStageRec.numTasks,

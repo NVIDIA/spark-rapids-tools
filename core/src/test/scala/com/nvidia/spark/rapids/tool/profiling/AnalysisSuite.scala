@@ -26,7 +26,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
 
 case class TestStageDiagnosticResult(
-    appIndex: Int,
     appName: String,
     appId: String,
     stageId: Long,
@@ -68,7 +67,6 @@ case class TestStageDiagnosticResult(
     nodeNames: Seq[String])
 
 case class TestIODiagnosticResult(
-    appIndex: Int,
     appName: String,
     appId: String,
     sqlId: Long,
@@ -113,7 +111,6 @@ class AnalysisSuite extends FunSuite {
     def nanoToMilliSec(numNano: Long): Long = numNano / 1000000
     diagnosticsResults.map { result =>
       TestStageDiagnosticResult(
-        result.appIndex,
         result.appName,
         result.appId,
         result.stageId,
@@ -160,7 +157,6 @@ class AnalysisSuite extends FunSuite {
       Seq[TestIODiagnosticResult] = {
     diagnosticsResults.map {result =>
       TestIODiagnosticResult(
-        result.appIndex,
         result.appName,
         result.appId,
         result.sqlId,
@@ -226,15 +222,6 @@ class AnalysisSuite extends FunSuite {
       s"rapids_join_eventlog_${metric}metricsagg2_expectation.csv"
     }
     testSqlMetricsAggregation(Array(s"$logDir/rapids_join_eventlog2.zstd"),
-      expectFile("sql"), expectFile("job"), expectFile("stage"))
-  }
-
-  test("test sqlMetricsAggregation 2 combined") {
-    val expectFile = (metric: String) => {
-      s"rapids_join_eventlog_${metric}metricsaggmulti_expectation.csv"
-    }
-    testSqlMetricsAggregation(
-      Array(s"$logDir/rapids_join_eventlog.zstd", s"$logDir/rapids_join_eventlog2.zstd"),
       expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
@@ -317,7 +304,6 @@ class AnalysisSuite extends FunSuite {
     val sqlAggDurCpu = aggResults.sqlDurAggs
     val resultExpectation = new File(expRoot, expectFile)
     val schema = new StructType()
-      .add("appIndex", IntegerType, true)
       .add("appID", StringType, true)
       .add("rootsqlID", LongType, true)
       .add("sqlID", LongType, true)

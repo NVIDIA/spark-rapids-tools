@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,12 +176,12 @@ class ToolUtilsSuite extends FunSuite with Logging {
     TrampolineUtil.withTempDir { tempDir =>
       val filePrefix = "non-english"
       val tableHeader = "Non-English"
-      val textFilePath = s"${tempDir.getAbsolutePath}/${filePrefix}.log"
-      val csvFilePath = s"${tempDir.getAbsolutePath}/${filePrefix}.csv"
+      val textFilePath = s"${tempDir.getAbsolutePath}/$filePrefix.log"
+      val csvFilePath = s"${tempDir.getAbsolutePath}/$filePrefix.csv"
       val profOutputWriter =
         new ProfileOutputWriter(tempDir.getAbsolutePath, filePrefix, 1000, outputCSV = true)
       val profResults = Seq(
-        MockProfileResults("appID-0", 1, nonEnglishString, Seq(1, 2, 3).mkString(","))
+        MockProfileResults("appID-0", nonEnglishString, Seq(1, 2, 3).mkString(","))
       )
       try {
         profOutputWriter.write(tableHeader, profResults)
@@ -193,16 +193,16 @@ class ToolUtilsSuite extends FunSuite with Logging {
       assert(csvFile.exists())
       assert(textFile.exists())
       val expectedCSVFileContent =
-        s"""appID,appIndex,nonEnglishField,parentIDs
-           |appID-0,1,"你好","1,2,3"""".stripMargin
+        s"""appID,nonEnglishField,parentIDs
+           |appID-0,"你好","1,2,3"""".stripMargin
       val expectedTXTContent =
         s"""
            |Non-English:
-           |+-------+--------+---------------+---------+
-           ||appID  |appIndex|nonEnglishField|parentIDs|
-           |+-------+--------+---------------+---------+
-           ||appID-0|1       |你好           |1,2,3    |
-           |+-------+--------+---------------+---------+""".stripMargin
+           |+-------+---------------+---------+
+           ||appID  |nonEnglishField|parentIDs|
+           |+-------+---------------+---------+
+           ||appID-0|你好           |1,2,3    |
+           |+-------+---------------+---------+""".stripMargin
       val actualCSVContent = FSUtils.readFileContentAsUTF8(csvFilePath)
       val actualTXTContent = FSUtils.readFileContentAsUTF8(textFilePath)
       actualCSVContent should equal (expectedCSVFileContent)
@@ -231,17 +231,17 @@ class ToolUtilsSuite extends FunSuite with Logging {
     }
   }
 
-  case class MockProfileResults(appID: String, appIndex: Int, nonEnglishField: String,
+  case class MockProfileResults(appID: String, nonEnglishField: String,
       parentIDs: String) extends ProfileResult {
-    override val outputHeaders: Seq[String] = Seq("appID", "appIndex", "nonEnglishField",
+    override val outputHeaders: Seq[String] = Seq("appID", "nonEnglishField",
       "parentIDs")
 
     override def convertToSeq: Seq[String] = {
-      Seq(appID, appIndex.toString, nonEnglishField, parentIDs)
+      Seq(appID, nonEnglishField, parentIDs)
     }
 
     override def convertToCSVSeq: Seq[String] = {
-      Seq(appID, appIndex.toString, StringUtils.reformatCSVString(nonEnglishField),
+      Seq(appID, StringUtils.reformatCSVString(nonEnglishField),
         StringUtils.reformatCSVString(parentIDs))
     }
   }

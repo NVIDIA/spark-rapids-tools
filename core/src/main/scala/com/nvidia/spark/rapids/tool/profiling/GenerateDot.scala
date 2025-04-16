@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ object GenerateDot {
 
     val sqlIdToMaxMetric = new mutable.HashMap[Long, ArrayBuffer[(Long, Long)]]()
     for (row <- accumSummary) {
-      val list = sqlIdToMaxMetric.getOrElseUpdate(row(0),
+      val list = sqlIdToMaxMetric.getOrElseUpdate(row.head,
         new ArrayBuffer[(Long, Long)]())
       list += row(1) -> row(2)
     }

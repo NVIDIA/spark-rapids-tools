@@ -21,7 +21,6 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.DEFAULT_JOB_FREQUENCY
 import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
@@ -72,7 +71,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    val allAppsSum = estimateAppFrequency(allApps.asScala.values.toSeq)
+    val allAppsSum = allApps.asScala.values.toSeq
     // sort order and limit only applies to the report summary text file,
     // the csv file we write the entire data in descending order
     val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
@@ -92,41 +91,11 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
   // The sums elements is ordered in descending order. so, only we need to reverse it if the order
   // is ascending
   private def sortForExecutiveSummary(appsSumDesc: Seq[QualificationSummaryInfo],
-      order: String): Seq[EstimatedSummaryInfo] = {
+      order: String): Seq[EstimatedAppInfo] = {
     if (QualificationArgs.isOrderAsc(order)) {
-      appsSumDesc.reverse.map(sum =>
-        EstimatedSummaryInfo(
-          sum.estimatedInfo, sum.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)))
+      appsSumDesc.reverse.map(_.estimatedInfo)
     } else {
-      appsSumDesc.map(sum => EstimatedSummaryInfo(
-        sum.estimatedInfo, sum.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY)))
-    }
-  }
-
-  // Estimate app frequency based off of all applications in this run, unit jobs per month
-  private def estimateAppFrequency(
-    appsSum: Seq[QualificationSummaryInfo]): Seq[QualificationSummaryInfo] = {
-    val appFrequency = scala.collection.mutable.Map[String, Double]()
-    var windowStart: Long = Long.MaxValue
-    var windowEnd: Long = Long.MinValue
-
-    appsSum.foreach { sum =>
-      appFrequency += (sum.appName -> (1.0 + appFrequency.getOrElse(sum.appName, 0.0)))
-      windowStart = Math.min(sum.startTime, windowStart)
-      windowEnd = Math.max(windowEnd, sum.startTime + sum.estimatedInfo.appDur)
-    }
-    val windowInMonths =
-      if (windowEnd > windowStart) ((windowEnd - windowStart) / (1000.0*60*60*24*30)) else 1.0
-    // Scale frequency to per month assuming uniform distribution over the logging window rather
-    // than the individual applications window. Single run jobs are given a default frequency
-    val monthlyFrequency = appFrequency.map { case (appName, numApps) => (appName ->
-      (if (numApps <= 1) DEFAULT_JOB_FREQUENCY else (numApps / windowInMonths).round))
-    }
-    appsSum.map { app =>
-      val frequency = monthlyFrequency.getOrElse(app.appName, DEFAULT_JOB_FREQUENCY)
-      // Ensure jobs have a valid frequency, rounding up to 1 (monthly)
-      app.copy(estimatedFrequency =
-        Option(if (frequency <= 0) 1 else frequency))
+      appsSumDesc.map(_.estimatedInfo)
     }
   }
 
@@ -170,7 +139,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           val dsInfo =
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
               QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
-                outputDir, app, appIndex)
+                outputDir, app)
             }.getOrElse(Seq.empty)
           val qualSumInfo = app.aggregateStats()
           AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
@@ -244,8 +213,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
       order)
 
-    qWriter.writeTextReport(allAppsSum,
-      sortForExecutiveSummary(sortedDescDetailed, order), numRows)
+    qWriter.writeTextReport(allAppsSum, sortForExecutiveSummary(sortedDescDetailed, order), numRows)
     qWriter.writeDetailedCSVReport(sortedDescDetailed)
     if (reportSqlLevel) {
       qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)

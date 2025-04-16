@@ -40,7 +40,7 @@ object StringUtils extends Logging {
    * If the string is not in the expected format, the result is None.
    * Note that the hours part can be larger than 23.
    *
-   * @param stData the data to be evaluated
+   * @param strData the data to be evaluated
    * @return long value of the duration
    */
   def parseFromDurationToLongOption(strData: String): Option[Long] = {
@@ -90,7 +90,7 @@ object StringUtils extends Logging {
       maxLength: Int = 100,
       showEllipses: Boolean = false): String = {
     val truncatedStr = if (maxLength > 0 && str.length > maxLength) {
-      val tmpStr = str.substring(0, Math.min(str.size, maxLength))
+      val tmpStr = str.substring(0, Math.min(str.length, maxLength))
       if (showEllipses && tmpStr.length > 4) {
         // do not show ellipses for strings shorter than 4 characters.
         tmpStr + "..."

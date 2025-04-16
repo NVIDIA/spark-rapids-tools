@@ -30,7 +30,7 @@ trait AppSQLCodeGenViewTrait extends ViewableTrait[WholeStageCodeGenResults] {
 
   override def sortView(
       rows: Seq[WholeStageCodeGenResults]): Seq[WholeStageCodeGenResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID))
+    rows.sortBy(cols => (cols.sqlID, cols.nodeID))
   }
 }
 
@@ -69,7 +69,7 @@ trait AppSQLPlanMetricsViewTrait extends ViewableTrait[SQLAccumProfileResults] {
 
   override def sortView(
       rows: Seq[SQLAccumProfileResults]): Seq[SQLAccumProfileResults] = {
-    rows.sortBy(cols => (cols.appIndex, cols.sqlID, cols.nodeID,
+    rows.sortBy(cols => (cols.sqlID, cols.nodeID,
       cols.nodeName, cols.accumulatorId, cols.metricType))
   }
 }
@@ -80,7 +80,7 @@ trait AppSQLPlanNonDeltaOpsViewTrait extends ViewableTrait[SQLCleanAndAlignIdsPr
 
   override def sortView(
       rows: Seq[SQLCleanAndAlignIdsProfileResult]): Seq[SQLCleanAndAlignIdsProfileResult] = {
-    rows.sortBy(cols => (cols.appIndex, cols.sqlID))
+    rows.sortBy(cols => cols.sqlID)
   }
 }
 
@@ -98,7 +98,7 @@ object ProfSQLPlanAlignedView extends AppSQLPlanNonDeltaOpsViewTrait with ProfAp
     sqlPlanTypeAnalysis.walkPlans(app.sqlPlans)
     app.sqlPlans.filterKeys(!sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(_)).
       map { case (sqlID, _) =>
-        SQLCleanAndAlignIdsProfileResult(index, sqlID)
+        SQLCleanAndAlignIdsProfileResult(sqlID)
       }.toSeq
   }
 }
@@ -147,7 +147,7 @@ object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
 
   override def sortView(
       rows: Seq[IODiagnosticResult]): Seq[IODiagnosticResult] = {
-    rows.sortBy(cols => (cols.appIndex, -cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
+    rows.sortBy(cols => (-cols.duration, cols.stageId, cols.sqlId, cols.nodeId))
   }
 
   override def getRawView(app: AppBase, index: Int): Seq[IODiagnosticResult] = {

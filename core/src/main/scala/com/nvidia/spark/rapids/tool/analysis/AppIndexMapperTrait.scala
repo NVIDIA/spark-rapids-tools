@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package com.nvidia.spark.rapids.tool.analysis
 
 import org.apache.spark.sql.rapids.tool.AppBase
-import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 trait AppIndexMapperTrait {
   def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)]
@@ -34,10 +33,4 @@ trait QualAppIndexMapperTrait extends AppIndexMapperTrait {
 
 // Implementation used by Profiling components because ApplicationInfo has appIndex field which is
 // used in generating reports with multiple AppIds
-trait ProfAppIndexMapperTrait extends AppIndexMapperTrait {
-  override def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)] = {
-    apps.collect {
-      case app: ApplicationInfo => (app, app.index)
-    }
-  }
-}
+trait ProfAppIndexMapperTrait extends QualAppIndexMapperTrait

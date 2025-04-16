@@ -23,7 +23,7 @@ import scala.collection.immutable
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map}
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
-import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Platform}
+import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
@@ -46,9 +46,32 @@ abstract class AppBase(
     val hadoopConf: Option[Configuration],
     val platform: Option[Platform] = None) extends Logging
   with ClusterTagPropHandler
-  with AccumToStageRetriever {
+  with AccumToStageRetriever
+  with Identifiable[String] {
+
+  /**
+   * The event log path is used as the unique identifier for the application.
+   * It is retrieved from the `eventLogInfo` if available, otherwise a default value is used.
+   * Later, we can implement a more sophisticated way to generate a unique identifier for each app.
+   * For example, hashing a composite struct of metadata fields (i.e., SQLPlan hash).
+   */
+  private val _id: String = getEventLogPath
 
   var appMetaData: Option[AppMetaData] = None
+
+  /**
+   * Retrieves the unique identifier for the application.
+   * If `appMetaData` is defined, the identifier is retrieved from the metadata.
+   * Otherwise, a default identifier (`_id`) is returned.
+   *
+   *  @return A `String` representing the unique identifier of the application.
+   */
+  override def id: String = {
+      appMetaData match {
+        case Some(meta) => meta.id
+        case _ => _id
+      }
+    }
 
   // appId is string is stored as a field in the AppMetaData class
   def appId: String = {
@@ -116,7 +139,7 @@ abstract class AppBase(
   // Returns the String value of the eventlog or empty if it is not defined. Note that the eventlog
   // won't be defined for running applications
   def getEventLogPath: String = {
-    eventLogInfo.map(_.eventLog).getOrElse(new Path("")).toString
+    eventLogInfo.map(_.eventLog).getOrElse(new Path(StringUtils.UNKNOWN_EXTRACT)).toString
   }
 
   // Update the endTime of the application and calculate the duration.

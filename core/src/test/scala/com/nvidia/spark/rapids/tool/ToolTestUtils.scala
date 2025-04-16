@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,8 +121,8 @@ object ToolTestUtils extends Logging {
     val diffCount = df.except(expectedDf).union(expectedDf.except(df)).count
     if (diffCount != 0) {
       logWarning("Diff expected vs actual:")
-      expectedDf.show(1000, false)
-      df.show(1000, false)
+      expectedDf.show(1000, truncate = false)
+      df.show(1000, truncate = false)
     }
     assert(diffCount == 0)
   }
@@ -150,7 +150,7 @@ object ToolTestUtils extends Logging {
         .getEventLogInfo(path, RapidsToolsConfUtil.newHadoopConf())
       assert(eventLogInfo.nonEmpty, s"event log not parsed as expected $path")
       apps += new ApplicationInfo(RapidsToolsConfUtil.newHadoopConf(),
-        eventLogInfo.head._1, index, platform)
+        eventLogInfo.head._1, platform)
       index += 1
     }
     apps

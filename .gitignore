@@ -40,6 +40,8 @@ wheels/
 .coverage
 .coverage.*
 .pytest_cache/
+# qualx_cache folder generated in unit tests
+**/qualx_cache/
 
 # Maven
 dependency-reduced-pom.xml

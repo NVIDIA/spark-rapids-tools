@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,18 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.profiling
+package com.nvidia.spark.rapids.tool
 
-case class CompareSummaryInfo(val matchingSqlIds: Seq[CompareProfileResults],
-    val matchingStageIds: Seq[CompareProfileResults])
+/**
+ * A trait representing an entity that can be identified by a unique identifier of type `T`.
+ *
+ * @tparam T The type of the identifier.
+ */
+trait Identifiable[T] {
+  /**
+   * Retrieves the unique identifier of the entity.
+   *
+   * @return The identifier of type `T`.
+   */
+  def id: T
+}

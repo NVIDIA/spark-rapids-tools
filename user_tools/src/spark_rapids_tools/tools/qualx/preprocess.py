@@ -276,6 +276,7 @@ def load_profiles(
     node_level_supp: Optional[pd.DataFrame] = None,
     qual_tool_filter: Optional[str] = None,
     qual_tool_output: Optional[pd.DataFrame] = None,
+    remove_failed_sql: bool = True,
 ) -> pd.DataFrame:
     """Load dataset profiler CSV files as a pd.DataFrame."""
 
@@ -354,7 +355,13 @@ def load_profiles(
             raise ValueError(f'No CSV files found for: {ds_name}')
 
         toc = pd.concat(toc_list)
-        raw_features = extract_raw_features(toc, node_level_supp, qual_tool_filter, qual_tool_output)
+        raw_features = extract_raw_features(
+            toc,
+            node_level_supp=node_level_supp,
+            qualtool_filter=qual_tool_filter,
+            qualtool_output=qual_tool_output,
+            remove_failed_sql=remove_failed_sql
+        )
         if raw_features.empty:
             continue
         # add scaleFactor from toc or from sqlID ordering within queries grouped by query name and app
@@ -419,15 +426,38 @@ def load_profiles(
 
 def extract_raw_features(
     toc: pd.DataFrame,
+    *,
     node_level_supp: Optional[pd.DataFrame],
     qualtool_filter: Optional[str],
     qualtool_output: Optional[pd.DataFrame] = None,
+    remove_failed_sql: bool = True,
 ) -> pd.DataFrame:
-    """Given a pandas dataframe of CSV files, extract raw features into a single dataframe keyed by (appId, sqlID)."""
+    """Given a pandas dataframe of CSV files, extract raw features into a single dataframe keyed by (appId, sqlID).
+
+    Parameters
+    ----------
+    toc: pd.DataFrame
+        Table of contents of CSV files for the dataset.
+    node_level_supp: pd.DataFrame
+        Node-level support information used to filter out metrics associated with unsupported operators.
+    qualtool_filter: str
+        Type of filter to apply to the qualification tool output, either 'stage' or None.
+    qualtool_output: pd.DataFrame
+        Qualification tool output.
+    remove_failed_sql: bool
+        Remove sqlIDs with high failure rates, default: True.
+    """
     # read all tables per appId
     unique_app_ids = toc['appId'].unique()
     app_id_tables = [
-        load_csv_files(toc, app_id, node_level_supp, qualtool_filter, qualtool_output)
+        load_csv_files(
+            toc,
+            app_id,
+            node_level_supp=node_level_supp,
+            qualtool_filter=qualtool_filter,
+            qualtool_output=qualtool_output,
+            remove_failed_sql=remove_failed_sql
+        )
         for app_id in unique_app_ids
     ]
 
@@ -791,11 +821,30 @@ def load_csv_files(
     node_level_supp: Optional[pd.DataFrame],
     qualtool_filter: Optional[str],
     qualtool_output: Optional[pd.DataFrame],
+    remove_failed_sql: bool = True,
 ) -> Dict[str, pd.DataFrame]:
-    """
-    Load profiler CSV files into memory.
-    """
+    """Load profiler CSV files into memory.
 
+    Parameters
+    ----------
+    toc: pd.DataFrame
+        Table of contents of CSV files for the dataset.
+    app_id: str
+        Application ID.
+    node_level_supp: pd.DataFrame
+        Node-level support information used to filter out metrics associated with unsupported operators.
+    qualtool_filter: str
+        Type of filter to apply to the qualification tool output, either 'stage' or None.
+    qualtool_output: pd.DataFrame
+        Qualification tool output.
+    remove_failed_sql: bool
+        Remove sqlIDs with high failure rates, default: True.
+
+    Returns
+    -------
+    Dict[str, pd.DataFrame]
+        Dictionary of dataframes keyed by table name.
+    """
     def scan_tbl(
         tb_name: str, abort_on_error: bool = False, warn_on_error: bool = True
     ) -> pd.DataFrame:
@@ -883,8 +932,6 @@ def load_csv_files(
         sql_duration = sql_duration.drop(columns=['Potential Problems'])
 
     sql_app_metrics = scan_tbl('sql_level_aggregated_task_metrics')
-    if not sql_app_metrics.empty:
-        sql_app_metrics = sql_app_metrics.drop(columns='appIndex')
 
     # filter out sql ids that have no execs associated with them
     # this should remove root sql ids in 3.4.1+
@@ -918,7 +965,6 @@ def load_csv_files(
     sql_ops_metrics = scan_tbl('sql_plan_metrics_for_application')
     stages_supp = pd.DataFrame(columns=['appId', 'sqlID', 'stageIds'])
     if not sql_ops_metrics.empty and not app_info.empty:
-        sql_ops_metrics = sql_ops_metrics.drop(columns='appIndex')
         sql_ops_metrics['appId'] = app_info['appId'].iloc[0].strip()
         sql_ops_metrics['appName'] = app_name
         if node_level_supp is not None:
@@ -991,7 +1037,6 @@ def load_csv_files(
         # TODO: This is a temporary solution to minimize changes in existing code.
         #        We should refactor this once we have updated the code with latest changes.
         job_stage_agg_tbl = pd.concat([job_df, stage_df], ignore_index=True)
-        job_stage_agg_tbl = job_stage_agg_tbl.drop(columns='appIndex')
         job_stage_agg_tbl = job_stage_agg_tbl.rename(
             columns={'numTasks': 'numTasks_sum', 'duration_avg': 'duration_mean'}
         )
@@ -1037,7 +1082,7 @@ def load_csv_files(
                 ]['sqlID']
             )
 
-        if sqls_to_drop:
+        if remove_failed_sql and sqls_to_drop:
             logger.debug('Ignoring sqlIDs %s due to excessive failed/cancelled stage duration.', sqls_to_drop)
 
         if node_level_supp is not None and (qualtool_filter == 'stage'):
@@ -1083,7 +1128,10 @@ def load_csv_files(
     if not any(
         [app_info.empty, exec_info.empty, sql_app_metrics.empty, sql_duration.empty]
     ):
-        app_info_mg = app_info.merge(exec_info, on='appIndex')
+        if len(exec_info) > 1:
+            # The assumption that exec_info has only 1 row. Put a warning message to capture that case.
+            logger.warning('executor_information csv file has multiple rows. AppID [%s]', app_id)
+        app_info_mg = app_info.merge(exec_info, how='cross')
         app_info_mg = app_info_mg.merge(
             sql_app_metrics, left_on='appId', right_on='appID'
         )
@@ -1098,7 +1146,7 @@ def load_csv_files(
             left_on=['appId', 'sqlID'],
             right_on=['App ID', 'sqlID'],
         )
-        app_info_mg = app_info_mg.drop(columns=['appID', 'appIndex', 'App ID'])
+        app_info_mg = app_info_mg.drop(columns=['appID', 'App ID'])
 
         # filter out sqlIDs with aborted jobs (these are jobs failed due to sufficiently many (configurable) failed
         # attempts of a stage due to error conditions). these are failed sqlIDs that we shouldn't model,
@@ -1121,11 +1169,11 @@ def load_csv_files(
 
         sqls_to_drop = sqls_to_drop.union(aborted_sql_ids)
 
-        if sqls_to_drop:
-            logger.warning(
-                'Ignoring a total of %s sqlIDs due to stage/job failures for %s.',
-                len(sqls_to_drop),
-                app_id
+        if remove_failed_sql and sqls_to_drop:
+            logger.debug(
+                'Ignoring failed sqlIDs due to stage/job failures for %s: %s',
+                app_id,
+                ', '.join(map(str, sqls_to_drop))
             )
             app_info_mg = app_info_mg.loc[~app_info_mg.sqlID.isin(sqls_to_drop)]
 
