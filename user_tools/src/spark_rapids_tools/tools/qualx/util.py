@@ -27,13 +27,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_tools.tools.qualx.config import get_label
+from spark_rapids_tools.tools.qualx.config import get_config, get_label
 
 
 INTERMEDIATE_DATA_ENABLED = False
@@ -118,6 +118,54 @@ def find_eventlogs(path: str) -> List[str]:
         eventlogs = [path]
 
     return eventlogs
+
+
+def get_abs_paths(paths: List[str], subdir: Optional[str] = None) -> List[str]:
+    """Get absolute paths for a list of paths, using an order of precedence and optional subdirectory.
+
+    Order of precedence:
+    1. absolute path, if provided
+    2. qualx source directory
+    3. current working directory
+
+    Parameters
+    ----------
+    paths: List[str]
+        List of paths to get absolute paths for.
+    subdir: Optional[str]
+        Subdirectory to look for paths in.
+
+    Returns
+    -------
+    List[str]
+        List of absolute paths.
+    """
+    if subdir:
+        qualx_dir = os.path.join(os.path.dirname(__file__), subdir)
+        config_dir = os.path.join(os.path.dirname(get_config().file_path), subdir)
+        cwd = os.path.join(os.getcwd(), subdir)
+    else:
+        qualx_dir = os.path.dirname(__file__)
+        config_dir = os.path.dirname(get_config().file_path)
+        cwd = os.getcwd()
+
+    abs_paths = []
+    for path in paths:
+        if os.path.isabs(path) and os.path.exists(path):
+            # absolute path
+            abs_paths.append(path)
+        elif os.path.exists(os.path.join(qualx_dir, path)):
+            # path in the source directory
+            abs_paths.append(os.path.join(qualx_dir, path))
+        elif os.path.exists(os.path.join(config_dir, path)):
+            # path in the same directory as the config file
+            abs_paths.append(os.path.join(config_dir, path))
+        elif os.path.exists(os.path.join(cwd, path)):
+            # path in the current working directory
+            abs_paths.append(os.path.join(cwd, path))
+        else:
+            raise ValueError(f'{path} not found')
+    return abs_paths
 
 
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:

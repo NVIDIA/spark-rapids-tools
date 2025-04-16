@@ -29,11 +29,12 @@ from spark_rapids_tools.tools.qualx.qualx_config import QualxConfig
 _config = None
 
 
-def get_config(reload: bool = False) -> QualxConfig:
+def get_config(path: str = None, reload: bool = False) -> QualxConfig:
     global _config  # pylint: disable=global-statement
+
     if _config is None or reload:
         # get path to resources/qualx-conf.yaml
-        config_path = str(Utils.resource_path('qualx-conf.yaml'))
+        config_path = path if path else str(Utils.resource_path('qualx-conf.yaml'))
         _config = QualxConfig.load_from_file(config_path)
         if _config is None:
             raise ValueError(f'Failed to load Qualx configuration from: {config_path}')

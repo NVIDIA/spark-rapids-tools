@@ -3,6 +3,8 @@ datasets: datasets
 featurizers:
   - default.py
   - hash_plan.py
+modifiers:
+  - align_sqlID.py
 label: Duration
 split_functions:
   train: split_stratified.py

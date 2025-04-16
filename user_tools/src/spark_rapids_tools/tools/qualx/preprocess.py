@@ -26,6 +26,7 @@ from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
     find_eventlogs,
     find_paths,
+    get_abs_paths,
     get_logger,
     get_dataset_platforms,
     load_plugin,
@@ -38,26 +39,50 @@ PREPROCESSED_FILE = 'preprocessed.parquet'
 logger = get_logger(__name__)
 
 _featurizers = None  # global cache of featurizers
+_modifiers = None  # global cache of modifiers
 
 
-def get_featurizers() -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
-    """Get list of featurizer modules to use."""
+def get_alignment() -> pd.DataFrame:
+    """Get alignment_df from alignment_file."""
+    alignment_file = get_config().alignment_file
+
+    if alignment_file is None:
+        return pd.DataFrame()
+
+    abs_path = get_abs_paths([alignment_file])
+    if not abs_path:
+        raise ValueError(f'Alignment file not found: {alignment_file}')
+
+    return pd.read_csv(abs_path[0])
+
+
+def get_featurizers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
+    """Lazily load featurizer modules, using global cache."""
     global _featurizers  # pylint: disable=global-statement
-    if _featurizers is not None:
+    if _featurizers is not None and not reload:
         return _featurizers
 
+    # get absolute paths for featurizers
     featurizer_paths = get_config().featurizers
-
-    # convert relative paths to absolute paths
-    plugin_dir = os.path.join(os.path.dirname(__file__), 'featurizers')
-    featurizer_paths = [
-        os.path.join(plugin_dir, f) if not os.path.isabs(f) else f
-        for f in featurizer_paths
-    ]
+    abs_paths = get_abs_paths(featurizer_paths, 'featurizers')
 
     # load featurizers
-    _featurizers = [load_plugin(f) for f in featurizer_paths]
+    _featurizers = [load_plugin(f) for f in abs_paths]
     return _featurizers
+
+
+def get_modifiers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
+    """Lazily load modifier modules, using global cache."""
+    global _modifiers  # pylint: disable=global-statement
+    if _modifiers is not None and not reload:
+        return _modifiers
+
+    modifier_paths = get_config().modifiers
+    abs_paths = get_abs_paths(modifier_paths, 'modifiers')
+
+    # load modifiers
+    _modifiers = [load_plugin(f) for f in abs_paths]
+    return _modifiers
 
 
 def expected_raw_features() -> Set[str]:
@@ -198,8 +223,12 @@ def load_profiles(
 ) -> pd.DataFrame:
     """Load dataset profiler CSV files as a pd.DataFrame."""
     plugins = {}
+    modifiers = {}
     all_raw_features = []
+    config = get_config()
+    alignment_df = get_alignment()
     featurizers = get_featurizers()
+    modifiers = get_modifiers()
 
     for ds_name, ds_meta in datasets.items():
         # get app_meta, or infer from directory structure of eventlogs
@@ -309,8 +338,8 @@ def load_profiles(
         else pd.DataFrame()
     )
 
-    # run any plugin hooks on profile_df
     if not profile_df.empty:
+        # run any dataset-specificload_profiles_hook plugins on profile_df
         for ds_name, plugin_path in plugins.items():
             plugin = load_plugin(plugin_path)
             if plugin:
@@ -327,6 +356,19 @@ def load_profiles(
                     raise ValueError(
                         f'Plugin: load_profiles_hook for {ds_name} unexpectedly modified row indices.'
                     )
+
+        # run any modifiers on profile_df
+        for modifier in modifiers:
+            df_schema = profile_df.dtypes
+            modified_df = modifier.modify(profile_df, config=config, alignment_df=alignment_df)
+            if modified_df.index.equals(profile_df.index):
+                profile_df.update(modified_df)
+                profile_df.astype(df_schema)
+            else:
+                raise ValueError(
+                    f'Modifier: {modifier.__name__} unexpectedly modified row indices.'
+                )
+
     return profile_df
 
 

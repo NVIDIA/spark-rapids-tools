@@ -30,6 +30,7 @@ import fire
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
+    get_config,
     get_label,
 )
 from spark_rapids_tools.tools.qualx.preprocess import (
@@ -440,7 +441,7 @@ def models() -> None:
         print(model)
 
 
-def preprocess(dataset: str) -> None:
+def preprocess(dataset: str, config: Optional[str] = None) -> None:
     """Extract raw features from profiler logs.
 
     Extract raw features from one or more profiler logs and save the resulting dataframe as a
@@ -450,7 +451,12 @@ def preprocess(dataset: str) -> None:
     ----------
     dataset: str
         Path to a datasets directory for a given platform, e.g. 'datasets/onprem'
+    config_path: str
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     platforms, _ = get_dataset_platforms(dataset)
 
     # invalidate preprocessed.parquet files
@@ -471,6 +477,7 @@ def train(
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
     features_csv_dir: Optional[str] = None,
+    config: Optional[str] = None,
 ) -> None:
     """Train an XGBoost model.
 
@@ -491,7 +498,12 @@ def train(
     features_csv_dir:
         Path to a directory containing one or more features.csv files.  These files are produced during prediction,
         and must be manually edited to provide a label column (Duration_speedup) and value.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))
@@ -589,8 +601,27 @@ def predict(
     *,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Predict GPU speedup given CPU logs."""
+    """Predict GPU speedup given CPU logs.
+
+    Parameters
+    ----------
+    platform: str
+        Platform name supported by Profiler tool, e.g. 'onprem'
+    qual: str
+        Path to a directory containing one or more qual output directories.
+    output_info: dict
+        Dictionary containing information about the output files.
+    model:
+        Name of a pre-trained model or path to a model on disk to use for prediction.
+    qual_tool_filter:
+        Filter to apply to the qualification tool output, default: 'stage'
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
+    """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
 
     node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
@@ -728,6 +759,7 @@ def _predict_cli(
     qual_output: Optional[str] = None,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> None:
     """Predict GPU speedup given CPU logs.
 
@@ -754,7 +786,12 @@ def _predict_cli(
     qual_tool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qual tool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
     assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
 
@@ -794,6 +831,7 @@ def evaluate(
     *,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> None:
     """Evaluate model predictions against actual GPU speedup.
 
@@ -818,7 +856,12 @@ def evaluate(
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages,
         based on qual tool output.  A sqlID or stage is fully supported if all execs are respectively
         fully supported.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
         for ds_name in datasets.keys():
@@ -1055,6 +1098,7 @@ def evaluate_summary(
     *,
     score: str = 'dMAPE',
     split: str = 'test',
+    config: Optional[str] = None,
 ) -> None:
     """
     Compute
@@ -1066,7 +1110,12 @@ def evaluate_summary(
         Type of score to compare: 'MAPE', 'wMAPE', or 'dMAPE' (default).
     split: str
         Dataset split to compare: 'test' (default), 'train', or 'all'.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     summary_df, _ = _read_platform_scores(evaluate, score, split)
     print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     summary_path = f'{evaluate}/summary.csv'
@@ -1081,6 +1130,7 @@ def compare(
     score: str = 'dMAPE',
     granularity: str = 'sql',
     split: str = 'all',
+    config: Optional[str] = None,
 ) -> None:
     """Compare evaluation results between versions of code/models.
 
@@ -1098,7 +1148,12 @@ def compare(
         Granularity of score to compare: 'sql' (default) or 'app'.
     split: str
         Dataset split to compare: 'all' (default), 'train', or 'test'.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     # compare MAPE scores per dataset
     curr_df = _read_dataset_scores(current, score, granularity, split)
     prev_df = _read_dataset_scores(previous, score, granularity, split)
@@ -1148,7 +1203,13 @@ def compare(
         logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
 
 
-def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None) -> None:
+def shap(
+    platform: str,
+    prediction_output: str,
+    index: int,
+    model: Optional[str] = None,
+    config: Optional[str] = None,
+) -> None:
     """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
     a specific index (sqlID) in the shap_values.csv file produced by prediction.
 
@@ -1180,7 +1241,12 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
         Index of row/instance in shap_values.csv file to isolate for shap waterfall.
     model: Optional[str]
         Path to XGBoost model used in prediction.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config, reload=True)
+
     # get model shap values w/ feature distribution metrics
     model_json_path = _get_model_path(platform, model)
     model_shap_path = Path(model_json_path).with_suffix('.metrics')

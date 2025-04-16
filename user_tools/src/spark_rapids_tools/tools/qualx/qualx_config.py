@@ -26,6 +26,9 @@ from spark_rapids_tools.utils import AbstractPropContainer
 
 class QualxConfig(BaseConfig):
     """Main container for Qualx configuration."""
+    # path to the config file, for internal use only
+    file_path: Optional[str] = None
+
     cache_dir: str = Field(
         default='qualx_cache',
         description=(
@@ -41,7 +44,11 @@ class QualxConfig(BaseConfig):
 
     featurizers: List[str] = Field(
         description='List of featurizer modules to use.',
-        examples=[['default.py', 'velox.py', 'photon.py', 'bytedance.py']])
+        examples=[['default.py', 'hash_plan.py', 'velox.py', 'photon.py', 'bytedance.py']])
+
+    modifiers: List[str] = Field(
+        description='List of modifier modules to use.',
+        examples=[['align_hash.py']])
 
     label: Literal['Duration', 'duration_sum'] = Field(
         default='Duration',
@@ -67,6 +74,12 @@ class QualxConfig(BaseConfig):
             'qual_tool_filter': 'stage'
         }])
 
+    alignment_file: Optional[str] = Field(
+        default=None,
+        description='OPTIONAL: Path to alignment file.',
+        examples=['alignment.csv'])
+
+
     @model_validator(mode='after')
     def check_env_overrides(self):
         """Check for environment variable overrides after model initialization."""
@@ -90,7 +103,9 @@ class QualxConfig(BaseConfig):
     def load_from_file(cls, file_path: Union[str, CspPathT]) -> Optional['QualxConfig']:
         """Load the Qualx configuration from a file."""
         prop_container = AbstractPropContainer.load_from_file(file_path)
-        return cls(**prop_container.props)
+        obj = cls(**prop_container.props)
+        obj.file_path = file_path
+        return obj
 
     @classmethod
     def get_schema(cls) -> str:

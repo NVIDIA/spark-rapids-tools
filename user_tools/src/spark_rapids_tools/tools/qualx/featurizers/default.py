@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 
 
 # expected features for the dataframe produced by preprocessing
-# comments show the profiler source CSV file (and column name, if different)
+# comments show the profiler source file (and column name, if different)
 # N/A indicates that the feature is derived from other features or other sources
 expected_raw_features = {
     'appDuration',  # sql_duration_and_executor_cpu_time_percent (App Duration)
@@ -222,7 +222,7 @@ def extract_raw_features(
         empty_tables_str = ', '.join(empty_tables)
         log_fallback(logger, unique_app_ids,
                      fallback_reason=f'Empty feature tables found after preprocessing: {empty_tables_str}')
-        return pd.DataFrame()
+        return pd.DataFrame(columns=list(expected_raw_features))
 
     if get_label() == 'duration_sum':
         # override appDuration with sum(duration_sum) across all stages per appId
@@ -314,7 +314,7 @@ def extract_raw_features(
         sql_job_agg_tbl = job_stage_agg_tbl.loc[job_stage_agg_tbl['Exec Is Supported']]
         if sql_job_agg_tbl.empty:
             log_fallback(logger, unique_app_ids, fallback_reason='No fully supported stages found')
-            return pd.DataFrame()
+            return pd.DataFrame(columns=list(expected_raw_features))
 
     # aggregate using reduce ops, recomputing duration_mean
     sql_job_agg_tbl = job_stage_agg_tbl.groupby(
