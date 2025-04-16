@@ -28,7 +28,7 @@ import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 
 class AppFilterSuite extends BaseTestSuite {
-
+  private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
   test("illegal args") {
     assertThrows[IllegalArgumentException](AppFilterImpl.parseAppTimePeriod("0"))
     assertThrows[IllegalArgumentException](AppFilterImpl.parseAppTimePeriod("1hd"))
@@ -101,7 +101,8 @@ class AppFilterSuite extends BaseTestSuite {
           "--start-app-time",
           startTimePeriod
         )
-        val appArgs = new ProfileArgs(allArgs ++ Array(elogFile.toString()))
+        val evetlogsPaths = Array(s"$logDir/nds_q66_gpu.zstd", elogFile.toString)
+        val appArgs = new ProfileArgs(allArgs ++ evetlogsPaths)
         val (exit, filteredSize) = ProfileMain.mainInternal(appArgs)
         assert(exit == 0)
         val expectedStatusCount = if (failFilter) {
