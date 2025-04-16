@@ -384,12 +384,6 @@
               Release jobs should be using that Profile.
             -->
             <id>release</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>350</value>
-                </property>
-            </activation>
             <properties>
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
