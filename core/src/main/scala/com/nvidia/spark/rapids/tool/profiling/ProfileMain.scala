@@ -82,9 +82,9 @@ object ProfileMain extends Logging {
       profiler.profileDriver(
         driverLogInfos = driverLog,
         hadoopConf = Option(hadoopConf),
-        eventLogsEmpty = eventLogFsFiltered.isEmpty)
+        eventLogsEmpty = filteredLogs.isEmpty)
     }
-    profiler.profile(eventLogFsFiltered)
+    profiler.profile(filteredLogs)
     (0, filteredLogs.size)
   }
 

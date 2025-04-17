@@ -36,6 +36,7 @@ object ToolTestUtils extends Logging {
   private val csvStatusFields = Seq(
     (QualOutputWriter.STATUS_REPORT_PATH_STR, StringType),
     (QualOutputWriter.STATUS_REPORT_STATUS_STR, StringType),
+    (QualOutputWriter.STATUS_REPORT_APP_ID, StringType),
     (QualOutputWriter.STATUS_REPORT_DESC_STR, StringType))
 
   val statusReportSchema =
@@ -181,7 +182,9 @@ object ToolTestUtils extends Logging {
         countStatus("FAILURE"),
         countStatus("SKIPPED"),
         countStatus("UNKNOWN"))
-      assert(actualStatusReportCount == expStatusReportCount)
+      assert(actualStatusReportCount == expStatusReportCount,
+        s"Expected status report counts: $expStatusReportCount, " +
+          s"but got: $actualStatusReportCount")
     }
   }
 }
