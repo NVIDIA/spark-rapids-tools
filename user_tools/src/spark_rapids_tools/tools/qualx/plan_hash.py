@@ -135,16 +135,13 @@ def strip_ids(s):
 
 
 def path_match(node, expected_path: list[str]):
-    '''Check if a node matches a sub-path in a tree.'''
+    """Check if a node matches a sub-path in a tree."""
     if node['nodeName'] == expected_path[0]:
         if len(expected_path) == 1:
             return True
-        elif len(node['children']) == 1:
+        if len(node['children']) == 1:
             return path_match(node['children'][0], expected_path[1:])
-        else:
-            return False
-    else:
-        return False
+    return False
 
 
 def normalize_plan(plan):
@@ -154,28 +151,22 @@ def normalize_plan(plan):
         """Normalize a single node in the plan by removing and/or renaming to canonical form."""
         if isinstance(node, dict):
             if 'nodeName' in node:
-                if any([node['nodeName'] == name for name in remove_nodes_exact]):
+                if any(node['nodeName'] == name for name in remove_nodes_exact):
                     # remove nodes in the remove_nodes_exact list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
                     raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
-                elif any([node['nodeName'].startswith(name) for name in remove_nodes_prefix]):
+                if any(node['nodeName'].startswith(name) for name in remove_nodes_prefix):
                     # remove nodes in the remove_nodes_prefix list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
                     raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
-                else:
-                    # rename nodes using the rename_nodes dictionary
-                    for prefix in rename_nodes:
-                        if node['nodeName'].startswith(prefix):
-                            node['nodeName'] = rename_nodes[prefix]
-                    node['nodeName'] = rename_nodes.get(node['nodeName'], node['nodeName'])
-                    node['children'] = [normalize_node(child) for child in node['children']]
-                    return node
-            else:
-                return node
-        else:
-            return node
+                # otherwise, rename nodes using the rename_nodes dictionary
+                for prefix, replacement in rename_nodes.items():
+                    if node['nodeName'].startswith(prefix):
+                        node['nodeName'] = replacement
+                node['children'] = [normalize_node(child) for child in node['children']]
+        return node
 
     def normalize_path(node):
         """Normalize an entire sub-path in the plan.
@@ -202,11 +193,7 @@ def normalize_plan(plan):
                 else:
                     # continue normalizing children
                     node['children'] = [normalize_path(child) for child in node['children']]
-                return node
-            else:
-                return node
-        else:
-            return node
+        return node
 
     normalized_plan = normalize_node(plan)
     normalized_plan = normalize_path(normalized_plan)
@@ -250,8 +237,7 @@ def hash_plan(plan):
                 node_str = f'{node_name}_{depth}'
 
             node_hash = int(hashlib.md5(node_str.encode()).hexdigest(), 16)
-            return node_hash + sum([hash_node(child, depth + 1, n_fields) for child in node['children']])
-        else:
-            return 0
+            return node_hash + sum(hash_node(child, depth + 1, n_fields) for child in node['children'])
+        return 0
 
     return hash_node(plan)

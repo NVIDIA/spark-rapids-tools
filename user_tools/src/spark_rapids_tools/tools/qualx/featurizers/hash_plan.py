@@ -54,6 +54,8 @@ def extract_raw_features(
     remove_failed_sql: bool
         Remove sqlIDs with high failure rates, default: True.
     """
+    # pylint: disable=unused-argument
+
     # read all sql_plan_info_pre_aqe files
     full_tbl = []
     plan_files = toc.loc[toc['table_name'] == 'sql_plan_info_pre_aqe']

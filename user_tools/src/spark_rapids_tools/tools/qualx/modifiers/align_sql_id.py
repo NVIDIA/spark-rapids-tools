@@ -68,7 +68,7 @@ def max_intersection(df1, df2, junk_hashes: Optional[List[str]] = None):
     )
 
 
-def align_sqlIDs(cpu_hashes: pd.DataFrame, gpu_hashes: pd.DataFrame, junk_hashes: Optional[List[str]] = None):
+def align_sql_ids(cpu_hashes: pd.DataFrame, gpu_hashes: pd.DataFrame, junk_hashes: Optional[List[str]] = None):
     """Align CPU and GPU sqlIDs via physical plan hashes.
 
     This will generate a `sqlID_align.csv` file in the `output_dir`.
@@ -105,8 +105,8 @@ def compute_alignment_from_raw_features(raw_features: pd.DataFrame) -> pd.DataFr
     junk_hashes = get_junk_hashes(raw_features)
 
     alignment_dfs = []
-    for appName in raw_features['appName'].unique():
-        app_features = raw_features.loc[raw_features['appName'] == appName]
+    for app_name in raw_features['appName'].unique():
+        app_features = raw_features.loc[raw_features['appName'] == app_name]
 
         cpu_hashes = app_features.loc[app_features['runType'] == 'CPU'][['appId', 'sqlID', 'hash']]
         cpu_hashes = cpu_hashes.sort_values(['appId', 'sqlID'])
@@ -125,7 +125,7 @@ def compute_alignment_from_raw_features(raw_features: pd.DataFrame) -> pd.DataFr
             best_match_len = 0
             for gpu_app_id in gpu_app_ids:
                 gpu_hash_df = gpu_hashes.loc[gpu_hashes['appId'] == gpu_app_id]
-                align_df = align_sqlIDs(cpu_hash_df, gpu_hash_df, junk_hashes=junk_hashes)
+                align_df = align_sql_ids(cpu_hash_df, gpu_hash_df, junk_hashes=junk_hashes)
                 num_matches = len(align_df)
                 if num_matches == 0:
                     continue
@@ -173,25 +173,29 @@ def compute_alignment_from_app_pairs(raw_features: pd.DataFrame, alignment_df: p
 
     new_align_df = pd.DataFrame(columns=['appId_cpu', 'appId_gpu', 'sqlID_cpu', 'sqlID_gpu', 'hash'])
     for row in alignment_df.itertuples():
-        appId_cpu, appId_gpu = row.appId_cpu, row.appId_gpu
-        cpu_hash_df = raw_features.loc[raw_features['appId'] == appId_cpu][['sqlID', 'hash']]
-        gpu_hash_df = raw_features.loc[raw_features['appId'] == appId_gpu][['sqlID', 'hash']]
-        align_df = align_sqlIDs(cpu_hash_df, gpu_hash_df, junk_hashes=junk_hashes)
+        app_id_cpu, app_id_gpu = row.appId_cpu, row.appId_gpu
+        cpu_hash_df = raw_features.loc[raw_features['appId'] == app_id_cpu][['sqlID', 'hash']]
+        gpu_hash_df = raw_features.loc[raw_features['appId'] == app_id_gpu][['sqlID', 'hash']]
+        align_df = align_sql_ids(cpu_hash_df, gpu_hash_df, junk_hashes=junk_hashes)
         if align_df.empty:
             # if empty, add a dummy row, so we can identify/debug missing alignments
             align_df = pd.DataFrame({'sqlID_cpu': -1, 'sqlID_gpu': -1, 'hash': np.nan}, index=[0])
-        align_df['appId_cpu'] = appId_cpu
-        align_df['appId_gpu'] = appId_gpu
+        align_df['appId_cpu'] = app_id_cpu
+        align_df['appId_gpu'] = app_id_gpu
         new_align_df = pd.concat([new_align_df, align_df])
 
     return new_align_df
 
 
-def modify(raw_features: pd.DataFrame, config: QualxConfig, alignment_df: pd.DataFrame) -> pd.DataFrame:
+def modify(
+        raw_features: pd.DataFrame,
+        config: QualxConfig,
+        alignment_df: pd.DataFrame) -> pd.DataFrame:
     """Align CPU and GPU sqlIDs based on alignment_df.
 
     If alignment_df is not provided or doesn't contain sqlID alignments, infer sqlID alignments using plan hash values.
     """
+    # pylint: disable=unused-argument
     if alignment_df is None or alignment_df.empty:
         logger.info('Computing appId and sqlID alignment from plan hashes')
         alignment_df = compute_alignment_from_raw_features(raw_features)
