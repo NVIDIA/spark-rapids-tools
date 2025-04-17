@@ -1,0 +1,182 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Test qualx_config module"""
+import os
+import tempfile
+import pytest
+from pydantic import ValidationError
+
+from spark_rapids_tools.tools.qualx.qualx_config import QualxConfig, QualxPipelineConfig
+from ..conftest import SparkRapidsToolsUT
+
+
+@pytest.fixture(name='qualx_config_params')
+def _qualx_config_params():
+    """Fixture providing common parameters for QualxConfig"""
+    return {
+        'datasets': 'datasets',
+        'featurizers': ['default.py'],
+        'modifiers': ['align_hash.py'],
+        'split_functions': {'train': 'plugins/split_stratified.py', 'test': 'plugins/split_all_test.py'},
+        'model_type': 'xgboost',
+        'xgboost': {'model_name': 'xgb_model.json', 'n_trials': 200, 'qual_tool_filter': 'stage'}
+    }
+
+
+@pytest.fixture(name='qualx_pipeline_config_params')
+def _qualx_pipeline_config_params(qualx_config_params):
+    """Fixture providing common parameters for QualxPipelineConfig"""
+    return {
+        'dataset_name': 'test_dataset',
+        'platform': 'onprem',
+        'eventlogs': {'cpu': ['/path/to/cpu/eventlogs'], 'gpu': ['/path/to/gpu/eventlogs']},
+        'output_dir': 'test_output',
+        **qualx_config_params
+    }
+
+
+class TestQualxConfig(SparkRapidsToolsUT):
+    """Test class for QualxConfig"""
+
+    def test_default_values(self, qualx_config_params):
+        """Test that QualxConfig has correct default values"""
+        config = QualxConfig(**qualx_config_params)
+        assert config.cache_dir == 'qualx_cache'
+        assert config.label == 'Duration'
+        assert config.alignment_file is None
+
+    def test_environment_variable_overrides(self, monkeypatch, qualx_config_params):
+        """Test that environment variables override default values"""
+        # Test QUALX_CACHE_DIR override
+        monkeypatch.setenv('QUALX_CACHE_DIR', 'custom_cache')
+        config = QualxConfig(**qualx_config_params)
+        assert config.cache_dir == 'custom_cache'
+
+        # Test QUALX_LABEL override with valid value
+        monkeypatch.setenv('QUALX_LABEL', 'duration_sum')
+        config = QualxConfig(**qualx_config_params)
+        assert config.label == 'duration_sum'
+
+        # Test QUALX_LABEL override with invalid value
+        monkeypatch.setenv('QUALX_LABEL', 'invalid_label')
+        with pytest.raises(ValueError):
+            QualxConfig(**qualx_config_params)
+
+        # Test that environment variables are properly reset
+        monkeypatch.delenv('QUALX_CACHE_DIR')
+        monkeypatch.delenv('QUALX_LABEL')
+        config = QualxConfig(**qualx_config_params)
+        assert config.cache_dir == 'qualx_cache'
+        assert config.label == 'Duration'
+
+    def test_load_from_file(self):
+        """Test loading configuration from a file"""
+        # Create a temporary config file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_file:
+            temp_file.write("""
+cache_dir: test_cache
+datasets: test_datasets
+featurizers: ['featurizer1.py', 'featurizer2.py']
+modifiers: ['modifier1.py']
+label: duration_sum
+split_functions:
+  train: plugins/split_train.py
+  test: plugins/split_test.py
+model_type: xgboost
+xgboost:
+  model_name: test_model.json
+  n_trials: 100
+  qual_tool_filter: stage
+""")
+            temp_file_path = temp_file.name
+
+        try:
+            # Load the configuration from the file
+            config = QualxConfig.load_from_file(temp_file_path)
+
+            # Verify the loaded values
+            assert config.cache_dir == 'test_cache'
+            assert config.datasets == 'test_datasets'
+            assert config.featurizers == ['featurizer1.py', 'featurizer2.py']
+            assert config.modifiers == ['modifier1.py']
+            assert config.label == 'duration_sum'
+            assert config.split_functions == {
+                'train': 'plugins/split_train.py',
+                'test': 'plugins/split_test.py'
+            }
+            assert config.model_type == 'xgboost'
+            assert config.xgboost == {
+                'model_name': 'test_model.json',
+                'n_trials': 100,
+                'qual_tool_filter': 'stage'
+            }
+            assert config.file_path == temp_file_path
+        finally:
+            # Clean up the temporary file
+            os.unlink(temp_file_path)
+
+    def test_get_schema(self):
+        """Test that get_schema returns a valid JSON schema"""
+        schema = QualxConfig.get_schema()
+        assert isinstance(schema, dict)
+        assert 'properties' in schema
+        assert 'cache_dir' in schema['properties']
+        assert 'label' in schema['properties']
+        assert 'datasets' in schema['properties']
+
+
+class TestQualxPipelineConfig(SparkRapidsToolsUT):
+    """Test class for QualxPipelineConfig"""
+
+    def test_default_values(self):
+        """Test that QualxPipelineConfig has correct default values"""
+        # QualxPipelineConfig requires dataset_name, platform, and eventlogs
+        with pytest.raises(ValidationError):
+            QualxPipelineConfig()
+
+    def test_required_fields(self, qualx_pipeline_config_params):
+        """Test that QualxPipelineConfig requires the necessary fields"""
+        config = QualxPipelineConfig(**qualx_pipeline_config_params)
+
+        assert config.dataset_name == 'test_dataset'
+        assert config.platform == 'onprem'
+        assert config.eventlogs == {
+            'cpu': ['/path/to/cpu/eventlogs'],
+            'gpu': ['/path/to/gpu/eventlogs']
+        }
+        assert config.output_dir == 'test_output'
+        assert config.alignment_file is None  # Default value
+
+    def test_inheritance(self, qualx_pipeline_config_params):
+        """Test that QualxPipelineConfig inherits from QualxConfig"""
+        # Add QualxConfig specific overrides
+        config_params = qualx_pipeline_config_params.copy()
+        config_params['cache_dir'] = 'custom_cache'
+        config_params['label'] = 'duration_sum'
+
+        config = QualxPipelineConfig(**config_params)
+
+        # Check inherited properties
+        assert config.cache_dir == 'custom_cache'
+        assert config.label == 'duration_sum'
+
+        # Check QualxPipelineConfig specific properties
+        assert config.dataset_name == 'test_dataset'
+        assert config.platform == 'onprem'
+        assert config.eventlogs == {
+            'cpu': ['/path/to/cpu/eventlogs'],
+            'gpu': ['/path/to/gpu/eventlogs']
+        }
+        assert config.output_dir == 'test_output'

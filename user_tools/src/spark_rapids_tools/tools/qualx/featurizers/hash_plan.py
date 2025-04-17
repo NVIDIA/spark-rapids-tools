@@ -20,7 +20,7 @@ from typing import Optional
 import pandas as pd
 
 from spark_rapids_tools.tools.qualx.util import get_logger
-from spark_rapids_tools.tools.qualx.plan_hash import hash_plan, normalize_plan
+from spark_rapids_tools.tools.qualx.hash_util import hash_plan, normalize_plan
 
 logger = get_logger(__name__)
 
@@ -31,6 +31,7 @@ logger = get_logger(__name__)
 expected_raw_features = {
     'hash',  # sql_plan_info_pre_aqe
 }
+
 
 def extract_raw_features(
     toc: pd.DataFrame,

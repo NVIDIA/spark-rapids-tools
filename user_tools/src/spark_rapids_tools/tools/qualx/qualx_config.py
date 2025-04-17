@@ -79,7 +79,6 @@ class QualxConfig(BaseConfig):
         description='OPTIONAL: Path to alignment file.',
         examples=['alignment.csv'])
 
-
     @model_validator(mode='after')
     def check_env_overrides(self):
         """Check for environment variable overrides after model initialization."""

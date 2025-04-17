@@ -14,8 +14,12 @@
 
 """Utilities for computing hashes of physical plans."""
 
+from difflib import SequenceMatcher
 import hashlib
 import re
+from typing import List, Optional
+
+import pandas as pd
 
 
 # nodes to remove from the plan (exact match)
@@ -136,9 +140,10 @@ def strip_ids(s):
 
 def path_match(node, expected_path: list[str]):
     """Check if a node matches a sub-path in a tree."""
-    if node['nodeName'] == expected_path[0]:
-        if len(expected_path) == 1:
-            return True
+    if expected_path:
+        if node['nodeName'] == expected_path[0]:
+            if len(expected_path) == 1:
+                return True
         if len(node['children']) == 1:
             return path_match(node['children'][0], expected_path[1:])
     return False
@@ -179,7 +184,7 @@ def normalize_plan(plan):
                     # GpuTopN/GpuTopN/X -> TakeOrderedAndProject/X
                     node['nodeName'] = 'TakeOrderedAndProject'
                     node['children'] = [
-                        normalize_path(child) for child in node['children'][0]['children'][0]['children']
+                        normalize_path(child) for child in node['children'][0]['children']
                     ]
                 elif path_match(node, ['Project', 'Filter']):
                     # Project/Filter/X -> Project/X
@@ -241,3 +246,95 @@ def hash_plan(plan):
         return 0
 
     return hash_node(plan)
+
+
+def get_junk_hashes(raw_features: pd.DataFrame, std_devs: float = 3.0) -> List[str]:
+    """Identify junk hashes as high-occurrence outliers (beyond N standard deviations).
+
+    Parameters
+    ----------
+    raw_features: pd.DataFrame
+        Dataframe of raw features with a 'hash' column.
+    std_devs: float
+        Number of standard deviations to use for identifying junk hashes.
+    """
+    hash_counts = raw_features['hash'].value_counts()
+    hash_counts_std = hash_counts.std()
+    hash_counts_mean = hash_counts.mean()
+    return list(hash_counts[hash_counts > hash_counts_mean + std_devs*hash_counts_std].index)
+
+
+def max_intersection(df1: pd.DataFrame, df2: pd.DataFrame, junk_hashes: Optional[List[str]] = None) -> pd.DataFrame:
+    """Find the maximum intersection between two dataframes of hashes.
+
+    Parameters
+    ----------
+    df1: pd.DataFrame
+        First dataframe of sqlIDs and hashes.
+    df2: pd.DataFrame
+        Second dataframe of sqlIDs and  hashes.
+    junk_hashes: List[str]
+        List of hashes which should be ignored when aligning, i.e. warm-up or metadata queries.
+
+    Returns
+    -------
+    df: pd.DataFrame
+        Dataframe of aligned SQL IDs.
+    """
+    # filter out junk hashes, if supplied
+    if junk_hashes:
+        df1 = df1.loc[~df1.hash.isin(junk_hashes)]
+        df2 = df2.loc[~df2.hash.isin(junk_hashes)]
+
+    list1, list2 = df1['hash'].tolist(), df2['hash'].tolist()
+
+    seq_matcher = SequenceMatcher(None, list1, list2, autojunk=False)
+    matches = seq_matcher.get_matching_blocks()
+
+    # Extract the matching values forming LCS
+    intersection_hashes = []
+    intersection_ids1 = []
+    intersection_ids2 = []
+
+    for match in matches[:-1]:  # Exclude sentinel (0,0,0)
+        hashes = list1[match.a: match.a + match.size]
+        intersection_hashes.extend(hashes)
+        # Retrieve the corresponding IDs from df1 and df2
+        ids1 = df1.iloc[match.a: match.a + match.size]['sqlID'].tolist()
+        ids2 = df2.iloc[match.b: match.b + match.size]['sqlID'].tolist()
+        intersection_ids1.extend(ids1)
+        intersection_ids2.extend(ids2)
+
+    return pd.DataFrame(
+        {
+            'sqlID_cpu': intersection_ids1,
+            'sqlID_gpu': intersection_ids2,
+            'hash': intersection_hashes,
+        }
+    )
+
+
+def align_sql_ids(
+    cpu_hashes: pd.DataFrame,
+    gpu_hashes: pd.DataFrame,
+    junk_hashes: Optional[List[str]] = None
+) -> pd.DataFrame:
+    """Align CPU and GPU sqlIDs via plan hashes.
+
+    Parameters
+    ----------
+    cpu_hashes: pd.DataFrame
+        DataFrame of CPU sqlIDs and hashes.
+    gpu_hashes: pd.DataFrame
+        DataFrame of GPU sqlIDs and hashes.
+    junk_hashes: List[str]
+        List of hashes which should be ignored when aligning, i.e. warm-up or metadata queries.
+
+    Returns
+    -------
+    df: pd.DataFrame
+        DataFrame of aligned SQL IDs.
+    """
+    df = max_intersection(cpu_hashes, gpu_hashes, junk_hashes)
+    df = df[['sqlID_cpu', 'sqlID_gpu', 'hash']]  # re-order columns
+    return df
