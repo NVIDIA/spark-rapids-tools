@@ -18,23 +18,25 @@ import glob
 import json
 import os
 import shutil
+from typing import List
 import zipfile
 from datetime import datetime
 from pathlib import Path
 
 import fire
 import pandas as pd
-import yaml
 
+from spark_rapids_tools.tools.qualx.config import get_config
+from spark_rapids_tools.tools.qualx.qualx_config import QualxPipelineConfig
 from spark_rapids_tools.tools.qualx.qualx_main import preprocess, train, evaluate
-from spark_rapids_tools.tools.qualx.util import get_logger, ensure_directory, find_paths
+from spark_rapids_tools.tools.qualx.util import get_abs_path, get_logger, ensure_directory, find_paths
 
 logger = get_logger(__name__)
 
 
 def _create_dataset_json(
         delta_df: pd.DataFrame,
-        qualx_data_dir: str,
+        ds_eventlogs: str,
         datasets: str,
         platform: str,
         dataset_name: str,
@@ -45,7 +47,7 @@ def _create_dataset_json(
     ----------
     delta_df: pd.DataFrame
         DataFrame containing new rows of appId and sqlID alignments between CPU and GPU runs
-    qualx_data_dir: str
+    ds_eventlogs: str
         Path to directory in QUALX_DATA_DIR containing CPU and GPU eventlogs
     datasets: str
         Path to directory containing dataset JSON files
@@ -79,7 +81,7 @@ def _create_dataset_json(
     # Create dataset JSON
     dataset_json = {
         dataset_name: {
-            'eventlogs': [qualx_data_dir],
+            'eventlogs': [ds_eventlogs],
             'app_meta': dict(sorted(app_meta.items())),
             'platform': platform
         }
@@ -103,51 +105,61 @@ def _create_dataset_json(
     return dataset_path
 
 
-def _unzip_eventlogs(delta_df: pd.DataFrame, cpu_eventlogs: str, gpu_eventlogs: str, ds_path: str, ds_name: str) -> str:
+def _unzip_eventlogs(
+        delta_df: pd.DataFrame,
+        cpu_eventlogs: List[str],
+        gpu_eventlogs: List[str],
+        dataset_basename: str,
+        ds_name: str) -> str:
     """Unzip the eventlogs to QUAL_DATA_DIR.
 
     Parameters
     ----------
     delta_df: pd.DataFrame
         DataFrame containing new rows of appId and sqlID alignments between CPU and GPU runs
-    ds_path: str
-        Path in QUAL_DATA_DIR to unzip the eventlogs to.
-    ds_name: str
-        Name of the dataset
     cpu_eventlogs: str
         Path to directory containing CPU eventlogs
     gpu_eventlogs: str
         Path to directory containing GPU eventlogs
+    qualx_data_dir: str
+        Path in QUAL_DATA_DIR to unzip the eventlogs to.
+    ds_name: str
+        Name of the dataset
     """
+    # Get path to QUAL_DATA_DIR destination directory
+    qualx_data_dir = os.getenv('QUALX_DATA_DIR')
+    ds_eventlogs = os.path.join(qualx_data_dir, 'customers', dataset_basename, ds_name)
+    if os.path.exists(os.path.expandvars(ds_eventlogs)):
+        logger.warning('Eventlog directory already exists: %s, skipping unzip', ds_eventlogs)
+        return ds_eventlogs
+
     # get appIds from delta_df
     gpu_app_ids = delta_df['appId_gpu'].unique()
     cpu_app_ids = delta_df['appId_cpu'].unique()
 
     # get eventlogs for new CPU and GPU appIds
-    cpu_logs = find_paths(cpu_eventlogs, lambda f: any(app_id in f for app_id in cpu_app_ids))
-    gpu_logs = find_paths(gpu_eventlogs, lambda f: any(app_id in f for app_id in gpu_app_ids))
+    cpu_logs = []
+    for path in cpu_eventlogs:
+        cpu_logs.extend(find_paths(path, lambda f: any(app_id in f for app_id in cpu_app_ids)))
+    gpu_logs = []
+    for path in gpu_eventlogs:
+        gpu_logs.extend(find_paths(path, lambda f: any(app_id in f for app_id in gpu_app_ids)))
 
-    # Get path to QUAL_DATA_DIR destination directory
-    eventlog_dir = os.path.join(os.path.expandvars(ds_path), ds_name)
-    if os.path.exists(eventlog_dir):
-        logger.warning('Eventlog directory already exists: %s', eventlog_dir)
-        return eventlog_dir
-
-    ensure_directory(eventlog_dir, parent=True)
-    logger.info('Unzipping eventlogs to %s', eventlog_dir)
+    ensure_directory(ds_eventlogs, parent=True)
+    logger.info('Unzipping eventlogs to %s', ds_eventlogs)
     # unzip cpu eventlogs using zipfile
     for cpu_log in cpu_logs:
         with zipfile.ZipFile(cpu_log, 'r') as zip_ref:
             logger.debug('Unzipping CPU eventlog: %s', cpu_log)
-            zip_ref.extractall(f'{eventlog_dir}/cpu')
+            zip_ref.extractall(f'{ds_eventlogs}/cpu')
 
     # unzip gpu eventlogs using zipfile
     for gpu_log in gpu_logs:
         with zipfile.ZipFile(gpu_log, 'r') as zip_ref:
             logger.debug('Unzipping GPU eventlog: %s', gpu_log)
-            zip_ref.extractall(f'{eventlog_dir}/gpu')
+            zip_ref.extractall(f'{ds_eventlogs}/gpu')
 
-    return eventlog_dir
+    return ds_eventlogs
 
 
 def train_and_evaluate(
@@ -169,31 +181,24 @@ def train_and_evaluate(
     config: str
         Path to YAML config file containing training parameters.
     """
-    # Read YAML config
-    cfg_dir = Path(config).parent
-    with open(config, 'r', encoding='utf-8') as f:
-        cfg = yaml.safe_load(f)
-
-    def _get_abs_path(cwd: str, path: str) -> str:
-        if not path.startswith('/'):
-            return os.path.join(cwd, path)
-        return path
+    # Read config
+    cfg = get_config(config, cls=QualxPipelineConfig, reload=True)
 
     # Extract config values
-    alignment_file = _get_abs_path(cfg_dir, cfg['alignment_file'])
-    cpu_eventlogs = _get_abs_path(cfg_dir, cfg['eventlogs']['cpu']) if 'eventlogs' in cfg else None
-    gpu_eventlogs = _get_abs_path(cfg_dir, cfg['eventlogs']['gpu']) if 'eventlogs' in cfg else None
-    output_dir = _get_abs_path(cfg_dir, cfg['output_dir'])
-    datasets = _get_abs_path(cfg_dir, cfg['datasets'])
-    platform = cfg['platform']
-    dataset_basename = cfg['dataset_name']
-    qual_data_path = cfg['qualx_data_path']
-    model_type = cfg['model_type']
-    model_name = cfg[model_type]['model_name']
-    n_trials = cfg['qualx']['n_trials']
-    qual_tool_filter = cfg['qualx']['qual_tool_filter']
-    train_split_fn = _get_abs_path(cfg_dir, cfg['split_functions']['train'])
-    test_split_fn = _get_abs_path(cfg_dir, cfg['split_functions']['test'])
+    alignment_file = get_abs_path(cfg.alignment_file)
+    cpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['cpu']]
+    gpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['gpu']]
+    output_dir = get_abs_path(cfg.output_dir)
+    datasets = get_abs_path(cfg.datasets)
+    platform = cfg.platform
+    dataset_basename = cfg.dataset_name
+    train_split_fn = get_abs_path(cfg.split_functions['train'], 'plugins')
+    test_split_fn = get_abs_path(cfg.split_functions['test'], 'plugins')
+    model_type = cfg.model_type
+    model_config = cfg.model_dump()[model_type]
+    model_name = model_config['model_name']
+    n_trials = model_config['n_trials']
+    qual_tool_filter = model_config['qual_tool_filter']
 
     alignment_dir = Path(alignment_file).parent
     alignment_basename = Path(alignment_file).stem
@@ -245,16 +250,19 @@ def train_and_evaluate(
         shutil.copy(alignment_file, inprogress_file)
 
     # Unzip and archive the eventlogs to QUAL_DATA_DIR
-    if cpu_eventlogs and gpu_eventlogs:
-        qual_data_dir = _unzip_eventlogs(delta_df, cpu_eventlogs, gpu_eventlogs, qual_data_path, ds_name)
-    else:
-        qual_data_dir = qual_data_path
+    ds_eventlogs = _unzip_eventlogs(
+        delta_df,
+        cpu_eventlogs,
+        gpu_eventlogs,
+        dataset_basename,
+        ds_name
+    )
 
     # If trained model exists, evaluate new dataset against existing model
     if os.path.exists(model_path):
         dataset_json = _create_dataset_json(
             delta_df,
-            qual_data_dir,
+            ds_eventlogs,
             datasets,
             platform,
             ds_name,
@@ -283,7 +291,7 @@ def train_and_evaluate(
     # Create dataset JSON for training
     _create_dataset_json(
         delta_df,
-        qual_data_dir,
+        ds_eventlogs,
         datasets,
         platform,
         ds_name,

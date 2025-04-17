@@ -26,7 +26,7 @@ from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
     find_eventlogs,
     find_paths,
-    get_abs_paths,
+    get_abs_path,
     get_logger,
     get_dataset_platforms,
     load_plugin,
@@ -49,11 +49,11 @@ def get_alignment() -> pd.DataFrame:
     if alignment_file is None:
         return pd.DataFrame()
 
-    abs_path = get_abs_paths([alignment_file])
+    abs_path = get_abs_path(alignment_file)
     if not abs_path:
         raise ValueError(f'Alignment file not found: {alignment_file}')
 
-    return pd.read_csv(abs_path[0])
+    return pd.read_csv(abs_path)
 
 
 def get_featurizers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:
@@ -64,7 +64,7 @@ def get_featurizers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.Da
 
     # get absolute paths for featurizers
     featurizer_paths = get_config().featurizers
-    abs_paths = get_abs_paths(featurizer_paths, 'featurizers')
+    abs_paths = [get_abs_path(f, 'featurizers') for f in featurizer_paths]
 
     # load featurizers
     _featurizers = [load_plugin(f) for f in abs_paths]
@@ -78,7 +78,7 @@ def get_modifiers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.Data
         return _modifiers
 
     modifier_paths = get_config().modifiers
-    abs_paths = get_abs_paths(modifier_paths, 'modifiers')
+    abs_paths = [get_abs_path(f, 'modifiers') for f in modifier_paths]
 
     # load modifiers
     _modifiers = [load_plugin(f) for f in abs_paths]

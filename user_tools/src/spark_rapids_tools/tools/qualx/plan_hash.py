@@ -110,12 +110,12 @@ def split_fields(s, *, normalize=False):
     field_start = 0
     depth = 0
     fields = []
-    for i in range(len(s)):
-        if s[i] == '(':
+    for i, c in enumerate(s):
+        if c == '(':
             depth += 1
-        elif s[i] == ')':
+        elif c == ')':
             depth -= 1
-        elif s[i] == ',' and depth == 0:
+        elif c == ',' and depth == 0:
             fields.append(s[field_start:i].strip())
             field_start = i + 1
     fields.append(s[field_start:].strip())
@@ -158,14 +158,12 @@ def normalize_plan(plan):
                     # remove nodes in the remove_nodes_exact list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
-                    else:
-                        raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
+                    raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
                 elif any([node['nodeName'].startswith(name) for name in remove_nodes_prefix]):
                     # remove nodes in the remove_nodes_prefix list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
-                    else:
-                        raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
+                    raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
                 else:
                     # rename nodes using the rename_nodes dictionary
                     for prefix in rename_nodes:
@@ -192,23 +190,19 @@ def normalize_plan(plan):
                     node['children'] = [
                         normalize_path(child) for child in node['children'][0]['children'][0]['children']
                     ]
-                    return node
                 elif path_match(node, ['Project', 'Filter']):
                     # Project/Filter/X -> Project/X
                     node['children'] = [normalize_path(child) for child in node['children'][0]['children']]
-                    return node
                 elif path_match(node, ['UnionWithLocalData', 'Union']):
                     # UnionWithLocalData/Union/X -> X
                     node = normalize_path(node['children'][0]['children'][0])
-                    return node
                 elif len(node['children']) == 1 and node['children'][0]['nodeName'] == 'SubqueryAdaptiveBroadcast':
                     # X/SubqueryAdaptiveBroadcast -> X
                     node['children'] = []
-                    return node
                 else:
                     # continue normalizing children
                     node['children'] = [normalize_path(child) for child in node['children']]
-                    return node
+                return node
             else:
                 return node
         else:
@@ -245,15 +239,15 @@ def hash_plan(plan):
                     # split fields by comma, accounting for function calls and CASE statements
                     fields = split_fields(fields, normalize=True)
                     # remove any fields with parentheses (functions) or brackets (maps) to simplify hashing
-                    fields = [field.strip() for field in fields if not re.search(r"\(|\[", field)]
+                    fields = [field.strip() for field in fields if not re.search(r'\(|\[', field)]
                     # take a max of N fields (to try to avoid truncated fields)
                     fields = fields[:n_fields]
                 else:
-                    fields = ""
+                    fields = ''
 
-                node_str = f"{node_name}_{depth}_{fields}"
+                node_str = f'{node_name}_{depth}_{fields}'
             else:
-                node_str = f"{node_name}_{depth}"
+                node_str = f'{node_name}_{depth}'
 
             node_hash = int(hashlib.md5(node_str.encode()).hexdigest(), 16)
             return node_hash + sum([hash_node(child, depth + 1, n_fields) for child in node['children']])

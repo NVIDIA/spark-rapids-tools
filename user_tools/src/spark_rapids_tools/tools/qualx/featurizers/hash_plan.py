@@ -59,7 +59,7 @@ def extract_raw_features(
     plan_files = toc.loc[toc['table_name'] == 'sql_plan_info_pre_aqe']
     for row in plan_files.itertuples():
         app_id = row.appId
-        with open(row.filepath, 'r') as f:
+        with open(row.filepath, 'r', encoding='utf-8') as f:
             for json_line in f:
                 json_obj = json.loads(json_line)
                 sql_id = json_obj['sqlID']

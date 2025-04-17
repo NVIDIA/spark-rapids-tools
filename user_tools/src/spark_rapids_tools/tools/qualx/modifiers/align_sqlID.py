@@ -40,7 +40,7 @@ def max_intersection(df1, df2, junk_hashes: Optional[List[str]] = None):
         df1 = df1.loc[~df1.hash.isin(junk_hashes)]
         df2 = df2.loc[~df2.hash.isin(junk_hashes)]
 
-    list1, list2 = df1["hash"].tolist(), df2["hash"].tolist()
+    list1, list2 = df1['hash'].tolist(), df2['hash'].tolist()
 
     seq_matcher = SequenceMatcher(None, list1, list2, autojunk=False)
     matches = seq_matcher.get_matching_blocks()
@@ -54,16 +54,16 @@ def max_intersection(df1, df2, junk_hashes: Optional[List[str]] = None):
         hashes = list1[match.a : match.a + match.size]
         intersection_hashes.extend(hashes)
         # Retrieve the corresponding IDs from df1 and df2
-        ids1 = df1.iloc[match.a : match.a + match.size]["sqlID"].tolist()
-        ids2 = df2.iloc[match.b : match.b + match.size]["sqlID"].tolist()
+        ids1 = df1.iloc[match.a : match.a + match.size]['sqlID'].tolist()
+        ids2 = df2.iloc[match.b : match.b + match.size]['sqlID'].tolist()
         intersection_ids1.extend(ids1)
         intersection_ids2.extend(ids2)
 
     return pd.DataFrame(
         {
-            "sqlID_cpu": intersection_ids1,
-            "sqlID_gpu": intersection_ids2,
-            "hash": intersection_hashes,
+            'sqlID_cpu': intersection_ids1,
+            'sqlID_gpu': intersection_ids2,
+            'hash': intersection_hashes,
         }
     )
 
@@ -88,7 +88,7 @@ def align_sqlIDs(cpu_hashes: pd.DataFrame, gpu_hashes: pd.DataFrame, junk_hashes
         DataFrame of aligned SQL IDs.
     """
     df = max_intersection(cpu_hashes, gpu_hashes, junk_hashes)
-    df = df[["sqlID_cpu", "sqlID_gpu", "hash"]]  # re-order columns
+    df = df[['sqlID_cpu', 'sqlID_gpu', 'hash']]  # re-order columns
     return df
 
 

@@ -44,7 +44,7 @@ class QualxConfig(BaseConfig):
 
     featurizers: List[str] = Field(
         description='List of featurizer modules to use.',
-        examples=[['default.py', 'hash_plan.py', 'velox.py', 'photon.py', 'bytedance.py']])
+        examples=[['default.py', 'hash_plan.py', 'velox.py', 'photon.py']])
 
     modifiers: List[str] = Field(
         description='List of modifier modules to use.',
@@ -111,3 +111,27 @@ class QualxConfig(BaseConfig):
     def get_schema(cls) -> str:
         """Returns a JSON schema of the Qualx configuration."""
         return cls.model_json_schema()
+
+
+class QualxPipelineConfig(QualxConfig):
+    """Configuration for Qualx training and evaluation pipeline."""
+    dataset_name: str = Field(
+        description='Name of the dataset to use.',
+        examples=['mydataset'])
+
+    platform: str = Field(
+        description='Platform supported by Profiler and Qualification tools.',
+        examples=['onprem'])
+
+    alignment_file: str = Field(
+        default=None,
+        description='Path to CPU to GPU appId alignments (and optional sqlID alignments).',
+        examples=['alignment.csv'])
+
+    eventlogs: dict = Field(
+        description='Paths to CPU and GPU eventlogs.',
+        examples=[{'cpu': ['/path/to/cpu/eventlogs'], 'gpu': ['/path/to/gpu/eventlogs']}])
+
+    output_dir: str = Field(
+        description='Path to output directory.',
+        examples=['pipeline'])

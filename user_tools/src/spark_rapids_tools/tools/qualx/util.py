@@ -120,8 +120,8 @@ def find_eventlogs(path: str) -> List[str]:
     return eventlogs
 
 
-def get_abs_paths(paths: List[str], subdir: Optional[str] = None) -> List[str]:
-    """Get absolute paths for a list of paths, using an order of precedence and optional subdirectory.
+def get_abs_path(path: str, subdir: Optional[str] = None) -> str:
+    """Get absolute path for a given path, using an order of precedence and optional subdirectory.
 
     Order of precedence:
     1. absolute path, if provided
@@ -130,15 +130,15 @@ def get_abs_paths(paths: List[str], subdir: Optional[str] = None) -> List[str]:
 
     Parameters
     ----------
-    paths: List[str]
-        List of paths to get absolute paths for.
+    path: str
+        Path to get absolute path for.
     subdir: Optional[str]
-        Subdirectory to look for paths in.
+        Subdirectory to look for path in.
 
     Returns
     -------
-    List[str]
-        List of absolute paths.
+    str
+        Absolute path.
     """
     if subdir:
         qualx_dir = os.path.join(os.path.dirname(__file__), subdir)
@@ -149,23 +149,22 @@ def get_abs_paths(paths: List[str], subdir: Optional[str] = None) -> List[str]:
         config_dir = os.path.dirname(get_config().file_path)
         cwd = os.getcwd()
 
-    abs_paths = []
-    for path in paths:
-        if os.path.isabs(path) and os.path.exists(path):
-            # absolute path
-            abs_paths.append(path)
-        elif os.path.exists(os.path.join(qualx_dir, path)):
-            # path in the source directory
-            abs_paths.append(os.path.join(qualx_dir, path))
-        elif os.path.exists(os.path.join(config_dir, path)):
-            # path in the same directory as the config file
-            abs_paths.append(os.path.join(config_dir, path))
-        elif os.path.exists(os.path.join(cwd, path)):
-            # path in the current working directory
-            abs_paths.append(os.path.join(cwd, path))
-        else:
-            raise ValueError(f'{path} not found')
-    return abs_paths
+    if os.path.isabs(path) and os.path.exists(path):
+        # absolute path
+        abs_path = path
+    elif os.path.exists(os.path.join(qualx_dir, path)):
+        # path in the source directory
+        abs_path = os.path.join(qualx_dir, path)
+    elif os.path.exists(os.path.join(config_dir, path)):
+        # path in the same directory as the config file
+        abs_path = os.path.join(config_dir, path)
+    elif os.path.exists(os.path.join(cwd, path)):
+        # path in the current working directory
+        abs_path = os.path.join(cwd, path)
+    else:
+        raise ValueError(f'{path} not found')
+
+    return abs_path
 
 
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
