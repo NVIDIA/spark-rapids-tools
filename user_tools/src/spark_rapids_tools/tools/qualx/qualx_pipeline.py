@@ -63,22 +63,19 @@ def _create_dataset_json(
     str
         Path to the created dataset JSON file
     """
-    # Create app_meta mapping
+    # create app_meta mapping
     app_meta = {}
     for _, row in delta_df.iterrows():
         app_meta[row['appId_cpu']] = {'runType': 'CPU', 'scaleFactor': 1}
         app_meta[row['appId_gpu']] = {'runType': 'GPU', 'scaleFactor': 1}
 
-    # Create datasets/platform directory if it doesn't exist
+    # create datasets/platform directory if it doesn't exist
     platform_dir = os.path.join(datasets, platform)
     ensure_directory(platform_dir)
 
     dataset_path = os.path.join(platform_dir, f'{dataset_name}.json')
-    # if os.path.exists(dataset_path):
-    #     logger.warning('Dataset JSON already exists: %s', dataset_path)
-    #     return dataset_path
 
-    # Create dataset JSON
+    # create dataset JSON
     dataset_json = {
         dataset_name: {
             'eventlogs': [ds_eventlogs],
@@ -87,17 +84,10 @@ def _create_dataset_json(
         }
     }
 
-    # if alignment contains sqlID_cpu and sqlID_gpu, add alignment load_profiles_hook to dataset JSON
-    if 'sqlID_cpu' in delta_df.columns and 'sqlID_gpu' in delta_df.columns:
-        dataset_json[dataset_name]['load_profiles_hook'] = '${QUALX_DIR}/plugins/align_csv.py'
-    else:
-        # TODO: invoke hash alignment
-        dataset_json[dataset_name]['load_profiles_hook'] = '${QUALX_DIR}/plugins/align_hash.py'
-
-    # Set split function based on train flag
+    # set split function based on train flag
     dataset_json[dataset_name]['split_function'] = split_fn
 
-    # Write dataset JSON
+    # write dataset JSON
     with open(dataset_path, 'w', encoding='utf-8') as f:
         json.dump(dataset_json, f, indent=4)
 
@@ -126,7 +116,7 @@ def _unzip_eventlogs(
     ds_name: str
         Name of the dataset
     """
-    # Get path to QUAL_DATA_DIR destination directory
+    # get path to QUAL_DATA_DIR destination directory
     qualx_data_dir = os.getenv('QUALX_DATA_DIR')
     ds_eventlogs = os.path.join(qualx_data_dir, 'customers', dataset_basename, ds_name)
     if os.path.exists(os.path.expandvars(ds_eventlogs)):
@@ -181,14 +171,13 @@ def train_and_evaluate(
     config: str
         Path to YAML config file containing training parameters.
     """
-    # Read config
+    # read config
     cfg = get_config(config, cls=QualxPipelineConfig, reload=True)
 
-    # Extract config values
+    # extract config values
     alignment_file = get_abs_path(cfg.alignment_file)
     cpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['cpu']]
     gpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['gpu']]
-    output_dir = get_abs_path(cfg.output_dir)
     datasets = get_abs_path(cfg.datasets)
     platform = cfg.platform
     dataset_basename = cfg.dataset_name
@@ -199,12 +188,13 @@ def train_and_evaluate(
     model_name = model_config['model_name']
     n_trials = model_config['n_trials']
     qual_tool_filter = model_config['qual_tool_filter']
+    output_dir = os.path.join(os.path.dirname(cfg.file_path), cfg.output_dir)
 
     alignment_dir = Path(alignment_file).parent
     alignment_basename = Path(alignment_file).stem
     model_path = f'{output_dir}/{model_type}/{model_name}'
 
-    # Check for inprogress alignment file
+    # check for inprogress alignment file
     inprogress_files = glob.glob(f'{alignment_dir}/{alignment_basename}_*.inprogress')
     if inprogress_files:
         inprogress_file = sorted(inprogress_files)[-1]
@@ -217,26 +207,28 @@ def train_and_evaluate(
         ds_name = f'{dataset_basename}_{suffix}'
         inprogress_file = f'{alignment_dir}/{alignment_basename}_{suffix}.inprogress'
 
-    # Read alignment CSV
+    # read alignment CSV
     alignment_df = pd.read_csv(alignment_file)
     required_cols = ['appId_cpu', 'appId_gpu']
     missing_cols = [col for col in required_cols if col not in alignment_df.columns]
     if missing_cols:
         raise ValueError(f'Alignment CSV missing required columns: {missing_cols}')
 
-    # Get previous alignment file, if exists
+    # get previous alignment file, if exists
     prev_alignments = glob.glob(os.path.join(alignment_dir, f'{alignment_basename}_*.csv'))
     if len(prev_alignments) > 0:
-        # Get new rows between last alignment file and current alignment file
-        last_alignment = sorted(prev_alignments)[-1]
-        last_df = pd.read_csv(last_alignment)
-        last_df['processed'] = 1
-        delta_df = alignment_df.merge(
-            last_df[['appId_cpu', 'appId_gpu', 'processed']],
+        # load all previous alignment files, remove duplicates, and mark as processed
+        prev_df = pd.concat([pd.read_csv(f) for f in prev_alignments])
+        prev_df = prev_df.drop_duplicates()
+        prev_df['processed'] = 1
+
+        # merge with current alignment file
+        alignment_df = alignment_df.merge(
+            prev_df,
             how='outer',
-            on=['appId_cpu', 'appId_gpu'],
+            on=list(alignment_df.columns),
         )
-        delta_df = delta_df.loc[delta_df['processed'].isna()]
+        delta_df = alignment_df.loc[alignment_df['processed'].isna()]
         delta_df = delta_df.drop(columns=['processed'])
     else:
         delta_df = alignment_df
@@ -245,11 +237,13 @@ def train_and_evaluate(
         logger.info('No new alignments found')
         return
 
-    # For new alignment with new data, mark as in progress
+    logger.info('New alignment rows: %d', len(delta_df))
+
+    # for new alignment with new data, mark as in progress
     if not inprogress_files:
         shutil.copy(alignment_file, inprogress_file)
 
-    # Unzip and archive the eventlogs to QUAL_DATA_DIR
+    # unzip and archive the eventlogs to QUAL_DATA_DIR
     ds_eventlogs = _unzip_eventlogs(
         delta_df,
         cpu_eventlogs,
@@ -258,7 +252,7 @@ def train_and_evaluate(
         ds_name
     )
 
-    # If trained model exists, evaluate new dataset against existing model
+    # if trained model exists, evaluate new dataset against existing model
     if os.path.exists(model_path):
         dataset_json = _create_dataset_json(
             delta_df,
@@ -271,7 +265,7 @@ def train_and_evaluate(
 
         preprocess(datasets)
 
-        # Evaluate the previous model on the new dataset
+        # evaluate the previous model on the new dataset
         with open(dataset_json, 'r', encoding='utf-8') as f:
             logger.info('Evaluating %s model on %s', model_name, dataset_json)
             dataset = json.load(f)
@@ -288,7 +282,7 @@ def train_and_evaluate(
         output_dir_archive = f'{output_dir}_{suffix}'
         shutil.move(output_dir, output_dir_archive)
 
-    # Create dataset JSON for training
+    # create dataset JSON for training
     _create_dataset_json(
         delta_df,
         ds_eventlogs,
@@ -298,17 +292,17 @@ def train_and_evaluate(
         split_fn=train_split_fn
     )
 
-    # Preprocess the data
+    # preprocess the data
     preprocess(datasets)
 
-    # Train the model
+    # train the model
     train(
         dataset=datasets,
         model=model_path,
         n_trials=n_trials
     )
 
-    # Evaluate the model
+    # evaluate the model
     dataset_json_files = glob.glob(os.path.join(datasets, '**', '*.json'), recursive=True)
     for dataset_json in dataset_json_files:
         with open(dataset_json, 'r', encoding='utf-8') as f:
@@ -323,12 +317,12 @@ def train_and_evaluate(
                     qual_tool_filter=qual_tool_filter
                 )
 
-    # TODO: Compare model metrics against previous model
-    # TODO: Report model metrics
-    # TODO: Split new dataset into train/test/validation sets
-    # TODO: Re-train model and re-evaluate
+    # TODO: compare model metrics against previous model
+    # TODO: report model metrics
+    # TODO: split new dataset into train/test/validation sets
+    # TODO: re-train model and re-evaluate
 
-    # Mark completion by renaming the inprogress alignment file
+    # mark completion by renaming the inprogress alignment file
     archive_file = inprogress_file.replace('.inprogress', '.csv')
     shutil.move(inprogress_file, archive_file)
 

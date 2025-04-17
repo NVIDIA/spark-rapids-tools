@@ -455,7 +455,7 @@ def preprocess(dataset: str, config: Optional[str] = None) -> None:
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     platforms, _ = get_dataset_platforms(dataset)
 
@@ -502,7 +502,7 @@ def train(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
@@ -621,7 +621,7 @@ def predict(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
@@ -790,7 +790,7 @@ def _predict_cli(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
     assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
@@ -860,7 +860,7 @@ def evaluate(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
@@ -1114,7 +1114,7 @@ def evaluate_summary(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     summary_df, _ = _read_platform_scores(evaluate, score, split)
     print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
@@ -1152,7 +1152,7 @@ def compare(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     # compare MAPE scores per dataset
     curr_df = _read_dataset_scores(current, score, granularity, split)
@@ -1245,7 +1245,7 @@ def shap(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config, reload=True)
+    get_config(config)
 
     # get model shap values w/ feature distribution metrics
     model_json_path = _get_model_path(platform, model)

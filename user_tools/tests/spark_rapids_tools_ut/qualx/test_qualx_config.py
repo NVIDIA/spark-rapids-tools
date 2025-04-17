@@ -15,7 +15,8 @@
 """Test qualx_config module"""
 import os
 import tempfile
-import pytest
+
+import pytest  # pylint: disable=import-error
 from pydantic import ValidationError
 
 from spark_rapids_tools.tools.qualx.qualx_config import QualxConfig, QualxPipelineConfig

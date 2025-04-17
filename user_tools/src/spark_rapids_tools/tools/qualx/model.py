@@ -45,6 +45,7 @@ ignored_features = {
     'appName',
     'description',
     'fraction_supported',
+    'hash',
     'jobStartTime_min',
     'pluginEnabled',
     'runType',
