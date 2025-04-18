@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pw
 
 # Define resource directory
 RESOURCE_DIR="src/spark_rapids_pytools/resources"
+TOOLS_RESOURCE_FOLDER="tools-resources"
 PREPACKAGED_FOLDER="csp-resources"
 
 # Constants and variables of core module
@@ -37,6 +38,8 @@ TOOLS_JAR_FILE=""
 
 
 # Function to run mvn command to build the tools jar
+# This function skips the test cases and builds the jar file and only
+# picks the jar file without sources/javadoc/tests..
 build_jar_from_source() {
   # store teh current directory
   local curr_dir
@@ -62,11 +65,22 @@ build_jar_from_source() {
   cd "$curr_dir" || exit
 }
 
-# Function to run the dependency downloader script for fat mode
+# Function to run the dependency downloader script for non-fat/fat mode
+# prepackage_mgr.py file downloads the dependencies for the csp-related resources
+# in case of fat mode.
+# In case of non-fat mode, it just copies the tools jar into the tools-resources folder
+# --fetch_all_csp=True toggles the fat/non-fat mode for the script
 download_web_dependencies() {
   local res_dir="$1"
+  local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
-  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE"
+  if [ "$is_fat_mode" = "true" ]; then
+    echo "Downloading dependencies for fat mode"
+    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=True
+  else
+    echo "Downloading dependencies for non-fat mode"
+    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=False
+  fi
   if [ $? -ne 0 ]; then
     echo "Dependency download failed for fat mode. Exiting"
     exit 1
@@ -76,6 +90,8 @@ download_web_dependencies() {
 # Function to remove dependencies from the fat directory
 remove_web_dependencies() {
   local res_dir="$1"
+  # remove tools jar
+  rm -rf "${res_dir:?}"/"$TOOLS_RESOURCE_FOLDER"
   # remove folder recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
@@ -90,12 +106,23 @@ pre_build() {
 
 # Build process
 build() {
+  # Deletes pre-existing csp-resources.tgz folder
   remove_web_dependencies "$RESOURCE_DIR"
+  # Build the tools jar from source
+  build_jar_from_source
   if [ "$build_mode" = "fat" ]; then
     echo "Building in fat mode"
-    build_jar_from_source
-    download_web_dependencies "$RESOURCE_DIR"
+    # This will download the dependencies and create the csp-resources
+    # and copy the dependencies into the csp-resources folder
+    # Tools resources are copied into the tools-resources folder
+    download_web_dependencies "$RESOURCE_DIR" "true"
+  else
+    echo "Building in non-fat mode"
+    # This will just copy the tools jar built from source into the tools-resources folder
+    download_web_dependencies "$RESOURCE_DIR" "false"
   fi
+  # Builds the python wheel file
+  # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
 }
 

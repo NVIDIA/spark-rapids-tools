@@ -102,7 +102,7 @@ where = ["src"]
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
 [tool.setuptools.package-data]
-"*"= ["*.json", "*.yaml", "*.ms", "*.sh", "*.tgz", "*.properties"]
+"*"= ["*.json", "*.yaml", "*.ms", "*.sh", "*.tgz", "*.properties","*.jar"]
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
