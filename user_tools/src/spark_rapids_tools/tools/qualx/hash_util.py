@@ -156,19 +156,20 @@ def normalize_plan(plan):
         """Normalize a single node in the plan by removing and/or renaming to canonical form."""
         if isinstance(node, dict):
             if 'nodeName' in node:
-                if any(node['nodeName'] == name for name in remove_nodes_exact):
+                node_name = node['nodeName']
+                if any(node_name == name for name in remove_nodes_exact):
                     # remove nodes in the remove_nodes_exact list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
-                    raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
-                if any(node['nodeName'].startswith(name) for name in remove_nodes_prefix):
+                    raise ValueError(f'Node {node_name} should be removed, but has more than one child.')
+                if any(node_name.startswith(name) for name in remove_nodes_prefix):
                     # remove nodes in the remove_nodes_prefix list
                     if len(node['children']) == 1:
                         return normalize_node(node['children'][0])
-                    raise ValueError(f'Node {node["nodeName"]} should be removed, but has more than one child.')
+                    raise ValueError(f'Node {node_name} should be removed, but has more than one child.')
                 # otherwise, rename nodes using the rename_nodes dictionary
                 for prefix, replacement in rename_nodes.items():
-                    if node['nodeName'].startswith(prefix):
+                    if node_name.startswith(prefix):
                         node['nodeName'] = replacement
                 node['children'] = [normalize_node(child) for child in node['children']]
         return node
