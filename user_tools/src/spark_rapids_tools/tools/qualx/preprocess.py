@@ -268,13 +268,14 @@ def load_profiles(
 
         # filter files by app_ids in app_meta
         toc_list = []
+        app_meta_list = []
         for app_id, meta in app_meta.items():
             # get jobName from app_meta
             job_name = meta.get('jobName', None)
 
             # filter profiler files by app_id and attach ds_name, appId, table_name
             # convert glob pattern to regex pattern
-            app_id = app_id.replace('*', '.*').replace('**', '.*')
+            app_id = app_id.replace('*', '.*')
             app_id_files = [f for f in profile_files if re.search(app_id, f)]
 
             if app_id_files:
@@ -283,6 +284,13 @@ def load_profiles(
                 tmp['ds_name'] = f'{ds_name}:{job_name}' if job_name else ds_name
                 tmp['appId'] = fp_split.str[-2]
                 tmp['table_name'] = fp_split.str[-1].str.split('.').str[0]
+
+                # collect mapping of appId to meta (after globbing)
+                tmp_app_meta = tmp[['appId']].drop_duplicates()
+                for key, value in meta.items():
+                    tmp_app_meta[key] = value
+                app_meta_list.append(tmp_app_meta)
+
                 toc_list.append(tmp)
             else:
                 logger.warning('No CSV/JSON files found for: %s:%s', ds_name, app_id)
@@ -328,10 +336,9 @@ def load_profiles(
         raw_features[f'platform_{platform}'] = 1
 
         # append columns from app_meta
-        app_meta_df = (
-            pd.DataFrame(app_meta).T.reset_index().rename(columns={'index': 'appId'})
-        ).infer_objects(copy=False)
-        raw_features = raw_features.merge(app_meta_df, on='appId', how='left')
+        if app_meta_list:
+            app_meta_df = pd.concat(app_meta_list)
+            raw_features = raw_features.merge(app_meta_df, on='appId', how='left')
         raw_features.fillna(app_meta_default, inplace=True)  # fill nans with default values
 
         # impute missing features
