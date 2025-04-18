@@ -21,6 +21,7 @@ import json
 import glob
 import os
 import pandas as pd
+import re
 from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
@@ -78,6 +79,9 @@ def get_modifiers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.Data
         return _modifiers
 
     modifier_paths = get_config().modifiers
+    if not modifier_paths:
+        return []
+
     abs_paths = [get_abs_path(f, 'modifiers') for f in modifier_paths]
 
     # load modifiers
@@ -268,7 +272,10 @@ def load_profiles(
             job_name = meta.get('jobName', None)
 
             # filter profiler files by app_id and attach ds_name, appId, table_name
-            app_id_files = [f for f in profile_files if app_id in f]
+            # convert glob pattern to regex pattern
+            app_id = app_id.replace('*', '.*').replace('**', '.*')
+            app_id_files = [f for f in profile_files if re.search(app_id, f)]
+
             if app_id_files:
                 tmp = pd.DataFrame({'filepath': app_id_files})
                 fp_split = tmp['filepath'].str.split(r'/')

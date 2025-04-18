@@ -46,7 +46,8 @@ class QualxConfig(BaseConfig):
         description='List of featurizer modules to use.',
         examples=[['default.py', 'hash_plan.py', 'velox.py', 'photon.py']])
 
-    modifiers: List[str] = Field(
+    modifiers: Optional[List[str]] = Field(
+        default=[],
         description='List of modifier modules to use.',
         examples=[['align_hash.py']])
 

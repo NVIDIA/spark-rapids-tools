@@ -4,7 +4,7 @@ featurizers:
   - default.py
   - hash_plan.py
 modifiers:
-  - align_sql_id.py
+#  - align_sql_id.py
 label: Duration
 split_functions:
   train: split_stratified.py
