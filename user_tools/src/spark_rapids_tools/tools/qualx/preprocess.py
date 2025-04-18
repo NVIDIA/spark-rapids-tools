@@ -20,8 +20,9 @@ from typing import Any, Callable, List, Mapping, Optional, Set, Tuple
 import json
 import glob
 import os
-import pandas as pd
 import re
+
+import pandas as pd
 from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
