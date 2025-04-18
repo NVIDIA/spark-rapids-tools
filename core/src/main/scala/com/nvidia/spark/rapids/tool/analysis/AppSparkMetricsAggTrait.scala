@@ -29,13 +29,15 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * @param sqlAnalyzer optional AppSQLPlanAnalyzer used to aggregate diagnostic metrics,
    *                    this is already present in ApplicationInfo for Profiler, but for
    *                    Qualification this argument needs to be provided.
+   * @param enableDiagnosticViews whether to enable diagnostic views generation
    * @return a single record of AggRawMetricsResult containing all the raw aggregated Spark
    *         metrics
    */
   def getAggRawMetrics(
       app: AppBase,
       index: Int = 1,
-      sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None): AggRawMetricsResult = {
+      sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None,
+      enableDiagnosticViews: Boolean = false): AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
     val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
     AggRawMetricsResult(
@@ -46,19 +48,25 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
       Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
-      analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
+      if (enableDiagnosticViews) {
+        analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer)
+      } else {
+        Seq.empty
+      })
   }
 
   /**
    * Given a list of applications, this method aggregates the raw metrics for all the applications
    * and returns the results as a single record
    * @param apps the sequence of the apps to be analyzed
+   * @param enableDiagnosticViews whether to enable diagnostic views generation
    * @return a single record of all the aggregated metrics
    */
   def getAggregateRawMetrics(
-      apps: Seq[AppBase]): AggRawMetricsResult = {
+      apps: Seq[AppBase],
+      enableDiagnosticViews: Boolean = false): AggRawMetricsResult = {
     zipAppsWithIndex(apps).map { case (app, index) =>
-      getAggRawMetrics(app, index)
+      getAggRawMetrics(app, index, enableDiagnosticViews = enableDiagnosticViews)
     }.reduce { (agg1, agg2) =>
       AggRawMetricsResult(
         agg1.jobAggs ++ agg2.jobAggs,
