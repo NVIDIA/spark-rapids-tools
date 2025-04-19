@@ -22,16 +22,31 @@ Environment variables:
 - QUALX_LABEL: targeted label column for XGBoost model.
 - SPARK_RAPIDS_TOOLS_JAR: path to Spark RAPIDS Tools JAR file.
 """
-import os
+from typing import Type
+from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_tools.tools.qualx.qualx_config import QualxConfig
+
+
+_config = None
+
+
+def get_config(path: str = None, *, cls: Type[QualxConfig] = QualxConfig, reload: bool = False) -> QualxConfig:
+    global _config  # pylint: disable=global-statement
+
+    if _config is None or reload:
+        # get path to resources/qualx-conf.yaml
+        config_path = path if path else str(Utils.resource_path('qualx-conf.yaml'))
+        _config = cls.load_from_file(config_path)
+        if _config is None:
+            raise ValueError(f'Failed to load Qualx configuration from: {config_path}')
+    return _config
 
 
 def get_cache_dir() -> str:
     """Get cache directory to save Profiler output."""
-    return os.environ.get('QUALX_CACHE_DIR', 'qualx_cache')
+    return get_config().cache_dir
 
 
 def get_label() -> str:
     """Get targeted label column for XGBoost model."""
-    label = os.environ.get('QUALX_LABEL', 'Duration')
-    assert label in ['Duration', 'duration_sum']
-    return label
+    return get_config().label

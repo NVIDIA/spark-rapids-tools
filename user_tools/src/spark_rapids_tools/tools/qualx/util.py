@@ -27,13 +27,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple, Callable
+from typing import Dict, List, Optional, Tuple, Callable
 
 import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_tools.tools.qualx.config import get_label
+from spark_rapids_tools.tools.qualx.config import get_config, get_label
 
 
 INTERMEDIATE_DATA_ENABLED = False
@@ -118,6 +118,53 @@ def find_eventlogs(path: str) -> List[str]:
         eventlogs = [path]
 
     return eventlogs
+
+
+def get_abs_path(path: str, subdir: Optional[str] = None) -> str:
+    """Get absolute path for a given path, using an order of precedence and optional subdirectory.
+
+    Order of precedence:
+    1. absolute path, if provided
+    2. qualx source directory
+    3. current working directory
+
+    Parameters
+    ----------
+    path: str
+        Path to get absolute path for.
+    subdir: Optional[str]
+        Subdirectory to look for path in.
+
+    Returns
+    -------
+    str
+        Absolute path.
+    """
+    if subdir:
+        qualx_dir = os.path.join(os.path.dirname(__file__), subdir)
+        config_dir = os.path.join(os.path.dirname(get_config().file_path), subdir)
+        cwd = os.path.join(os.getcwd(), subdir)
+    else:
+        qualx_dir = os.path.dirname(__file__)
+        config_dir = os.path.dirname(get_config().file_path)
+        cwd = os.getcwd()
+
+    if os.path.isabs(path) and os.path.exists(path):
+        # absolute path
+        abs_path = path
+    elif os.path.exists(os.path.join(qualx_dir, path)):
+        # path in the source directory
+        abs_path = os.path.join(qualx_dir, path)
+    elif os.path.exists(os.path.join(config_dir, path)):
+        # path in the same directory as the config file
+        abs_path = os.path.join(config_dir, path)
+    elif os.path.exists(os.path.join(cwd, path)):
+        # path in the current working directory
+        abs_path = os.path.join(cwd, path)
+    else:
+        raise ValueError(f'{path} not found')
+
+    return abs_path
 
 
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
@@ -266,14 +313,7 @@ def compute_precision_recall(
 
 
 def load_plugin(plugin_path: str) -> types.ModuleType:
-    """Dynamically load plugin modules with helper functions for dataset-specific code.
-
-    Supported APIs:
-
-    def load_profiles_hook(df: pd.DataFrame) -> pd.DataFrame:
-        # add dataset-specific modifications
-        return df
-    """
+    """Dynamically load plugin modules with helper functions for dataset-specific code."""
     plugin_path = os.path.expandvars(plugin_path)
     plugin_name = Path(plugin_path).name.split('.')[0]
     if not os.path.exists(plugin_path):
@@ -282,7 +322,7 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    logger.info('Successfully loaded plugin: %s', plugin_path)
+    logger.info('Loaded plugin: %s', plugin_path)
     return module
 
 

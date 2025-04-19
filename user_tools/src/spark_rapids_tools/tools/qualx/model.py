@@ -20,8 +20,10 @@ import random
 import shap
 import numpy as np
 import pandas as pd
+
 import xgboost as xgb
 from xgboost import Booster
+
 from spark_rapids_tools.tools.qualx.config import get_label
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
@@ -36,7 +38,6 @@ logger = get_logger(__name__)
 FILTER_SPILLS = False  # remove queries with any disk/mem spill
 LOG_LABEL = True  # use log(y) as target
 
-
 # non-training features (and labels)
 ignored_features = {
     'appDuration',
@@ -44,6 +45,7 @@ ignored_features = {
     'appName',
     'description',
     'fraction_supported',
+    'hash',
     'jobStartTime_min',
     'pluginEnabled',
     'runType',
@@ -222,9 +224,9 @@ def extract_model_features(
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
     label = get_label()
-    expected_model_features = expected_raw_features - ignored_features
+    expected_model_features = expected_raw_features() - ignored_features
     expected_model_features.remove(label)
-    missing = expected_raw_features - set(df.columns)
+    missing = expected_raw_features() - set(df.columns)
     if missing:
         logger.warning('Input dataframe is missing expected raw features: %s', missing)
 

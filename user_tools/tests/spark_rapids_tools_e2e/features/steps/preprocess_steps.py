@@ -15,6 +15,7 @@
 import glob
 import os
 from behave import given, when, then
+from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     expected_raw_features
@@ -63,6 +64,7 @@ def step_impl(context, label):
     """Set the QUALX_LABEL environment variable to the specified value."""
     context.qualx_label = label
     os.environ['QUALX_LABEL'] = label
+    get_config(reload=True)
 
 
 @given('sample event logs in the QUALX_DATA_DIR')
@@ -106,8 +108,9 @@ def verify_preprocessing_success(context):
 def verify_expected_features(context, label):
     """Verify that the preprocessed data contains all expected features for the given label."""
     actual_features = set(context.profile_df.columns)
-    missing_features = expected_raw_features - actual_features
-    extra_features = actual_features - expected_raw_features
+    expected_features = expected_raw_features()
+    missing_features = expected_features - actual_features
+    extra_features = actual_features - expected_features
 
     assert label in actual_features, f"Label {label} should be in the expected features"
     assert not missing_features, f"Missing expected features: {missing_features}"

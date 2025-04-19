@@ -31,7 +31,8 @@ class TestPreprocess(SparkRapidsToolsUT):
             'col2': [4, 5, 6]
         })
 
-        imputed_df = impute(input_df)
+        expected_features = expected_raw_features()
+        imputed_df = impute(input_df, expected_features)
         df_columns = set(imputed_df.columns)
 
         # should not have extra columns
@@ -39,7 +40,7 @@ class TestPreprocess(SparkRapidsToolsUT):
         assert 'col2' not in df_columns
 
         # should have all expected raw features
-        assert df_columns == expected_raw_features
+        assert df_columns == expected_features
 
         # fraction_supported should be 1.0
         assert imputed_df['fraction_supported'].iloc[0] == 1.0
