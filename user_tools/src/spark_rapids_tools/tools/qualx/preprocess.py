@@ -236,10 +236,6 @@ def load_profiles(
     modifiers = get_modifiers()
 
     for ds_name, ds_meta in datasets.items():
-        # get app_meta, or infer from directory structure of eventlogs
-        app_meta = ds_meta.get('app_meta', infer_app_meta(ds_meta['eventlogs']))
-        # get default app_meta, or use CPU and scaleFactor 1 if not provided
-        app_meta_default = app_meta.get('default', {'runType': 'CPU', 'scaleFactor': 1})
         # get platform from dataset metadata, or use onprem if not provided
         platform = ds_meta.get('platform', 'onprem')
 
@@ -251,12 +247,23 @@ def load_profiles(
         if 'profiles' in ds_meta:
             # during prediction, we provide a list of profile paths from qual tool output
             profile_paths = ds_meta['profiles']
+            app_meta = ds_meta['app_meta']
         elif profile_dir is not None:
             # during training/evaluation, we expect profile_dir to point to the qualx_cache
             profile_paths = glob.glob(f'{profile_dir}/{ds_name}/*')
+            # get app_meta, or infer from directory structure of eventlogs
+            app_meta = ds_meta.get('app_meta', infer_app_meta(ds_meta['eventlogs']))
         else:
             logger.error('No profile_dir specified.')
             continue
+
+        # get default app_meta
+        if 'default' in app_meta:
+            app_meta_default = app_meta['default']
+            if len(app_meta) != 1:
+                raise ValueError(f'Default app_meta for {ds_name} cannot be used with additional entries.')
+        else:
+            app_meta_default = {'runType': 'CPU', 'scaleFactor': 1}
 
         # get list of csv files and json files for all profiles, filtering out profiling_status.csv
         profile_files = []
@@ -275,8 +282,11 @@ def load_profiles(
 
             # filter profiler files by app_id and attach ds_name, appId, table_name
             # convert glob pattern to regex pattern
-            app_id = app_id.replace('*', '.*')
-            app_id_files = [f for f in profile_files if re.search(app_id, f)]
+            if app_id == 'default':
+                app_id_files = profile_files
+            else:
+                app_id = app_id.replace('*', '.*')
+                app_id_files = [f for f in profile_files if re.search(app_id, f)]
 
             if app_id_files:
                 tmp = pd.DataFrame({'filepath': app_id_files})
@@ -285,7 +295,7 @@ def load_profiles(
                 tmp['appId'] = fp_split.str[-2]
                 tmp['table_name'] = fp_split.str[-1].str.split('.').str[0]
 
-                # collect mapping of appId to meta (after globbing)
+                # collect mapping of appId (after globbing) to meta
                 tmp_app_meta = tmp[['appId']].drop_duplicates()
                 for key, value in meta.items():
                     tmp_app_meta[key] = value

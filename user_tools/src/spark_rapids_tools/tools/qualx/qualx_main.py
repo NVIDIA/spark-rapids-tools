@@ -901,7 +901,7 @@ def evaluate(
     node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
 
     logger.debug('Loading profiler tool CSV files.')
-    profile_df = load_profiles( datasets, profile_dir=profile_dir)  # w/ GPU rows
+    profile_df = load_profiles(datasets, profile_dir=profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
         datasets,
         profile_dir=profile_dir,
