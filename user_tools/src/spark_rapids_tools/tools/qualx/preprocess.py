@@ -45,7 +45,7 @@ _modifiers = None  # global cache of modifiers
 
 
 def get_alignment() -> pd.DataFrame:
-    """Get alignment_df from alignment_file."""
+    """Get alignment_df from alignment_file, including historical alignments."""
     alignment_file = get_config().alignment_file
 
     if alignment_file is None:
@@ -55,7 +55,23 @@ def get_alignment() -> pd.DataFrame:
     if not abs_path:
         raise ValueError(f'Alignment file not found: {alignment_file}')
 
-    return pd.read_csv(abs_path)
+    # concatenate all CSV files in alignment_file directory
+    parent_dir = os.path.dirname(abs_path)
+    base_name = os.path.basename(abs_path)
+    csv_files = glob.glob(f'{parent_dir}/{base_name}_*.csv')
+
+    chunk_size = 100
+    alignment_dfs = []
+    for i in range(0, len(csv_files), chunk_size):
+        chunk_files = csv_files[i:i + chunk_size]
+        chunk_df = pd.concat([pd.read_csv(f) for f in chunk_files], ignore_index=True)
+        chunk_df.drop_duplicates(inplace=True)
+        alignment_dfs.append(chunk_df)
+
+    alignment_df = pd.concat(alignment_dfs, ignore_index=True)
+    alignment_df.drop_duplicates(inplace=True)
+
+    return alignment_df
 
 
 def get_featurizers(reload: bool = False) -> List[Callable[[pd.DataFrame], pd.DataFrame]]:

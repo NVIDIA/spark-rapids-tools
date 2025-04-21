@@ -282,6 +282,8 @@ def train_and_evaluate(
         output_dir_archive = f'{output_dir}_{suffix}'
         shutil.move(output_dir, output_dir_archive)
 
+    logger.info('Adding new dataset to training')
+
     # create dataset JSON for training
     _create_dataset_json(
         delta_df,
