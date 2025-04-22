@@ -12,19 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cache_dir: qualx_cache
-datasets: datasets
-featurizers:
-  - default.py
-  - hash_plan.py
-modifiers:
-#  - align_sql_id.py
-label: Duration
-split_functions:
-  train: split_train_val.py
-  test: split_all_test.py
-model_type: xgboost
-xgboost:
-  model_name: xgb_model.json
-  n_trials: 200
-  qual_tool_filter: stage
+"""Default split functions."""
+
+import pandas as pd
+
+
+def split_function(features: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    """Sets all rows to 'test' split."""
+    # pylint: disable=unused-argument
+    features['split'] = 'test'
+    return features

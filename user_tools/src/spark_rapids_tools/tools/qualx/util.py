@@ -27,7 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Callable
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -120,51 +120,60 @@ def find_eventlogs(path: str) -> List[str]:
     return eventlogs
 
 
-def get_abs_path(path: str, subdir: Optional[str] = None) -> str:
+def get_abs_path(path: str, subdir: Optional[Union[str, List[str]]] = None) -> str:
     """Get absolute path for a given path, using an order of precedence and optional subdirectory.
 
     Order of precedence:
     1. absolute path, if provided
     2. qualx source directory
-    3. current working directory
+    3. config directory
+    4. current working directory
 
     Parameters
     ----------
     path: str
         Path to get absolute path for.
-    subdir: Optional[str]
-        Subdirectory to look for path in.
+    subdir: Optional[Union[str, List[str]]]
+        Subdirectory (or list of subdirectories) to look for path in.
 
     Returns
     -------
     str
         Absolute path.
     """
-    if subdir:
-        qualx_dir = os.path.join(os.path.dirname(__file__), subdir)
-        config_dir = os.path.join(os.path.dirname(get_config().file_path), subdir)
-        cwd = os.path.join(os.getcwd(), subdir)
-    else:
-        qualx_dir = os.path.dirname(__file__)
-        config_dir = os.path.dirname(get_config().file_path)
-        cwd = os.getcwd()
-
     if os.path.isabs(path) and os.path.exists(path):
-        # absolute path
-        abs_path = path
-    elif os.path.exists(os.path.join(qualx_dir, path)):
-        # path in the source directory
-        abs_path = os.path.join(qualx_dir, path)
-    elif os.path.exists(os.path.join(config_dir, path)):
-        # path in the same directory as the config file
-        abs_path = os.path.join(config_dir, path)
-    elif os.path.exists(os.path.join(cwd, path)):
-        # path in the current working directory
-        abs_path = os.path.join(cwd, path)
-    else:
-        raise ValueError(f'{path} not found')
+        # absolute path, return as-is
+        return path
 
-    return abs_path
+    # otherwise, search for in qualx source directory, config directory, and current working directory
+    qualx_dir = os.path.dirname(__file__)
+    config_dir = os.path.dirname(get_config().file_path)
+    cwd = os.getcwd()
+
+    search_paths = [qualx_dir, config_dir, cwd]
+
+    if not subdir:
+        subdir_paths = [None]
+    elif isinstance(subdir, str):
+        subdir_paths = [subdir]
+    elif isinstance(subdir, list):
+        subdir_paths = subdir
+    else:
+        raise ValueError(f'Invalid subdirectory: {subdir}')
+
+    for subdir_path in subdir_paths:
+        if subdir_path:
+            search_paths_with_subdir = [os.path.join(search_path, subdir_path) for search_path in search_paths]
+        else:
+            search_paths_with_subdir = search_paths
+
+        for search_path in search_paths_with_subdir:
+            if os.path.exists(os.path.join(search_path, path)):
+                # path in the source directory
+                abs_path = os.path.join(search_path, path)
+                return abs_path
+
+    raise ValueError(f'{path} not found')
 
 
 def get_dataset_platforms(dataset: str) -> Tuple[List[str], str]:
@@ -322,7 +331,7 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
     spec = importlib.util.spec_from_file_location(plugin_name, plugin_path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    logger.info('Loaded plugin: %s', plugin_path)
+    logger.debug('Loaded plugin: %s', plugin_path)
     return module
 
 

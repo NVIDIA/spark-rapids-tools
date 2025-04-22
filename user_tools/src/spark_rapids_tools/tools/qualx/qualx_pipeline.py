@@ -14,11 +14,11 @@
 
 """High level pipeline for preprocessing, training, and evaluating QualX models in a more automated manner."""
 
+from typing import List, Union
 import glob
 import json
 import os
 import shutil
-from typing import List
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -40,7 +40,7 @@ def _create_dataset_json(
         datasets: str,
         platform: str,
         dataset_name: str,
-        split_fn: str) -> str:
+        split_fn: Union[str, dict]) -> str:
     """Create a dataset JSON file from alignment CSV and eventlogs.
 
     Parameters
@@ -55,8 +55,8 @@ def _create_dataset_json(
         Platform name (e.g. 'onprem', 'dataproc')
     dataset_name: str
         Base name for the dataset
-    split_fn: str
-        Path to split function to use for the dataset
+    split_fn: Union[str, dict]
+        Path to split function, or dictionary of path and args
 
     Returns
     -------
@@ -181,8 +181,6 @@ def train_and_evaluate(
     datasets = get_abs_path(cfg.datasets)
     platform = cfg.platform
     dataset_basename = cfg.dataset_name
-    train_split_fn = get_abs_path(cfg.split_functions['train'], 'plugins')
-    test_split_fn = get_abs_path(cfg.split_functions['test'], 'plugins')
     model_type = cfg.model_type
     model_config = cfg.model_dump()[model_type]
     model_name = model_config['model_name']
@@ -193,6 +191,9 @@ def train_and_evaluate(
     alignment_dir = Path(alignment_file).parent
     alignment_basename = Path(alignment_file).stem
     model_path = f'{output_dir}/{model_type}/{model_name}'
+
+    train_split_fn = cfg.split_functions['train']
+    test_split_fn = cfg.split_functions['test']
 
     # check for inprogress alignment file
     inprogress_files = glob.glob(f'{alignment_dir}/{alignment_basename}_*.inprogress')

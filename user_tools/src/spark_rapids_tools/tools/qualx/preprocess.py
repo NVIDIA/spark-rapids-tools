@@ -342,7 +342,7 @@ def load_profiles(
             )
             if features.empty:
                 logger.warning(
-                    'Featurizer %s returned an empty DataFrame for: %s',
+                    'Featurizer (%s) returned an empty DataFrame for: %s',
                     featurizer.__name__,
                     ds_name,
                 )

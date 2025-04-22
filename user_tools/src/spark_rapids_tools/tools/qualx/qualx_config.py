@@ -59,9 +59,15 @@ class QualxConfig(BaseConfig):
         ),
         examples=['Duration', 'duration_sum'])
 
-    split_functions: dict = Field(
-        description='Mapping of split types to their implementation files.',
-        examples=[{'train': 'plugins/split_stratified.py', 'test': 'plugins/split_all_test.py'}])
+    split_functions: Union[dict, str] = Field(
+        description='Path to split function, or dictionary of path and args',
+        examples=[{
+            'train': {
+                'path': 'split_stratified.py',
+                'args': {'threshold': 1.0, 'test_pct': 0.2, 'val_pct': 0.2}
+            },
+            'test': 'split_all_test.py',
+        }])
 
     model_type: str = Field(
         description='Type of model to use.',

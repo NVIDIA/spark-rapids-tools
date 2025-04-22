@@ -14,7 +14,7 @@
 
 """ Main module for QualX related commands """
 
-from typing import Callable, List, Optional, Tuple, Set
+from typing import Callable, List, Optional, Set, Tuple, Union
 import glob
 import json
 import os
@@ -43,14 +43,13 @@ from spark_rapids_tools.tools.qualx.preprocess import (
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     compute_shapley_values,
-    split_all_test,
-    split_train_val,
 )
 from spark_rapids_tools.tools.qualx.model import train as train_model, predict as predict_model
 from spark_rapids_tools.tools.qualx.util import (
     compute_accuracy,
     ensure_directory,
     find_paths,
+    get_abs_path,
     get_logger,
     get_dataset_platforms,
     load_plugin,
@@ -189,6 +188,22 @@ def _get_qual_data(qual: Optional[str]) -> Tuple[
     )
 
     return node_level_supp, qualtool_output, qual_metrics
+
+
+def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    if isinstance(split_fn, dict):
+        if all(key in split_fn for key in ['path', 'args']):
+            plugin_path = split_fn['path']
+            plugin_kwargs = split_fn['args']
+        else:
+            # should never get here, otherwise fix split_fn config
+            raise ValueError(f'Invalid split_function: {split_fn}')
+    else:  # split_fn is a string
+        plugin_path = split_fn
+        plugin_kwargs = {}
+
+    plugin = load_plugin(get_abs_path(plugin_path, ['split_functions', 'plugins']))
+    return lambda df: plugin.split_function(df, **plugin_kwargs) if plugin_kwargs else plugin.split_function
 
 
 def _compute_summary(results: pd.DataFrame) -> pd.DataFrame:
@@ -515,13 +530,15 @@ def train(
             'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
-    split_functions = {'default': split_train_val}
+    # default split function for training
+    split_fn = load_plugin(get_abs_path('split_train_val.py', 'split_functions')).split_function
+    split_functions = {'default': split_fn}
+
+    # per-dataset split functions, if specified
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
-            plugin_path = ds_meta['split_function']
-            logger.debug('Using split function for %s: %s', ds_name, plugin_path)
-            plugin = load_plugin(plugin_path)
-            split_functions[ds_name] = plugin.split_function
+            split_fn = _get_split_fn(ds_meta['split_function'])
+            split_functions[ds_name] = split_fn
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
 
@@ -891,11 +908,7 @@ def evaluate(
                 eventlog = os.path.expandvars(eventlog)
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
         if 'split_function' in ds_meta:
-            # get split_function from plugin
-            plugin_path = ds_meta['split_function']
-            logger.debug('Using split function for %s: %s', ds_name, plugin_path)
-            plugin = load_plugin(plugin_path)
-            split_fn = plugin.split_function
+            split_fn = _get_split_fn(ds_meta['split_function'])
 
     logger.debug('Loading qualification tool CSV files.')
     node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
@@ -913,8 +926,11 @@ def evaluate(
         raise ValueError(f'Warning: No profile data found for {dataset}')
 
     if not split_fn:
-        # use default split_fn if not specified
-        split_fn = split_all_test if 'test' in dataset_name else split_train_val
+        # use default split_function, if not specified
+        if 'test' in dataset_name:
+            split_fn = get_abs_path('split_all_test.py', 'split_functions')
+        else:
+            split_fn = get_abs_path('split_train_val.py', 'split_functions')
 
     # raw predictions on unfiltered data
     raw_sql, raw_app = _predict(

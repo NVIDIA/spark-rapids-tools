@@ -27,10 +27,10 @@ from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     predict,
-    split_random,
     train,
     compute_shapley_values,
 )
+from spark_rapids_tools.tools.qualx.util import get_abs_path, load_plugin
 from ..conftest import SparkRapidsToolsUT
 
 
@@ -72,8 +72,9 @@ class TestModel(SparkRapidsToolsUT):
         df = self.generate_test_data(label)
 
         # Extract features
+        plugin = load_plugin(get_abs_path('split_random.py', 'split_functions'))
         features, feature_cols, label_col = extract_model_features(
-            df, split_functions={'default': split_random}
+            df, split_functions={'default': plugin.split_function}
         )
 
         # Assert label_col column exists
