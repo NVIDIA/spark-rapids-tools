@@ -14,15 +14,16 @@
 # limitations under the License.
 
 
-# Usage: ./build.sh [build_mode]
-# This script takes an optional build_mode ("fat" or otherwise) as a parameter.
-# If the build_mode is "fat", it runs the dependency downloader script and build the jar from
-# source.
+# Usage: ./build.sh [build_mode] [jar_url]
+# This script takes a build_mode ("fat" or "non-fat") as a parameter.
+# If the build_mode is "fat", it runs the dependency downloader script and build the jar from source.
 # If the build_mode is not "fat", it removes dependencies from the prepackaged directory
+# If jar_url is provided, the script downloads the JAR from the URL instead of building it
 # Finally performs the default build process.
 
 # Get the build mode argument
 build_mode="$1"
+jar_url="$2"
 
 # get the directory of the script
 WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
@@ -35,7 +36,30 @@ PREPACKAGED_FOLDER="csp-resources"
 # Constants and variables of core module
 CORE_DIR="$WORK_DIR/../core"
 TOOLS_JAR_FILE=""
+DOWNLOAD_DIR="$WORK_DIR/downloaded_jars"
 
+# Function to download JAR from URL
+download_jar_from_url() {
+  local url="$1"
+  local output_dir="$2"
+
+  # Create download directory if it doesn't exist
+  mkdir -p "$output_dir"
+
+  # Extract filename from URL
+  local filename=$(basename "$url")
+  local output_path="$output_dir/$filename"
+
+  echo "Downloading JAR from $url to $output_path"
+  curl -L -o "$output_path" "$url"
+
+  if [ $? -ne 0 ]; then
+    echo "Failed to download JAR from URL: $url"
+    exit 1
+  fi
+
+  TOOLS_JAR_FILE="$output_path"
+  echo "Downloaded JAR file: $TOOLS_JAR_FILE"
 
 # Function to run mvn command to build the tools jar
 # This function skips the test cases and builds the jar file and only
@@ -109,7 +133,13 @@ build() {
   # Deletes pre-existing csp-resources.tgz folder
   remove_web_dependencies "$RESOURCE_DIR"
   # Build the tools jar from source
-  build_jar_from_source
+  if [ -n "$jar_url" ]; then
+      echo "Using provided JAR URL instead of building from source"
+      download_jar_from_url "$jar_url" "$DOWNLOAD_DIR"
+    else
+      echo "Building JAR from source"
+      build_jar_from_source
+  fi
   if [ "$build_mode" = "fat" ]; then
     echo "Building in fat mode"
     # This will download the dependencies and create the csp-resources
