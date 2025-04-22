@@ -295,7 +295,7 @@ local:
             - columnName: 'Unsupported Operators Stage Duration Percent'
               lowerBound: 0.0
               upperBound: 25.0
-              skippingReason: 'Unsupported Operators Stage Duration Percent > 25%'
+              skippingReason: 'Unsupported Operators Stage Duration Percent > 25%. Refer r4s_qualification_output/r4s_unsupportedOperators.csv for details'
         photon:  # Photon specific speedup categories
           categories:
             - title: 'Not Applicable'
