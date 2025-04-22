@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ class AdditionalHeuristics:
             for app_id in app_ids:
                 app_id_path = os.path.join(metrics_path, app_id)
                 # Apply a list of heuristics and determine if the application should be skipped.
+                # List of valid heuristics is loaded from the qualification-conf.yaml file.
                 should_skip_overall = False
                 reasons = []
                 for heuristic_func in self._get_all_heuristics_functions():
@@ -88,7 +89,8 @@ class AdditionalHeuristics:
                         self.logger.error(reason)
                     should_skip_overall = should_skip_overall or should_skip
                     reasons.append(reason)
-                result_arr.append([app_id, should_skip_overall, ' '.join(reasons)])
+                reasons_text = ' '.join(reasons) if reasons and any(reasons) else None
+                result_arr.append([app_id, should_skip_overall, reasons_text])
 
         return pd.DataFrame(result_arr, columns=self.props.get_value('resultCols'))
 
@@ -136,7 +138,6 @@ class AdditionalHeuristics:
             heuristics_df = self._apply_heuristics(all_apps['App ID'].unique())
             # Save the heuristics results to a file and drop the reason column
             heuristics_df.to_csv(self.output_file, index=False)
-            heuristics_df.drop(columns=['Reason'], inplace=True)
             all_apps = pd.merge(all_apps, heuristics_df, on=['App ID'], how='left')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Error occurred while applying additional heuristics. '

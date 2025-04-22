@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -113,13 +113,17 @@ class SpeedupCategory:
             eligibility_conditions = self.speedup_strategies.get(spark_runtime).get_eligibility_conditions()
             for entry in eligibility_conditions:
                 col_value = single_row[entry.get('columnName')]
-                # If the row is marked to be skipped by heuristics or the value is not within the range,
-                # set the category to default category (Not Recommended)
-                if (single_row.get(heuristics_col_name) is True or
-                        not entry.get('lowerBound') <= col_value <= entry.get('upperBound')):
-                    return self.props.get('defaultCategory')
-            return single_row.get(category_col_name)
-
+                assigned_category = single_row.get(category_col_name)
+                # If the row does not match the eligibility criteria, set the category to `Not Recommended`.
+                # The reason for 'Not Recommended' will be added to the `Reason` column.
+                if not entry.get('lowerBound') <= col_value <= entry.get('upperBound'):
+                    single_row['Reason'] = single_row.get('Reason', '') + f"; {entry.get('skippingReason')}"
+                    assigned_category = self.props.get('defaultCategory')
+                # If the row was already marked to be skipped due to heuristics, set the category to `Not Recommended`
+                # in case not already set. The reason to be skipped due to heuristic will already be there
+                if single_row.get(heuristics_col_name) is True:
+                    assigned_category = self.props.get('defaultCategory')
+                return assigned_category
         all_apps[category_col_name] = all_apps.apply(process_row, axis=1)
         return all_apps
 

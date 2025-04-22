@@ -226,6 +226,7 @@ local:
         - 'App Duration'
         - 'Stage ID'
         - 'Stage Duration'
+        - 'Unsupported Operator'
       groupingColumns:
         max:
           - 'App ID'
@@ -291,9 +292,11 @@ local:
             - columnName: 'Estimated GPU Speedup'
               lowerBound: 1.3
               upperBound: 1000000.0
+              skippingReason: 'GPU SpeedUp < 1.3'
             - columnName: 'Unsupported Operators Stage Duration Percent'
               lowerBound: 0.0
               upperBound: 25.0
+              skippingReason: 'Unsupported Operators Stage Duration Percent > 25%'
         photon:  # Photon specific speedup categories
           categories:
             - title: 'Not Applicable'
