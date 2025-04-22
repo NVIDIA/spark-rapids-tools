@@ -314,9 +314,11 @@ local:
             - columnName: 'Estimated GPU Speedup'
               lowerBound: 1.0
               upperBound: 1000000.0
+              skippingReason: 'GPU SpeedUp < 30%'
             - columnName: 'Unsupported Operators Stage Duration Percent'
               lowerBound: 0.0
               upperBound: 25.0
+              skippingReason: 'Unsupported Operators Stage Duration Percent > 25%. Refer r4s_qualification_output/r4s_unsupportedOperators.csv for details'
     additionalHeuristics:
       appInfo:
         fileName: 'application_information.csv'

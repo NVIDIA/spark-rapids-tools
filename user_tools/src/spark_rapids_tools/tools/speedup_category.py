@@ -117,12 +117,7 @@ class SpeedupCategory:
                 # If the row does not match the eligibility criteria, set the category to `Not Recommended`.
                 # The reason for 'Not Recommended' will be added to the `Reason` column.
                 if not entry.get('lowerBound') <= col_value <= entry.get('upperBound'):
-                    existing_reason = single_row.get('Reason', '')
-                    eligibility_skip_reason = entry.get('skippingReason')
-                    if existing_reason and eligibility_skip_reason:
-                        single_row['Reason'] = f"{existing_reason}; {eligibility_skip_reason}"
-                    elif eligibility_skip_reason:
-                        single_row['Reason'] = eligibility_skip_reason
+                    single_row['Reason'] = single_row.get('Reason', '') + f"; {entry.get('skippingReason')}"
                     assigned_category = self.props.get('defaultCategory')
                 # If the row was already marked to be skipped due to heuristics, set the category to `Not Recommended`
                 # in case not already set. The reason to be skipped due to heuristic will already be there
