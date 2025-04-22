@@ -1,0 +1,26 @@
+Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity
+"",0,"Register input tables",2,2
+"",1,"Register input tables",0,0
+"",2,"Register input tables",0,0
+"",3,"Register input tables",0,0
+"",4,"Register input tables",0,0
+"",5,"Register input tables",1,1
+"",6,"Register input tables",0,0
+"",7,"Register input tables",0,0
+"",8,"Register input tables",0,0
+"",9,"Register input tables",0,0
+"",10,"Register input tables",0,0
+"",11,"Register input tables",0,0
+"",12,"Register input tables",0,0
+"",13,"Register input tables",0,0
+"",14,"Register input tables",0,0
+"",15,"Register input tables",0,0
+"",16,"Register input tables",0,0
+"",17,"Register input tables",0,0
+"",18,"Register input tables",0,0
+"",19,"Register input tables",0,0
+"",20,"Register input tables",0,0
+"",21,"Register input tables",1,1
+"",22,"Register input tables",0,0
+"",23,"Register input tables",0,0
+"",24,"Benchmark Run: query=q86; iteration=0",9565,9565

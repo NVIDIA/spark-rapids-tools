@@ -187,6 +187,20 @@ object ToolTestUtils extends Logging {
           s"but got: $actualStatusReportCount")
     }
   }
+
+  /**
+   * Given a directory, find all files recursively in the directory with the given file name.
+   * Example usage is to crate a list of all output files in a directory.
+   * @param dir The directory root
+   * @param fileName the file name to be loaded
+   * @return a list of files with the given file name
+   */
+  def findFilesRecursively(dir: File, fileName: String): Seq[File] = {
+    val files = Option(dir.listFiles).getOrElse(Array.empty[File])
+    val matchedFiles = files.filter(f => f.isFile && f.getName == fileName)
+    val subDirs = files.filter(_.isDirectory).flatMap(d => findFilesRecursively(d, fileName))
+    matchedFiles ++ subDirs
+  }
 }
 
 /**

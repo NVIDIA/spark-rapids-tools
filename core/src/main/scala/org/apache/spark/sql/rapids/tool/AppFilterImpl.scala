@@ -33,7 +33,6 @@ import org.rogach.scallop.{ScallopConf, ScallopOption}
 import org.apache.spark.internal.Logging
 
 class AppFilterImpl(
-    numRows: Int,
     hadoopConf: Configuration,
     timeout: Option[Long],
     nThreads: Int) extends Logging {
