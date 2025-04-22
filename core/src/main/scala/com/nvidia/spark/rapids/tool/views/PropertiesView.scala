@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,12 +61,11 @@ trait AppPropertiesViewTrait extends ViewableTrait[RapidsPropertyProfileResult] 
   def getRelevantProperties(app: AppBase): Map[String, String]
 
   def getRawView(app: AppBase, index: Int): Seq[RapidsPropertyProfileResult] = {
-    val outputHeaders = ArrayBuffer("propertyName", s"appIndex_$index")
     val props = mutable.HashMap[String, ArrayBuffer[String]]()
     val propsToKeep = getRelevantProperties(app)
     addNewProps(props, propsToKeep)
     val allRows = props.map { case (k, v) => Seq(k) ++ v }.toSeq
-    val resRows = allRows.map(r => RapidsPropertyProfileResult(r.head, outputHeaders, r))
+    val resRows = allRows.map(r => RapidsPropertyProfileResult(r.head, r.toArray))
     resRows
   }
 

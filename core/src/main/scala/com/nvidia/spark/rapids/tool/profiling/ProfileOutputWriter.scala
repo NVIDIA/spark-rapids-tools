@@ -44,7 +44,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
 
     if (outRows.nonEmpty) {
       val outStr = ProfileOutputWriter.makeFormattedString(numOutputRows, 0,
-        outRows.head.outputHeaders, outRows.map(_.convertToSeq))
+        outRows.head.outputHeaders, outRows.map(_.convertToSeq()))
       textFileWriter.write(outStr)
     } else {
       val finalEmptyText = emptyText match {
@@ -122,7 +122,7 @@ object ProfileOutputWriter {
       try {
         val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
         csvWriter.write(headerString + "\n")
-        val rows = outRows.map(_.convertToCSVSeq)
+        val rows = outRows.map(_.convertToCSVSeq())
         rows.foreach { row =>
           val formattedRow = row.map(stringIfempty)
           val outStr = formattedRow.mkString(CSVDelimiter)
@@ -169,7 +169,7 @@ object ProfileOutputWriter {
       _numRows: Int,
       truncate: Int = 20,
       schema: Seq[String],
-      rows: Seq[Seq[String]]): String = {
+      rows: Seq[Array[String]]): String = {
     val numRows = _numRows.max(0).min(2147483632 - 1)
     val hasMoreData = rows.length - 1 > numRows
 
@@ -181,7 +181,7 @@ object ProfileOutputWriter {
     // Initialise the width of each column to a minimum value
     val colWidths = Array.fill(numCols)(minimumColWidth)
 
-    if (rows.nonEmpty && schema.size != rows.head.size) {
+    if (rows.nonEmpty && schema.size != rows.head.length) {
       throw new IllegalArgumentException("schema must be same size as data!")
     }
 
