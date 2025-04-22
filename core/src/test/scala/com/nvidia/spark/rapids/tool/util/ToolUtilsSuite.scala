@@ -233,15 +233,15 @@ class ToolUtilsSuite extends FunSuite with Logging {
 
   case class MockProfileResults(appID: String, nonEnglishField: String,
       parentIDs: String) extends ProfileResult {
-    override val outputHeaders: Seq[String] = Seq("appID", "nonEnglishField",
+    override val outputHeaders: Array[String] = Array("appID", "nonEnglishField",
       "parentIDs")
 
-    override def convertToSeq: Seq[String] = {
-      Seq(appID, nonEnglishField, parentIDs)
+    override def convertToSeq(): Array[String] = {
+      Array(appID, nonEnglishField, parentIDs)
     }
 
-    override def convertToCSVSeq: Seq[String] = {
-      Seq(appID, StringUtils.reformatCSVString(nonEnglishField),
+    override def convertToCSVSeq(): Array[String] = {
+      Array(appID, StringUtils.reformatCSVString(nonEnglishField),
         StringUtils.reformatCSVString(parentIDs))
     }
   }
