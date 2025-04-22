@@ -56,9 +56,9 @@ def get_alignment() -> pd.DataFrame:
         raise ValueError(f'Alignment file not found: {alignment_file}')
 
     # concatenate all CSV files in alignment_file directory
-    parent_dir = os.path.dirname(abs_path)
-    base_name = os.path.basename(abs_path)
-    csv_files = glob.glob(f'{parent_dir}/{base_name}_*.csv')
+    parent_dir = Path(abs_path).parent
+    base_name = Path(abs_path).stem
+    csv_files = glob.glob(f'{parent_dir}/{base_name}_*.*')
 
     chunk_size = 100
     alignment_dfs = []
@@ -68,8 +68,11 @@ def get_alignment() -> pd.DataFrame:
         chunk_df.drop_duplicates(inplace=True)
         alignment_dfs.append(chunk_df)
 
-    alignment_df = pd.concat(alignment_dfs, ignore_index=True)
-    alignment_df.drop_duplicates(inplace=True)
+    if alignment_dfs:
+        alignment_df = pd.concat(alignment_dfs, ignore_index=True)
+        alignment_df.drop_duplicates(inplace=True)
+    else:
+        alignment_df = pd.DataFrame(columns=['appId', 'sqlId'])
 
     return alignment_df
 
@@ -327,8 +330,8 @@ def load_profiles(
             raise ValueError(f'No CSV/JSON files found for: {ds_name}')
 
         # invoke featurizers to extract raw features from profiler output
-        raw_features = None
-        for featurizer in featurizers:
+        raw_features = pd.DataFrame()
+        for i, featurizer in enumerate(featurizers):
             features = featurizer.extract_raw_features(
                 toc,
                 node_level_supp,
@@ -342,10 +345,15 @@ def load_profiles(
                     featurizer.__name__,
                     ds_name,
                 )
-                continue
+                if i == 0:
+                    # main/first featurizer returned empty, skip other featurizers
+                    break
+                else:
+                    # non-main featurizer returned empty, continue to next featurizer
+                    continue
 
             # append features from each featurizer
-            if raw_features is None:
+            if raw_features.empty:
                 # first featurizer, use as is
                 raw_features = features
             else:
