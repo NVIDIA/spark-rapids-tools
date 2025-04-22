@@ -36,7 +36,6 @@ remove_nodes_prefix = [
     'ColumnarToRow',
     'InputAdapter',
     'ReusedExchange',
-    'RoundRobingCoalesce',
     'WholeStageCodegen',
     # GPU
     'GpuCoalesceBatches',
@@ -46,7 +45,6 @@ remove_nodes_prefix = [
     'GpuRowToColumnar',
     'GpuShuffleCoalesce',
     'GpuSort',
-    'GpuInsertIntoHadoopFsRelationCommand',
     # Velox
     'RowToVeloxColumnar',
     'VeloxColumnarToRowExec',

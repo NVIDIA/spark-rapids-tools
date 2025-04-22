@@ -322,12 +322,13 @@ def load_profiles(
 
                 toc_list.append(tmp)
             else:
-                logger.warning('No CSV/JSON files found for: %s:%s', ds_name, app_id)
+                logger.warning('No CSV/JSON files found for: %s: %s', ds_name, app_id)
 
         if toc_list:
             toc = pd.concat(toc_list)
         else:
-            raise ValueError(f'No CSV/JSON files found for: {ds_name}')
+            logger.warning('No CSV/JSON files found for: %s', ds_name)
+            continue
 
         # invoke featurizers to extract raw features from profiler output
         raw_features = pd.DataFrame()
@@ -348,9 +349,8 @@ def load_profiles(
                 if i == 0:
                     # main/first featurizer returned empty, skip other featurizers
                     break
-                else:
-                    # non-main featurizer returned empty, continue to next featurizer
-                    continue
+                # non-main featurizer returned empty, continue to next featurizer
+                continue
 
             # append features from each featurizer
             if raw_features.empty:
@@ -441,8 +441,9 @@ def impute(full_tbl: pd.DataFrame, expected_features: set) -> pd.DataFrame:
             logger.debug('Removing extra features: %s', extra)
             full_tbl = full_tbl.drop(columns=extra)
 
-        # one last check after modifications (update expected_raw_features if needed)
-        assert set(full_tbl.columns) == expected_features
+        # one last check after modifications (update expected_features if needed)
+        if set(full_tbl.columns) != expected_features:
+            raise ValueError('Dataset does not have expected features')
 
     return full_tbl
 
