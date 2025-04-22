@@ -71,5 +71,10 @@ def extract_raw_features(
                 plan_hash = hash_plan(normalized_plan)
                 # Note: store hash as a string to avoid long type limit in parquet
                 full_tbl.append({'appId': app_id, 'sqlID': sql_id, 'hash': str(plan_hash)})
-    df = pd.DataFrame(full_tbl)
+
+    if full_tbl:
+        df = pd.DataFrame(full_tbl)
+    else:
+        df = pd.DataFrame(columns=['appId', 'sqlID', 'hash'])
+
     return df

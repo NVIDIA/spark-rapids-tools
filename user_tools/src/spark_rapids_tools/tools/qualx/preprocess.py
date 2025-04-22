@@ -342,6 +342,7 @@ def load_profiles(
                     featurizer.__name__,
                     ds_name,
                 )
+                continue
 
             # append features from each featurizer
             if raw_features is None:
