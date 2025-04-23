@@ -59,7 +59,19 @@ download_jar_from_url() {
   fi
 
   TOOLS_JAR_FILE="$output_path"
+  CLEANUP_JAR_FILE="$output_path"
   echo "Downloaded JAR file: $TOOLS_JAR_FILE"
+}
+
+clean_up_downloaded_jar() {
+  # Check if the file exists
+  if [ -f "$CLEANUP_JAR_FILE" ]; then
+    echo "Cleaning up downloaded JAR file: $CLEANUP_JAR_FILE"
+    rm -f "$CLEANUP_JAR_FILE"
+  else
+    echo "No downloaded JAR file to clean up."
+  fi
+}
 
 # Function to run mvn command to build the tools jar
 # This function skips the test cases and builds the jar file and only
@@ -154,11 +166,12 @@ build() {
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
+  clean_up_downloaded_jar
 }
 
 # Main script execution
 pre_build
-build "$build_mode"
+build
 
 # Check build status
 if [ $? -eq 0 ]; then
