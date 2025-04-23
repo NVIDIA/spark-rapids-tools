@@ -203,7 +203,9 @@ def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.Dat
         plugin_kwargs = {}
 
     plugin = load_plugin(get_abs_path(plugin_path, ['split_functions', 'plugins']))
-    return lambda df: plugin.split_function(df, **plugin_kwargs) if plugin_kwargs else plugin.split_function
+    if plugin_kwargs:
+        return lambda df: plugin.split_function(df, **plugin_kwargs)
+    return plugin.split_function
 
 
 def _compute_summary(results: pd.DataFrame) -> pd.DataFrame:
@@ -928,9 +930,9 @@ def evaluate(
     if not split_fn:
         # use default split_function, if not specified
         if 'test' in dataset_name:
-            split_fn = get_abs_path('split_all_test.py', 'split_functions')
+            split_fn = load_plugin(get_abs_path('split_all_test.py', 'split_functions')).split_function
         else:
-            split_fn = get_abs_path('split_train_val.py', 'split_functions')
+            split_fn = load_plugin(get_abs_path('split_train_val.py', 'split_functions')).split_function
 
     # raw predictions on unfiltered data
     raw_sql, raw_app = _predict(
@@ -1057,7 +1059,12 @@ def evaluate(
         res = results_app if granularity == 'app' else results_sql
         res = res[res.split == 'test'] if split == 'test' else res
         if res.empty:
-            logger.error('No evaluation results found for dataset: %s', dataset)
+            logger.warning(
+                'No per-%s %s evaluation results found for dataset: %s',
+                granularity,
+                split,
+                dataset,
+            )
             continue
 
         if 'Actual speedup' not in res:

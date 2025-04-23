@@ -152,20 +152,20 @@ def get_abs_path(path: str, subdir: Optional[Union[str, List[str]]] = None) -> s
 
     search_paths = [qualx_dir, config_dir, cwd]
 
+    # make list of subdirectories to search, including '' for no subdirectory
     if not subdir:
-        subdir_paths = [None]
+        subdir_paths = ['']
     elif isinstance(subdir, str):
-        subdir_paths = [subdir]
+        subdir_paths = [subdir, '']
     elif isinstance(subdir, list):
         subdir_paths = subdir
+        if '' not in subdir_paths:
+            subdir_paths.append('')
     else:
         raise ValueError(f'Invalid subdirectory: {subdir}')
 
     for subdir_path in subdir_paths:
-        if subdir_path:
-            search_paths_with_subdir = [os.path.join(search_path, subdir_path) for search_path in search_paths]
-        else:
-            search_paths_with_subdir = search_paths
+        search_paths_with_subdir = [os.path.join(search_path, subdir_path) for search_path in search_paths]
 
         for search_path in search_paths_with_subdir:
             if os.path.exists(os.path.join(search_path, path)):
