@@ -50,6 +50,12 @@ download_jar_from_url() {
   local filename=$(basename "$url")
   local output_path="$output_dir/$filename"
 
+  # Validate the JAR filename to ensure it is not a source, javadoc, or test JAR
+  if [[ "$filename" == *"sources.jar" || "$filename" == *"javadoc.jar" || "$filename" == *"tests.jar" ]]; then
+    echo "Invalid JAR file: $filename. Source, javadoc, or test JARs are not allowed."
+    exit 1
+  fi
+
   echo "Downloading JAR from $url to $output_path"
   curl -L -o "$output_path" "$url"
 
