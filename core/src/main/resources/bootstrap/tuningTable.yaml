@@ -52,6 +52,7 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    defaultMemoryUnit: MiB
   - label: spark.executor.memoryOverhead
     description: >-
       Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
@@ -60,6 +61,7 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    defaultMemoryUnit: MiB
   - label: spark.executor.memoryOverheadFactor
     description: >-
       Fraction of executor memory to be allocated as additional non-heap memory per executor process.
@@ -87,6 +89,7 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "64MB"
+    defaultMemoryUnit: MiB
     comments:
       missing: setting the max buffer to prevent out-of-memory errors.
       updated: increasing the max buffer to prevent out-of-memory errors.
@@ -116,14 +119,16 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.rapids.shuffle.multiThreaded.maxBytesInFlight
     description: >-
       This property controls the amount of bytes we allow in flight per Spark task.
       This typically happens on the reader side, when blocks are received from the network,
-      they’re queued onto these threads for decompression and decode.
+      they're queued onto these threads for decompression and decode.
     enabled: true
     level: cluster
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.rapids.shuffle.multiThreaded.reader.threads
     description: >-
       The shuffle reader is a single implementation irrespective of the number of partitions.
@@ -144,6 +149,7 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.rapids.sql.concurrentGpuTasks
     description: >-
       Set the number of tasks that can execute concurrently per GPU. Tasks may temporarily block when the number of
@@ -155,7 +161,7 @@ tuningDefinitions:
   - label: spark.rapids.sql.format.parquet.multithreaded.combine.waitTime
     description: >-
       When using the multithreaded parquet reader with combine mode, how long to wait, in milliseconds,
-      for more files to finish if haven’t met the size threshold. Note that this will wait this amount
+      for more files to finish if haven't met the size threshold. Note that this will wait this amount
       of time from when the last file was available, so total wait time could be larger then this.
       DEPRECATED: use spark.rapids.sql.reader.multithreaded.combine.waitTime instead.
     enabled: true
@@ -179,6 +185,7 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.serializer
     description: >-
       Specifies which serialization mechanism to use when serializing objects during distributed computation.
@@ -211,6 +218,7 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.sql.adaptive.coalescePartitions.initialPartitionNum
     description: >-
       The initial number of shuffle partitions before coalescing. If not set, it equals to
@@ -233,6 +241,7 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: 1m
+    defaultMemoryUnit: Byte
   - label: spark.sql.adaptive.coalescePartitions.parallelismFirst
     description: >-
       When true, Spark does not respect the target size specified by 'spark.sql.adaptive.advisoryPartitionSizeInBytes'
@@ -249,6 +258,7 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.sql.files.maxPartitionBytes
     description: >-
       The maximum number of bytes to pack into a single partition when reading files.
@@ -256,6 +266,7 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    defaultMemoryUnit: Byte
   - label: spark.sql.shuffle.partitions
     description: >-
       The default number of partitions to use when shuffling data for joins or aggregations.

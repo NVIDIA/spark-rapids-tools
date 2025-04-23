@@ -70,7 +70,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults = Seq(
-        "--conf spark.rapids.sql.batchSizeBytes=1073741824",
+        "--conf spark.rapids.sql.batchSizeBytes=1g",
         "- 'spark.rapids.sql.batchSizeBytes' was not set."
     )
     assert(expectedResults.forall(autoTunerOutput.contains))

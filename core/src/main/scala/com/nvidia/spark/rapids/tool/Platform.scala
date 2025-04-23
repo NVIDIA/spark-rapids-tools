@@ -21,6 +21,7 @@ import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
 import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
@@ -296,16 +297,16 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     // added or resource profile added events for the heap size
     val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
-      StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"))
+      StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"), Some(ByteUnit.BYTE))
     } else {
       val sparkMasterConf = sparkProperties.get("spark.master")
       sparkMasterConf match {
         case None => 0L
         case Some(sparkMaster) =>
           if (sparkMaster.contains("yarn")) {
-            StringUtils.convertToMB("1g")
+            StringUtils.convertToMB("1g", None)
           } else if (sparkMaster.contains("k8s")) {
-            StringUtils.convertToMB("1g")
+            StringUtils.convertToMB("1g", None)
           } else if (sparkMaster.startsWith("spark:")) {
             // would be the entire node memory by default
             0L
@@ -322,7 +323,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val execMemOverheadFactorFromConf = sparkProperties.get("spark.executor.memoryOverheadFactor")
     val execHeapMemoryMB = getExecutorHeapMemoryMB(sparkProperties)
     if (executorMemoryOverheadFromConf.isDefined) {
-      StringUtils.convertToMB(executorMemoryOverheadFromConf.get)
+      StringUtils.convertToMB(executorMemoryOverheadFromConf.get, Some(ByteUnit.MiB))
     } else if (execHeapMemoryMB > 0) {
       if (execMemOverheadFactorFromConf.isDefined) {
         (execHeapMemoryMB * execMemOverheadFactorFromConf.get.toDouble).toLong

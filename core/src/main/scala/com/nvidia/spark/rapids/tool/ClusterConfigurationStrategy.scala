@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool
 
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ExistingClusterInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -154,7 +155,7 @@ class ClusterPropertyBasedStrategy(
   }
 
   override protected def getMemoryPerNodeMb: Long = {
-    StringUtils.convertToMB(clusterProperties.system.getMemory)
+    StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
 }
 

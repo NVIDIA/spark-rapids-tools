@@ -42,6 +42,8 @@ import org.apache.spark.sql.rapids.tool.util.UTF8Source
  *                       Default is true.
  * @param defaultSpark The default value of the property in Spark. This is used to set the
  *                     originalValue of the property in case it is not set by the eventlog.
+ * @param defaultMemoryUnit The default memory unit for memory-related properties (e.g., MiB, Byte).
+ *                         When defined, indicates this is a memory property.
  * @param comments The defaults comments to be loaded for the entry. It is a map to represent
  *                 three different types of comments:
  *                 1. "missing" to represent the default comment to be appended to the AutoTuner's
@@ -59,10 +61,11 @@ class TuningEntryDefinition(
     @BeanProperty var category: String,
     @BeanProperty var bootstrapEntry: Boolean,
     @BeanProperty var defaultSpark: String,
+    @BeanProperty var defaultMemoryUnit: String,
     @BeanProperty var comments: util.LinkedHashMap[String, String]) {
   def this() = {
     this(label = "", description = "", enabled = true, level = "", category = "",
-      bootstrapEntry = true, defaultSpark = null,
+      bootstrapEntry = true, defaultSpark = null, defaultMemoryUnit = null,
       comments = new util.LinkedHashMap[String, String]())
   }
 
@@ -71,6 +74,13 @@ class TuningEntryDefinition(
   }
   def isBootstrap(): Boolean = {
     bootstrapEntry || label.startsWith("spark.rapids.")
+  }
+
+  /**
+   * Indicates if the property is a memory-related property.
+   */
+  def isMemoryProperty: Boolean = {
+    defaultMemoryUnit != null
   }
 
   /**
