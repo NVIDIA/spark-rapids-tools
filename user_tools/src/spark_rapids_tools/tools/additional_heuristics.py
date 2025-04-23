@@ -126,7 +126,6 @@ class AdditionalHeuristics:
             lambda x: isinstance(x, str) and bool(re.search(pattern, x)))]
         # If there are any stages with spills caused by non-allowed Execs, skip the application
         if not relevant_stages_with_spills.empty:
-            stages_str = '; '.join(relevant_stages_with_spills['stageId'].astype(str))
             spill_threshold_human_readable = Utilities.bytes_to_human_readable(spill_threshold_bytes)
             reason = f'Skipping due to total data spill in stages exceeding {spill_threshold_human_readable}.'
             return True, reason

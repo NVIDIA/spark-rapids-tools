@@ -138,6 +138,7 @@ def step_file_is_generated(context, file) -> None:
     assert file_path is not None, f"File '{file}' was not found in the directory '{context.temp_dir}'"
     context.generated_file_path = file_path
 
+
 @when('spark-rapids tool is executed with "{event_logs}" eventlogs')
 def step_execute_spark_rapids_tool(context, event_logs) -> None:
     event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
@@ -147,6 +148,7 @@ def step_execute_spark_rapids_tool(context, event_logs) -> None:
         cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir)
     context.result = E2ETestUtils.run_sys_cmd(cmd)
 
+
 @when('"{app_id}" app is not qualified')
 def step_verify_gpu_speedup_category(context, app_id) -> None:
     df = E2ETestUtils.read_csv_as_dataframe(context.generated_file_path)
@@ -154,6 +156,7 @@ def step_verify_gpu_speedup_category(context, app_id) -> None:
     row = df[df["App ID"] == app_id]
     assert row["Estimated GPU Speedup Category"].iloc[0] == "Not Recommended", \
         f'Expected "Not Recommended", but found "{row["Estimated GPU Speedup Category"].iloc[0]}"'
+
 
 @then('not qualified reason is "{expected_reason}"')
 def step_verify_not_qualified_reason(context, expected_reason) -> None:
@@ -165,6 +168,7 @@ def step_verify_not_qualified_reason(context, expected_reason) -> None:
     actual_reason = df["Not Recommended Reason"].iloc[0]
     assert actual_reason == expected_reason, f"Expected reason: '{expected_reason}', but found: '{actual_reason}'"
 
+
 @then('stderr contains the following')
 def step_verify_stderr(context) -> None:
     expected_stderr_list = context.text.strip().split(";")
@@ -172,6 +176,7 @@ def step_verify_stderr(context) -> None:
         assert stderr_line in context.result.stderr, \
             (f"Expected stderr line '{stderr_line}' not found\n" +
              E2ETestUtils.get_cmd_output_str(context.result))
+
 
 @then('stdout contains the following')
 def step_verify_stdout(context) -> None:
@@ -181,11 +186,13 @@ def step_verify_stdout(context) -> None:
             (f"Expected stdout line '{stdout_line}' not found\n" +
              E2ETestUtils.get_cmd_output_str(context.result))
 
+
 @then('file output contains the following "{expected_content}"')
 def step_verify_file_contains(context, expected_content) -> None:
     with open(context.generated_file_path, 'r') as file:
         file_content = file.read()
     assert expected_content in file_content, f"Expected content '{expected_content}' not found in the file output."
+
 
 @then('processed applications is "{expected_num_apps}"')
 def step_verify_num_apps(context, expected_num_apps) -> None:
