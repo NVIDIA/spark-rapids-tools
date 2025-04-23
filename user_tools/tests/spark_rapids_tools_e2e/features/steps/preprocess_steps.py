@@ -64,6 +64,10 @@ def step_impl(context, label):
     context.qualx_label = label
     os.environ['QUALX_LABEL'] = label
 
+@given('RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD environment variable is set to "{threshold}"')
+def step_impl(context, threshold):
+    """Set the QUALX_LABEL environment variable to the specified value."""
+    os.environ['RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD'] = threshold
 
 @given('sample event logs in the QUALX_DATA_DIR')
 def check_sample_event_logs(context):
