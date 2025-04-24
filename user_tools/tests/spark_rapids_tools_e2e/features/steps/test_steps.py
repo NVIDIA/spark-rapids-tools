@@ -152,7 +152,7 @@ def step_execute_spark_rapids_tool(context, event_logs) -> None:
 @when('"{app_id}" app is not qualified')
 def step_verify_gpu_speedup_category(context, app_id) -> None:
     df = E2ETestUtils.read_csv_as_dataframe(context.generated_file_path)
-    print(df)
+    logger.info(f"App IDs present in the DataFrame: {df['App ID'].values}")
     assert app_id in df["App ID"].values, f'App ID "{app_id}" not found in the CSV file.'
     row = df[df["App ID"] == app_id]
     assert row["Estimated GPU Speedup Category"].iloc[0] == "Not Recommended", \

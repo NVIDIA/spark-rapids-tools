@@ -314,7 +314,7 @@ local:
             - columnName: 'Estimated GPU Speedup'
               lowerBound: 1.0
               upperBound: 1000000.0
-              skippingReason: 'GPU SpeedUp < 30%'
+              skippingReason: 'GPU SpeedUp < 1%'
             - columnName: 'Unsupported Operators Stage Duration Percent'
               lowerBound: 0.0
               upperBound: 25.0
