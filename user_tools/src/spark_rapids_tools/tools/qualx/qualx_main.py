@@ -202,7 +202,7 @@ def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.Dat
         plugin_path = split_fn
         plugin_kwargs = {}
 
-    plugin = load_plugin(get_abs_path(plugin_path, ['split_functions', 'plugins']))
+    plugin = load_plugin(get_abs_path(os.path.expandvars(plugin_path), ['split_functions', 'plugins']))
     if plugin_kwargs:
         return lambda df: plugin.split_function(df, **plugin_kwargs)
     return plugin.split_function
