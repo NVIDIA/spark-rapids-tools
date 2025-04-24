@@ -32,8 +32,12 @@ class UnsupportedOpsStageDuration:
     def prepare_apps_with_unsupported_stages(self, processed_apps: pd.DataFrame,
                                              unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform applications to include additional column having stage durations for unsupported operators
-        and its percentage of all sql stage durations sum.
+        Transform the given `processed_apps` DataFrame to include an additional column for stage durations
+        of unsupported operators and its percentage of the total SQL stage durations sum.
+
+        :param processed_apps: DataFrame containing application data processed by qualX
+        :param unsupported_ops_df: DataFrame containing unsupported operators data.
+        :return: A DataFrame with updated columns for unsupported stage durations and their percentage.
         """
         unsupported_stage_total_duration = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
         # Note: We might have lost some applications because of masking(filtering based on valid unsupported cond).

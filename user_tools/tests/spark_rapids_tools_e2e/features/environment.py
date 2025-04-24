@@ -19,6 +19,7 @@ This module defines environment setup and teardown functions for the end-to-end 
 import os
 import shutil
 import tempfile
+import re
 
 from spark_rapids_tools.utils import Utilities
 from steps.e2e_utils import E2ETestUtils
@@ -66,6 +67,13 @@ def after_scenario(context, scenario) -> None:
             os.environ['QUALX_LABEL'] = context.original_qualx_label
         else:
             os.environ.pop('QUALX_LABEL', None)
+
+    # Cleaning up the output from previous scenarios if any
+    if hasattr(context, 'temp_dir') and os.path.exists(context.temp_dir):
+        for item in os.listdir(context.temp_dir):
+            item_path = os.path.join(context.temp_dir, item)
+            if os.path.isdir(item_path) and re.match(r'^qual_.*', item):
+                shutil.rmtree(item_path)
 
 
 def _set_verbose_mode(context) -> None:
