@@ -66,7 +66,7 @@ def step_impl(context, label):
 
 
 @given('RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD environment variable is set to "{threshold}"')
-def step_impl(context, threshold):
+def set_spill_threshold(context, threshold):
     """Set the QUALX_LABEL environment variable to the specified value."""
     os.environ['RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD'] = threshold
 
