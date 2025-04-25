@@ -30,6 +30,7 @@ Feature: Testing preprocessing functionality
     When preprocessing the event logs
     Then preprocessing should complete successfully
     And preprocessed data should contain the expected features for label "<label>"
+    And sqlID hashes should align between CPU and GPU runs
 
     Examples:
       | label        |

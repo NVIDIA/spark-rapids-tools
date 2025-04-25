@@ -58,7 +58,7 @@ def get_alignment() -> pd.DataFrame:
     # concatenate all CSV files in alignment_file directory
     parent_dir = Path(abs_path).parent
     base_name = Path(abs_path).stem
-    csv_files = glob.glob(f'{parent_dir}/{base_name}_*.*')
+    csv_files = glob.glob(f'{parent_dir}/{base_name}*.*')
 
     chunk_size = 100
     alignment_dfs = []

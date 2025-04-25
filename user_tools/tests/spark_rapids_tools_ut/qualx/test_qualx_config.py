@@ -137,6 +137,31 @@ xgboost:
         assert 'label' in schema['properties']
         assert 'datasets' in schema['properties']
 
+    def test_split_functions_as_dict(self, qualx_config_params):
+        """Test that split_functions can be a dictionary with path and args"""
+        # Create a dictionary version of split_functions
+        split_dict = {
+            'train': {
+                'path': 'split_stratified.py',
+                'args': {'threshold': 2.0, 'test_pct': 0.2, 'val_pct': 0.2}
+            },
+            'test': 'split_all_test.py'
+        }
+
+        # Update the config params with the dictionary version
+        config_params = qualx_config_params.copy()
+        config_params['split_functions'] = split_dict
+
+        # Create config and verify the values
+        config = QualxConfig(**config_params)
+        assert config.split_functions == split_dict
+        assert isinstance(config.split_functions, dict)
+        assert 'train' in config.split_functions
+        assert 'test' in config.split_functions
+        assert config.split_functions['train']['path'] == 'split_stratified.py'
+        assert config.split_functions['train']['args']['threshold'] == 2.0
+        assert config.split_functions['test'] == 'split_all_test.py'
+
 
 class TestQualxPipelineConfig(SparkRapidsToolsUT):
     """Test class for QualxPipelineConfig"""

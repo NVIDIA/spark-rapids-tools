@@ -35,6 +35,7 @@ from spark_rapids_tools.tools.qualx.util import (
     create_row_with_default_speedup,
     write_csv_reports,
     log_fallback,
+    get_abs_path,
 )
 from ..conftest import SparkRapidsToolsUT
 
@@ -59,6 +60,25 @@ class TestUtils(SparkRapidsToolsUT):
             mock_glob.return_value = ['/eventlog/log1', '/eventlog/log2']
             result = find_eventlogs('/eventlog/*.log')
             assert result == ['/eventlog/log1', '/eventlog/log2']
+
+    def test_get_abs_path(self):
+        get_config(reload=True)  # reload config
+
+        # Test absolute path case
+        with patch('os.path.isabs') as mock_isabs, \
+             patch('os.path.exists') as mock_exists:
+            mock_isabs.return_value = True
+            mock_exists.return_value = True
+            result = get_abs_path('/absolute/path')
+            assert result == '/absolute/path'
+
+        # Test relative path case
+        result = get_abs_path('util.py')
+        assert os.path.exists(result) and os.path.isabs(result)
+
+        # Test relative path with subdirectory
+        result = get_abs_path('split_all_test.py', 'split_functions')
+        assert os.path.exists(result) and os.path.isabs(result)
 
     def test_get_dataset_platforms(self):
         # supported platforms
