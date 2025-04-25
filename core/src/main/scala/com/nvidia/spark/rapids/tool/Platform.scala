@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider, SparkMaster}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -293,28 +293,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def getRetainedSystemProps: Set[String] = Set.empty
 
   def getExecutorHeapMemoryMB(sparkProperties: Map[String, String]): Long = {
-    // Potentially enhance this to handle if no config then check the executor
-    // added or resource profile added events for the heap size
     val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
       StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"), Some(ByteUnit.BYTE))
     } else {
-      val sparkMasterConf = sparkProperties.get("spark.master")
-      sparkMasterConf match {
-        case None => 0L
-        case Some(sparkMaster) =>
-          if (sparkMaster.contains("yarn")) {
-            StringUtils.convertToMB("1g", None)
-          } else if (sparkMaster.contains("k8s")) {
-            StringUtils.convertToMB("1g", None)
-          } else if (sparkMaster.startsWith("spark:")) {
-            // would be the entire node memory by default
-            0L
-          } else {
-            // local mode covered here - do we want to handle specifically?
-            0L
-          }
-      }
+      // TODO: Potentially enhance this to handle if no config then check the executor
+      //  added or resource profile added events for the heap size
+      val sparkMaster = SparkMaster(sparkProperties.get("spark.master"))
+      sparkMaster.map(_.defaultExecutorMemoryMB).getOrElse(0L)
     }
   }
 

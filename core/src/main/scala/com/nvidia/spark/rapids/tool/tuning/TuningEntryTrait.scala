@@ -25,22 +25,27 @@ import com.nvidia.spark.rapids.tool.tuning.TuningOpTypes.TuningOpType
  */
 trait TuningEntryTrait {
   val name: String
-  // The value recommended by the AutoTuner
-  private var _tunedValue: Option[String] = None
-  // Define getter and setter for the tunedValue
-  protected def tunedValue: Option[String] = _tunedValue
-  protected def tunedValue_=(value: Option[String]): Unit = {
-    // Values are normalized before being set.
-    _tunedValue = value.map(normalizeValue)
+
+  // The original value of the property
+  private var _originalValue: Option[String] = None
+
+  /** Gets the original value */
+  protected def originalValue: Option[String] = _originalValue
+
+  /** Sets the original value after normalizing it */
+  protected def originalValue_=(value: Option[String]): Unit = {
+    _originalValue = value.map(normalizeValue)
   }
 
-  // The original value of the property from the event log
-  private var _originalValue: Option[String] = None
-  // Define getter and setter for the originalValue
-  protected def originalValue: Option[String] = _originalValue
-  protected def originalValue_=(value: Option[String]): Unit = {
-    // Values are normalized before being set.
-    _originalValue = value.map(normalizeValue)
+  // The value recommended by the AutoTuner
+  private var _tunedValue: Option[String] = None
+
+  /** Gets the tuned value */
+  protected def tunedValue: Option[String] = _tunedValue
+
+  /** Sets the tuned value after normalizing it */
+  protected def tunedValue_=(value: Option[String]): Unit = {
+    _tunedValue = value.map(normalizeValue)
   }
 
   var enabled: Boolean = true

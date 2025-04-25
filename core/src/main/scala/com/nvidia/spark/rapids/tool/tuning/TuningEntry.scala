@@ -100,7 +100,7 @@ class MemoryUnitTuningEntry(
    * E.g. "MiB" -> ByteUnit.MiB
    */
   private val defaultMemoryUnit: ByteUnit = {
-    val defaultMemoryUnitStr = definition.map(_.defaultMemoryUnit).orNull
+    val defaultMemoryUnitStr = definition.flatMap(_.getConfUnit).orNull
     require(defaultMemoryUnitStr != null,
       "Default memory unit must be specified for memory tuning entries")
 

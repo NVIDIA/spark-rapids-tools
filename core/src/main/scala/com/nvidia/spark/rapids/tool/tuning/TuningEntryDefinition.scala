@@ -28,6 +28,41 @@ import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
+
+// scalastyle:off line.size.limit
+// This is similar to confTypes defined in
+// https://github.com/apache/spark/blob/branch-3.5/core/src/main/scala/org/apache/spark/internal/config/ConfigBuilder.scala
+// scalastyle:on line.size.limit
+object ConfTypeEnum extends Enumeration {
+  val Int, Long, Double, Boolean, String, Time, Byte = Value
+
+  def fromString(s: String): Value = {
+    values.find(_.toString.toLowerCase == s.toLowerCase).getOrElse {
+      throw new IllegalArgumentException(s"Unknown conf type: $s")
+    }
+  }
+
+  def default: Value = String
+}
+
+/**
+ * Represents the type information for a tuning entry configuration.
+ * @param name The type name (Byte, String, Int, Time)
+ * @param defaultUnit Optional default unit (e.g., "MiB" for byte type)
+ */
+case class ConfType(name: ConfTypeEnum.Value, defaultUnit: Option[String] = None)
+
+object ConfType {
+  def fromMap(map: util.LinkedHashMap[String, String]): ConfType = {
+    val typeName = Option(map.get("name")).getOrElse(
+      throw new IllegalArgumentException("Unable to create ConfType without name. " +
+        "Include name in the tuning definition."))
+    val confTypeEnum = ConfTypeEnum.fromString(typeName)
+    val unit = Option(map.get("defaultUnit"))
+    ConfType(confTypeEnum, unit)
+  }
+}
+
 /**
  * A wrapper to the hold the tuning entry information.
  * @param label the property name
@@ -42,8 +77,8 @@ import org.apache.spark.sql.rapids.tool.util.UTF8Source
  *                       Default is true.
  * @param defaultSpark The default value of the property in Spark. This is used to set the
  *                     originalValue of the property in case it is not set by the eventlog.
- * @param defaultMemoryUnit The default memory unit for memory-related properties (e.g., MiB, Byte).
- *                         When defined, indicates this is a memory property.
+ * @param confType A map containing the configuration type information with optional default unit
+ *                 Example: { "name": "byte", "defaultUnit": "MiB" } or { "name": "string" }
  * @param comments The defaults comments to be loaded for the entry. It is a map to represent
  *                 three different types of comments:
  *                 1. "missing" to represent the default comment to be appended to the AutoTuner's
@@ -61,17 +96,21 @@ class TuningEntryDefinition(
     @BeanProperty var category: String,
     @BeanProperty var bootstrapEntry: Boolean,
     @BeanProperty var defaultSpark: String,
-    @BeanProperty var defaultMemoryUnit: String,
+    @BeanProperty var confType: util.LinkedHashMap[String, String],
     @BeanProperty var comments: util.LinkedHashMap[String, String]) {
+  private lazy val confTypeInfo: ConfType = ConfType.fromMap(confType)
+
   def this() = {
     this(label = "", description = "", enabled = true, level = "", category = "",
-      bootstrapEntry = true, defaultSpark = null, defaultMemoryUnit = null,
+      bootstrapEntry = true, defaultSpark = null,
+      confType = new util.LinkedHashMap[String, String](),
       comments = new util.LinkedHashMap[String, String]())
   }
 
   def isEnabled(): Boolean = {
     enabled
   }
+
   def isBootstrap(): Boolean = {
     bootstrapEntry || label.startsWith("spark.rapids.")
   }
@@ -80,7 +119,11 @@ class TuningEntryDefinition(
    * Indicates if the property is a memory-related property.
    */
   def isMemoryProperty: Boolean = {
-    defaultMemoryUnit != null
+    confTypeInfo.name == ConfTypeEnum.Byte
+  }
+
+  def getConfUnit: Option[String] = {
+    confTypeInfo.defaultUnit
   }
 
   /**

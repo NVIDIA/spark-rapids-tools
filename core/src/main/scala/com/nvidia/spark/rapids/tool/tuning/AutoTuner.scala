@@ -198,11 +198,23 @@ class ClusterProperties(
 /**
  * Represents different Spark master types.
  */
-sealed trait SparkMaster
-case object Local extends SparkMaster
-case object Yarn extends SparkMaster
-case object Kubernetes extends SparkMaster
-case object Standalone extends SparkMaster
+sealed trait SparkMaster {
+  // Default executor memory to use in case not set by the user.
+  val defaultExecutorMemoryMB: Long
+}
+case object Local extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 0L
+}
+case object Yarn extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Kubernetes extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Standalone extends SparkMaster {
+  // Would be the entire node memory by default
+  val defaultExecutorMemoryMB: Long = 0L
+}
 
 object SparkMaster {
   def apply(master: Option[String]): Option[SparkMaster] = {

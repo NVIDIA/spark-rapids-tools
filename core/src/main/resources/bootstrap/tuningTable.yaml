@@ -19,11 +19,15 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: boolean
   - label: spark.dataproc.enhanced.execution.enabled
     description: Enables enhanced execution. Turning this on might cause the accelerated dataproc cluster to hang.
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: boolean
     comments:
       persistent: >-
         should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -32,6 +36,8 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: boolean
     comments:
       persistent: >-
         should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -40,19 +46,25 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.executor.instances
     description: >-
       Controls parallelism level. It is recommended to be set to (cpuCoresPerNode * numWorkers) / spark.executor.cores.
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.executor.memory
     description: >-
       Amount of memory to use per executor process. This is tuned based on the available CPU memory on worker node.
     enabled: true
     level: cluster
     category: tuning
-    defaultMemoryUnit: MiB
+    confType:
+      name: byte
+      defaultUnit: MiB
   - label: spark.executor.memoryOverhead
     description: >-
       Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
@@ -61,7 +73,9 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
-    defaultMemoryUnit: MiB
+    confType:
+      name: byte
+      defaultUnit: MiB
   - label: spark.executor.memoryOverheadFactor
     description: >-
       Fraction of executor memory to be allocated as additional non-heap memory per executor process.
@@ -70,6 +84,8 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: double
   - label: spark.kryo.registrator
     description: >-
       Fraction of executor memory to be allocated as additional non-heap memory per executor process.
@@ -78,6 +94,8 @@ tuningDefinitions:
     enabled: true
     level: job
     category: functionality
+    confType:
+      name: string
     comments:
       missing: should include GpuKryoRegistrator when using Kryo serialization.
       updated: GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
@@ -89,7 +107,9 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "64MB"
-    defaultMemoryUnit: MiB
+    confType:
+      name: byte
+      defaultUnit: MiB
     comments:
       missing: setting the max buffer to prevent out-of-memory errors.
       updated: increasing the max buffer to prevent out-of-memory errors.
@@ -99,6 +119,8 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: double
   - label: spark.locality.wait
     description: >-
       The time to wait to launch a data-local task before giving up and launching it on a less-local node.
@@ -107,6 +129,9 @@ tuningDefinitions:
     level: cluster
     category: tuning
     defaultSpark: "3s"
+    confType:
+      name: time
+      unit: "ms"
   - label: spark.rapids.filecache.enabled
     description: >-
       Enables RAPIDS file cache. The file cache stores data locally in the same local directories
@@ -114,12 +139,16 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: boolean
   - label: spark.rapids.memory.pinnedPool.size
     description: The size of the pinned memory pool in bytes unless otherwise specified. Use 0 to disable the pool.
     enabled: true
     level: cluster
     category: tuning
-    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.rapids.shuffle.multiThreaded.maxBytesInFlight
     description: >-
       This property controls the amount of bytes we allow in flight per Spark task.
@@ -128,7 +157,9 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
-    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.rapids.shuffle.multiThreaded.reader.threads
     description: >-
       The shuffle reader is a single implementation irrespective of the number of partitions.
@@ -136,6 +167,8 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.rapids.shuffle.multiThreaded.writer.threads
     description: >-
       Controls the number of threads used for writing shuffle data in a multi-threaded shuffle writer
@@ -143,13 +176,17 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.rapids.sql.batchSizeBytes
     description: >-
       Set the target number of bytes for a GPU batch. Splits sizes for input data is covered by separate configs.
     enabled: true
     level: job
     category: tuning
-    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.rapids.sql.concurrentGpuTasks
     description: >-
       Set the number of tasks that can execute concurrently per GPU. Tasks may temporarily block when the number of
@@ -158,6 +195,8 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.rapids.sql.format.parquet.multithreaded.combine.waitTime
     description: >-
       When using the multithreaded parquet reader with combine mode, how long to wait, in milliseconds,
@@ -167,16 +206,22 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.rapids.sql.enabled
     description: Should be true to enable SQL operations on the GPU.
     enabled: true
     level: cluster
     category: functionality
+    confType:
+      name: boolean
   - label: spark.rapids.sql.multiThreadedRead.numThreads
     description: The maximum number of threads on each executor to use for reading small files in parallel.
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: int
   - label: spark.rapids.sql.reader.multithreaded.combine.sizeBytes
     description: >-
       The target size in bytes to combine multiple small files together when using the MULTITHREADED
@@ -185,7 +230,9 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
-    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.serializer
     description: >-
       Specifies which serialization mechanism to use when serializing objects during distributed computation.
@@ -194,6 +241,8 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: string
   - label: spark.shuffle.manager
     description: >-
       The RAPIDS Shuffle Manager is an implementation of the ShuffleManager interface in Apache Spark that
@@ -202,6 +251,8 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: string
   - label: spark.sql.adaptive.enabled
     description: >-
       When true, enable adaptive query execution, which re-optimizes the query plan in the middle of
@@ -210,6 +261,8 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "true"
+    confType:
+      name: boolean
   - label: spark.sql.adaptive.advisoryPartitionSizeInBytes
     description: >-
       The advisory size in bytes of the shuffle partition during adaptive optimization
@@ -219,6 +272,9 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.sql.adaptive.coalescePartitions.initialPartitionNum
     description: >-
       The initial number of shuffle partitions before coalescing. If not set, it equals to
@@ -226,6 +282,8 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: int
   - label: spark.sql.adaptive.coalescePartitions.minPartitionNum
     description: >-
       (deprecated) The suggested (not guaranteed) minimum number of shuffle partitions after coalescing.
@@ -233,6 +291,8 @@ tuningDefinitions:
     enabled: true
     level: job
     category: tuning
+    confType:
+      name: int
   - label: spark.sql.adaptive.coalescePartitions.minPartitionSize
     description: >-
       The minimum size of shuffle partitions after coalescing. This is useful when the adaptively calculated
@@ -242,6 +302,9 @@ tuningDefinitions:
     category: tuning
     defaultSpark: 1m
     defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.sql.adaptive.coalescePartitions.parallelismFirst
     description: >-
       When true, Spark does not respect the target size specified by 'spark.sql.adaptive.advisoryPartitionSizeInBytes'
@@ -251,6 +314,8 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "true"
+    confType:
+      name: boolean
   - label: spark.sql.adaptive.autoBroadcastJoinThreshold
     description: >-
       Configures the maximum size in bytes for a table that will be broadcast to all worker nodes when
@@ -259,6 +324,9 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.sql.files.maxPartitionBytes
     description: >-
       The maximum number of bytes to pack into a single partition when reading files.
@@ -267,6 +335,9 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
   - label: spark.sql.shuffle.partitions
     description: >-
       The default number of partitions to use when shuffling data for joins or aggregations.
@@ -276,6 +347,8 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "200"
+    confType:
+      name: int
   - label: spark.task.resource.gpu.amount
     description: >-
       The GPU resource amount per task when Apache Spark schedules GPU resources.
@@ -283,3 +356,5 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    confType:
+      name: double
