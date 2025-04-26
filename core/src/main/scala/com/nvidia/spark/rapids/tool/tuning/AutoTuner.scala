@@ -34,6 +34,7 @@ import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
 
@@ -197,11 +198,23 @@ class ClusterProperties(
 /**
  * Represents different Spark master types.
  */
-sealed trait SparkMaster
-case object Local extends SparkMaster
-case object Yarn extends SparkMaster
-case object Kubernetes extends SparkMaster
-case object Standalone extends SparkMaster
+sealed trait SparkMaster {
+  // Default executor memory to use in case not set by the user.
+  val defaultExecutorMemoryMB: Long
+}
+case object Local extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 0L
+}
+case object Yarn extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Kubernetes extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Standalone extends SparkMaster {
+  // Would be the entire node memory by default
+  val defaultExecutorMemoryMB: Long = 0L
+}
 
 object SparkMaster {
   def apply(master: Option[String]): Option[SparkMaster] = {
@@ -378,7 +391,7 @@ class AutoTuner(
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
-      if (recomRecord.originalValue.isEmpty) {
+      if (recomRecord.getOriginalValue.isEmpty) {
         // add missing comment if any
         appendMissingComment(key)
       } else {
@@ -697,7 +710,7 @@ class AutoTuner(
       // set the kryo serializer buffer size to prevent OOMs
       val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
       val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
-        .map(StringUtils.convertToMB)
+        .map(StringUtils.convertToMB(_, Some(ByteUnit.MiB)))
         .getOrElse(0L)
       if (currentBufferMaxMb < desiredBufferMax) {
         appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMax")
@@ -852,11 +865,11 @@ class AutoTuner(
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
     val autoBroadcastJoinThresholdProperty =
-      getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB)
+      getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
     if (autoBroadcastJoinThresholdProperty.isEmpty) {
       appendComment(autoBroadcastJoinKey, s"'$autoBroadcastJoinKey' was not set.")
     } else if (autoBroadcastJoinThresholdProperty.get >
-        StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
+        StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD, None)) {
       appendComment(s"Setting '$autoBroadcastJoinKey' > " +
         s"${autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD} could " +
         s"lead to performance\n" +
@@ -942,7 +955,7 @@ class AutoTuner(
   protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
+    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes, Some(ByteUnit.BYTE))
     if (inputBytesMax == 0.0) {
       Some(maxPartitionBytesNum)
     } else {
@@ -996,7 +1009,7 @@ class AutoTuner(
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
         calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
       } else {
-        s"${StringUtils.convertToMB(maxPartitionProp)}"
+        s"${StringUtils.convertToMB(maxPartitionProp, Some(ByteUnit.BYTE))}"
       }
     appendRecommendationForMemoryMB("spark.sql.files.maxPartitionBytes", recommended)
   }
@@ -1257,7 +1270,7 @@ class ProfilingAutoTuner(
     getPropertyValue("spark.sql.files.maxPartitionBytes") match {
       case Some(currentValue) if appInfoProvider.hasScanStagesWithGpuOom =>
         // GPU OOM detected. We may want to reduce max partition size.
-        val halvedValue = StringUtils.convertToMB(currentValue) / 2
+        val halvedValue = StringUtils.convertToMB(currentValue, Some(ByteUnit.BYTE)) / 2
         // Choose the minimum between the calculated value and half of the current value.
         calculatedValueFromInputSize match {
           case Some(calculatedValue) => Some(math.min(calculatedValue, halvedValue))

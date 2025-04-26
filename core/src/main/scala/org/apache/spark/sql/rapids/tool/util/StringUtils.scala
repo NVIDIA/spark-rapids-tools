@@ -19,6 +19,9 @@ package org.apache.spark.sql.rapids.tool.util
 import scala.concurrent.duration.{DurationDouble, DurationLong}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
+import org.apache.spark.sql.rapids.tool.InvalidMemoryUnitFormatException
+
 
 /**
  * Utility containing the implementation of helpers used for parsing and/or formatting
@@ -116,32 +119,92 @@ object StringUtils extends Logging {
     case _: NumberFormatException => None
   }
 
-  def isMemorySize(value: String): Boolean = {
-    value.matches(regExMemorySize.regex)
-  }
-
   /**
-   * Converts size from human readable to bytes.
-   * Eg, "4m" -> 4194304.
+   * Converts a memory size string to bytes. The input string can be in one of two formats:
+   * 1. A number with a unit suffix (e.g., "4m", "2.5g", "1024k")
+   * 2. A plain number (e.g., "1024", "2.5") - interpreted using the defaultUnit
+   * Examples:
+   * - convertMemorySizeToBytes("4m") => 4194304 (4 * 1024 * 1024)
+   * - convertMemorySizeToBytes("2.5g") => 2684354560 (2.5 * 1024 * 1024 * 1024)
+   * - convertMemorySizeToBytes("1024", Some(ByteUnit.KiB)) => 1048576 (1024 * 1024)
+   * - convertMemorySizeToBytes("2.5", Some(ByteUnit.MiB)) => 2621440 (2.5 * 1024 * 1024)
+   * - convertMemorySizeToBytes("256", None) =>
+   *      throws IllegalArgumentException as no unit is specified and no default unit is set
+   *
+   * @param value The string to convert (e.g., "4m", "2.5g", "1024")
+   * @param defaultUnit The unit to use when no unit suffix is provided
+   * @return The size in bytes as a Long
+   * @throws InvalidMemoryUnitFormatException if the input string is not in a valid format
+   *                                          or if no default unit is set
    */
-  def convertMemorySizeToBytes(value: String): Long = {
+  def convertMemorySizeToBytes(value: String, defaultUnit: Option[ByteUnit]): Long = {
     regExMemorySize.findFirstMatchIn(value.toLowerCase) match {
       case None =>
-        // try to convert to long
-        stringToLong(value) match {
-          case Some(num) => num
-          case _ =>
-            logError(s"Could not convert memorySize input [$value] to Long")
-            0L
+        if (defaultUnit.isEmpty) {
+          throw new InvalidMemoryUnitFormatException(
+            s"Unable to convert '$value': No unit specified and no default unit set. " +
+              "Please provide a value with a unit or set a default unit."
+          )
+        }
+
+        // Handle plain numeric values (e.g., "1024", "2.5") using the defaultUnit
+        try {
+          (value.toDouble * defaultUnit.get.toBytes(1)).toLong
+        } catch {
+          case _: NumberFormatException =>
+            throw new InvalidMemoryUnitFormatException(
+              s"Cannot convert '$value' to memory unit ${defaultUnit.get.toString}.")
         }
       case Some(m) =>
+        // Handle values with unit suffixes (e.g., "4m", "2.5g")
         val unitSize = m.group(2).substring(0, 1)
         val sizeNum = m.group(1).toDouble
         (sizeNum * Math.pow(1024, SUPPORTED_SIZE_UNITS.indexOf(unitSize))).toLong
     }
   }
 
-  def convertToMB(value: String): Long = {
-    convertMemorySizeToBytes(value) / (1024 * 1024)
+  // Map of ByteUnit to (unit suffix, divisor)
+  private lazy val byteUnitMap = Seq(
+    ByteUnit.PiB -> (("p", 1024.0 * 1024.0 * 1024.0 * 1024.0 * 1024.0)),
+    ByteUnit.TiB -> (("t", 1024.0 * 1024.0 * 1024.0 * 1024.0)),
+    ByteUnit.GiB -> (("g", 1024.0 * 1024.0 * 1024.0)),
+    ByteUnit.MiB -> (("m", 1024.0 * 1024.0)),
+    ByteUnit.KiB -> (("k", 1024.0)),
+    ByteUnit.BYTE -> (("b", 1.0))
+  )
+
+  /**
+   * Converts a memory size string to MiB. The input string can be in one of two formats:
+   * 1. A number with a unit suffix (e.g., "4m", "2.5g", "1024k")
+   * 2. A plain number (e.g., "1024", "2.5") - interpreted using the defaultUnit
+   */
+  def convertToMB(value: String, defaultUnit: Option[ByteUnit]): Long = {
+    val bytes = convertMemorySizeToBytes(value, defaultUnit)
+    bytes / (1024 * 1024)
+  }
+
+  /**
+   * Converts bytes to the largest possible unit suffix that avoids fractions.
+   *
+   * Examples:
+   * - convertBytesToLargestUnit(4194304) => "4m"
+   * - convertBytesToLargestUnit(2147483648L) => "2g"
+   * - convertBytesToLargestUnit(1536) => "1.5k" => "1536b"
+   * - convertBytesToLargestUnit(0) => "0b"
+   *
+   * @param bytes The number of bytes to convert
+   * @return String with the largest appropriate unit suffix that avoids fractions
+   */
+  def convertBytesToLargestUnit(bytes: Long): String = {
+    if (bytes == 0) {
+      return "0b"
+    }
+    byteUnitMap.collectFirst {
+      case (unit, (unitSuffix, divisor)) if (bytes.toDouble / divisor) % 1 == 0 =>
+        // Find the first unit that results in a whole number
+        // and convert the bytes to that unit
+        val valueInUnit = ByteUnit.BYTE.convertTo(bytes, unit)
+        s"$valueInUnit$unitSuffix"
+    }.getOrElse(s"${bytes}b") // Fallback to bytes if no clean division found
   }
 }
