@@ -14,6 +14,7 @@
 
 import glob
 import os
+import re
 from behave import given, when, then
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
@@ -65,10 +66,15 @@ def step_impl(context, label):
     os.environ['QUALX_LABEL'] = label
 
 
-@given('RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD environment variable is set to "{threshold}"')
-def set_spill_threshold(context, threshold):
-    """Set the QUALX_LABEL environment variable to the specified value."""
-    os.environ['RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD'] = threshold
+@given('RAPIDS_USER_TOOLS environment variable "{variable_name}" is set to "{value}"')
+def set_environment_variable(context, variable_name, value):
+    """Set the specified RAPIDS_USER_TOOLS_* environment variable to the given value."""
+    pattern = r'^RAPIDS_USER_TOOLS_[A-Z_]+$'
+
+    if re.match(pattern, variable_name):
+        os.environ[variable_name] = value
+    else:
+        raise ValueError(f"Environment variable {variable_name} does not match the required pattern: {pattern}")
 
 
 @given('sample event logs in the QUALX_DATA_DIR')
