@@ -19,7 +19,7 @@ This module defines environment setup and teardown functions for the end-to-end 
 import os
 import shutil
 import tempfile
-import re
+from glob import glob
 
 from spark_rapids_tools.utils import Utilities
 from steps.e2e_utils import E2ETestUtils
@@ -70,9 +70,8 @@ def after_scenario(context, scenario) -> None:
 
     # Cleaning up the output from previous scenarios if any
     if hasattr(context, 'temp_dir') and os.path.exists(context.temp_dir):
-        for item in os.listdir(context.temp_dir):
-            item_path = os.path.join(context.temp_dir, item)
-            if os.path.isdir(item_path) and re.match(r'^qual_.*', item):
+        for item_path in glob(os.path.join(context.temp_dir, 'qual_*')):
+            if os.path.isdir(item_path):
                 shutil.rmtree(item_path)
 
 

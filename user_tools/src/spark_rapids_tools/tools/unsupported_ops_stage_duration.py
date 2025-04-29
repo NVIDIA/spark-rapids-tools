@@ -62,8 +62,8 @@ class UnsupportedOpsStageDuration:
         Calculates the percentage of all sql stage durations sum for unsupported operators for each application
         """
         # Mask defines a set of conditions to filter which unsupported operators have an impact
-        # on the stage duration. Refer to keys unsupportedOperators/mask in qualification-conf.yaml
-        # for mask conditions
+        # on the stage duration. Refer to key 'local.output.unsupportedOperators.mask' in
+        # qualification-conf.yaml for mask conditions
         mask = self.__create_column_mask(unsupported_ops_df)
         unsupported_ops_df = unsupported_ops_df.loc[mask, self.props.get('inputColumns')]
 

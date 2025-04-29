@@ -347,8 +347,7 @@ class Qualification(RapidsJarTool):
         # Also processes the SpeedUp assigned using some eligibility conditions present in the qualification-conf.yaml
         # in case that needs to be updated
         df_final_result = speedup_category_ob.build_category_column(apps_with_runtime_df)
-        # Rename the column name to Not Recommended Reason and fill the missing values with N/A
-        df_final_result.rename(columns={'Reason': 'Not Recommended Reason'}, inplace=True)
+        # Fill the missing values in 'Not Recommended Reason' with N/A
         df_final_result['Not Recommended Reason'] = df_final_result['Not Recommended Reason'].fillna('N/A')
 
         reshaped_notes = self.__generate_cluster_shape_report()
