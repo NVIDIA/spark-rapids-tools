@@ -25,10 +25,12 @@ def split_function(features: pd.DataFrame, **kwargs) -> pd.DataFrame:
     ----------
     features: pd.DataFrame
         Input dataframe
-    seed: int
-        Seed for random number generator
+    label_col: str
+        Label column name
     threshold: float
         Threshold for true positive
+    seed: int
+        Seed for random number generator
     test_pct: float
         Percentage of all rows to use for test
     val_pct: float
@@ -42,12 +44,17 @@ def split_function(features: pd.DataFrame, **kwargs) -> pd.DataFrame:
     threshold = kwargs.get('threshold', 1.0)
     test_pct = kwargs.get('test_pct', 0.2)
     val_pct = kwargs.get('val_pct', 0.2)
+    label_col = kwargs.get('label_col', 'Duration_speedup')
 
-    df = features.copy()
+    # ensure 'split' column is present
+    if 'split' not in features.columns:
+        # add empty split column
+        features['split'] = ''
+
     rand = random.Random(seed)
-    label_col = 'duration_sum_speedup'
 
-    if label_col in df.columns:  # QXS does not have a label column
+    if label_col in features.columns:  # QXS does not have a label column
+        df = features.copy()
         # stratified split by positives / negatives
         df['true_positive'] = df[label_col] > threshold
         positives = df.loc[df['true_positive']]
@@ -82,5 +89,6 @@ def split_function(features: pd.DataFrame, **kwargs) -> pd.DataFrame:
         # merge positives and negatives
         df.update(positives)
         df.update(negatives)
+        features.update(df)
 
-    return df
+    return features

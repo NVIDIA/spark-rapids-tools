@@ -233,6 +233,7 @@ def hash_plan(plan):
                     fields = [field.strip() for field in fields if not re.search(r'\(|\[', field)]
                     # take a max of N fields (to try to avoid truncated fields)
                     fields = fields[:n_fields]
+                    fields = sorted(fields)
                 else:
                     fields = ''
 

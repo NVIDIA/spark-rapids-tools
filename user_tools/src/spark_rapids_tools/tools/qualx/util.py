@@ -168,9 +168,8 @@ def get_abs_path(path: str, subdir: Optional[Union[str, List[str]]] = None) -> s
         search_paths_with_subdir = [os.path.join(search_path, subdir_path) for search_path in search_paths]
 
         for search_path in search_paths_with_subdir:
-            if os.path.exists(os.path.join(search_path, path)):
-                # path in the source directory
-                abs_path = os.path.join(search_path, path)
+            abs_path = os.path.join(search_path, path)
+            if os.path.exists(abs_path):
                 return abs_path
 
     raise ValueError(f'{path} not found')
