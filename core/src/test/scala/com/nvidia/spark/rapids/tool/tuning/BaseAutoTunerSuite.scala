@@ -21,7 +21,7 @@ import java.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.AppSummaryInfoBaseProvider
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
@@ -66,6 +66,17 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
   override def hasScanStagesWithGpuOom: Boolean = scanStagesWithGpuOom
   override def hasShuffleStagesWithOom: Boolean = shuffleStagesWithOom
+
+  /**
+   * Sets the spark master property in the properties map.
+   * This method guarantees that the spark master property is set only once.
+   */
+  final def setSparkMaster(sparkMaster: String): Unit = {
+    require(!propsFromLog.contains("spark.master"),
+      "'spark.master' is already set in the properties map. " +
+        "Remove it before before setting it again.")
+    propsFromLog.put("spark.master", sparkMaster)
+  }
 }
 
 /**
@@ -81,6 +92,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
   def testSmVersion: String = testSparkVersion.filterNot(_ == '.')
   // RapidsShuffleManager version used for testing Databricks
   def testSmVersionDatabricks: String = "332db"
+  //  Subclasses to provide the AutoTuner configuration to use
+  val autoTunerConfigsProvider: AutoTunerConfigsProvider
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
@@ -145,7 +158,7 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
       shuffleStagesWithPosSpilling: Set[Long] = Set(),
       shuffleSkewStages: Set[Long] = Set(),
       scanStagesWithGpuOom: Boolean = false,
-      shuffleStagesWithOom: Boolean = false): AppSummaryInfoBaseProvider = {
+      shuffleStagesWithOom: Boolean = false): AppInfoProviderMockTest = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom, shuffleStagesWithOom)
@@ -166,5 +179,49 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
           |=== Actual ===
           |$autoTunerOutput
           |""".stripMargin)
+  }
+
+  // Define a mapping of platform names to their default SparkMaster types
+  private lazy val platformToMasterMapping: Map[String, SparkMaster] = Map(
+    PlatformNames.EMR -> Yarn,
+    PlatformNames.DATAPROC -> Yarn,
+    PlatformNames.DATAPROC_GKE -> Kubernetes,
+    PlatformNames.DATABRICKS_AWS -> Standalone,
+    PlatformNames.DATABRICKS_AZURE -> Standalone,
+    PlatformNames.DATAPROC_SL -> Standalone,
+    PlatformNames.ONPREM -> Local
+  )
+
+  /**
+   * Helper method to create an instance of the AutoTuner from the cluster properties.
+   * It sets the appropriate 'spark.master' configuration based on the platform.
+   */
+  final def createAutoTunerFromProps(
+    clusterProps: String,
+    mockInfoProvider: AppInfoProviderMockTest,
+    platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
+    sparkMaster: Option[SparkMaster] = None): AutoTuner = {
+
+    // Determine the SparkMaster using provided value or platform-based default
+    val resolvedSparkMaster = sparkMaster.getOrElse {
+      platformToMasterMapping.getOrElse(
+        platform.platformName,
+        throw new IllegalArgumentException(s"Unsupported platform: ${platform.platformName}")
+      )
+    }
+
+    // Convert SparkMaster enum to corresponding string representation
+    val sparkMasterStr = resolvedSparkMaster match {
+      case Local => "local"
+      case Standalone => "spark://localhost:7077"
+      case Yarn => "yarn"
+      case Kubernetes => "k8s://https://my-cluster-endpoint.example.com:6443"
+    }
+
+    // Set the spark master in the mock info provider
+    mockInfoProvider.setSparkMaster(sparkMasterStr)
+
+    // Build and return the AutoTuner
+    autoTunerConfigsProvider.buildAutoTunerFromProps(clusterProps, mockInfoProvider, platform)
   }
 }
