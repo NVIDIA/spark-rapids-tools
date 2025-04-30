@@ -556,30 +556,6 @@ class AutoTuner(
     }
   }
 
-  /**
-   * Flow:
-   *   if "spark.master" is standalone => Do Nothing
-   *   if "spark.rapids.memory.pinnedPool.size" is set
-   *     if yarn -> recommend "spark.executor.memoryOverhead"
-   *     if using k8s ->
-   *         if version > 3.3.0 recommend "spark.executor.memoryOverheadFactor" and add comment
-   *         else recommend "spark.kubernetes.memoryOverheadFactor" and add comment if missing
-   */
-  private def addRecommendationForMemoryOverhead(recomValue: String): Unit = {
-    if (!sparkMaster.contains(Standalone)) {
-      val memOverheadLookup = autoTunerConfigsProvider.getMemoryOverheadLabel(sparkMaster,
-        appInfoProvider.getSparkVersion)
-      val pinnedPoolSizeLookup = "spark.rapids.memory.pinnedPool.size"
-      appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
-      // if using k8s and pinned pool size is set, add a comment if memory overhead is missing
-      if (sparkMaster.contains(Kubernetes) &&
-            getPropertyValue(pinnedPoolSizeLookup).isDefined &&
-              getPropertyValue(memOverheadLookup).isEmpty) {
-        appendComment(s"'$memOverheadLookup' must be set if using '$pinnedPoolSizeLookup'.")
-      }
-    }
-  }
-
   private def configureShuffleReaderWriterNumThreads(numExecutorCores: Int): Unit = {
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
@@ -657,8 +633,10 @@ class AutoTuner(
         val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
           calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
         appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-        addRecommendationForMemoryOverhead(memoryOverhead.toString)
         appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+        if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+          appendRecommendationForMemoryMB("spark.executor.memoryOverhead", s"$memoryOverhead")
+        }
         setMaxBytesInFlight
       } else {
         logInfo("Available memory per exec is not specified")
@@ -1568,31 +1546,6 @@ trait AutoTunerConfigsProvider extends Logging {
        |for Apache Spark because it doesn't have enough memory for the executors.
        |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB memory.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
-  }
-
-  /**
-   * Find the label of the memory overhead based on the spark master configuration and the spark
-   * version.
-   * @return "spark.executor.memoryOverhead", "spark.kubernetes.memoryOverheadFactor",
-   *         or "spark.executor.memoryOverheadFactor".
-   */
-  def getMemoryOverheadLabel(
-      sparkMaster: Option[SparkMaster],
-      sparkVersion: Option[String]) : String = {
-    val defaultLabel = "spark.executor.memoryOverhead"
-    sparkMaster match {
-      case Some(Kubernetes) =>
-        sparkVersion match {
-          case Some(version) =>
-            if (ToolUtils.isSpark330OrLater(version)) {
-              "spark.executor.memoryOverheadFactor"
-            } else {
-              "spark.kubernetes.memoryOverheadFactor"
-            }
-          case None => defaultLabel
-        }
-      case _ => defaultLabel
-    }
   }
 }
 
