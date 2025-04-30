@@ -66,15 +66,10 @@ def step_impl(context, label):
     os.environ['QUALX_LABEL'] = label
 
 
-@given('RAPIDS_USER_TOOLS environment variable "{variable_name}" is set to "{value}"')
+@given('environment variable "{variable_name}" is set to "{value}"')
 def set_environment_variable(context, variable_name, value):
     """Set the specified RAPIDS_USER_TOOLS_* environment variable to the given value."""
-    pattern = r'^RAPIDS_USER_TOOLS_[A-Z_]+$'
-
-    if re.match(pattern, variable_name):
-        os.environ[variable_name] = value
-    else:
-        raise ValueError(f"Environment variable {variable_name} does not match the required pattern: {pattern}")
+    os.environ[variable_name] = value
 
 
 @given('sample event logs in the QUALX_DATA_DIR')

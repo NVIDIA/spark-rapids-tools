@@ -47,7 +47,7 @@ Feature: Event Log Processing
   @test_id_ELP_0003
   Scenario Outline: Check for expected output in generated files
     Given platform is "<platform>"
-    Given RAPIDS_USER_TOOLS environment variable "<variable>" is set to "<value>"
+    Given environment variable "<variable>" is set to "<value>"
     When spark-rapids tool is executed with "<eventlog>" eventlogs
     When "<file>" file is generated
     When "<app_id>" app is not qualified
