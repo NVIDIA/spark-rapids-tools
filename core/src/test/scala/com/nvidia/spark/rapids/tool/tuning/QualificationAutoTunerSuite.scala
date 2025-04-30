@@ -63,7 +63,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = QualificationAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    createAutoTunerFromProps(workerInfo, infoProvider, platform)
+    buildAutoTunerForTests(workerInfo, infoProvider, platform)
   }
 
   test("test AutoTuner for Qualification sets batch size to 1GB") {

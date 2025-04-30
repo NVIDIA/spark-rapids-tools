@@ -634,6 +634,10 @@ class AutoTuner(
           calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
         appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
         appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
+        // scalastyle:off line.size.limit
+        // For YARN and Kubernetes, we need to set the executor memory overhead
+        // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
+        // scalastyle:on line.size.limit
         if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
           appendRecommendationForMemoryMB("spark.executor.memoryOverhead", s"$memoryOverhead")
         }
