@@ -70,7 +70,7 @@ download_jar_from_url() {
   fi
 
   echo "Downloading JAR from $url to $output_path"
-  curl -L -o "$output_path" "$url"
+  curl -L -f -o "$output_path" "$url"
 
   if [ $? -ne 0 ]; then
     echo "Failed to download JAR from URL: $url"
