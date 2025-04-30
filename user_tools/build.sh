@@ -15,13 +15,26 @@
 
 
 # Usage: ./build.sh [build_mode] [jar_url]
-# This script takes a build_mode ("fat" or "non-fat") as a parameter.
-# If the build_mode is "fat", it runs the dependency downloader script and build the jar from source.
-# If the build_mode is not "fat", it removes dependencies from the prepackaged directory
-# If jar_url is provided, the script downloads the JAR from the URL instead of building it
-# Finally performs the default build process.
+# This script takes a build_mode ("fat" or "non-fat") and the jar url as parameter.
+# Build mode is a mandatory parameter while the jar url is optional.
+# If the build_mode is "fat" and jar_url is provided, it downloads the JAR from the URL and packages the CSP dependencies with the whl.
+# If the build_mode is "fat" and jar_url is not provided, it builds the JAR from source and packages the CSP dependencies with the whl.
+# If the build_mode is "non-fat" and jar_url is provided, it downloads the JAR from the URL and packages it with the wheel.
+# If the build_mode is "non-fat" and jar_url is not provided, it builds the JAR from source and packages it with the wheel.
 
 # Get the build mode argument
+# Check if build_mode is provided and valid
+if [ -z "$1" ]; then
+  echo "Error: build_mode parameter is required. Use either 'fat' or 'non-fat'."
+  exit 1
+fi
+
+# Validate build_mode is either "fat" or "non-fat"
+if [ "$1" != "fat" ] && [ "$1" != "non-fat" ]; then
+  echo "Error: build_mode must be either 'fat' or 'non-fat'. Got '$1' instead."
+  exit 1
+fi
+
 build_mode="$1"
 jar_url="$2"
 
@@ -116,15 +129,10 @@ download_web_dependencies() {
   local res_dir="$1"
   local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
-  if [ "$is_fat_mode" = "true" ]; then
-    echo "Downloading dependencies for fat mode"
-    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=True
-  else
-    echo "Downloading dependencies for non-fat mode"
-    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp=False
-  fi
+  echo "Downloading dependencies"
+  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp="$is_fat_mode"
   if [ $? -ne 0 ]; then
-    echo "Dependency download failed for fat mode. Exiting"
+    echo "Dependency download failed. Exiting"
     exit 1
   fi
 }
@@ -163,11 +171,11 @@ build() {
     # This will download the dependencies and create the csp-resources
     # and copy the dependencies into the csp-resources folder
     # Tools resources are copied into the tools-resources folder
-    download_web_dependencies "$RESOURCE_DIR" "true"
+    download_web_dependencies "$RESOURCE_DIR" "True"
   else
     echo "Building in non-fat mode"
     # This will just copy the tools jar built from source into the tools-resources folder
-    download_web_dependencies "$RESOURCE_DIR" "false"
+    download_web_dependencies "$RESOURCE_DIR" "False"
   fi
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
