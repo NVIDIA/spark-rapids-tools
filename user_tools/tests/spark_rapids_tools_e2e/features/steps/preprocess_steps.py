@@ -14,7 +14,6 @@
 
 import glob
 import os
-import re
 from behave import given, when, then
 from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
