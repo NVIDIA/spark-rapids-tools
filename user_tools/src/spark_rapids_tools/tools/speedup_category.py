@@ -117,7 +117,7 @@ class SpeedupCategory:
                 lower_bound = float(entry.get('lowerBound'))
                 upper_bound = float(entry.get('upperBound'))
                 # If the row does not match the eligibility criteria, set the category to `Not Recommended`.
-                # The reason for 'Not Recommended' will be added to the `Not Recommended` column.
+                # The reason for 'Not Recommended' will be added to the `Not Recommended Reason` column.
                 if not lower_bound <= col_value <= upper_bound:
                     existing_reason = single_row.get('Not Recommended Reason', '')
                     heuristic_skipping_reason = entry.get('skippingReason')
