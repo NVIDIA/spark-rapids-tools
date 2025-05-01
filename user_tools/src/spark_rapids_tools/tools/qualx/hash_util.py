@@ -21,69 +21,24 @@ from typing import List, Optional
 
 import pandas as pd
 
+from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_tools.tools.qualx.hash_config import HashConfig
 
-# nodes to remove from the plan (exact match)
-remove_nodes_exact = [
-    # CPU
-    'Exchange',
-    'Sort',
-]
 
-# nodes to remove from the plan (prefix match)
-remove_nodes_prefix = [
-    # CPU
-    'AdaptiveSparkPlan',
-    'ColumnarToRow',
-    'InputAdapter',
-    'ReusedExchange',
-    'WholeStageCodegen',
-    # GPU
-    'GpuCoalesceBatches',
-    'GpuColumnarExchange',
-    'GpuColumnarToRow',
-    'GpuRapidsDeltaWrite',
-    'GpuRowToColumnar',
-    'GpuShuffleCoalesce',
-    'GpuSort',
-    # Velox
-    'RowToVeloxColumnar',
-    'VeloxColumnarToRowExec',
-    'VeloxRowToColumnar',
-]
+_hash_config = None
 
-# nodes to rename in the plan
-rename_nodes = {
-    # strip suffixes
-    'Scan parquet': 'Scan parquet',
-    'Scan ExistingRDD Delta Table State': 'Scan ExistingRDD',
-    'Scan ExistingRDD Delta Table Checkpoint': 'Scan parquet',
-    # CPU
-    'BucketUnion': 'Union',
-    'ObjectHashAggregate': 'HashAggregate',
-    'ShuffledHashJoin': 'SortMergeJoin',
-    'SortAggregate': 'HashAggregate',
-    # GPU
-    'Execute GpuInsertIntoHadoopFsRelationCommand': 'Execute InsertIntoHadoopFsRelationCommand',
-    'Execute GpuInsertIntoHiveTable': 'Execute InsertIntoHiveTable',
-    'GpuBroadcastExchange': 'BroadcastExchange',
-    'GpuBroadcastHashJoin': 'BroadcastHashJoin',
-    'GpuCoalesce': 'Coalesce',
-    'CpuCustomShuffleReader': 'AQEShuffleRead',
-    'GpuExpand': 'Expand',
-    'GpuExecute SaveIntoDataSourceCommand': 'Execute SaveIntoDataSourceCommand',
-    'GpuFilter': 'Filter',
-    'GpuGenerate': 'Generate',
-    'GpuGlobalLimit': 'GlobalLimit',
-    'GpuHashAggregate': 'HashAggregate',
-    'GpuLocalLimit': 'LocalLimit',
-    'GpuProject': 'Project',
-    'GpuRunningWindow': 'Window',
-    'GpuScan parquet': 'Scan parquet',
-    'GpuShuffledHashJoin': 'SortMergeJoin',
-    'GpuUnion': 'Union',
-    # Velox
-    'ProjectExecTransformer': 'Project',
-}
+
+def get_hash_config() -> HashConfig:
+    """Get the hash configuration."""
+    global _hash_config  # pylint: disable=global-statement
+    if _hash_config is None:
+        _hash_config = HashConfig.load_from_file(str(Utils.resource_path('qualx-hash-conf.yaml')))
+    return _hash_config
+
+
+remove_nodes_exact = get_hash_config().remove_nodes_exact
+remove_nodes_prefix = get_hash_config().remove_nodes_prefix
+rename_nodes = get_hash_config().rename_nodes
 
 
 def split_fields(s, *, normalize=False):
@@ -137,7 +92,17 @@ def strip_ids(s):
 
 
 def path_match(node, expected_path: list[str]):
-    """Check if a node matches a sub-path in a tree."""
+    """Check if a node matches a sub-path in a tree.
+
+    The expected path must be a sequence of nodes without any branches.
+
+    Parameters
+    ----------
+    node: dict
+        The node to check.
+    expected_path: list[str]
+        The expected path (list of node names) to match.
+    """
     if expected_path:
         if node['nodeName'] == expected_path[0]:
             if len(expected_path) == 1:
@@ -148,7 +113,25 @@ def path_match(node, expected_path: list[str]):
 
 
 def normalize_plan(plan):
-    """Normalize the sparkPlanInfo for comparing CPU and GPU plans."""
+    """Normalize the sparkPlanInfo for comparing CPU and GPU plans.
+
+    The high-level algorithm is a two-step process:
+    1. Traverse the plan tree to normalize each node.
+      - Remove any nodes in the remove_nodes_exact list
+      - Remove any nodes by prefix match to the remove_nodes_prefix list
+      - Rename nodes to a "canonical" form using the rename_nodes dictionary
+    2. Traverse the plan tree again to normalize entire paths (sequences of nodes).
+      - GpuTopN/GpuTopN/X -> TakeOrderedAndProject/X
+      - Project/Filter/X -> Project/X
+      - UnionWithLocalData/Union/X -> X
+      - X/SubqueryAdaptiveBroadcast -> X
+
+    Notes:
+    - The normalization should be applied to both CPU and GPU plans.
+    - This does not handle cases where the GPU plan has been significantly modified.
+    - Eventlogs only contain physical plans, so use the earliest (least modified) physical plan.
+    - The goal is to produce a "signature" of the plan and not a faithful re-creation of the logical plan.
+    """
 
     def normalize_node(node):
         """Normalize a single node in the plan by removing and/or renaming to canonical form."""
@@ -207,14 +190,20 @@ def normalize_plan(plan):
 def hash_plan(plan):
     """Generate a hash for a physical plan.
 
-    The goal is to generate a hash that can be used to find similar plans.
+    The goal is to generate a "signature" of the plan that can be used to find similar plans.
+    For comparison between CPU and GPU plans, normalize_plan should be called on both plans before hashing.
 
-    This will traverse each node in the plan tree to generate a hash for each node.
-    The node hash uses a combination of the node's name and the node's depth, which is
-    combined the hashes of the node's children.
-
-    For 'Project' nodes, the first N fields from simpleString are included in the hash to
-    distinguish between similar plans with different projections.
+    The high-level algorithm is:
+    - Traverse the plan tree to generate a hash for each node.
+      - Each node's hash is a combination of the node's name and the node's depth.
+        - For Project nodes, the first N fields from simpleString are also included in the hash, after:
+          - removing any field/column ids, e.g. foo#1234L -> foo.
+          - splitting fields by commas (accounting for expressions with multiple args).
+          - ignoring any expression fields.
+          - using a dummy string case_statement to represent any fields with CASE..END statements.
+          - only taking a max of N (10) fields (to avoid issues with truncated simpleStrings).
+      - Each node's hash is then combined with the hashes of its children.
+    - Return the hash of the root node.
     """
 
     def hash_node(node, depth=0, n_fields=10):
