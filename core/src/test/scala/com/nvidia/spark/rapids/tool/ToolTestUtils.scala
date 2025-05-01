@@ -140,7 +140,8 @@ object ToolTestUtils extends Logging {
   }
 
   def processProfileApps(logs: Array[String],
-      sparkSession: SparkSession): ArrayBuffer[ApplicationInfo] = {
+      sparkSession: SparkSession,
+      enableDiagnosticViews: Boolean = false): ArrayBuffer[ApplicationInfo] = {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(logs)
     var index: Int = 1
@@ -150,7 +151,7 @@ object ToolTestUtils extends Logging {
         .getEventLogInfo(path, RapidsToolsConfUtil.newHadoopConf())
       assert(eventLogInfo.nonEmpty, s"event log not parsed as expected $path")
       apps += new ApplicationInfo(RapidsToolsConfUtil.newHadoopConf(),
-        eventLogInfo.head._1, platform)
+        eventLogInfo.head._1, platform, enableDiagnosticViews)
       index += 1
     }
     apps

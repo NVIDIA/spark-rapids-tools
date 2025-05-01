@@ -238,7 +238,7 @@ class AnalysisSuite extends FunSuite {
   test("test stage-level diagnostic metrics") {
     val expectFile = "rapids_join_eventlog_stagediagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = true)
     assert(apps.size == logs.size)
 
     // This step is to compute stage to node names and diagnostic metrics mappings,
@@ -258,7 +258,7 @@ class AnalysisSuite extends FunSuite {
   test("test IO diagnostic metrics") {
     val expectFile = "rapids_join_eventlog_iodiagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = true)
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)

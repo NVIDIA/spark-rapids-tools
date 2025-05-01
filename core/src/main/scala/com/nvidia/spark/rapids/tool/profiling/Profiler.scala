@@ -200,7 +200,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
         PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
       }
-      val app = new ApplicationInfo(hadoopConf, path, platform = platform)
+      val app = new ApplicationInfo(hadoopConf, path, platform = platform,
+        enableDiagnosticViews = enableDiagnosticViews)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
       if (!app.isAppMetaDefined) {
