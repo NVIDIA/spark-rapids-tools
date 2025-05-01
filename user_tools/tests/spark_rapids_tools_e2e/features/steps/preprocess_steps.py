@@ -129,8 +129,6 @@ def verify_sql_id_alignment(context):
     assert df['hash'].notna().all(), 'hash column should not contain any NaN values'
 
     alignment_df = compute_alignment_from_raw_features(df)
-    alignment_df.to_csv('test_alignment_df.csv', index=False)
-
     assert not alignment_df.empty, 'Alignment DataFrame should not be empty'
 
     # these are specific to the test eventlogs

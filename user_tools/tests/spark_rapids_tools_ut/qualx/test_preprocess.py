@@ -65,10 +65,11 @@ class TestPreprocess(SparkRapidsToolsUT):
         with patch('spark_rapids_tools.tools.qualx.preprocess.get_config') as mock_config:
             # Create temporary alignment CSV file
             test_alignment = pd.DataFrame({'appId': ['app1', 'app2'], 'sqlId': ['sql1', 'sql2']})
-            with tempfile.NamedTemporaryFile(prefix='alignment_', suffix='.csv', mode='w') as f:
-                test_alignment.to_csv(f.name, index=False)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                alignment_file = os.path.join(temp_dir, 'alignment.csv')
+                test_alignment.to_csv(alignment_file, index=False)
 
-                mock_config.return_value.alignment_file = f.name
+                mock_config.return_value.alignment_dir = temp_dir
 
                 # Call function
                 align_df = get_alignment()

@@ -23,7 +23,6 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 
-import fire
 import pandas as pd
 
 from spark_rapids_tools.tools.qualx.config import get_config
@@ -161,7 +160,7 @@ def train_and_evaluate(
     Each call will create a new dataset JSON file with an incrementing number.
 
     Config properties:
-      - alignment: CSV file with columns: appId_cpu, appId_gpu, (sqlID_cpu, sqlID_gpu)
+      - alignment_dir: Directory containing CSV files with CPU to GPU appId alignments
       - eventlogs: CPU and GPU eventlogs in zip format
       - platform: Platform name (e.g. 'onprem', 'dataproc')
       - dataset_name: Base name for the dataset
@@ -175,7 +174,7 @@ def train_and_evaluate(
     cfg = get_config(config, cls=QualxPipelineConfig, reload=True)
 
     # extract config values
-    alignment_file = get_abs_path(cfg.alignment_file)
+    alignment_dir = get_abs_path(cfg.alignment_dir)
     cpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['cpu']]
     gpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['gpu']]
     datasets = get_abs_path(cfg.datasets)
@@ -188,15 +187,13 @@ def train_and_evaluate(
     qual_tool_filter = model_config['qual_tool_filter']
     output_dir = os.path.join(os.path.dirname(cfg.file_path), cfg.output_dir)
 
-    alignment_dir = Path(alignment_file).parent
-    alignment_basename = Path(alignment_file).stem
     model_path = f'{output_dir}/{model_type}/{model_name}'
 
     train_split_fn = cfg.split_functions['train']
     test_split_fn = cfg.split_functions['test']
 
     # check for inprogress alignment file
-    inprogress_files = glob.glob(f'{alignment_dir}/{alignment_basename}_*.inprogress')
+    inprogress_files = glob.glob(f'{alignment_dir}/{dataset_basename}_*.inprogress')
     if inprogress_files:
         inprogress_file = sorted(inprogress_files)[-1]
         logger.warning('In progress alignment file exists, re-running: %s', inprogress_file)
@@ -206,7 +203,8 @@ def train_and_evaluate(
     else:
         suffix = datetime.now().strftime('%Y%m%d%H%M%S')
         ds_name = f'{dataset_basename}_{suffix}'
-        inprogress_file = f'{alignment_dir}/{alignment_basename}_{suffix}.inprogress'
+        alignment_file = f'{alignment_dir}/{dataset_basename}.csv'
+        inprogress_file = f'{alignment_dir}/{dataset_basename}_{suffix}.inprogress'
 
     # read alignment CSV
     alignment_df = pd.read_csv(alignment_file)
@@ -216,7 +214,7 @@ def train_and_evaluate(
         raise ValueError(f'Alignment CSV missing required columns: {missing_cols}')
 
     # get previous alignment file, if exists
-    prev_alignments = glob.glob(os.path.join(alignment_dir, f'{alignment_basename}_*.csv'))
+    prev_alignments = glob.glob(os.path.join(alignment_dir, f'{dataset_basename}_*.csv'))
     if len(prev_alignments) > 0:
         # load all previous alignment files, remove duplicates, and mark as processed
         prev_df = pd.concat([pd.read_csv(f) for f in prev_alignments])
@@ -328,7 +326,3 @@ def train_and_evaluate(
     # mark completion by renaming the inprogress alignment file
     archive_file = inprogress_file.replace('.inprogress', '.csv')
     shutil.move(inprogress_file, archive_file)
-
-
-if __name__ == '__main__':
-    fire.Fire(train_and_evaluate)

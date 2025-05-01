@@ -129,10 +129,13 @@ class QualxPipelineConfig(QualxConfig):
         description='Platform supported by Profiler and Qualification tools.',
         examples=['onprem'])
 
-    alignment_file: str = Field(
+    alignment_dir: str = Field(
         default=None,
-        description='Path to CPU to GPU appId alignments (and optional sqlID alignments).',
-        examples=['alignment.csv'])
+        description=(
+            'Path to a directory containing CSV files with CPU to GPU appId alignments '
+            '(and optional sqlID alignments).'
+        ),
+        examples=['alignment'])
 
     eventlogs: dict = Field(
         description='Paths to CPU and GPU eventlogs.',
