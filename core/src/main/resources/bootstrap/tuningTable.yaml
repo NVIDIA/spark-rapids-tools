@@ -69,8 +69,8 @@ tuningDefinitions:
     description: >-
       Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
       This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
-      This tends to grow with the executor size. Note: memoryOverheadFactor is not recommended as specifying
-      the overhead explicitly is sufficient.
+      This tends to grow with the executor size. 
+      Note: memoryOverheadFactor is not recommended as specifying the overhead explicitly is sufficient.
     enabled: true
     level: cluster
     category: tuning
