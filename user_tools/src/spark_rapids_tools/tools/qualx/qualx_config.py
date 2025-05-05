@@ -81,10 +81,10 @@ class QualxConfig(BaseConfig):
             'qual_tool_filter': 'stage'
         }])
 
-    alignment_file: Optional[str] = Field(
+    alignment_dir: Optional[str] = Field(
         default=None,
-        description='OPTIONAL: Path to alignment file.',
-        examples=['alignment.csv'])
+        description='OPTIONAL: Path to alignment directory.',
+        examples=['alignment'])
 
     @model_validator(mode='after')
     def check_env_overrides(self):
@@ -129,10 +129,12 @@ class QualxPipelineConfig(QualxConfig):
         description='Platform supported by Profiler and Qualification tools.',
         examples=['onprem'])
 
-    alignment_file: str = Field(
-        default=None,
-        description='Path to CPU to GPU appId alignments (and optional sqlID alignments).',
-        examples=['alignment.csv'])
+    alignment_dir: str = Field(
+        description=(
+            'Path to a directory containing CSV files with CPU to GPU appId alignments '
+            '(and optional sqlID alignments).'
+        ),
+        examples=['alignment'])
 
     eventlogs: dict = Field(
         description='Paths to CPU and GPU eventlogs.',

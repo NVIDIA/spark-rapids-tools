@@ -737,6 +737,24 @@ class TrainUserArgModel(AbsToolUserArgModel):
 
 
 @dataclass
+@register_tool_arg_validator('train_and_evaluate')
+class TrainAndEvaluateUserArgModel(AbsToolUserArgModel):
+    """
+    Represents the arguments collected by the user to run the train and evaluate tool.
+    """
+    config: str = None
+
+    def build_tools_args(self) -> dict:
+        runtime_platform = CspEnv.fromstring(self.platform)
+        return {
+            'runtimePlatform': runtime_platform,
+            'config': self.config,
+            'output_folder': self.output_folder,
+            'platformOpts': {},
+        }
+
+
+@dataclass
 @register_tool_arg_validator('stats')
 class StatsUserArgModel(AbsToolUserArgModel):
     """

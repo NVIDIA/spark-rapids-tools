@@ -135,6 +135,165 @@ spark_rapids train \
 
 Once satisfied with the model, just supply the path to this model in the `--custom_model_file` argument for prediction.
 
+### Train and Evaluate Pipeline
+
+To continually train and evaluate a custom XGBoost model on eventlogs collected over time, run the following periodically:
+```bash
+spark_rapids train_and_evaluate \
+--config qualx-pipeline-conf.yaml
+--ouptut_folder train_and_evaluate_output
+```
+
+#### Configuration
+The training and evaluation pipeline is configured via the `qualx-pipeline-conf.yaml` file, which should have the following format:
+```yaml
+# dataset/model
+dataset_name: mydataset
+platform: onprem
+alignment_dir: /path/to/alignments
+eventlogs:
+  cpu:
+    - /path/to/CPU/eventlogs
+  gpu:
+    - /path/to/GPU/eventlogs
+output_dir: pipeline
+# qualx
+cache_dir: qualx_cache
+datasets: datasets
+featurizers:
+  - default.py
+  - hash_plan.py
+modifiers:
+  - align_sql_id.py
+label: duration_sum
+split_functions:
+  train:
+    path: split_stratified.py
+    args:
+      label_col: duration_sum_speedup
+      threshold: 1.0
+  test: split_all_test.py
+model_type: xgboost
+xgboost:
+  model_name: xgb_model.json
+  n_trials: 200
+  qual_tool_filter: stage
+```
+
+The `dataset/model` section must be updated for each new pipeline that produces a model.
+- `dataset_name` - unique name for this dataset/model.
+- `platform` - platform supported by the Profiling/Qualification tools, pick the closest one.
+- `alignment_dir` - path to a directory containing alignment CSV files.
+- `eventlogs` - paths to CPU and GPU eventlogs.
+- `output_dir` - path to save pipeline artifacts like the trained model and evaluation results.
+
+The `qualx` section can just use the defaults shown (except for more advanced use cases).
+
+#### Alignment
+
+The `alignment_dir` should point to a directory that contains one or more alignment CSV files.  These CSV files are used to match CPU appIds to GPU appIds (and CPU sqlIDs to GPU sqlIDs, if provided).  This allows computation of the actual speedups from a CPU/GPU eventlog pair.  The speedups are subsequently used as labels for model training and evaluation.
+
+The CSV file(s):
+- must be named `{dataset_name}.csv`, e.g. `mydataset.csv`.
+- must have a header line with the following required columns: `appId_cpu,appId_gpu`
+- may have the following additional columns: `sqlID_cpu,sqlID_gpu`
+- can have rows representing only incremental/new rows.
+- can have rows representing all rows seen to date.
+
+#### Pipeline workflow
+
+The files in the `alignment_dir` directory drive the pipeline execution, per the following pseudo-code:
+
+```
+if `{dataset_name}_*.inprogress` file exists in alignment directory
+    use that file as the "current" file to process
+else
+    look for a `{dataset_name}.csv` in alignment directory and use this file as the "current" file to process
+
+compute the delta of the "current" file vs. all previously processed files (in directory) to identify new rows
+if there are no new rows
+    exit with "no new rows"
+else
+    copy `{dataset_name}.csv` to `{dataset_name}_YYYYMMDD.inprogress`
+
+create a new dataset from the new rows
+if a previously-trained model exists
+    evaluate the new dataset using the previous model
+
+split the new dataset into train/val/test splits
+train a new model on all datasets, including the new one
+evaluate the newly-trained model on the all datasets, including the new one
+move `{dataset_name}_YYYYMMDD.inprogress` to `{dataset_name}_YYYYMMDD.csv`
+```
+
+So, over time, this alignment directory may look like this:
+```bash
+alignment
+├── mydataset_20250405161629.csv
+├── mydataset_20250407174118.csv
+├── mydataset_20250408165829.csv
+├── mydataset_20250408172843.csv
+├── mydataset_20250417221233.csv
+├── mydataset_20250419020312.inprogress
+└── mydataset.csv
+```
+
+Note that the presence of an `*.inprogress` file may indicate that a pipeline is currently running or it failed to complete the last run.  If the timestamp is stale, review the logs for failures.
+
+#### Pipeline output
+
+Successful execution of the pipeline will save the latest trained model and evaluation results to the `output_dir`.
+
+For example:
+```bash
+pipeline
+├── evaluate
+│   ├── mydataset_20250405161629_app.csv
+│   ├── mydataset_20250405161629_mape.csv
+│   ├── mydataset_20250405161629_sql.csv
+│   ├── mydataset_20250407174118_app.csv
+│   ├── mydataset_20250407174118_mape.csv
+│   ├── mydataset_20250407174118_sql.csv
+│   ├── mydataset_20250408165829_app.csv
+│   ├── mydataset_20250408165829_mape.csv
+│   ├── mydataset_20250408165829_sql.csv
+│   ├── mydataset_20250408172843_app.csv
+│   ├── mydataset_20250408172843_mape.csv
+│   ├── mydataset_20250408172843_sql.csv
+│   ├── mydataset_20250417221233_app.csv
+│   ├── mydataset_20250417221233_mape.csv
+│   ├── mydataset_20250417221233_sql.csv
+│   ├── mydataset_20250419020312_app.csv
+│   ├── mydataset_20250419020312_mape.csv
+│   └── mydataset_20250419020312_sql.csv
+└── xgboost
+    ├── xgb_model.cfg
+    ├── xgb_model.json
+    └── xgb_model.metrics
+```
+
+The model will be saved to the `xgboost` subdirectory with the following files:
+- `*.cfg` - hyperparameters used to produce the model.
+- `*.json` - xgboost model saved in JSON format.
+- `*.metrics` - feature shap values and statistics.
+
+The evaluation results will be saved to the `evaluate` subdirectory with the following files (per dataset):
+- `*_app.csv` - per-app predicted and actual speedups.
+- `*_mape.csv` - per-app and per-sql MAPE (mean absolute percentage error) scores.
+- `*_sql.csv` - per-sql predicted and actual speedups.
+
+Previous output directies will be archived with same datetime stamp as the most recent pipeline execution, e.g.:
+```bash
+pipeline_20250407174118
+pipeline_20250408165829
+pipeline_20250408172843
+pipeline_20250417221233
+pipeline_20250419020312
+pipeline
+```
+
+The `pipeline` directory will contain the most recently trained model and evaluations, while the previous output will be renamed/archived to `pipeline_20250419020312`.  Note that the previous output will contain the evaluation results of the most recent dataset against the previous model.  This allows for a rolling evaluation of each (prior) model on entirely unseen datasets.
+
 ### Training (Advanced)
 #### Fine-tuning / Incremental Training
 

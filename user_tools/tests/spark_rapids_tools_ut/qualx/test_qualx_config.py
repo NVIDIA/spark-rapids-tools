@@ -44,6 +44,7 @@ def _qualx_pipeline_config_params(qualx_config_params):
         'platform': 'onprem',
         'eventlogs': {'cpu': ['/path/to/cpu/eventlogs'], 'gpu': ['/path/to/gpu/eventlogs']},
         'output_dir': 'test_output',
+        'alignment_dir': 'alignment',
         **qualx_config_params
     }
 
@@ -56,7 +57,7 @@ class TestQualxConfig(SparkRapidsToolsUT):
         config = QualxConfig(**qualx_config_params)
         assert config.cache_dir == 'qualx_cache'
         assert config.label == 'Duration'
-        assert config.alignment_file is None
+        assert config.alignment_dir is None
 
     def test_environment_variable_overrides(self, monkeypatch, qualx_config_params):
         """Test that environment variables override default values"""
@@ -183,7 +184,7 @@ class TestQualxPipelineConfig(SparkRapidsToolsUT):
             'gpu': ['/path/to/gpu/eventlogs']
         }
         assert config.output_dir == 'test_output'
-        assert config.alignment_file is None  # Default value
+        assert config.alignment_dir == 'alignment'
 
     def test_inheritance(self, qualx_pipeline_config_params):
         """Test that QualxPipelineConfig inherits from QualxConfig"""
@@ -206,3 +207,4 @@ class TestQualxPipelineConfig(SparkRapidsToolsUT):
             'gpu': ['/path/to/gpu/eventlogs']
         }
         assert config.output_dir == 'test_output'
+        assert config.alignment_dir == 'alignment'

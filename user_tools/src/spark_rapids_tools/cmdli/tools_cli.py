@@ -25,6 +25,7 @@ from spark_rapids_pytools.rapids.qualx.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
 from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 from spark_rapids_pytools.rapids.qualx.train import Train
+from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods
@@ -290,6 +291,27 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                          base_model=base_model,
                          features_csv_dir=features_csv_dir,
                          wrapper_options=train_args)
+        tool_obj.launch()
+
+    def train_and_evaluate(self, config: str = None):
+        """The Train and Evaluate cmd trains an XGBoost model and evaluates it using matched CPU and GPU eventlogs.
+
+        This API supports online training by allowing multiple invocations with new data.
+        Each invocation will create a new dataset JSON file with an incrementing number.
+
+        :param config: Path to YAML config file containing the required training parameters.
+        """
+        # Since pipeline is an internal tool with frequent output, we enable debug mode by default
+        ToolLogging.enable_debug_mode()
+        init_environment('train_and_evaluate')
+
+        pipeline_args = AbsToolUserArgModel.create_tool_args('train_and_evaluate',
+                                                             platform=CspEnv.get_default(),
+                                                             config=config)
+
+        tool_obj = TrainAndEvaluate(platform_type=pipeline_args['runtimePlatform'],
+                                    config=config,
+                                    wrapper_options=pipeline_args)
         tool_obj.launch()
 
 
