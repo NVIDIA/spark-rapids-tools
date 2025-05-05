@@ -69,23 +69,14 @@ tuningDefinitions:
     description: >-
       Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
       This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
-      This tends to grow with the executor size.
+      This tends to grow with the executor size. 
+      Note: memoryOverheadFactor is not recommended as specifying the overhead explicitly is sufficient.
     enabled: true
     level: cluster
     category: tuning
     confType:
       name: byte
       defaultUnit: MiB
-  - label: spark.executor.memoryOverheadFactor
-    description: >-
-      Fraction of executor memory to be allocated as additional non-heap memory per executor process.
-      This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
-      This tends to grow with the container size.
-    enabled: true
-    level: cluster
-    category: tuning
-    confType:
-      name: double
   - label: spark.kryo.registrator
     description: >-
       Fraction of executor memory to be allocated as additional non-heap memory per executor process.
@@ -113,14 +104,6 @@ tuningDefinitions:
     comments:
       missing: setting the max buffer to prevent out-of-memory errors.
       updated: increasing the max buffer to prevent out-of-memory errors.
-  - label: spark.kubernetes.memoryOverheadFactor
-    description: >-
-      Specific to K8s. Fraction of executor memory to be allocated as additional non-heap memory per executor process.
-    enabled: true
-    level: cluster
-    category: tuning
-    confType:
-      name: double
   - label: spark.locality.wait
     description: >-
       The time to wait to launch a data-local task before giving up and launching it on a less-local node.

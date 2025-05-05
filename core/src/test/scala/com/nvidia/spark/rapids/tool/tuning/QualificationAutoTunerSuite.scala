@@ -26,10 +26,12 @@ import com.nvidia.spark.rapids.tool.profiling.Profiler
  */
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
+  val autoTunerConfigsProvider: AutoTunerConfigsProvider = QualificationAutoTunerConfigsProvider
+
   /**
    * Default Spark properties to be used when building the Qualification AutoTuner
    */
-  private val defaultSparkProps: mutable.Map[String, String] = {
+  private def defaultSparkProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "32",
       "spark.executor.instances" -> "1",
@@ -61,8 +63,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = QualificationAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    QualificationAutoTunerConfigsProvider.buildAutoTunerFromProps(
-      workerInfo, infoProvider, platform)
+    buildAutoTunerForTests(workerInfo, infoProvider, platform)
   }
 
   test("test AutoTuner for Qualification sets batch size to 1GB") {
