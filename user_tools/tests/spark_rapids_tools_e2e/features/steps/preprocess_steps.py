@@ -68,6 +68,12 @@ def step_impl(context, label):
     get_config(reload=True)
 
 
+@given('environment variable "{variable_name}" is set to "{value}"')
+def set_environment_variable(context, variable_name, value):
+    """Set the specified RAPIDS_USER_TOOLS_* environment variable to the given value."""
+    os.environ[variable_name] = value
+
+
 @given('sample event logs in the QUALX_DATA_DIR')
 def check_sample_event_logs(context):
     """Verify sample event logs exist in test resources."""

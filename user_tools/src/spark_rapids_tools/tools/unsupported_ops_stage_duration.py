@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,17 +29,21 @@ class UnsupportedOpsStageDuration:
     """
     props: dict = field(default=None, init=True)
 
-    def prepare_apps_with_unsupported_stages(self, all_apps: pd.DataFrame,
+    def prepare_apps_with_unsupported_stages(self, processed_apps: pd.DataFrame,
                                              unsupported_ops_df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transform applications to include additional column having stage durations for unsupported operators
-        and its percentage of all sql stage durations sum.
+        Transform the given `processed_apps` DataFrame to include an additional column for stage durations
+        of unsupported operators and its percentage of the total SQL stage durations sum.
+
+        :param processed_apps: DataFrame containing application data processed by qualX
+        :param unsupported_ops_df: DataFrame containing unsupported operators data.
+        :return: A DataFrame with updated columns for unsupported stage durations and their percentage.
         """
-        unsupported_stage_duration_percentage = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
-        # Note: We might have lost some applications because of masking. Final result should include these
-        # applications with unsupported stage duration percentage as 0.0. Thus implying that
-        # these applications have no stages with unsupported operator.
-        result_df = pd.merge(all_apps, unsupported_stage_duration_percentage, how='left')
+        unsupported_stage_total_duration = self.__calculate_unsupported_stages_duration(unsupported_ops_df)
+        # Note: We might have lost some applications because of masking(filtering based on valid unsupported cond).
+        # Final result should include these applications with unsupported stage duration percentage as 0.0 .
+        # Thus implying that these applications have no stages with unsupported operator.
+        result_df = pd.merge(processed_apps, unsupported_stage_total_duration, how='left')
         result_col_name = self.props.get('resultColumnName')
         result_df[result_col_name] = result_df[result_col_name].fillna(0)
         # Update the percentage column
@@ -57,16 +61,20 @@ class UnsupportedOpsStageDuration:
         """
         Calculates the percentage of all sql stage durations sum for unsupported operators for each application
         """
-        # Define mask to remove rows invalid entries
+        # Mask defines a set of conditions to filter which unsupported operators have an impact
+        # on the stage duration. Refer to key 'local.output.unsupportedOperators.mask' in
+        # qualification-conf.yaml for mask conditions
         mask = self.__create_column_mask(unsupported_ops_df)
         unsupported_ops_df = unsupported_ops_df.loc[mask, self.props.get('inputColumns')]
 
         # Calculate total duration of stages with unsupported operators
         grouping_cols = self.props.get('groupingColumns')
-        unsupported_ops_stage_duration = unsupported_ops_df \
-            .groupby(grouping_cols.get('max'))['Stage Duration'].max().reset_index() \
-            .groupby(grouping_cols.get('sum'))['Stage Duration'].sum().reset_index()
-
+        # De-duping based on stageID and take the max unsupported stage duration
+        unsupported_ops_stage_duration_dedup = (unsupported_ops_df.groupby(grouping_cols.get('max'))
+                                                ['Stage Duration'].max().reset_index())
+        # Sums the unsupported stage duration across stages
+        unsupported_ops_stage_duration = (unsupported_ops_stage_duration_dedup.groupby(grouping_cols.get('sum'))
+                                          ['Stage Duration'].sum().reset_index())
         # Return the calculated unsupported operators stage duration
         return unsupported_ops_stage_duration.rename(columns={'Stage Duration':  self.props.get('resultColumnName')})
 

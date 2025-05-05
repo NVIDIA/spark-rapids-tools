@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,3 +43,19 @@ Feature: Event Log Processing
       Qualification. Raised an error in phase [Execution]
       """
     And return code is "1"
+
+  @test_id_ELP_0003
+  Scenario Outline: Check for expected output in generated files
+    Given platform is "<platform>"
+    Given environment variable "<variable>" is set to "<value>"
+    When spark-rapids tool is executed with "<eventlog>" eventlogs
+    When "<file>" file is generated
+    When "<app_id>" app is not qualified
+    Then not qualified reason is "<expected_reason>"
+    And return code is "0"
+
+    Examples:
+      | platform 	| variable                                                  | value           |eventlog                                                    | file                          | app_id                  | expected_reason                                              |
+      | onprem  	| RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD                   |   -1            |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.|
+      | onprem  	| RAPIDS_USER_TOOLS_GPU_SPEEDUP_SPARK_LOWER_BOUND           |   20.0          |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.; GPU SpeedUp < Qualifying Threshold (More is qualified) |
+      | onprem  	| RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_SPARK_UPPER_BOUND |   -1            |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.; GPU SpeedUp < Qualifying Threshold (More is qualified); Unsupported Operators Stage Duration Percent > Qualifying Threshold (Less is qualified) |
