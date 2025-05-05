@@ -1548,7 +1548,8 @@ trait AutoTunerConfigsProvider extends Logging {
     s"""
        |This node/worker configuration is not ideal for using the RAPIDS Accelerator
        |for Apache Spark because it doesn't have enough memory for the executors.
-       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB memory.
+       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB
+       |memory per executor.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 }

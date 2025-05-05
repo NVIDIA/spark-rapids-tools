@@ -273,8 +273,16 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    val expectedComment = ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17496)
-    assert(autoTunerOutput.contains(expectedComment))
+    // scalastyle:off line.size.limit
+    val expectedResults = Seq(
+      "--conf spark.executor.memory=[FILL_IN_VALUE]",
+      "--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(42188)}"
+    )
+    // scalastyle:on line.size.limit
+    assert(expectedResults.forall(autoTunerOutput.contains))
   }
 
   test("Load cluster properties with CPU memory missing") {
@@ -3121,7 +3129,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           "spark.executor.instances" -> "1",
           "spark.executor.memory" -> "80g",
           "spark.executor.resource.gpu.amount" -> "1",
-          "spark.executor.instances" -> "1",
           "spark.task.resource.gpu.amount" -> "0.001",
           "spark.rapids.memory.pinnedPool.size" -> "5g",
           "spark.rapids.sql.enabled" -> "true",
@@ -3216,6 +3223,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         s"""|
             |Spark Properties:
             |--conf spark.executor.instances=2
+            |--conf spark.executor.memory=[FILL_IN_VALUE]
+            |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
             |--conf spark.rapids.sql.batchSizeBytes=2147483647b
@@ -3234,8 +3243,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
             |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
             |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17734)}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(42188)}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)
