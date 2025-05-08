@@ -34,9 +34,6 @@ import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, Qua
 class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvider,
     val tunerContext: TunerContext) {
 
-  // When enabled, the profiler recommendations should only include updated settings.
-  private val filterByUpdatedPropsEnabled: Boolean = false
-
   private def writeTuningReport(tuningResult: TuningResult,
       outputDir: String, hadoopConf: Configuration): Unit = {
     // First, write down the recommendations and the comments
@@ -71,7 +68,8 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
     val autoTuner: AutoTuner =
       QualificationAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider, platform)
     val (recommendations, comments) =
-      autoTuner.getRecommendedProperties(showOnlyUpdatedProps = filterByUpdatedPropsEnabled)
+      autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+        QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
     // Combine the GPU recommendations with all others.
     // There are two ways we can do that:
     // 1- Combine them from the beginning; Or
@@ -87,6 +85,10 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
 }
 
 object QualificationAutoTunerRunner extends Logging {
+
+  // When enabled, the profiler recommendations should only include updated settings.
+  val filterByUpdatedPropsEnabled: Boolean = false
+
   def apply(appInfo: QualificationAppInfo,
       appAggStats: Option[QualificationSummaryInfo],
       tunerContext: TunerContext,

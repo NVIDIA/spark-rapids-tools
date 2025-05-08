@@ -17,18 +17,20 @@
 package com.nvidia.spark.rapids.tool.tuning
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * A wrapper to the hold the tuning entry information.
  * @param name the name of the property
- * @param originalValue the value from the eventlog
- * @param tunedValue the value recommended by the AutoTuner
+ * @param originalValueRaw the value from the eventlog
+ * @param tunedValueRaw the value recommended by the AutoTuner
  * @param definition the definition of the tuning entry.
  */
-class TuningEntry(
+abstract class TuningEntryBase(
     override val name: String,
-    override var originalValue: Option[String],
-    override var tunedValue: Option[String],
+    originalValueRaw: Option[String],
+    tunedValueRaw: Option[String],
     definition: Option[TuningEntryDefinition] = None) extends TuningEntryTrait {
 
   /**
@@ -68,8 +70,83 @@ class TuningEntry(
   /////////////////////////
   // Initialization Code //
   /////////////////////////
+  def init(): Unit = {
+    // Set values through inherited setters which handle normalization
+    originalValue = originalValueRaw
+    tunedValue = tunedValueRaw
+    setOriginalValueFromDefaultSpark()
+  }
+}
 
-  setOriginalValueFromDefaultSpark()
+class TuningEntry(
+    override val name: String,
+    originalValueRaw: Option[String],
+    tunedValueRaw: Option[String],
+    definition: Option[TuningEntryDefinition] = None)
+  extends TuningEntryBase(name, originalValueRaw, tunedValueRaw, definition) {
+
+  init()
+}
+
+class MemoryUnitTuningEntry(
+    override val name: String,
+    originalValueRaw: Option[String],
+    tunedValueRaw: Option[String],
+    definition: Option[TuningEntryDefinition] = None)
+  extends TuningEntryBase(name, originalValueRaw, tunedValueRaw, definition) {
+
+  /**
+   * Parse the default memory unit from the tuning table and store it as a ByteUnit value.
+   * E.g. "MiB" -> ByteUnit.MiB
+   */
+  private val defaultMemoryUnit: ByteUnit = {
+    val defaultMemoryUnitStr = definition.flatMap(_.getConfUnit).orNull
+    require(defaultMemoryUnitStr != null,
+      "Default memory unit must be specified for memory tuning entries")
+
+    // Map of memory unit strings to ByteUnit values.
+    // This is specific to the default memory unit defined in the tuning table.
+    val memoryUnitsMap = Map[String, ByteUnit](
+      "Byte" -> ByteUnit.BYTE,
+      "KiB" -> ByteUnit.KiB,
+      "MiB" -> ByteUnit.MiB,
+      "GiB" -> ByteUnit.GiB,
+      "TiB" -> ByteUnit.TiB,
+      "PiB" -> ByteUnit.PiB
+    )
+
+    memoryUnitsMap.getOrElse(defaultMemoryUnitStr,
+      throw new IllegalArgumentException(
+        s"Unknown memory unit: $defaultMemoryUnitStr. " +
+          s"Valid units are: ${memoryUnitsMap.keys.mkString(", ")}"))
+  }
+
+  /**
+   * Normalize a memory configuration value by converting it to bytes.
+   * If no unit is provided, the defaultMemoryUnitStr is used.
+   *
+   * @param propValue The original property value, possibly without a unit
+   * @return The normalized string with bytes unit (e.g. "1024b")
+   */
+  override def normalizeValue(propValue: String): String = {
+    val bytes = StringUtils.convertMemorySizeToBytes(propValue, Some(defaultMemoryUnit))
+    s"${bytes}b"
+  }
+
+  /**
+   * Format the output value by converting it to the largest appropriate unit.
+   * This is used to display the value in a human-readable format.
+   *
+   * @param propValue The property value in bytes format (e.g. "1024b")
+   * @return The formatted string with appropriate unit (e.g. "1KiB")
+   */
+  override def formatOutput(propValue: String): String = {
+    // Remove the 'b' suffix and convert to bytes
+    val bytes = propValue.dropRight(1).toLong
+    StringUtils.convertBytesToLargestUnit(bytes)
+  }
+
+  init()
 }
 
 object TuningEntry extends Logging {
@@ -83,13 +160,18 @@ object TuningEntry extends Logging {
   def build(
       name: String,
       originalValue: Option[String],
-      tunedValue: Option[String]): TuningEntry = {
-    // pul the information from Tuning Entry Table
+      tunedValue: Option[String]): TuningEntryBase = {
+    // pull the information from Tuning Entry Table
     val tuningDefinition = TuningEntryDefinition.TUNING_TABLE.get(name)
     // for debugging purpose
     if (tuningDefinition.isEmpty) {
       logInfo("Tuning Entry is not defined for " + name)
     }
-    new TuningEntry(name, originalValue, tunedValue, tuningDefinition)
+    tuningDefinition match {
+      case Some(defn) if defn.isMemoryProperty =>
+        new MemoryUnitTuningEntry(name, originalValue, tunedValue, tuningDefinition)
+      case _ =>
+        new TuningEntry(name, originalValue, tunedValue, tuningDefinition)
+    }
   }
 }

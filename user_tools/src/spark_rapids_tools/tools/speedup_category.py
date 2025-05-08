@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,20 +107,32 @@ class SpeedupCategory:
         heuristics_col_name = self.props.get('heuristicsColumnName')
         spark_runtime_col_name = self.props.get('sparkRuntimeColumnName')
 
-        def process_row(single_row: pd.Series) -> str:
+        def process_row(single_row: pd.Series) -> pd.Series:
             spark_runtime = single_row.get(spark_runtime_col_name).lower()
             # Get the speedup strategy and its eligibility conditions for the given runtime type.
             eligibility_conditions = self.speedup_strategies.get(spark_runtime).get_eligibility_conditions()
             for entry in eligibility_conditions:
                 col_value = single_row[entry.get('columnName')]
-                # If the row is marked to be skipped by heuristics or the value is not within the range,
-                # set the category to default category (Not Recommended)
-                if (single_row.get(heuristics_col_name) is True or
-                        not entry.get('lowerBound') <= col_value <= entry.get('upperBound')):
-                    return self.props.get('defaultCategory')
-            return single_row.get(category_col_name)
+                # Have to convert the values to float because the input data is in string format
+                lower_bound = float(entry.get('lowerBound'))
+                upper_bound = float(entry.get('upperBound'))
+                # If the row does not match the eligibility criteria, set the category to `Not Recommended`.
+                # The reason for 'Not Recommended' will be added to the `Not Recommended Reason` column.
+                if not lower_bound <= col_value <= upper_bound:
+                    existing_reason = single_row.get('Not Recommended Reason', '')
+                    heuristic_skipping_reason = entry.get('skippingReason')
+                    if existing_reason and heuristic_skipping_reason:
+                        single_row['Not Recommended Reason'] = existing_reason + f'; {heuristic_skipping_reason}'
+                    elif heuristic_skipping_reason:
+                        single_row['Not Recommended Reason'] = heuristic_skipping_reason
+                    single_row[category_col_name] = self.props.get('defaultCategory')
+                # If the row was already marked to be skipped due to heuristics, set the category to `Not Recommended`
+                # in case not already set. The reason to be skipped due to heuristic will already be there
+                if single_row.get(heuristics_col_name) is True:
+                    single_row[category_col_name] = self.props.get('defaultCategory')
 
-        all_apps[category_col_name] = all_apps.apply(process_row, axis=1)
+            return single_row
+        all_apps = all_apps.apply(process_row, axis=1)
         return all_apps
 
     def build_category_column(self, all_apps: pd.DataFrame) -> pd.DataFrame:

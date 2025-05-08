@@ -34,6 +34,7 @@ import org.apache.spark.sql.rapids.tool.util.{FSUtils, WebCrawlerUtil}
  */
 class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
+  val autoTunerConfigsProvider: AutoTunerConfigsProvider = ProfilingAutoTunerConfigsProvider
   private val profilingLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   /**
@@ -82,14 +83,14 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       gpuCount, gpuMemory, gpuDevice)
   }
 
-  private def getGpuAppMockInfoProvider: AppSummaryInfoBaseProvider = {
+  private def getGpuAppMockInfoProvider: AppInfoProviderMockTest = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(testSparkVersion), Seq())
   }
 
-  private def getGpuAppMockInfoWithJars(rapidsJars: Seq[String]): AppSummaryInfoBaseProvider = {
+  private def getGpuAppMockInfoWithJars(rapidsJars: Seq[String]): AppInfoProviderMockTest = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
@@ -100,8 +101,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * Helper method to return an instance of the Profiling AutoTuner with default properties
    * for Dataproc.
    */
-  private def buildDefaultDataprocAutoTuner(
-      logEventsProps: mutable.Map[String, String]): AutoTuner = {
+  def buildDefaultDataprocAutoTuner(logEventsProps: mutable.Map[String, String]): AutoTuner = {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -109,8 +109,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    ProfilingAutoTunerConfigsProvider.buildAutoTunerFromProps(
-      dataprocWorkerInfo, infoProvider, platform)
+    buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
   }
 
   /**
@@ -134,8 +133,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -146,18 +144,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark320.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -208,7 +206,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
@@ -234,8 +232,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   test("Load cluster properties with CPU cores 0") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(0))
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -243,7 +240,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
@@ -268,23 +265,29 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Load cluster properties with memory to cores ratio to small") {
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
+    val workerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+      .loadClusterPropertiesFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    val expectedComment = ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17496)
-    assert(autoTunerOutput.contains(expectedComment))
+    // scalastyle:off line.size.limit
+    val expectedResults = Seq(
+      "--conf spark.executor.memory=[FILL_IN_VALUE]",
+      "--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
+      s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(42188)}"
+    )
+    // scalastyle:on line.size.limit
+    assert(expectedResults.forall(autoTunerOutput.contains))
   }
 
   test("Load cluster properties with CPU memory missing") {
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), None)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val workerInfo = buildGpuWorkerInfoAsString(None, Some(32), None)
+    val autoTuner = buildAutoTunerForTests(workerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -292,7 +295,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
@@ -321,9 +324,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -334,18 +336,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -389,9 +391,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -402,18 +403,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -469,9 +470,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -486,10 +486,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -539,9 +539,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -556,10 +555,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -606,9 +605,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -623,10 +621,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |
           |Comments:
@@ -667,9 +665,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -684,10 +681,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -733,9 +730,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -750,10 +746,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -786,9 +782,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -799,18 +794,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -877,10 +872,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -903,9 +898,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     compareOutput(expectedResults, autoTunerOutput)
@@ -943,10 +937,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -969,9 +963,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     compareOutput(expectedResults, autoTunerOutput)
@@ -987,18 +980,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -1037,9 +1030,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, getGpuAppMockInfoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     compareOutput(expectedResults, autoTunerOutput)
@@ -1083,8 +1075,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1094,22 +1085,22 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.sql.files.maxPartitionBytes=4g
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -1167,8 +1158,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1178,22 +1168,22 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=5
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.sql.files.maxPartitionBytes=4g
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -1242,8 +1232,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1253,24 +1242,24 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.sql.files.maxPartitionBytes=4g
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -1328,8 +1317,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1339,24 +1327,24 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.sql.files.maxPartitionBytes=4g
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -1403,7 +1391,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1416,8 +1404,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
         getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
           Some(testSparkVersion)), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1429,18 +1416,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -1489,7 +1476,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1504,8 +1491,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1515,18 +1501,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -1570,7 +1556,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -1585,8 +1571,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1596,18 +1581,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -1653,8 +1638,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
         getGpuAppMockInfoWithJars(rapidsJars), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -1675,10 +1659,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1721,10 +1705,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1769,10 +1753,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1827,8 +1811,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1838,19 +1821,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.filecache.enabled=true
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -1910,8 +1893,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1921,18 +1903,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -1964,8 +1946,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(databricksWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
         getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
@@ -1975,28 +1956,26 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     assert(comments.map(_.comment).forall(autoTuner.platform.isValidComment))
   }
 
-  // When spark is running as a standalone, the memoryOverhead should not be listed as a
-  // recommendation: issue-553.
-  test("memoryOverhead should not be recommended for Spark Standalone") {
-    // This UT sets a custom spark-property "spark.master" pointing to a spark-standalone value
-    // The Autotuner should detect that the spark-master is standalone and refrains from
-    // recommending memoryOverhead value
-    val customProps = mutable.LinkedHashMap(
-      "spark.executor.cores" -> "8",
-      "spark.executor.memory" -> "47222m",
-      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
-      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
-      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
-      "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.task.resource.gpu.amount" -> "0.001")
-    // mock the properties loaded from eventLog
-    val logEventsProps: mutable.Map[String, String] =
-      mutable.LinkedHashMap[String, String](
-        "spark.master" -> "spark://HOST_NAME:7077",
+  // Test cases for memory overhead configuration based on Spark Master
+  private val MEMORY_OVERHEAD_TEST_CASES = Table(
+    ("sparkMaster", "shouldIncludeMemoryOverhead"),
+    // memoryOverhead should be included for yarn and k8s
+    (Some(Yarn), true),
+    (Some(Kubernetes), true),
+    // memoryOverhead should be excluded for standalone and local
+    (Some(Standalone), false),
+    (Some(Local), false),
+    // memoryOverhead should be excluded for other sparkMaster values
+    (None, false)
+  )
+
+  forAll(MEMORY_OVERHEAD_TEST_CASES) {
+    (sparkMaster: Option[SparkMaster], shouldIncludeMemoryOverhead: Boolean) =>
+    test("memoryOverhead comment is " +
+      s"${if (shouldIncludeMemoryOverhead) "included" else "excluded"} " +
+      s"for sparkMaster=${sparkMaster.getOrElse("undefined")}") {
+      val logEventsProps = mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "16",
-        "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
@@ -2006,238 +1985,28 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.memory.pinnedPool.size" -> "5g",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
-      Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
-    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
-          |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
+        "spark.rapids.sql.concurrentGpuTasks" -> "4"
+      )
 
-  // Map of `Spark Version` -> `memoryOverheadLabel`
-  private val MISSING_MEMORY_OVERHEAD_k8s_TEST_CASES = Seq(
-    "3.5.0" -> "spark.executor.memoryOverheadFactor",
-    "3.2.1" -> "spark.kubernetes.memoryOverheadFactor"
-  )
-
-  // This UT sets a custom spark-property "spark.master" pointing to a spark
-  // k8s value. The Autotuner should detect that the spark-master is k8s and
-  // comments on the missing memoryOverhead value since pinned pool is set.
-  MISSING_MEMORY_OVERHEAD_k8s_TEST_CASES.foreach { case (sparkVersion, memoryOverheadLabel) =>
-    test(s"missing memoryOverhead comment is included for k8s with pinned pool " +
-      s"[sparkVersion=$sparkVersion]") {
-      val logEventsProps: mutable.Map[String, String] =
-        mutable.LinkedHashMap[String, String](
-          "spark.master" -> "k8s://https://my-cluster-endpoint.example.com:6443",
-          "spark.executor.cores" -> "16",
-          "spark.executor.instances" -> "1",
-          "spark.executor.memory" -> "80g",
-          "spark.executor.resource.gpu.amount" -> "1",
-          "spark.executor.instances" -> "1",
-          "spark.sql.shuffle.partitions" -> "200",
-          "spark.sql.files.maxPartitionBytes" -> "1g",
-          "spark.task.resource.gpu.amount" -> "0.001",
-          "spark.rapids.memory.pinnedPool.size" -> "5g",
-          "spark.rapids.sql.enabled" -> "true",
-          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-          "spark.rapids.sql.concurrentGpuTasks" -> "4")
       val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-      val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-        Some(sparkVersion))
+      val infoProvider = getMockInfoProvider(8126464.0, Seq(0),
+        Seq(0.004), logEventsProps, Some(testSparkVersion))
       val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
         .loadClusterPropertiesFromContent(dataprocWorkerInfo)
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+      val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform,
+        sparkMaster)
       val (_, comments) = autoTuner.getRecommendedProperties()
-      val expectedComment =
-        s"'$memoryOverheadLabel' must be set if using 'spark.rapids.memory.pinnedPool.size'."
-      assert(comments.exists(_.comment == expectedComment))
+      val expectedComment = "'spark.executor.memoryOverhead' was not set."
+
+      if (shouldIncludeMemoryOverhead) {
+        assert(comments.exists(_.comment == expectedComment),
+          s"Expected comment '$expectedComment' not found")
+      } else {
+        assert(comments.forall(_.comment != expectedComment),
+          s"Unexpected comment '$expectedComment' found")
+      }
     }
-  }
-
-  // This UT sets a custom spark-property "spark.master" pointing to a spark
-  // k8s value. The Autotuner should detect that the spark-master is k8s and
-  // should not comment on the missing memoryOverhead value since pinned pool is not set.
-  test(s"missing memoryOverhead comment is not included for k8s without pinned pool " +
-    s"[sparkVersion=$testSparkVersion]") {
-    val sparkMaster = "k8s://https://my-cluster-endpoint.example.com:6443"
-    val logEventsProps: mutable.Map[String, String] =
-      mutable.LinkedHashMap[String, String](
-        "spark.master" -> sparkMaster,
-        "spark.executor.cores" -> "16",
-        "spark.executor.instances" -> "1",
-        "spark.executor.memory" -> "80g",
-        "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
-        "spark.sql.shuffle.partitions" -> "200",
-        "spark.sql.files.maxPartitionBytes" -> "1g",
-        "spark.task.resource.gpu.amount" -> "0.001",
-        "spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    val memoryOverheadLabel = ProfilingAutoTunerConfigsProvider.getMemoryOverheadLabel(
-        SparkMaster(Some(sparkMaster)), Some(testSparkVersion))
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
-          |--conf $memoryOverheadLabel=13516m
-          |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
-          |
-          |Comments:
-          |- '$memoryOverheadLabel' was not set.
-          |- 'spark.rapids.memory.pinnedPool.size' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
-
-  // This UT sets a custom spark-property "spark.master" pointing to a yarn
-  // value. The Autotuner should detect that the spark-master is yarn and
-  // should not comment on the missing memoryOverhead value even though pinned
-  // pool is set.
-  test("missing memoryOverhead comment is not included for yarn " +
-    s"[sparkVersion=$testSparkVersion]") {
-    val logEventsProps: mutable.Map[String, String] =
-      mutable.LinkedHashMap[String, String](
-        "spark.master" -> "yarn",
-        "spark.executor.cores" -> "16",
-        "spark.executor.instances" -> "1",
-        "spark.executor.memory" -> "80g",
-        "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
-        "spark.sql.shuffle.partitions" -> "200",
-        "spark.sql.files.maxPartitionBytes" -> "1g",
-        "spark.task.resource.gpu.amount" -> "0.001",
-        "spark.rapids.memory.pinnedPool.size" -> "5g",
-        "spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4")
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
-      Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=13516m
-          |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
-          |
-          |Comments:
-          |- 'spark.executor.memoryOverhead' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
   }
 
   test("Recommendations generated for unsupported operators from driver logs only") {
@@ -2309,13 +2078,12 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
-          |--conf spark.executor.memory=32768m
-          |--conf spark.executor.memoryOverhead=13516m
+          |--conf spark.executor.memory=32g
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
@@ -2326,7 +2094,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |
           |Comments:
           |- 'spark.executor.instances' was not set.
-          |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -2432,8 +2199,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2443,22 +2209,22 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |--conf spark.sql.files.maxPartitionBytes=4096m
+          |--conf spark.sql.files.maxPartitionBytes=4g
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -2514,8 +2280,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     assert(expectedLines.forall(line => autoTunerOutput.contains(line)),
@@ -2566,7 +2331,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
         "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
         "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
+          s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
         "spark.sql.shuffle.partitions" -> "1000",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.task.resource.gpu.amount" -> "0.25",
@@ -2581,8 +2346,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2590,17 +2354,17 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.databricks.adaptive.autoOptimizeShuffle.enabled=false
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersionDatabricks.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -2628,8 +2392,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * expected version.
    */
   private def verifyRecommendedShuffleManagerVersion(
-      autoTuner: AutoTuner,
-      expectedSmVersion: String): Unit = {
+                                                      autoTuner: AutoTuner,
+                                                      expectedSmVersion: String): Unit = {
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
         assert(smClassName == ProfilingAutoTunerConfigsProvider
@@ -2648,8 +2412,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
       Some(databricksVersion), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
         infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     // Assert shuffle manager string for DB 11.3 tag
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330db")
@@ -2662,8 +2425,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(sparkVersion), Seq())
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(workerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported Spark v3.3.0
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330")
@@ -2676,8 +2438,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(customSparkVersion), Seq())
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(workerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported custom Spark v3.3.0
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330")
@@ -2688,8 +2449,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * for the unsupported Spark version.
    */
   private def verifyUnsupportedSparkVersionForShuffleManager(
-      autoTuner: AutoTuner,
-      sparkVersion: String): Unit = {
+                                                              autoTuner: AutoTuner,
+                                                              sparkVersion: String): Unit = {
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
         fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
@@ -2708,8 +2469,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
       Some(databricksVersion), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(databricksWorkerInfo,
+    val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
         infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
   }
@@ -2721,8 +2481,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(sparkVersion), Seq())
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(workerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, sparkVersion)
   }
@@ -2734,8 +2493,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(customSparkVersion), Seq())
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(workerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, customSparkVersion)
   }
@@ -2746,8 +2504,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       None, Seq())
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(workerInfo,
+    val autoTuner = buildAutoTunerForTests(workerInfo,
         infoProvider, PlatformFactory.createInstance())
     // Verify that the shuffle manager is not recommended for missing Spark version
     autoTuner.getShuffleManagerClassName match {
@@ -2789,8 +2546,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2800,19 +2556,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -2874,8 +2630,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2885,19 +2640,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.files.maxPartitionBytes=3669m
@@ -2949,21 +2704,21 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3025,21 +2780,21 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3101,21 +2856,21 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3172,9 +2927,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(emrWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(emrWorkerInfo, infoProvider,
-        platform)
+    val autoTuner = buildAutoTunerForTests(emrWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -3183,19 +2936,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark341.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3248,19 +3001,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3318,19 +3071,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=10
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3376,7 +3129,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           "spark.executor.instances" -> "1",
           "spark.executor.memory" -> "80g",
           "spark.executor.resource.gpu.amount" -> "1",
-          "spark.executor.instances" -> "1",
           "spark.task.resource.gpu.amount" -> "0.001",
           "spark.rapids.memory.pinnedPool.size" -> "5g",
           "spark.rapids.sql.enabled" -> "true",
@@ -3388,8 +3140,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
         .loadClusterPropertiesFromContent(dataprocWorkerInfo)
       val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-      val autoTuner = ProfilingAutoTunerConfigsProvider
-        .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+      val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
       val (properties, comments) = autoTuner.getRecommendedProperties()
       val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
       // scalastyle:off line.size.limit
@@ -3399,18 +3150,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.dataproc.enhanced.execution.enabled=false
             |--conf spark.dataproc.enhanced.optimizer.enabled=false
             |--conf spark.executor.instances=8
-            |--conf spark.executor.memory=32768m
+            |--conf spark.executor.memory=32g
             |--conf spark.executor.memoryOverhead=17612m
             |--conf spark.locality.wait=0
-            |--conf spark.rapids.memory.pinnedPool.size=4096m
+            |--conf spark.rapids.memory.pinnedPool.size=4g
             |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-            |--conf spark.rapids.sql.batchSizeBytes=2147483647
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647b
             |--conf spark.rapids.sql.concurrentGpuTasks=2
             |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-            |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+            |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
             |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
             |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3472,9 +3223,11 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         s"""|
             |Spark Properties:
             |--conf spark.executor.instances=2
+            |--conf spark.executor.memory=[FILL_IN_VALUE]
+            |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
-            |--conf spark.rapids.sql.batchSizeBytes=2147483647
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647b
             |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
@@ -3490,8 +3243,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
             |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
             |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(17734)}
+            |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(42188)}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)
@@ -3503,7 +3258,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
-        "spark.sql.shuffle.partitions" -> "150",  // AutoTuner should recommend increasing this
+        "spark.sql.shuffle.partitions" -> "150", // AutoTuner should recommend increasing this
         "spark.executor.cores" -> "16",
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
@@ -3520,8 +3275,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -3531,18 +3285,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3581,7 +3335,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
-        "spark.sql.shuffle.partitions" -> "50",  // AutoTuner should recommend increasing this
+        "spark.sql.shuffle.partitions" -> "50", // AutoTuner should recommend increasing this
         "spark.executor.cores" -> "16",
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
@@ -3599,8 +3353,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
       .loadClusterPropertiesFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = ProfilingAutoTunerConfigsProvider
-      .buildAutoTunerFromProps(dataprocWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -3610,18 +3363,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32768m
+          |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=17612m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4096m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10485760
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=32m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
@@ -3657,4 +3410,140 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  // ============ Unit Tests for AutoTuner memory configurations ============
+  // It verifies that the AutoTuner correctly handles memory configurations with and without units,
+  // particularly for configurations whose default unit is not Byte (e.g. MB for memory overhead).
+  //
+  // Test Cases:
+  // 1. Configs with explicit units (e.g. "17612m") are handled correctly and skipped if appropriate
+  // 2. Configs without units (e.g. "17612") are handled correctly and skipped when appropriate
+  // 3. Configs without units are properly updated with units when changes are needed
+
+  /**
+   * Helper method to test AutoTuner recommendations for memory configurations.
+   *
+   * @param testName Name of the test case
+   * @param confKey The Spark configuration key to test
+   * @param initialValue Initial value of the configuration (with or without unit)
+   * @param expectedValue Expected value after AutoTuner processing (None if no change expected)
+   * @param extraProps Additional properties needed for the test
+   */
+  private def testAutoTunerConf(
+      testName: String,
+      confKey: String,
+      initialValue: String,
+      expectedValue: Option[String],
+      extraProps: Map[String, String] = Map.empty
+  ): Unit = {
+    test(testName) {
+      val baseProps = Map(
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1"
+      )
+
+      val testProps = Map(confKey -> initialValue) ++ extraProps
+      val allProps = mutable.LinkedHashMap((baseProps ++ testProps).toSeq: _*)
+      val autoTuner = buildDefaultDataprocAutoTuner(allProps)
+      val (properties, comments) = autoTuner.getRecommendedProperties()
+      val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+      def getAssertMessage(expectation: String): String = {
+        s"""|=== Expected ===
+            |$expectation
+            |
+            |=== Actual ===
+            |$autoTunerOutput
+            |""".stripMargin
+      }
+
+      expectedValue match {
+        case Some(expected) =>
+          val expectedLine = s"--conf $confKey=$expected"
+          val hasExpectedLine = autoTunerOutput.contains(expectedLine)
+          assert(hasExpectedLine,
+            getAssertMessage(s"Expected to find '$expectedLine' in output but it was missing"))
+        case None =>
+          val prefix = s"--conf $confKey="
+          val hasPrefix = autoTunerOutput.contains(prefix)
+          assert(!hasPrefix,
+            getAssertMessage(s"Expected NOT to find any conf with '$prefix' but found one"))
+      }
+    }
+  }
+
+  /**
+   * Helper method to test executor memory overhead configurations.
+   * Tests how the AutoTuner handles spark.executor.memoryOverhead with and without units.
+   */
+  private def testMemoryOverhead(
+      testName: String,
+      initialValue: String,
+      expectedValue: Option[String]
+  ): Unit = {
+    testAutoTunerConf(
+      testName = testName,
+      confKey = "spark.executor.memoryOverhead",
+      initialValue = initialValue,
+      expectedValue = expectedValue
+    )
+  }
+
+  /**
+   * Helper method to test Kryo serializer buffer configurations.
+   * Tests how the AutoTuner handles spark.kryoserializer.buffer.max with and without units.
+   */
+  private def testKryoMaxBuffer(
+      testName: String,
+      initialValue: String,
+      expectedValue: Option[String]
+  ): Unit = {
+    testAutoTunerConf(
+      testName = testName,
+      confKey = "spark.kryoserializer.buffer.max",
+      initialValue = initialValue,
+      expectedValue = expectedValue,
+      extraProps = Map("spark.serializer" -> "org.apache.spark.serializer.KryoSerializer")
+    )
+  }
+
+  // Test cases for memory overhead configuration
+  testMemoryOverhead(
+    testName = "Test memory overhead with unit should be skipped when appropriate",
+    initialValue = "17612m",
+    expectedValue = None
+  )
+
+  testMemoryOverhead(
+    testName = "Test memory overhead without unit should be skipped when appropriate",
+    initialValue = "17612",
+    expectedValue = None
+  )
+
+  testMemoryOverhead(
+    testName = "Test memory overhead without unit should be updated and set",
+    initialValue = "8712",
+    expectedValue = Some("17612m")
+  )
+
+  // Test cases for Kryo buffer configuration
+  testKryoMaxBuffer(
+    testName = "Test kryo max buffer with unit should be skipped when appropriate",
+    initialValue = "1024m",
+    expectedValue = None
+  )
+
+  testKryoMaxBuffer(
+    testName = "Test kryo max buffer without unit should be skipped when appropriate",
+    initialValue = "1024",
+    expectedValue = None
+  )
+
+  testKryoMaxBuffer(
+    testName = "Test kryo max buffer without unit should be updated and set",
+    initialValue = "128",
+    expectedValue = Some("512m")
+  )
 }

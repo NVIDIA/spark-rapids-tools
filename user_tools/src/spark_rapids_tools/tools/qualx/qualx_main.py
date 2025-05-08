@@ -14,7 +14,7 @@
 
 """ Main module for QualX related commands """
 
-from typing import Callable, List, Optional, Tuple, Set
+from typing import Callable, List, Optional, Set, Tuple, Union
 import glob
 import json
 import os
@@ -30,6 +30,7 @@ import fire
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
+    get_config,
     get_label,
 )
 from spark_rapids_tools.tools.qualx.preprocess import (
@@ -42,14 +43,13 @@ from spark_rapids_tools.tools.qualx.preprocess import (
 from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     compute_shapley_values,
-    split_all_test,
-    split_train_val,
 )
 from spark_rapids_tools.tools.qualx.model import train as train_model, predict as predict_model
 from spark_rapids_tools.tools.qualx.util import (
     compute_accuracy,
     ensure_directory,
     find_paths,
+    get_abs_path,
     get_logger,
     get_dataset_platforms,
     load_plugin,
@@ -188,6 +188,24 @@ def _get_qual_data(qual: Optional[str]) -> Tuple[
     )
 
     return node_level_supp, qualtool_output, qual_metrics
+
+
+def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    if isinstance(split_fn, dict):
+        if all(key in split_fn for key in ['path', 'args']):
+            plugin_path = split_fn['path']
+            plugin_kwargs = split_fn['args']
+        else:
+            # should never get here, otherwise fix split_fn config
+            raise ValueError(f'Invalid split_function: {split_fn}')
+    else:  # split_fn is a string
+        plugin_path = split_fn
+        plugin_kwargs = {}
+
+    plugin = load_plugin(get_abs_path(os.path.expandvars(plugin_path), ['split_functions', 'plugins']))
+    if plugin_kwargs:
+        return lambda df: plugin.split_function(df, **plugin_kwargs)
+    return plugin.split_function
 
 
 def _compute_summary(results: pd.DataFrame) -> pd.DataFrame:
@@ -440,7 +458,7 @@ def models() -> None:
         print(model)
 
 
-def preprocess(dataset: str) -> None:
+def preprocess(dataset: str, config: Optional[str] = None) -> None:
     """Extract raw features from profiler logs.
 
     Extract raw features from one or more profiler logs and save the resulting dataframe as a
@@ -450,7 +468,12 @@ def preprocess(dataset: str) -> None:
     ----------
     dataset: str
         Path to a datasets directory for a given platform, e.g. 'datasets/onprem'
+    config_path: str
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     platforms, _ = get_dataset_platforms(dataset)
 
     # invalidate preprocessed.parquet files
@@ -471,6 +494,7 @@ def train(
     n_trials: Optional[int] = 200,
     base_model: Optional[str] = None,
     features_csv_dir: Optional[str] = None,
+    config: Optional[str] = None,
 ) -> None:
     """Train an XGBoost model.
 
@@ -491,7 +515,12 @@ def train(
     features_csv_dir:
         Path to a directory containing one or more features.csv files.  These files are produced during prediction,
         and must be manually edited to provide a label column (Duration_speedup) and value.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))
@@ -503,13 +532,15 @@ def train(
             'Training data contained datasets: %s, expected: %s', profile_datasets, dataset_list
         )
 
-    split_functions = {'default': split_train_val}
+    # default split function for training
+    split_fn = load_plugin(get_abs_path('split_train_val.py', 'split_functions')).split_function
+    split_functions = {'default': split_fn}
+
+    # per-dataset split functions, if specified
     for ds_name, ds_meta in datasets.items():
         if 'split_function' in ds_meta:
-            plugin_path = ds_meta['split_function']
-            logger.debug('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
-            plugin = load_plugin(plugin_path)
-            split_functions[ds_name] = plugin.split_function
+            split_fn = _get_split_fn(ds_meta['split_function'])
+            split_functions[ds_name] = split_fn
 
     features, feature_cols, label_col = extract_model_features(profile_df, split_functions)
 
@@ -589,8 +620,27 @@ def predict(
     *,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> pd.DataFrame:
-    """Predict GPU speedup given CPU logs."""
+    """Predict GPU speedup given CPU logs.
+
+    Parameters
+    ----------
+    platform: str
+        Platform name supported by Profiler tool, e.g. 'onprem'
+    qual: str
+        Path to a directory containing one or more qual output directories.
+    output_info: dict
+        Dictionary containing information about the output files.
+    model:
+        Name of a pre-trained model or path to a model on disk to use for prediction.
+    qual_tool_filter:
+        Filter to apply to the qualification tool output, default: 'stage'
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
+    """
+    # load config from command line argument, or use default
+    get_config(config)
 
     node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
     # create a DataFrame with default predictions for all app IDs.
@@ -728,6 +778,7 @@ def _predict_cli(
     qual_output: Optional[str] = None,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> None:
     """Predict GPU speedup given CPU logs.
 
@@ -754,7 +805,12 @@ def _predict_cli(
     qual_tool_filter: str
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qual tool
         output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
     assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
 
@@ -794,6 +850,7 @@ def evaluate(
     *,
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    config: Optional[str] = None,
 ) -> None:
     """Evaluate model predictions against actual GPU speedup.
 
@@ -818,7 +875,12 @@ def evaluate(
         Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages,
         based on qual tool output.  A sqlID or stage is fully supported if all execs are respectively
         fully supported.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
         for ds_name in datasets.keys():
@@ -848,26 +910,29 @@ def evaluate(
                 eventlog = os.path.expandvars(eventlog)
                 run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
         if 'split_function' in ds_meta:
-            # get split_function from plugin
-            plugin_path = ds_meta['split_function']
-            logger.info('Using split function for %s dataset from plugin: %s', ds_name, plugin_path)
-            plugin = load_plugin(plugin_path)
-            split_fn = plugin.split_function
+            split_fn = _get_split_fn(ds_meta['split_function'])
 
     logger.debug('Loading qualification tool CSV files.')
     node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
 
     logger.debug('Loading profiler tool CSV files.')
-    profile_df = load_profiles(datasets, profile_dir)  # w/ GPU rows
+    profile_df = load_profiles(datasets, profile_dir=profile_dir)  # w/ GPU rows
     filtered_profile_df = load_profiles(
-        datasets, profile_dir, node_level_supp, qual_tool_filter, qual_tool_output
+        datasets,
+        profile_dir=profile_dir,
+        node_level_supp=node_level_supp,
+        qual_tool_filter=qual_tool_filter,
+        qual_tool_output=qual_tool_output,
     )  # w/o GPU rows
     if profile_df.empty:
         raise ValueError(f'Warning: No profile data found for {dataset}')
 
     if not split_fn:
-        # use default split_fn if not specified
-        split_fn = split_all_test if 'test' in dataset_name else split_train_val
+        # use default split_function, if not specified
+        if 'test' in dataset_name:
+            split_fn = load_plugin(get_abs_path('split_all_test.py', 'split_functions')).split_function
+        else:
+            split_fn = load_plugin(get_abs_path('split_train_val.py', 'split_functions')).split_function
 
     # raw predictions on unfiltered data
     raw_sql, raw_app = _predict(
@@ -994,7 +1059,12 @@ def evaluate(
         res = results_app if granularity == 'app' else results_sql
         res = res[res.split == 'test'] if split == 'test' else res
         if res.empty:
-            logger.error('No evaluation results found for dataset: %s', dataset)
+            logger.warning(
+                'No per-%s %s evaluation results found for dataset: %s',
+                granularity,
+                split,
+                dataset,
+            )
             continue
 
         if 'Actual speedup' not in res:
@@ -1046,6 +1116,7 @@ def evaluate_summary(
     *,
     score: str = 'dMAPE',
     split: str = 'test',
+    config: Optional[str] = None,
 ) -> None:
     """
     Compute
@@ -1057,7 +1128,12 @@ def evaluate_summary(
         Type of score to compare: 'MAPE', 'wMAPE', or 'dMAPE' (default).
     split: str
         Dataset split to compare: 'test' (default), 'train', or 'all'.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     summary_df, _ = _read_platform_scores(evaluate, score, split)
     print(tabulate(summary_df, headers='keys', tablefmt='psql', floatfmt='.4f'))
     summary_path = f'{evaluate}/summary.csv'
@@ -1072,6 +1148,7 @@ def compare(
     score: str = 'dMAPE',
     granularity: str = 'sql',
     split: str = 'all',
+    config: Optional[str] = None,
 ) -> None:
     """Compare evaluation results between versions of code/models.
 
@@ -1089,7 +1166,12 @@ def compare(
         Granularity of score to compare: 'sql' (default) or 'app'.
     split: str
         Dataset split to compare: 'all' (default), 'train', or 'test'.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     # compare MAPE scores per dataset
     curr_df = _read_dataset_scores(current, score, granularity, split)
     prev_df = _read_dataset_scores(previous, score, granularity, split)
@@ -1139,7 +1221,13 @@ def compare(
         logger.warning('New datasets added, comparisons may be skewed: added=%s', added)
 
 
-def shap(platform: str, prediction_output: str, index: int, model: Optional[str] = None) -> None:
+def shap(
+    platform: str,
+    prediction_output: str,
+    index: int,
+    model: Optional[str] = None,
+    config: Optional[str] = None,
+) -> None:
     """Print a SHAP waterfall of features and their SHAP value contributions to the overall prediction for
     a specific index (sqlID) in the shap_values.csv file produced by prediction.
 
@@ -1171,7 +1259,12 @@ def shap(platform: str, prediction_output: str, index: int, model: Optional[str]
         Index of row/instance in shap_values.csv file to isolate for shap waterfall.
     model: Optional[str]
         Path to XGBoost model used in prediction.
+    config:
+        Path to a qualx-conf.yaml file to use for configuration.
     """
+    # load config from command line argument, or use default
+    get_config(config)
+
     # get model shap values w/ feature distribution metrics
     model_json_path = _get_model_path(platform, model)
     model_shap_path = Path(model_json_path).with_suffix('.metrics')

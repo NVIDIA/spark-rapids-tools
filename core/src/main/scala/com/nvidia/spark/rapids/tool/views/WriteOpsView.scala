@@ -37,18 +37,16 @@ case class WriteOpProfileResult(record: WriteOperationRecord) extends ProfileRes
   /**
    * Defines the headers for the output display.
    */
-  override val outputHeaders: Seq[String] = {
-    Seq("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
-      "location", "tableName", "dataBase", "outputColumns", "writeMode",
-      "partitionColumns", "fullDescription")
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("WriteOpProfileResult")
   }
 
   /**
    * Converts the profiling result into a sequence of strings for display.
    * Escapes special characters in the description and truncates long strings.
    */
-  override def convertToSeq: Seq[String] = {
-    Seq(record.sqlID.toString,
+  override def convertToSeq(): Array[String] = {
+    Array(record.sqlID.toString,
       record.version.toString,
       record.nodeId.toString,
       record.fromFinalPlan.toString,
@@ -70,8 +68,8 @@ case class WriteOpProfileResult(record: WriteOperationRecord) extends ProfileRes
    * Converts the profiling result into a sequence of strings formatted for CSV output.
    * Escapes special characters and truncates long descriptions to a maximum length.
    */
-  override def convertToCSVSeq: Seq[String] = {
-    Seq(record.sqlID.toString,
+  override def convertToCSVSeq(): Array[String] = {
+    Array(record.sqlID.toString,
       record.version.toString,
       record.nodeId.toString,
       record.fromFinalPlan.toString,

@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -128,6 +128,22 @@ def step_hdfs_has_eventlogs(context, event_logs) -> None:
                                                 error_msg="Failed to copy event logs to HDFS")
 
 
+@when('"{file}" file is generated')
+def step_file_is_generated(context, file) -> None:
+    file_paths = {}
+    local_file_path = None
+    for root, _, files in os.walk(context.temp_dir):
+        if file in files:
+            local_file_path = os.path.join(root, file)
+            # Use the file name without extension as the key
+            file_key = os.path.splitext(file)[0]
+            file_paths[file_key] = local_file_path
+    assert local_file_path is not None, f"File '{file}' was not found in the directory '{context.temp_dir}'"
+    if not hasattr(context, 'generated_file_paths'):
+        context.generated_file_paths = {}
+    context.generated_file_paths.update(file_paths)
+
+
 @when('spark-rapids tool is executed with "{event_logs}" eventlogs')
 def step_execute_spark_rapids_tool(context, event_logs) -> None:
     event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
@@ -136,6 +152,27 @@ def step_execute_spark_rapids_tool(context, event_logs) -> None:
     else:
         cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir)
     context.result = E2ETestUtils.run_sys_cmd(cmd)
+
+
+@when('"{app_id}" app is not qualified')
+def step_verify_gpu_speedup_category(context, app_id) -> None:
+    df = E2ETestUtils.read_csv_as_dataframe(context.generated_file_paths['qualification_summary'])
+    row = df.loc[df["App ID"] == app_id]
+    assert not row.empty, f'App ID "{app_id}" not found in the CSV file.'
+    category = row["Estimated GPU Speedup Category"].iloc[0]
+    assert category == "Not Recommended", \
+        f'Expected "Not Recommended", but found "{category}"'
+
+
+@then('not qualified reason is "{expected_reason}"')
+def step_verify_not_qualified_reason(context, expected_reason) -> None:
+    """
+    Verify the 'Not Recommended Reason' column in the generated CSV file matches the expected reason.
+    """
+    df = E2ETestUtils.read_csv_as_dataframe(context.generated_file_paths['qualification_summary'])
+    assert "Not Recommended Reason" in df.columns, "'Not Recommended Reason' column not found in the CSV file."
+    actual_reason = df["Not Recommended Reason"].iloc[0]
+    assert actual_reason == expected_reason, f"Expected reason: '{expected_reason}', but found: '{actual_reason}'"
 
 
 @then('stderr contains the following')

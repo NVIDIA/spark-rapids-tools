@@ -298,15 +298,15 @@ class Qualification(RapidsJarTool):
         return None
 
     def __build_global_report_summary(self,
-                                      all_apps: pd.DataFrame,
+                                      processed_apps: pd.DataFrame,
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
                                       output_files_info: JSONPropertiesContainer) -> QualificationSummary:
         # TODO: This method does a lot of critical but unrelated work. Refactor this into smaller steps/methods
         #  to improve readability and maintainability.
-        if all_apps.empty:
+        if processed_apps.empty:
             # No need to run saving estimator or process the data frames.
-            return QualificationSummary(total_apps=total_apps, tools_processed_apps=all_apps)
+            return QualificationSummary(total_apps=total_apps, tools_processed_apps=processed_apps)
 
         # Generate the statistics report
         try:
@@ -315,10 +315,13 @@ class Qualification(RapidsJarTool):
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Failed to generate the statistics report: %s', e)
 
-        # Calculate unsupported operators stage duration before grouping
+        # Calculate unsupported operators stage duration
+        # This returns a DF with the following additional columns:
+        # 1. Unsupported Operators Stage Duration: Total duration of stages with unsupported operators
+        # 2. Unsupported Operators Stage Duration Percent: Percentage of unsupported operators stage duration
         unsupported_ops_obj = UnsupportedOpsStageDuration(
             self.ctxt.get_value('local', 'output', 'unsupportedOperators'))
-        all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(all_apps, unsupported_ops_df)
+        all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(processed_apps, unsupported_ops_df)
         apps_pruned_df = self.__remap_columns_and_prune(all_apps)
 
         # Apply additional heuristics to skip apps not suitable for GPU acceleration
@@ -326,19 +329,27 @@ class Qualification(RapidsJarTool):
             props=self.ctxt.get_value('local', 'output', 'additionalHeuristics'),
             tools_output_dir=self.ctxt.get_rapids_output_folder(),
             output_file=output_files_info.get_value('intermediateOutput', 'files', 'heuristics', 'path'))
+        # The apply heuristics will return DF with two additional columns:
+        # 1. Skip by heuristics: True/False
+        # 2. Reason: the reason why the app was skipped
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
 
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
 
         # Assign the runtime type (Spark/Photon etc.) and speedup categories (Small/Medium/Large) to each application.
-        # Note: Strategy for speedup categorization will be based on the execution engine of the application.
+        # Note: Based on the assigned runtime, the speedup category conditions vary.
+        # Refer qualification-conf.yaml for exact speedUp category conditions/runtime type.
         apps_with_runtime_df = self._assign_spark_runtime_to_apps(apps_grouped_df)
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
         speedup_category_ob = SpeedupCategory(speedup_category_confs)
+        # Adds the Speedup Category Column to the DataFrame.
+        # Also processes the SpeedUp assigned using some eligibility conditions present in the qualification-conf.yaml
+        # in case that needs to be updated
         df_final_result = speedup_category_ob.build_category_column(apps_with_runtime_df)
+        # Fill the missing values in 'Not Recommended Reason' with N/A
+        df_final_result['Not Recommended Reason'] = df_final_result['Not Recommended Reason'].fillna('N/A')
 
-        # Generate the cluster shape report
         reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [group_notes] if group_notes else []
         if reshaped_notes:

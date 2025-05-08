@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package com.nvidia.spark.rapids.tool
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 object GpuTypes {
@@ -39,7 +40,7 @@ abstract class GpuDevice {
   def getInitialPartitionNum: Option[Int] = None
   // TODO: Improve logic for concurrent tasks
   final def getGpuConcTasks: Long =
-    StringUtils.convertToMB(getMemory) / GpuDevice.DEF_GPU_MEM_PER_TASK_MB
+    StringUtils.convertToMB(getMemory, Some(ByteUnit.BYTE)) / GpuDevice.DEF_GPU_MEM_PER_TASK_MB
 }
 
 case object A100Gpu extends GpuDevice {

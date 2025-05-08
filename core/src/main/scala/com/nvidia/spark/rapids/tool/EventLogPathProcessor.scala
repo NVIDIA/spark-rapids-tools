@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.{FileContext, FileStatus, FileSystem, Path, PathFilt
 
 import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.FSUtils
@@ -290,13 +291,9 @@ object EventLogPathProcessor extends Logging {
         case (info, Some(ts)) => info -> ts
       }
       val filteredByMinSize = if (minEventLogSize.isDefined) {
-        val minSizeInBytes = if (StringUtils.isMemorySize(minEventLogSize.get)) {
-          // if it is memory return the bytes unit
-          StringUtils.convertMemorySizeToBytes(minEventLogSize.get)
-        } else {
-          // size is assumed to be mb
-          StringUtils.convertMemorySizeToBytes(minEventLogSize.get + "m")
-        }
+        // size is assumed to be mb (see QualificationArgs)
+        val minSizeInBytes = StringUtils.convertMemorySizeToBytes(minEventLogSize.get,
+          Some(ByteUnit.MiB))
         val (matched, filtered) = validMatchedLogs.partition(info => info._2.size >= minSizeInBytes)
         logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. The logs " +
           s"filtered out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
@@ -305,13 +302,9 @@ object EventLogPathProcessor extends Logging {
         validMatchedLogs
       }
       val filteredByMaxSize = if (maxEventLogSize.isDefined) {
-        val maxSizeInBytes = if (StringUtils.isMemorySize(maxEventLogSize.get)) {
-          // if it is memory return the bytes unit
-          StringUtils.convertMemorySizeToBytes(maxEventLogSize.get)
-        } else {
-          // size is assumed to be mb
-          StringUtils.convertMemorySizeToBytes(maxEventLogSize.get + "m")
-        }
+        // size is assumed to be mb (see QualificationArgs)
+        val maxSizeInBytes = StringUtils.convertMemorySizeToBytes(maxEventLogSize.get,
+          Some(ByteUnit.MiB))
         val (matched, filtered) =
           filteredByMinSize.partition(info => info._2.size <= maxSizeInBytes)
         logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +

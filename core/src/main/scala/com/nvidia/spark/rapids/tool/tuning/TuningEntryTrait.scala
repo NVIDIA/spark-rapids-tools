@@ -20,17 +20,34 @@ import scala.collection.mutable.ListBuffer
 
 import com.nvidia.spark.rapids.tool.tuning.TuningOpTypes.TuningOpType
 
-import org.apache.spark.sql.rapids.tool.util.StringUtils
-
 /**
  * A trait that defines the behavior of the Tuning Entry.
  */
 trait TuningEntryTrait {
   val name: String
+
+  // The original value of the property
+  private var _originalValue: Option[String] = None
+
+  /** Gets the original value */
+  protected def originalValue: Option[String] = _originalValue
+
+  /** Sets the original value after normalizing it */
+  protected def originalValue_=(value: Option[String]): Unit = {
+    _originalValue = value.map(normalizeValue)
+  }
+
   // The value recommended by the AutoTuner
-  var tunedValue: Option[String]
-  // The original value of the property from the event log
-  var originalValue: Option[String]
+  private var _tunedValue: Option[String] = None
+
+  /** Gets the tuned value */
+  protected def tunedValue: Option[String] = _tunedValue
+
+  /** Sets the tuned value after normalizing it */
+  protected def tunedValue_=(value: Option[String]): Unit = {
+    _tunedValue = value.map(normalizeValue)
+  }
+
   var enabled: Boolean = true
 
   // The type of tuning operation to be performed
@@ -81,10 +98,21 @@ trait TuningEntryTrait {
     if (isUnresolved()) {
       fillIfBlank.getOrElse(fillUnresolved.get)
     } else {
-      // It is possible the the propery was not tuned. However, we should not be in that case
+      // It is possible the property was not tuned. However, we should not be in that case
       // because by calling commit we must have copied the tuned from the original.
-      tunedValue.getOrElse(fillIfBlank.getOrElse(originalValue.getOrElse("[UNDEFINED]")))
+      val finalTunedValue = tunedValue.map(formatOutput)
+      val finalOriginalValue = originalValue.map(formatOutput)
+      finalTunedValue.orElse(fillIfBlank).orElse(finalOriginalValue)
+        .getOrElse("[UNDEFINED]")
     }
+  }
+
+  /**
+   * Returns the original value as a string.
+   * @return the value of the property as a string.
+   */
+  def getOriginalValue: Option[String] = {
+    originalValue.map(formatOutput)
   }
 
   /**
@@ -132,23 +160,25 @@ trait TuningEntryTrait {
   def isEnabled(): Boolean
 
   /**
-   * Used to compare between two properties by converting memory units to equivalent
-   * representations.
-   * @param propValue property to be processed.
+   * Returns a normalized representation of a property value, useful for consistent comparison.
+   *
+   * This base implementation returns the property value as-is. Subclasses can override this method
+   * to apply specific normalization logic.
    * @return the uniform representation of property.
-   *         For Memory, the value is converted to bytes.
    */
-  private def getRawValue(propValue: Option[String]): Option[String] = {
-    propValue match {
-      case None => None
-      case Some(value) =>
-        if (StringUtils.isMemorySize(value)) {
-          // if it is memory return the bytes unit
-          Some(s"${StringUtils.convertMemorySizeToBytes(value)}")
-        } else {
-          propValue
-        }
-    }
+  def normalizeValue(propValue: String): String = {
+    propValue
+  }
+
+  /**
+   * Returns a formatted representation of a property value, useful for consistent output.
+   *
+   * This base implementation returns the property value as-is. Subclasses can override this method
+   * to apply specific formatting logic.
+   * @return the formatted representation of property.
+   */
+  def formatOutput(propValue: String): String = {
+    propValue
   }
 
   def setTuningOpType(opType: TuningOpType): Unit = {
@@ -160,9 +190,7 @@ trait TuningEntryTrait {
    */
   def updateOpType(): Unit = {
     if (!(isRemoved() || isUnresolved())) {
-      val originalVal = getRawValue(originalValue)
-      val recommendedVal = getRawValue(tunedValue)
-      (originalVal, recommendedVal) match {
+      (originalValue, tunedValue) match {
         case (None, None) => setTuningOpType(TuningOpTypes.UNKNOWN)
         case (Some(orig), Some(rec)) =>
           if (orig != rec) {

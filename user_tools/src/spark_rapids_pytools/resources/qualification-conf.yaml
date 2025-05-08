@@ -289,11 +289,13 @@ local:
               upperBound: 1000000.0
           eligibilityConditions:
             - columnName: 'Estimated GPU Speedup'
-              lowerBound: 1.3
-              upperBound: 1000000.0
+              lowerBound: !ENV ${RAPIDS_USER_TOOLS_GPU_SPEEDUP_SPARK_LOWER_BOUND:1.3}
+              upperBound: !ENV ${RAPIDS_USER_TOOLS_GPU_SPEEDUP_SPARK_UPPER_BOUND:1000000.0}
+              skippingReason: 'GPU SpeedUp < Qualifying Threshold (More is qualified)'
             - columnName: 'Unsupported Operators Stage Duration Percent'
-              lowerBound: 0.0
-              upperBound: 25.0
+              lowerBound: !ENV ${RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_SPARK_LOWER_BOUND:0.0}
+              upperBound: !ENV ${RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_SPARK_UPPER_BOUND:25.0}
+              skippingReason: 'Unsupported Operators Stage Duration Percent > Qualifying Threshold (Less is qualified)'
         photon:  # Photon specific speedup categories
           categories:
             - title: 'Not Applicable'
@@ -310,18 +312,20 @@ local:
               upperBound: 1000000.0
           eligibilityConditions:
             - columnName: 'Estimated GPU Speedup'
-              lowerBound: 1.0
-              upperBound: 1000000.0
+              lowerBound: !ENV ${RAPIDS_USER_TOOLS_GPU_SPEEDUP_PHOTON_LOWER_BOUND:1.0}
+              upperBound: !ENV ${RAPIDS_USER_TOOLS_GPU_SPEEDUP_PHOTON_UPPER_BOUND:1000000.0}
+              skippingReason: 'GPU SpeedUp < Qualifying Threshold (Less is qualified)'
             - columnName: 'Unsupported Operators Stage Duration Percent'
-              lowerBound: 0.0
-              upperBound: 25.0
+              lowerBound: !ENV ${RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_PHOTON_LOWER_BOUND:0.0}
+              upperBound: !ENV ${RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_PHOTON_UPPER_BOUND:25.0}
+              skippingReason: 'Unsupported Operators Stage Duration Percent > Qualifying Threshold (Less is qualified)'
     additionalHeuristics:
       appInfo:
         fileName: 'application_information.csv'
       resultCols:
         - 'App ID'
         - 'Skip by Heuristics'
-        - 'Reason'
+        - 'Not Recommended Reason'
       spillBased:
         stageAggMetrics:
           fileName: 'stage_level_aggregated_task_metrics.csv'

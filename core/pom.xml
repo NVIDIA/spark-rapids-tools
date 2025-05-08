@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>25.02.2</version>
+    <version>25.02.3-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -375,6 +375,24 @@
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
+        <profile>
+            <!--
+              Define a profile to be used for release. This profile
+              should set the properties accordingly to make the jars suitable for production.
+              For instance, set the elide-level to release to remove scala asserts.
+
+              Release jobs should be using that Profile.
+            -->
+            <id>release</id>
+            <properties>
+                <buildver>350</buildver>
+                <spark.version>${spark350.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
+                <delta.core.version>${delta31x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+                <elide.level>${elide.level.release}</elide.level>
+            </properties>
+        </profile>
     </profiles>
     <properties>
         <spark311.version>3.1.1</spark311.version>
@@ -440,12 +458,12 @@
             For debugging/development and testing, the elide.level should be set to WARNING.
         -->
         <elide.level.release>2001</elide.level.release>
-        <elide.level.dev>MAXIMUM</elide.level.dev>
+        <elide.level.dev>MINIMUM</elide.level.dev>
         <!--
-            Temporarily set the default elid level to RELEASE until we modify the CI/CD release to
-            build with RELEASE profile that disables the Scala asserts.
+            The default elide level to dev A build for RELEASE should overwrite
+            that to disable non-production code (i.e., Scala asserts).
         -->
-        <elide.level>${elide.level.release}</elide.level>
+        <elide.level>${elide.level.dev}</elide.level>
         <java.version>1.8</java.version>
         <platform-encoding>UTF-8</platform-encoding>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
