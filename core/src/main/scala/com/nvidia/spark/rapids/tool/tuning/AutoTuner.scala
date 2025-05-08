@@ -480,21 +480,23 @@ class AutoTuner(
    *  executor heap size,
    *  boolean if should set MaxBytesInFlight)
    */
-  def calcOverallMemory(
+  private def calcOverallMemory(
       execHeapCalculator: () => Long,
       numExecutorCores: Int,
-      containerMemCalculator: () => Double): (Long, Long, Long, Boolean) = {
-    val executorHeap = execHeapCalculator()
+      containerMemCalculator: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
+    // Set executor heap to be at least 2GB/core
+    val executorHeap = Math.max(execHeapCalculator(),
+      autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecutorCores)
     val containerMem = containerMemCalculator.apply()
+    val containerMemLeftOverOffHeap = containerMem - executorHeap
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (
-      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION
+      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION +
+        autoTunerConfigsProvider.DEF_PAGEABLE_POOL_MB
     ).toLong
-    executorMemOverhead += autoTunerConfigsProvider.DEF_PAGEABLE_POOL_MB
-    val containerMemLeftOverOffHeap = containerMem - executorHeap
     val minOverhead = executorMemOverhead + (
-      autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB + autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB
+      autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB + autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
     )
     logDebug("containerMem " + containerMem + " executorHeap: " + executorHeap +
       " executorMemOverhead: " + executorMemOverhead + " minOverhead " + minOverhead)
@@ -503,8 +505,8 @@ class AutoTuner(
       // memory to core ratio
       if (numExecutorCores >= 16 && platform.isPlatformCSP &&
         containerMemLeftOverOffHeap >
-          executorMemOverhead + 4096L + autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB +
-            autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB) {
+          executorMemOverhead + 4096L + autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
+            autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB) {
         // Account for the setting of:
         // appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
         executorMemOverhead += 4096L
@@ -521,38 +523,14 @@ class AutoTuner(
         executorMemOverhead += pinnedMem + spillMem
       } else {
         // use min pinned and spill mem
-        executorMemOverhead += autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB +
-          autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB
+        executorMemOverhead += autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
+          autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
       }
-      (pinnedMem, executorMemOverhead, executorHeap, setMaxBytesInFlight)
+      Right((pinnedMem, executorMemOverhead, executorHeap, setMaxBytesInFlight))
     } else {
-      // otherwise we have to adjust heuristic of the executor heap size
-      // recommendedMinHeap = DEF_HEAP_PER_CORE_MB * numExecutorCores
-      // first calculate what we think min overhead is and make sure we have enough
-      // for that
-      // calculate minimum heap size
-      val minExecHeapMem = autoTunerConfigsProvider.MIN_HEAP_PER_CORE_MB * numExecutorCores
-      if ((containerMem - minOverhead) < minExecHeapMem) {
-        // For now just throw so we don't get any tunings and its obvious to user this isn't a good
-        // setup. In the future we may just recommend them to use larger nodes. This would be more
-        // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
-        appendComment(autoTunerConfigsProvider.notEnoughMemComment(
-          minExecHeapMem + minOverhead))
-        (0, 0, 0, false)
-      } else {
-        val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
-        if (leftOverMemUsingMinHeap < 0) {
-          appendComment(autoTunerConfigsProvider.notEnoughMemComment(
-            minExecHeapMem + minOverhead))
-        }
-        // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
-        val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
-          leftOverMemUsingMinHeap / 2).toLong
-        val spillMem = pinnedMem
-        // spill memory is by default same size as pinned memory
-        executorMemOverhead += pinnedMem + spillMem
-        (pinnedMem, executorMemOverhead, minExecHeapMem, setMaxBytesInFlight)
-      }
+      // Add a warning comment indicating that the current setup is not optimal
+      // and no memory-related tunings are recommended.
+      Left(autoTunerConfigsProvider.notEnoughMemComment(executorHeap + minOverhead))
     }
   }
 
@@ -630,18 +608,35 @@ class AutoTuner(
         val availableMemPerExecExpr = () => availableMemPerExec
         val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
         val executorHeapExpr = () => executorHeap
-        val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-          calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
-        appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-        appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
-        // scalastyle:off line.size.limit
-        // For YARN and Kubernetes, we need to set the executor memory overhead
-        // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
-        // scalastyle:on line.size.limit
-        if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
-          appendRecommendationForMemoryMB("spark.executor.memoryOverhead", s"$memoryOverhead")
+        calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
+          case Right((pinnedMem, memoryOverhead, executorHeap, setMaxBytesInFlight)) =>
+            // Sufficient memory available, proceed with recommendations
+            appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMem")
+            // scalastyle:off line.size.limit
+            // For YARN and Kubernetes, we need to set the executor memory overhead
+            // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
+            // scalastyle:on line.size.limit
+            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+              appendRecommendationForMemoryMB("spark.executor.memoryOverhead", s"$memoryOverhead")
+            }
+            appendRecommendationForMemoryMB("spark.executor.memory", s"$executorHeap")
+            setMaxBytesInFlight
+          case Left(notEnoughMemComment) =>
+            // Not enough memory available, add warning comments
+            appendComment(notEnoughMemComment)
+            appendComment("spark.rapids.memory.pinnedPool.size",
+              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                "spark.rapids.memory.pinnedPool.size"))
+            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+              appendComment("spark.executor.memoryOverhead",
+                autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                  "spark.executor.memoryOverhead"))
+            }
+            appendComment("spark.executor.memory",
+              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                "spark.executor.memory"))
+            false
         }
-        setMaxBytesInFlight
       } else {
         logInfo("Available memory per exec is not specified")
         addMissingMemoryComments()
@@ -1308,13 +1303,11 @@ trait AutoTunerConfigsProvider extends Logging {
   val MIN_HEAP_PER_CORE_MB: Long = 750L
   // Ideal amount of JVM heap memory to request per CPU core in megabytes
   val DEF_HEAP_PER_CORE_MB: Long = 2 * 1024L
-  // Minimum amount of pinned memory to use per executor in MB
-  val MIN_PINNED_MEMORY_MB: Long = 1024L
-  val MIN_SPILL_MEMORY_MB: Long = MIN_PINNED_MEMORY_MB
   // Maximum amount of pinned memory to use per executor in MB
   val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
   // Default pinned memory to use per executor in MB
   val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
+  val DEF_SPILL_MEMORY_MB: Long = DEF_PINNED_MEMORY_MB
   // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
   // leave this for now to account for off heap memory usage.
   val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
@@ -1548,8 +1541,13 @@ trait AutoTunerConfigsProvider extends Logging {
     s"""
        |This node/worker configuration is not ideal for using the RAPIDS Accelerator
        |for Apache Spark because it doesn't have enough memory for the executors.
-       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB memory.
+       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB
+       |memory per executor.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
+
+  def notEnoughMemCommentForKey(key: String): String = {
+    s"Not enough memory to set '$key'. See comments for more details."
   }
 }
 
