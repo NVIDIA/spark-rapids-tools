@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[String](required = false,
       descr = "Base output directory. Default is current directory for the default filesystem." +
         " The final output will go into a subdirectory called" +
-        " rapids_4_spark_qualification_output. It will overwrite any existing directory" +
+        " qual_core_output. It will overwrite any existing directory" +
         " with the same name.",
       default = Some("."))
   val eventlog: ScallopOption[List[String]] =
@@ -106,15 +106,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[String](required = false,
       descr = "Filter event logs whose filenames contain the input string. Filesystem " +
               "based filtering happens before any application based filtering.")
-  val numOutputRows: ScallopOption[Int] =
-    opt[Int](required = false,
-      descr = "Number of output rows in the summary report. Default is 1000.",
-      default = Some(1000))
-  val order: ScallopOption[String] =
-    opt[String](required = false,
-      descr = "Specify the sort order of the report. desc or asc, desc is the default. " +
-        "desc (descending) would report applications most likely to be accelerated at the top " +
-        "and asc (ascending) would show the least likely to be accelerated at the top.")
   val noRecursion: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Set to true to disable recursive search for event logs in the provided " +
@@ -132,15 +123,12 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[String](required = false,
       descr = "Select event logs whose filesystem time stamp is older than or ends on the " +
         "date/time specified. Valid format is yyyy-MM-dd hh:mm:ss.")
-  val reportReadSchema: ScallopOption[Boolean] =
-    opt[Boolean](required = false,
-      descr = "Whether to output the read formats and datatypes to the CSV file. This can " +
-        "be very long. Default is false.",
-      default = Some(false))
   val mlFunctions: ScallopOption[Boolean] =
-    opt[Boolean](required = false,
-      descr = "Whether to parse ML functions in the eventlogs. Default is false.",
-      default = Some(false))
+    toggle("ml-functions",
+      default = Some(false),
+      prefix = "no-",
+      descrYes = "Parse ML functions in the eventlog and generate a report. Disabled by default.",
+      descrNo = "Do not parse ML functions in the eventlog.")
   val penalizeTransitions: ScallopOption[Boolean] =
     toggle("penalize-transitions",
       default = Some(true),
@@ -202,11 +190,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       prefix = "no-",
       descrYes = "Generate a cluster information file. Enabled by default.",
       descrNo = "Do not generate the cluster information file.")
-
-  validate(order) {
-    case o if (QualificationArgs.isOrderAsc(o) || QualificationArgs.isOrderDesc(o)) => Right(Unit)
-    case _ => Left("Error, the order must either be desc or asc")
-  }
 
   validate(filterCriteria) {
     case crit if (crit.endsWith("-newest-filesystem") || crit.endsWith("-oldest-filesystem")
