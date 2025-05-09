@@ -87,14 +87,16 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
    * @param outRows The sequence of profile results to write.
   */
   def writeJsonL(headerText: String, outRows: Seq[ProfileResult]): Unit = {
-    val fileName = headerText.replace(" ", "_").toLowerCase
-    val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
-    try {
-      outRows.foreach { row =>
-        jsonWriter.write(Serialization.write(row) + "\n")
+    if (outRows.nonEmpty) {
+      val fileName = headerText.replace(" ", "_").toLowerCase
+      val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+      try {
+        outRows.foreach { row =>
+          jsonWriter.write(Serialization.write(row) + "\n")
+        }
+      } finally {
+        jsonWriter.close()
       }
-    } finally {
-      jsonWriter.close()
     }
   }
 
