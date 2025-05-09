@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v25.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.3)
+Generated on 2025-05-09
+### User Tools
+
+- Packaging tools jar with the python package ([#1634](https://github.com/NVIDIA/spark-rapids-tools/pull/1634))
+- Integrate Qualx train_and_evaluate into spark_rapids CLI with docs ([#1660](https://github.com/NVIDIA/spark-rapids-tools/pull/1660))
+- Adding 'Not Recommended Reason' to qualification summary ([#1649](https://github.com/NVIDIA/spark-rapids-tools/pull/1649))
+- Use config file and add docs for Qualx hash_util ([#1657](https://github.com/NVIDIA/spark-rapids-tools/pull/1657))
+- Add more qualx unit tests ([#1654](https://github.com/NVIDIA/spark-rapids-tools/pull/1654))
+- Qualx pipeline API ([#1645](https://github.com/NVIDIA/spark-rapids-tools/pull/1645))
+
+### Core
+
+- Fix Bootstrap to avoid carrying forward CPU run memory configs when insufficient for GPU runs ([#1663](https://github.com/NVIDIA/spark-rapids-tools/pull/1663))
+- AutoTuner: Fix incorrect memoryOverheadFactor recommendation for YARN and k8s and add default master in unit tests ([#1659](https://github.com/NVIDIA/spark-rapids-tools/pull/1659))
+- Improve unit handling for memory-related configs in AutoTuner ([#1652](https://github.com/NVIDIA/spark-rapids-tools/pull/1652))
+- Improve memory allocations in ProfileResults classes ([#1642](https://github.com/NVIDIA/spark-rapids-tools/pull/1642))
+- Fix filtered eventlogs in Profiling tool ([#1639](https://github.com/NVIDIA/spark-rapids-tools/pull/1639))
+
+
+<br/>
+
 ## Release [v25.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.2)
 Generated on 2025-04-15
 ### User Tools
