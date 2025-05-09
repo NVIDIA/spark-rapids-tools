@@ -2,6 +2,8 @@
 
 This repo provides the tools to use [RAPIDS Accelerator for Apache Spark](https://github.com/NVIDIA/spark-rapids).
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/NVIDIA/spark-rapids-tools)
+
 ## Catalog
 
 - [RAPIDS core tools](./core): Tools that help developers getting the most out of their Apache 
