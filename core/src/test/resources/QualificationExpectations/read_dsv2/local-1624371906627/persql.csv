@@ -1,0 +1,10 @@
+Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity
+"",0,"csv at <console>:23",1131,379
+"",1,"show at <console>:26",158,105
+"",2,"orc at <console>:26",9,9
+"",3,"orc at <console>:26",1984,1984
+"",4,"show at <console>:26",540,361
+"",5,"json at <console>:26",841,560
+"",6,"show at <console>:26",442,294
+"",7,"parquet at <console>:26",1,1
+"",8,"parquet at <console>:26",1654,1654

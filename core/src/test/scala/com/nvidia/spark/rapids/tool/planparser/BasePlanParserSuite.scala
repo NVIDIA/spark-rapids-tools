@@ -17,11 +17,9 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory, PlatformNames, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.qualification._
+import com.nvidia.spark.rapids.tool.ToolTestUtils
 
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 class BasePlanParserSuite extends BaseTestSuite {
 
@@ -56,22 +54,6 @@ class BasePlanParserSuite extends BaseTestSuite {
       } else if (checkDurations) {
         assert(t.forall(_.duration.isEmpty), s"$extraText $t")
       }
-    }
-  }
-
-  def createAppFromEventlog(eventLog: String,
-      platformName: String = PlatformNames.DEFAULT): QualificationAppInfo = {
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
-    val (_, allEventLogs) = EventLogPathProcessor.processAllPaths(
-      None, None, List(eventLog), hadoopConf)
-    val pluginTypeChecker = new PluginTypeChecker()
-    assert(allEventLogs.size == 1)
-    val appResult = QualificationAppInfo.createApp(allEventLogs.head, hadoopConf,
-      pluginTypeChecker, reportSqlLevel = false, mlOpsEnabled = false, penalizeTransitions = true,
-      PlatformFactory.createInstance(platformName))
-    appResult match {
-      case Right(app) => app
-      case Left(_) => throw new AssertionError("Cannot create application")
     }
   }
 

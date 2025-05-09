@@ -40,13 +40,11 @@ import org.apache.spark.sql.rapids.tool.util._
  * It can write both a raw csv file and then a text summary report.
  *
  * @param outputDir The directory to output the files to
- * @param reportReadSchema Whether to include the read data source schema in csv output
  * @param printStdout Indicates if the summary report should be printed to stdout as well
  * @param prettyPrintOrder The order in which to print the Text output
  * @param hadoopConf Optional Hadoop Configuration to use
  */
-class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
-    printStdout: Boolean, prettyPrintOrder: String,
+class QualOutputWriter(outputDir: String, printStdout: Boolean,
     hadoopConf: Option[Configuration] = None) {
 
   implicit val formats: DefaultFormats.type = DefaultFormats
@@ -63,13 +61,12 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
 
   protected def writeDetailedCSVReport(csvFileWriter: ToolTextFileWriter,
       sums: Seq[QualificationSummaryInfo]): Unit = {
-    val headersAndSizes = QualOutputWriter.getDetailedHeaderStringsAndSizes(sums,
-      reportReadSchema)
+    val headersAndSizes = QualOutputWriter.getDetailedHeaderStringsAndSizes(sums)
     csvFileWriter.write(QualOutputWriter.constructDetailedHeader(headersAndSizes,
       QualOutputWriter.CSV_DELIMITER, prettyPrint = false))
     sums.foreach { sum =>
       csvFileWriter.write(QualOutputWriter.constructAppDetailedInfo(sum, headersAndSizes,
-        QualOutputWriter.CSV_DELIMITER, prettyPrint = false, reportReadSchema = reportReadSchema))
+        QualOutputWriter.CSV_DELIMITER, prettyPrint = false))
     }
   }
 
@@ -144,7 +141,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     if (printStdout) print(s"$sep\n")
   }
 
-  def writeStageReport(sums: Seq[QualificationSummaryInfo], order: String) : Unit = {
+  def writeStageReport(sums: Seq[QualificationSummaryInfo]) : Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_stages.csv",
       "Stage Exec Info", hadoopConf)
@@ -265,14 +262,9 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
   private def sortPerSqlInfo(
       sums: Seq[QualificationSummaryInfo]): Seq[EstimatedPerSQLSummaryInfo] = {
     val estSumPerSql = sums.flatMap(_.perSQLEstimatedInfo).flatten
-    val sortedAsc = estSumPerSql.sortBy(sum => {
+    estSumPerSql.sortBy(sum => {
       (sum.info.gpuOpportunity, sum.info.appDur, sum.info.appId)
-    })
-    if (QualificationArgs.isOrderAsc(prettyPrintOrder)) {
-      sortedAsc
-    } else {
-      sortedAsc.reverse
-    }
+    }).reverse
   }
 
   private def writePerSqlTextSummary(writer: ToolTextFileWriter,
@@ -400,7 +392,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeMlFuncsReports(sums: Seq[QualificationSummaryInfo], order: String): Unit = {
+  def writeMlFuncsReports(sums: Seq[QualificationSummaryInfo]): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_mlfunctions.csv",
       "", hadoopConf)
@@ -436,7 +428,7 @@ class QualOutputWriter(outputDir: String, reportReadSchema: Boolean,
     }
   }
 
-  def writeStatusReport(statusReports: Seq[AppStatusResult], order: String): Unit = {
+  def writeStatusReport(statusReports: Seq[AppStatusResult]): Unit = {
     val csvFileWriter = new ToolTextFileWriter(outputDir,
       s"${QualOutputWriter.LOGFILE_NAME}_status.csv",
       "Status Report Info", hadoopConf)
@@ -467,7 +459,6 @@ case class FormattedQualificationSummaryInfo(
     executorCpuTimePercent: Double,
     failedSQLIds: String,
     readFileFormatAndTypesNotSupported: String,
-    readFileFormats: String,
     writeDataFormat: String,
     complexTypes: String,
     nestedComplexTypes: String,
@@ -481,11 +472,9 @@ case class FormattedQualificationSummaryInfo(
     unSupportedExecs: String,
     unSupportedExprs: String,
     clusterTags: Map[String, String],
-    estimatedFrequency: Long,
     totalCoreSec: Long)
 
 object QualOutputWriter {
-  val NON_SQL_TASK_DURATION_STR = "NonSQL Task Duration"
   val SQL_ID_STR = "SQL ID"
   val ROOT_SQL_ID_STR = "Root SQL ID"
   val SQL_DESC_STR = "SQL Description"
@@ -507,7 +496,6 @@ object QualOutputWriter {
   val WRITE_DATA_FORMAT_STR = "Unsupported Write Data Format"
   val COMPLEX_TYPES_STR = "Complex Types"
   val NESTED_TYPES_STR = "Nested Complex Types"
-  val READ_SCHEMA_STR = "Read Schema"
   val NONSQL_DUR_STR = "NONSQL Task Duration Plus Overhead"
   val UNSUPPORTED_TASK_DURATION_STR = "Unsupported Task Duration"
   val SUPPORTED_SQL_TASK_DURATION_STR = "Supported SQL DF Task Duration"
@@ -577,7 +565,6 @@ object QualOutputWriter {
   val DRIVER_NODE_TYPE = "Driver Node Type"
   val TOTAL_CORE_SEC = "Total Core Seconds"
   // Default frequency for jobs with a single instance is 30 times every month (30 days)
-  val DEFAULT_JOB_FREQUENCY = 30L
   val APP_DUR_STR_SIZE: Int = APP_DUR_STR.length
   val SQL_DUR_STR_SIZE: Int = SQL_DUR_STR.length
   val LONGEST_SQL_DURATION_STR_SIZE: Int = LONGEST_SQL_DURATION_STR.length
@@ -716,8 +703,8 @@ object QualOutputWriter {
     detailedHeaderAndFields
   }
 
-  def getDetailedHeaderStringsAndSizes(appInfos: Seq[QualificationSummaryInfo],
-      reportReadSchema: Boolean): LinkedHashMap[String, Int] = {
+  def getDetailedHeaderStringsAndSizes(
+      appInfos: Seq[QualificationSummaryInfo]): LinkedHashMap[String, Int] = {
     val detailedHeadersAndFields = LinkedHashMap[String, Int](
       APP_NAME_STR -> getMaxSizeForHeader(appInfos.map(_.appName.length), APP_NAME_STR),
       APP_ID_STR -> QualOutputWriter.getAppIdSize(appInfos),
@@ -730,7 +717,7 @@ object QualOutputWriter {
       SQL_IDS_FAILURES_STR -> getMaxSizeForHeader(appInfos.map(_.failedSQLIds.size),
         SQL_IDS_FAILURES_STR),
       READ_FILE_FORMAT_TYPES_STR ->
-        getMaxSizeForHeader(appInfos.map(_.readFileFormats.map(_.length).sum),
+        getMaxSizeForHeader(appInfos.map(_.readFileFormatAndTypesNotSupported.map(_.length).sum),
           READ_FILE_FORMAT_TYPES_STR),
       WRITE_DATA_FORMAT_STR ->
         getMaxSizeForHeader(appInfos.map(_.writeDataFormat.map(_.length).sum),
@@ -754,11 +741,6 @@ object QualOutputWriter {
     if (appInfos.exists(_.clusterTags.nonEmpty)) {
       detailedHeadersAndFields += (CLUSTER_TAGS -> getMaxSizeForHeader(
         appInfos.map(_.clusterTags.length), CLUSTER_TAGS))
-    }
-    if (reportReadSchema) {
-      detailedHeadersAndFields +=
-        (READ_SCHEMA_STR ->
-          getMaxSizeForHeader(appInfos.map(_.readFileFormats.map(_.length).sum), READ_SCHEMA_STR))
     }
     detailedHeadersAndFields
   }
@@ -845,7 +827,7 @@ object QualOutputWriter {
     detailedHeadersAndFields
   }
 
-  private def formatSQLDescription(sqlDesc: String, maxSQLDescLength: Int,
+  def formatSQLDescription(sqlDesc: String, maxSQLDescLength: Int,
       delimiter: String): String = {
     val escapedMetaStr =
       StringUtils.renderStr(sqlDesc, doEscapeMetaCharacters = true, maxLength = maxSQLDescLength)
@@ -1237,7 +1219,6 @@ object QualOutputWriter {
       ToolUtils.truncateDoubleToTwoDecimal(appInfo.executorCpuTimePercent),
       ToolUtils.renderTextField(appInfo.failedSQLIds, ",", delimiter),
       ToolUtils.renderTextField(appInfo.readFileFormatAndTypesNotSupported, ";", delimiter),
-      ToolUtils.renderTextField(appInfo.readFileFormats, ":", delimiter),
       ToolUtils.renderTextField(appInfo.writeDataFormat, ";", delimiter).toUpperCase,
       ToolUtils.formatComplexTypes(appInfo.complexTypes, delimiter),
       ToolUtils.formatComplexTypes(appInfo.nestedComplexTypes, delimiter),
@@ -1251,7 +1232,6 @@ object QualOutputWriter {
       appInfo.unSupportedExecs,
       appInfo.unSupportedExprs,
       appInfo.allClusterTagsMap,
-      appInfo.estimatedFrequency.getOrElse(DEFAULT_JOB_FREQUENCY),
       appInfo.totalCoreSec
     )
   }
@@ -1259,7 +1239,6 @@ object QualOutputWriter {
   private def constructDetailedAppInfoCSVRow(
       appInfo: FormattedQualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
-      reportReadSchema: Boolean,
       reformatCSV: Boolean = true): ListBuffer[(String, Int)] = {
     val reformatCSVFunc = getReformatCSVFunc(reformatCSV)
     val data = ListBuffer[(String, Int)](
@@ -1293,9 +1272,6 @@ object QualOutputWriter {
     if (appInfo.clusterTags.nonEmpty) {
       data += reformatCSVFunc(appInfo.clusterTags.mkString(";")) -> headersAndSizes(CLUSTER_TAGS)
     }
-    if (reportReadSchema) {
-      data += reformatCSVFunc(appInfo.readFileFormats) -> headersAndSizes(READ_SCHEMA_STR)
-    }
     data
   }
 
@@ -1303,10 +1279,9 @@ object QualOutputWriter {
       summaryAppInfo: QualificationSummaryInfo,
       headersAndSizes: LinkedHashMap[String, Int],
       delimiter: String,
-      prettyPrint: Boolean,
-      reportReadSchema: Boolean): String = {
+      prettyPrint: Boolean): String = {
     val formattedAppInfo = createFormattedQualSummaryInfo(summaryAppInfo, delimiter)
-    val data = constructDetailedAppInfoCSVRow(formattedAppInfo, headersAndSizes, reportReadSchema)
+    val data = constructDetailedAppInfoCSVRow(formattedAppInfo, headersAndSizes)
     constructOutputRow(data, delimiter, prettyPrint)
   }
 

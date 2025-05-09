@@ -47,7 +47,6 @@ object ProfileMain extends Logging {
     val filterN = appArgs.filterCriteria
     val matchEventLogs = appArgs.matchEventLogs
     val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
-    val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
     val timeout = appArgs.timeout.toOption
     val nThreads = appArgs.numThreads.getOrElse(
       Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -58,7 +57,7 @@ object ProfileMain extends Logging {
       matchEventLogs.toOption, eventlogPaths, hadoopConf, recursiveSearchEnabled)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
-      val appFilter = new AppFilterImpl(numOutputRows, hadoopConf, timeout, nThreads)
+      val appFilter = new AppFilterImpl(hadoopConf, timeout, nThreads)
       appFilter.filterEventLogs(eventLogFsFiltered, appArgs)
     } else {
       eventLogFsFiltered

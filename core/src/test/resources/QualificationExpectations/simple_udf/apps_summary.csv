@@ -1,0 +1,5 @@
+App Name,App ID,Attempt ID,App Duration,Executor CPU Time Percent,SQL Ids with Failures,Unsupported Read File Formats and Types,Unsupported Write Data Format,Complex Types,Nested Complex Types,Potential Problems,Longest SQL Duration,App Duration Estimated,Total Core Seconds
+"Rapids Spark Profiling Tool Unit Tests",local-1622043423018,1,16319,37.97,"","","JSON","","","",7143,false,186
+"Spark shell",local-1651187225439,1,355637,87.88,"","","","","","",498,false,2834
+"Spark shell",local-1651188809790,1,166215,81.18,"","","","","","UDF",715,false,1318
+"Rapids Spark Profiling Tool Unit Tests",local-1623281204390,1,6240,47.48,"","","JSON","","","UDF",1209,false,64

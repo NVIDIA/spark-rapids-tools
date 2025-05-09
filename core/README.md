@@ -50,6 +50,14 @@ To run an individual test the `-Dsuites` option can be specified:
 mvn test -Dsuites=com.nvidia.spark.rapids.tool.qualification.QualificationSuite
 ```
 
+#### Regenerating golden sets
+
+- To regenerate golden sets, you can use the `-Dtools.qual.test.generate.golden.enable` command line option.
+- By default, the location of golden sets is `golden-sets/{buildVer}/qual` by the property
+  `tools.qual.test.generate.golden.dir` in the pom file.
+- For troubleshooting, you can configure the tests to keep the working directory. This is achieved by
+  passing the `-Dtools.test.cleanup.tmp.dir=false` command line option.
+- Generate the Qual table output by running the class `com.nvidia.spark.rapids.tool.views.qualification.QualYamlConfigLoader`
 
 ### Setting up an Integrated Development Environment
 
