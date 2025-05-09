@@ -186,7 +186,8 @@ object SparkPlanInfoWithStage {
 class ApplicationInfo(
     hadoopConf: Configuration,
     eLogInfo: EventLogInfo,
-    platform: Platform = PlatformFactory.createInstance())
+    platform: Platform = PlatformFactory.createInstance(),
+    enableDiagnosticViews: Boolean = false)
   extends AppBase(Some(eLogInfo), Some(hadoopConf), Some(platform)) with Logging {
 
   private lazy val eventProcessor = new EventsProcessor(this)
@@ -195,7 +196,7 @@ class ApplicationInfo(
   processEvents()
 
   // Process SQL Plan Metrics after all events are processed
-  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this)
+  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this, enableDiagnosticViews)
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)
