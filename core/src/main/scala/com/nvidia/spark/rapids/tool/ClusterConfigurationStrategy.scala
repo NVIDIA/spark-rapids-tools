@@ -26,17 +26,8 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 case class RecommendedClusterConfig(
     numExecutors: Int,
     coresPerExec: Int,
-    numGpusPerNode: Int,
     memoryPerNodeMb: Long // For onprem or cases where a matching CSP instance type is unavailable
-) {
-  def execsPerNode: Int = {
-    numGpusPerNode
-  }
-
-  def coresPerNode: Int = {
-    coresPerExec * execsPerNode
-  }
-}
+)
 
 /**
  * Base trait for different cluster configuration strategies.
@@ -111,7 +102,6 @@ abstract class ClusterConfigurationStrategy(
       Some(RecommendedClusterConfig(
         numExecutors = recommendedNumExecutors,
         coresPerExec = recommendedCoresPerExec,
-        numGpusPerNode = platform.recommendedGpusPerNode,
         memoryPerNodeMb = getMemoryPerNodeMb))
     }
   }

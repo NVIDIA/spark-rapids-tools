@@ -21,8 +21,6 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
@@ -33,7 +31,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ExistingClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
@@ -1708,16 +1706,11 @@ class QualificationSuite extends BaseTestSuite {
       assert(exitCode == 0 && result.size == 1,
         "Qualification tool returned unexpected results.")
 
-      // Read JSON as [{'appId': 'app-id-1', ..}]
-      def readJson(path: String): Array[ClusterSummary] = {
-        val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-        mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
-      }
-
       // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfo = readJson(outputResultFile).headOption.flatMap(_.clusterInfo)
+      val actualClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(outputResultFile)
+        .headOption.flatMap(_.clusterInfo)
       assert(actualClusterInfo == expectedClusterInfo,
         "Actual cluster info does not match the expected cluster info.")
     }

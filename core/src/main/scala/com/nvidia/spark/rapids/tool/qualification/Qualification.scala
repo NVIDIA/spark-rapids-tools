@@ -21,7 +21,7 @@ import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import org.apache.hadoop.conf.Configuration
 
@@ -115,7 +115,7 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       // we need a platform per application because it's storing cluster information which could
       // vary between applications, especially when using dynamic allocation
       val platform = {
-        val clusterPropsOpt = QualificationAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfoPath)
         PlatformFactory.createInstance(platformArg, clusterPropsOpt)
       }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,

@@ -23,6 +23,8 @@ import com.nvidia.spark.rapids.tool.profiling.Profiler
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor3
 
+import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
+
 /**
  * Suite to test the Qualification Tool's AutoTuner
  */
@@ -62,8 +64,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = QualificationAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
     buildAutoTunerForTests(workerInfo, infoProvider, platform)
   }
@@ -149,8 +150,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           "spark.executor.memory" -> "8g",
           "spark.executor.memoryOverhead" -> "2g"
         )
-      val clusterPropsOpt = QualificationAutoTunerConfigsProvider
-        .loadClusterPropertiesFromContent(workerInfo)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         logEventsProps, Some(testSparkVersion))
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)

@@ -112,6 +112,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
         "that all workers are homogenous. It requires the AutoTuner to be enabled. Default is " +
         "./worker_info.yaml",
       default = Some(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH))
+  val targetClusterInfo: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "File path containing the system information of the target cluster")
 
   validate(filterCriteria) {
     case crit if crit.endsWith("-newest-filesystem") ||

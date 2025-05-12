@@ -22,11 +22,11 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterInfo, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatusException}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, FailureApp, IncorrectAppStatusException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -202,8 +202,11 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       val platform = {
         val workerInfoPath = appArgs.workerInfo
           .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
-        val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
-        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfoPath)
+        val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
+          PropertiesLoader[TargetClusterInfo].loadFromFile)
+        PlatformFactory.createInstance(appArgs.platform(),
+          clusterPropsOpt, targetClusterPropsOpt)
       }
       val app = new ApplicationInfo(hadoopConf, path, platform = platform)
       EventLogPathProcessor.logApplicationInfo(app)
@@ -400,13 +403,18 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }
 
-    profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
+    profileOutputWriter.writeJsonFile("Spark Rapids Build Info",
       app.sparkRapidsBuildInfo)
     profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
       profilerResult.diagnostics.stageDiagnostics)
     profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
       profilerResult.diagnostics.IODiagnostics)
-
+    val clusterSummary = app.appLogPath.map { logInfo =>
+      ClusterSummary(logInfo.appName, logInfo.appId.get, Some(logInfo.eventLogPath),
+        profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
+        profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
+    }
+    profileOutputWriter.writeJsonFile("Cluster Summary", clusterSummary)
   }
 
   /**

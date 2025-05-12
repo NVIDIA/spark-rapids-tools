@@ -19,12 +19,12 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
-import com.nvidia.spark.rapids.tool.tuning.{QualificationAutoTunerConfigsProvider, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, RapidsToolsConfUtil}
 
 /**
  * A tool to analyze Spark event logs and determine if
@@ -75,7 +75,7 @@ object QualificationMain extends Logging {
     // files for this particular Platform.
     val referencePlatform = try {
       val clusterPropsOpt =
-        QualificationAutoTunerConfigsProvider.loadClusterProps(appArgs.workerInfo())
+        PropertiesLoader[ClusterProperties].loadFromFile(appArgs.workerInfo())
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
       case NonFatal(e) =>

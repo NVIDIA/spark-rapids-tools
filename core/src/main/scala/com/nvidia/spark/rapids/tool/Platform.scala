@@ -18,11 +18,11 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, ProfilingAutoTunerConfigsProvider, SparkMaster}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterInfo}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
-import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, RecommendedClusterInfo}
+import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, MatchingInstanceTypeNotFoundException, RecommendedClusterInfo}
 import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
@@ -54,9 +54,24 @@ object PlatformNames {
 
 case class DynamicAllocationInfo(enabled: Boolean, max: String, min: String, initial: String)
 
+/**
+ * Case class representing the key for the node instance map.
+ * @param instanceType Name of the instance type
+ * @param gpuCount Count of GPUs on the instance. This is required for certain
+ *                 cases where a given instance type can have multiple GPU counts
+ *                 (e.g. n1-standard-16 with 1, 2, or 4 GPUs).
+ */
+case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None) {
+  override def toString: String = gpuCount match {
+    case Some(count) => s"NodeInstanceMapKey(instanceType='$instanceType', gpuCount=$count)"
+    case None => s"NodeInstanceMapKey(instanceType='$instanceType')"
+  }
+}
+
 // resource information and name of the CSP instance types, or for onprem its
 // the executor information since we can't recommend node types
-case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int) {
+case class InstanceInfo(cores: Int, memoryMB: Long, name: String,
+      numGpus: Int, gpuDevice: GpuDevice) {
   /**
    * Get the memory per executor based on the instance type.
    * Note: For GPU instances, num of executors is same as the number of GPUs.
@@ -67,86 +82,140 @@ case class InstanceInfo(cores: Int, memoryMB: Long, name: String, numGpus: Int) 
 }
 
 object InstanceInfo {
-    def createDefaultInstance(cores: Int, memoryMB: Long, numGpus: Int): InstanceInfo = {
-      InstanceInfo(cores, memoryMB, "N/A", numGpus)
-    }
+  def createDefaultInstance(cores: Int, memoryMB: Long,
+      numGpus: Int, gpuDevice: GpuDevice): InstanceInfo = {
+    InstanceInfo(cores, memoryMB, "N/A", numGpus, gpuDevice)
+  }
 }
 
 // This is meant to be temporary mapping to figure out instance type based
 // on the number of GPUs and cores.  Eventually this should be read from files
 // generated based on CSP instance information.
-// format (numGpus, numCores) -> InstanceInfo about that CSP node instance type
+// format (numGpus, numCores, gpuName) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
   // Using G6 instances for EMR
-  val EMR_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1),
-    (1, 8) -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1),
-    (1, 16) -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1),
-    (1, 32) -> InstanceInfo(32, 128 * 1024, "g6.8xlarge", 1),
-    (4, 48) -> InstanceInfo(48, 192 * 1024, "g6.12xlarge", 1),
-    (1, 64) -> InstanceInfo(64, 256 * 1024, "g6.16xlarge", 1)
+  val EMR_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+    NodeInstanceMapKey("g6.xlarge") -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1, L4Gpu),
+    NodeInstanceMapKey("g6.2xlarge") -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1, L4Gpu),
+    NodeInstanceMapKey("g6.4xlarge") -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1, L4Gpu),
+    NodeInstanceMapKey("g6.8xlarge") -> InstanceInfo(32, 128 * 1024, "g6.8xlarge", 1, L4Gpu),
+    NodeInstanceMapKey("g6.12xlarge") -> InstanceInfo(48, 192 * 1024, "g6.12xlarge", 4, L4Gpu),
+    NodeInstanceMapKey("g6.16xlarge") -> InstanceInfo(64, 256 * 1024, "g6.16xlarge", 1, L4Gpu)
   )
 
   // Using G5 instances. To be updated once G6 availability on Databricks
   // is consistent
-  val DATABRICKS_AWS_BY_GPUS_CORES = Map((1, 4) -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1),
-    (1, 8) -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1),
-    (1, 16) -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1),
-    (1, 32) -> InstanceInfo(32, 128 * 1024, "g5.8xlarge", 1),
-    (4, 48) -> InstanceInfo(48, 192 * 1024, "g5.12xlarge", 1),
-    (1, 64) -> InstanceInfo(64, 256 * 1024, "g5.16xlarge", 1)
+  val DATABRICKS_AWS_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+    NodeInstanceMapKey("g5.xlarge") -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1, A10GGpu),
+    NodeInstanceMapKey("g5.2xlarge") -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1, A10GGpu),
+    NodeInstanceMapKey("g5.4xlarge") -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1, A10GGpu),
+    NodeInstanceMapKey("g5.8xlarge") -> InstanceInfo(32, 128 * 1024, "g5.8xlarge", 1, A10GGpu),
+    NodeInstanceMapKey("g5.12xlarge") -> InstanceInfo(48, 192 * 1024, "g5.12xlarge", 4, A10GGpu),
+    NodeInstanceMapKey("g5.16xlarge") -> InstanceInfo(64, 256 * 1024, "g5.16xlarge", 1, A10GGpu)
   )
 
   // Standard_NC4as_T4_v3 - only recommending nodes with T4's for now, add more later
-  val AZURE_NCAS_T4_V3_BY_GPUS_CORES = Map(
-    (1, 4) -> InstanceInfo(4, 28 * 1024, "Standard_NC4as_T4_v3", 1), // 1 GPU
-    (1, 8) -> InstanceInfo(8, 56 * 1024, "Standard_NC8as_T4_v3", 1), // 1 GPU
-    (1, 16) -> InstanceInfo(16, 110 * 1024, "Standard_NC16as_T4_v3", 1), // 1 GPU
-    (4, 64) -> InstanceInfo(64, 440 * 1024, "Standard_NC64as_T4_v3", 4)  // 4 GPUs
+  val AZURE_NCAS_T4_V3_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+    NodeInstanceMapKey("Standard_NC4as_T4_v3") ->
+      InstanceInfo(4, 28 * 1024, "Standard_NC4as_T4_v3", 1, T4Gpu), // 1 GPU
+    NodeInstanceMapKey("Standard_NC8as_T4_v3") ->
+      InstanceInfo(8, 56 * 1024, "Standard_NC8as_T4_v3", 1, T4Gpu), // 1 GPU
+    NodeInstanceMapKey("Standard_NC16as_T4_v3") ->
+      InstanceInfo(16, 110 * 1024, "Standard_NC16as_T4_v3", 1, T4Gpu), // 1 GPU
+    NodeInstanceMapKey("Standard_NC64as_T4_v3") ->
+      InstanceInfo(64, 440 * 1024, "Standard_NC64as_T4_v3", 4, T4Gpu)  // 4 GPUs
   )
 
   // dataproc and dataproc-gke
   // Google supports 1, 2, or 4 Gpus of most types
   // added to n1-standard boxes. You may be able to add 8 v100's but we
   // are going to ignore that.
-  val DATAPROC_BY_GPUS_CORES = Map(
-    (1, 1) -> InstanceInfo(1, 1 * 3840, "n1-standard-1", 1),
-    (1, 2) -> InstanceInfo(2, 2 * 3840, "n1-standard-2", 1),
-    (1, 4) -> InstanceInfo(4, 4 * 3840, "n1-standard-4", 1),
-    (1, 8) -> InstanceInfo(8, 8 * 3840, "n1-standard-8", 1),
-    (1, 16) -> InstanceInfo(16, 16 * 3840, "n1-standard-16", 1),
-    (1, 32) -> InstanceInfo(32, 32 * 3840, "n1-standard-32", 1),
-    (1, 64) -> InstanceInfo(64, 64 * 3840, "n1-standard-64", 1),
-    (1, 96) -> InstanceInfo(96, 96 * 3840, "n1-standard-96", 1),
-    (2, 1) -> InstanceInfo(1, 1 * 3840, "n1-standard-1", 2),
-    (2, 2) -> InstanceInfo(2, 2 * 3840, "n1-standard-2", 2),
-    (2, 4) -> InstanceInfo(4, 4 * 3840, "n1-standard-4", 2),
-    (2, 8) -> InstanceInfo(8, 8 * 3840, "n1-standard-8", 2),
-    (2, 16) -> InstanceInfo(16, 16 * 3840, "n1-standard-16", 2),
-    (2, 32) -> InstanceInfo(32, 32 * 3840, "n1-standard-32", 2),
-    (2, 64) -> InstanceInfo(64, 64 * 3840, "n1-standard-64", 2),
-    (2, 96) -> InstanceInfo(96, 96 * 3840, "n1-standard-96", 2),
-    (4, 1) -> InstanceInfo(1, 1 * 3840, "n1-standard-1", 4),
-    (4, 2) -> InstanceInfo(2, 2 * 3840, "n1-standard-2", 4),
-    (4, 4) -> InstanceInfo(4, 4 * 3840, "n1-standard-4", 4),
-    (4, 8) -> InstanceInfo(8, 8 * 3840, "n1-standard-8", 4),
-    (4, 16) -> InstanceInfo(16, 16 * 3840, "n1-standard-16", 4),
-    (4, 32) -> InstanceInfo(32, 32 * 3840, "n1-standard-32", 4),
-    (4, 64) -> InstanceInfo(64, 64 * 3840, "n1-standard-64", 4),
-    (4, 96) -> InstanceInfo(96, 96 * 3840, "n1-standard-96", 4)
+  val DATAPROC_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+    // g2-standard instances with Intel GPUs
+    NodeInstanceMapKey("g2-standard-4") ->
+      InstanceInfo(4, 16 * 1024, "g2-standard-4", 1, L4Gpu),
+    NodeInstanceMapKey("g2-standard-8") ->
+      InstanceInfo(8, 32 * 1024, "g2-standard-8", 1, L4Gpu),
+    NodeInstanceMapKey("g2-standard-12") ->
+      InstanceInfo(12, 48 * 1024, "g2-standard-12", 1, L4Gpu),
+    NodeInstanceMapKey("g2-standard-16") ->
+      InstanceInfo(16, 64 * 1024, "g2-standard-16", 1, L4Gpu),
+    NodeInstanceMapKey("g2-standard-24") ->
+      InstanceInfo(24, 96 * 1024, "g2-standard-24", 2, L4Gpu),
+    NodeInstanceMapKey("g2-standard-32") ->
+      InstanceInfo(32, 128 * 1024, "g2-standard-32", 2, L4Gpu),
+    NodeInstanceMapKey("g2-standard-48") ->
+      InstanceInfo(48, 192 * 1024, "g2-standard-48", 4, L4Gpu),
+    NodeInstanceMapKey("g2-standard-96") ->
+      InstanceInfo(96, 384 * 1024, "g2-standard-96", 8, L4Gpu),
+    // Existing n1-standard instances
+    NodeInstanceMapKey(instanceType = "n1-standard-1", gpuCount = Some(1)) ->
+      InstanceInfo(1, 1 * 3840, "n1-standard-1", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-2", gpuCount = Some(1)) ->
+      InstanceInfo(2, 2 * 3840, "n1-standard-2", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-4", gpuCount = Some(1)) ->
+      InstanceInfo(4, 4 * 3840, "n1-standard-4", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-8", gpuCount = Some(1)) ->
+      InstanceInfo(8, 8 * 3840, "n1-standard-8", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-16", gpuCount = Some(1)) ->
+      InstanceInfo(16, 16 * 3840, "n1-standard-16", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-32", gpuCount = Some(1)) ->
+      InstanceInfo(32, 32 * 3840, "n1-standard-32", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-64", gpuCount = Some(1)) ->
+      InstanceInfo(64, 64 * 3840, "n1-standard-64", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-96", gpuCount = Some(1)) ->
+      InstanceInfo(96, 96 * 3840, "n1-standard-96", 1, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-1", gpuCount = Some(2)) ->
+      InstanceInfo(1, 1 * 3840, "n1-standard-1", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-2", gpuCount = Some(2)) ->
+      InstanceInfo(2, 2 * 3840, "n1-standard-2", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-4", gpuCount = Some(2)) ->
+      InstanceInfo(4, 4 * 3840, "n1-standard-4", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-8", gpuCount = Some(2)) ->
+      InstanceInfo(8, 8 * 3840, "n1-standard-8", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-16", gpuCount = Some(2)) ->
+      InstanceInfo(16, 16 * 3840, "n1-standard-16", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-32", gpuCount = Some(2)) ->
+      InstanceInfo(32, 32 * 3840, "n1-standard-32", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-64", gpuCount = Some(2)) ->
+      InstanceInfo(64, 64 * 3840, "n1-standard-64", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-96", gpuCount = Some(2)) ->
+      InstanceInfo(96, 96 * 3840, "n1-standard-96", 2, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-1", gpuCount = Some(4)) ->
+      InstanceInfo(1, 1 * 3840, "n1-standard-1", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-2", gpuCount = Some(4)) ->
+      InstanceInfo(2, 2 * 3840, "n1-standard-2", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-4", gpuCount = Some(4)) ->
+      InstanceInfo(4, 4 * 3840, "n1-standard-4", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-8", gpuCount = Some(4)) ->
+      InstanceInfo(8, 8 * 3840, "n1-standard-8", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-16", gpuCount = Some(4)) ->
+      InstanceInfo(16, 16 * 3840, "n1-standard-16", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-32", gpuCount = Some(4)) ->
+      InstanceInfo(32, 32 * 3840, "n1-standard-32", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-64", gpuCount = Some(4)) ->
+      InstanceInfo(64, 64 * 3840, "n1-standard-64", 4, T4Gpu),
+    NodeInstanceMapKey(instanceType = "n1-standard-96", gpuCount = Some(4)) ->
+      InstanceInfo(96, 96 * 3840, "n1-standard-96", 4, T4Gpu)
   )
 }
 
 /**
  * Represents a platform and its associated recommendations.
  *
- * @param gpuDevice Gpu Device present in the platform
  * @param clusterProperties Cluster Properties passed into the tool as worker info
+ * @param targetCluster Target cluster information (e.g. instance type, GPU type)
  */
-abstract class Platform(var gpuDevice: Option[GpuDevice],
-    val clusterProperties: Option[ClusterProperties]) extends Logging {
+abstract class Platform(
+    val clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo]) extends Logging {
   val platformName: String
-  val defaultGpuDevice: GpuDevice
+  def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = None
+  def defaultRecommendedCoresPerExec: Int = 16
+  def defaultGpuDevice: GpuDevice = T4Gpu
+  def defaultNumGpus: Int = 1
+
   val sparkVersionLabel: String = "Spark version"
 
   // It's not deal to use vars here but to minimize changes and
@@ -154,15 +223,40 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   // in future we can refactor.
   var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
   // instance information for the gpu node type we will use to run with
-  var recommendedNodeInstanceInfo: Option[InstanceInfo] = None
+  var recommendedNodeInstanceInfo: Option[InstanceInfo] = {
+    targetCluster.map(_.getWorkerInfo.getNodeInstanceMapKey) match {
+      case Some(nodeInstanceMapKey) =>
+        getInstanceByResourcesMap.get(nodeInstanceMapKey).orElse {
+          // scalastyle:off line.size.limit
+          throw new MatchingInstanceTypeNotFoundException(
+            s"""
+               |Could not find matching instance type in resources map.
+               |Requested: $nodeInstanceMapKey
+               |Supported: ${getInstanceByResourcesMap.keys.mkString(", ")}
+               |
+               |Next Steps:
+               |Update the target cluster YAML with a valid instance type and GPU count, or skip it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
+               |""".stripMargin.trim
+          )
+          // scalastyle:on line.size.limit
+        }
+      case None =>
+        defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceByResourcesMap.get)
+    }
+  }
+
   // overall final recommended cluster configuration
   var recommendedClusterInfo: Option[RecommendedClusterInfo] = None
 
   // Default recommendation based on NDS benchmarks (note: this could be platform specific)
-  def recommendedCoresPerExec: Int = ProfilingAutoTunerConfigsProvider.DEF_CORES_PER_EXECUTOR
-  // Default number of GPUs to use, currently we do not support multiple GPUs per node
-  def recommendedGpusPerNode = 1
-  def defaultNumGpus: Int = 1
+  final def recommendedCoresPerExec: Int = {
+    recommendedNodeInstanceInfo.map(instInfo => instInfo.cores / instInfo.numGpus)
+      .getOrElse(defaultRecommendedCoresPerExec)
+  }
+
+  final def recommendedGpuDevice: GpuDevice = {
+    recommendedNodeInstanceInfo.map(_.gpuDevice).getOrElse(defaultGpuDevice)
+  }
 
   // Default runtime for the platform
   val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
@@ -191,7 +285,12 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     "3.4.2" -> "342",
     "3.4.3" -> "343",
     "3.5.0" -> "350",
-    "3.5.1" -> "351"
+    "3.5.1" -> "351",
+    "3.5.2" -> "352",
+    "3.5.3" -> "353",
+    "3.5.4" -> "354",
+    "3.5.5" -> "355",
+    "4.0.0" -> "400"
   )
 
   /**
@@ -223,7 +322,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   // factors since we don't have speedup factors for all combinations of
   // platforms and GPUs. We expect speedup factor usage to be going away
   // so this is less of an issue.
-  def defaultGpuForSpeedupFactor: GpuDevice = defaultGpuDevice
+  def defaultGpuForSpeedupFactor: GpuDevice = {
+    defaultGpuDevice
+  }
 
   /**
    * Recommendations to be excluded from the list of recommendations.
@@ -278,13 +379,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     s"operatorsScore-$platformName-$defaultGpuForSpeedupFactor.csv"
   }
 
-  final def getGpuOrDefault: GpuDevice = gpuDevice.getOrElse(defaultGpuDevice)
-
-  final def getGpuOrDefaultForSpeedupFactors: GpuDevice =
-    gpuDevice.getOrElse(defaultGpuForSpeedupFactor)
-
-  final def setGpuDevice(gpuDevice: GpuDevice): Unit = {
-    this.gpuDevice = Some(gpuDevice)
+  final def getGpuOrDefaultForSpeedupFactors: GpuDevice = {
+    defaultGpuForSpeedupFactor
   }
 
   /**
@@ -370,11 +466,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       numExecs, numExecutorNodes, sparkProperties, systemProperties))
   }
 
-  override def toString: String = {
-    val gpuStr = gpuDevice.fold("")(gpu => s"-$gpu")
-    s"$platformName$gpuStr"
-  }
-
   /**
    * Indicate if the platform is a cloud service provider.
    */
@@ -391,51 +482,9 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def maxGpusSupported: Int = 1
 
   /**
-   * Get the mapping of number of GPUs and cores to the instance type.
-   * Format (numGpus, numCores) -> InstanceInfo about the matching CSP node instance type.
+   * Get the mapping of instance names to their corresponding instance information.
    */
-  def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = Map.empty
-
-  /**
-   * Get the instance type based on the core and gpu requirements.
-   * Case A: Find the exact instance type based on the required resources.
-   * Case B: If the exact instance type is not found, find the instance type with the smallest
-   *         combined GPU and core count that meets the requirements.
-   * Case C: For onprem or cases where a matching CSP instance type is unavailable.
-   */
-  private def getInstanceByResources(
-      recommendedClusterConfig: RecommendedClusterConfig): InstanceInfo = {
-    val requiredGpus = recommendedClusterConfig.numGpusPerNode
-    val requiredCores = recommendedClusterConfig.coresPerNode
-
-    // A. Find the exact instance type based on the required resources
-    getInstanceByResourcesMap.get((requiredGpus, requiredCores)).orElse {
-      // B. If the exact instance type is not found, find the instance type with the smallest
-      //    combined GPU and core count that meets the requirements
-      val suitableInstances = getInstanceByResourcesMap.filterKeys { case (gpus, cores) =>
-        gpus >= requiredGpus && cores >= requiredCores
-      }
-      if (suitableInstances.isEmpty) {
-        None
-      } else {
-        val optimalNumGpusAndCoresPair = suitableInstances.keys.minBy { case (gpus, cores) =>
-          gpus + cores
-        }
-        suitableInstances.get(optimalNumGpusAndCoresPair)
-      }
-    }.getOrElse {
-      // C. For onprem or cases where a matching CSP instance type is unavailable
-      logDebug(s"Could not find a matching instance with requiredGpus=$requiredGpus," +
-        s" requiredCores=$requiredCores. Falling back to create a default instance info: \n" +
-        s"coresPerExec=${recommendedClusterConfig.coresPerExec}, " +
-        s"memoryPerNodeMb=${recommendedClusterConfig.memoryPerNodeMb}, " +
-        s"numGpusPerNode=${recommendedClusterConfig.numGpusPerNode}")
-      InstanceInfo.createDefaultInstance(
-        cores = recommendedClusterConfig.coresPerExec,
-        memoryMB = recommendedClusterConfig.memoryPerNodeMb,
-        numGpus = recommendedClusterConfig.numGpusPerNode)
-    }
-  }
+  def getInstanceByResourcesMap: Map[NodeInstanceMapKey, InstanceInfo] = Map.empty
 
   /**
    * Creates the recommended GPU cluster info based on Spark properties and
@@ -460,7 +509,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         // cores per executor, num executors per node).
         strategy.getRecommendedConfig match {
           case Some(clusterConfig) =>
-            val recommendedNodeInstance = getInstanceByResources(clusterConfig)
+            // If recommended node instance information is not already set, create it based on the
+            // existing cluster configuration and platform defaults.
+            val nodeInstanceInfo = recommendedNodeInstanceInfo.getOrElse {
+              InstanceInfo.createDefaultInstance(
+                cores = clusterConfig.coresPerExec * defaultNumGpus,
+                memoryMB = clusterConfig.memoryPerNodeMb,
+                numGpus = defaultNumGpus,
+                gpuDevice = defaultGpuDevice)
+            }
             val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
             val numWorkerNodes = if (!isPlatformCSP) {
               // For on-prem, we do not have the concept of worker nodes.
@@ -468,23 +525,23 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
             } else {
               // Calculate number of worker nodes based on executors and GPUs per instance
               math.ceil(clusterConfig.numExecutors.toDouble /
-                recommendedNodeInstance.numGpus).toInt
+                nodeInstanceInfo.numGpus).toInt
             }
 
             val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-            recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
+            recommendedNodeInstanceInfo = Some(nodeInstanceInfo)
             recommendedClusterInfo = Some(RecommendedClusterInfo(
               vendor = vendor,
               coresPerExecutor = clusterConfig.coresPerExec,
               numWorkerNodes = numWorkerNodes,
-              numGpusPerNode = recommendedNodeInstance.numGpus,
+              numGpusPerNode = nodeInstanceInfo.numGpus,
               numExecutors = clusterConfig.numExecutors,
-              gpuDevice = getGpuOrDefault.toString,
+              gpuDevice = nodeInstanceInfo.gpuDevice.toString,
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
               dynamicAllocationInitialExecutors = dynamicAllocSettings.initial,
-              workerNodeType = Some(recommendedNodeInstance.name)
+              workerNodeType = Some(nodeInstanceInfo.name)
             ))
 
           case None =>
@@ -502,9 +559,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 }
 
-abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
-  override val defaultGpuDevice: GpuDevice = T4Gpu
+abstract class DatabricksPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends Platform(clusterProperties, targetCluster) {
   override val sparkVersionLabel: String = "Databricks runtime"
   override def isPlatformCSP: Boolean = true
 
@@ -549,34 +607,46 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
   }
 }
 
-class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties])
-  extends DatabricksPlatform(gpuDevice, clusterProperties)
+class DatabricksAwsPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends DatabricksPlatform(clusterProperties, targetCluster)
   with Logging {
   override val platformName: String = PlatformNames.DATABRICKS_AWS
-  override val defaultGpuDevice: GpuDevice = A10GGpu
+  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "g5.4xlarge"))
+  }
 
-  override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
+  override def getInstanceByResourcesMap: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATABRICKS_AWS_BY_GPUS_CORES
   }
 }
 
-class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties])
-  extends DatabricksPlatform(gpuDevice, clusterProperties) {
+class DatabricksAzurePlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends DatabricksPlatform(clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATABRICKS_AZURE
+  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "Standard_NC16as_T4_v3"))
+  }
 
   override def maxGpusSupported: Int = 4
 
-  override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
+  override def getInstanceByResourcesMap: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_GPUS_CORES
   }
 }
 
-class DataprocPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
+class DataprocPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends Platform(clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATAPROC
-  override val defaultGpuDevice: GpuDevice = T4Gpu
+  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "n1-standard-16", gpuCount = Some(1)))
+  }
+
   override val recommendationsToInclude: Seq[(String, String)] = Seq(
     // Keep disabled. This property does not work well with GPU clusters.
     "spark.dataproc.enhanced.optimizer.enabled" -> "false",
@@ -587,30 +657,38 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override def isPlatformCSP: Boolean = true
   override def maxGpusSupported: Int = 4
 
-  override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
+  override def getInstanceByResourcesMap: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_GPUS_CORES
   }
 }
 
-class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties])
-  extends DataprocPlatform(gpuDevice, clusterProperties) {
+class DataprocServerlessPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends DataprocPlatform(clusterProperties, targetCluster) {
+
   override val platformName: String = PlatformNames.DATAPROC_SL
-  override val defaultGpuDevice: GpuDevice = L4Gpu
+  override def defaultGpuDevice: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
 
-class DataprocGkePlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties])
-  extends DataprocPlatform(gpuDevice, clusterProperties) {
+class DataprocGkePlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends DataprocPlatform(clusterProperties, targetCluster) {
+
   override val platformName: String = PlatformNames.DATAPROC_GKE
   override def isPlatformCSP: Boolean = true
 }
 
-class EmrPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
+class EmrPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends Platform(clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.EMR
-  override val defaultGpuDevice: GpuDevice = A10GGpu
+  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "g6.4xlarge"))
+  }
 
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
@@ -633,17 +711,17 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
       driverHost = driverHost)
   }
 
-  override def getInstanceByResourcesMap: Map[(Int, Int), InstanceInfo] = {
+  override def getInstanceByResourcesMap: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.EMR_BY_GPUS_CORES
   }
 }
 
-class OnPremPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties]) extends Platform(gpuDevice, clusterProperties) {
+class OnPremPlatform(
+    clusterProperties: Option[ClusterProperties],
+    targetCluster: Option[TargetClusterInfo])
+  extends Platform(clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.ONPREM
-  // Note we don't have an speedup factor file for onprem l4's but we want auto tuner
-  // to use L4.
-  override val defaultGpuDevice: GpuDevice = L4Gpu
+  override def defaultGpuDevice: GpuDevice = L4Gpu
   override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
   // on prem is hard since we don't know what node configurations they have
   // assume 1 for now. We should have them pass this information in the future.
@@ -704,18 +782,25 @@ object PlatformFactory extends Logging {
   @throws[IllegalArgumentException]
   @tailrec
   private def createPlatformInstance(platformName: String,
-      gpuDevice: Option[GpuDevice],
-      clusterProperties: Option[ClusterProperties]): Platform = platformName match {
-    case PlatformNames.DATABRICKS_AWS => new DatabricksAwsPlatform(gpuDevice, clusterProperties)
-    case PlatformNames.DATABRICKS_AZURE => new DatabricksAzurePlatform(gpuDevice, clusterProperties)
-    case PlatformNames.DATAPROC => new DataprocPlatform(gpuDevice, clusterProperties)
-    case PlatformNames.DATAPROC_GKE => new DataprocGkePlatform(gpuDevice, clusterProperties)
-    case PlatformNames.DATAPROC_SL => new DataprocServerlessPlatform(gpuDevice, clusterProperties)
-    case PlatformNames.EMR => new EmrPlatform(gpuDevice, clusterProperties)
-    case PlatformNames.ONPREM => new OnPremPlatform(gpuDevice, clusterProperties)
+      clusterProperties: Option[ClusterProperties],
+      targetCluster: Option[TargetClusterInfo]): Platform = platformName match {
+    case PlatformNames.DATABRICKS_AWS =>
+      new DatabricksAwsPlatform(clusterProperties, targetCluster)
+    case PlatformNames.DATABRICKS_AZURE =>
+      new DatabricksAzurePlatform(clusterProperties, targetCluster)
+    case PlatformNames.DATAPROC =>
+      new DataprocPlatform(clusterProperties, targetCluster)
+    case PlatformNames.DATAPROC_GKE =>
+      new DataprocGkePlatform(clusterProperties, targetCluster)
+    case PlatformNames.DATAPROC_SL =>
+      new DataprocServerlessPlatform(clusterProperties, targetCluster)
+    case PlatformNames.EMR =>
+      new EmrPlatform(clusterProperties, targetCluster)
+    case PlatformNames.ONPREM =>
+      new OnPremPlatform(clusterProperties, targetCluster)
     case p if p.isEmpty =>
       logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} as default.")
-      createPlatformInstance(PlatformNames.DEFAULT, gpuDevice, clusterProperties)
+      createPlatformInstance(PlatformNames.DEFAULT, clusterProperties, targetCluster)
     case _ =>
       throw new IllegalArgumentException(s"Unsupported platform: $platformName. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
@@ -728,15 +813,14 @@ object PlatformFactory extends Logging {
    * @param clusterProperties Optional cluster properties if the user specified them.
    */
   def createInstance(platformKey: String = PlatformNames.DEFAULT,
-      clusterProperties: Option[ClusterProperties] = None): Platform = {
+      clusterProperties: Option[ClusterProperties] = None,
+      targetCluster: Option[TargetClusterInfo] = None): Platform = {
+    // TODO: Remove platformKey containing GPU name
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
-    val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
-    // case when gpu name is detected but not in device map
-    if (gpuName.isDefined && gpuDevice.isEmpty) {
-      throw new IllegalArgumentException(s"Unsupported GPU device: ${gpuName.get}. " +
-          s"Supported GPU devices are: ${GpuDevice.deviceMap.keys.mkString(", ")}.")
-    }
-    val platform = createPlatformInstance(platformName, gpuDevice, clusterProperties)
+    require(gpuName.isEmpty,
+      s"Using GPU name in platform key is not supported. " +
+        s"Please use the --target-worker-info option to specify the GPU type.")
+    val platform = createPlatformInstance(platformName, clusterProperties, targetCluster)
     logInfo(s"Using platform: $platform")
     platform
   }
