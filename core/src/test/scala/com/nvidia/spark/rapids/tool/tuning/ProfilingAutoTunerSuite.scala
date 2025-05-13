@@ -223,6 +223,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
+          |- Failed to generate a cluster recommendation. Reason: Could not determine number of executors. Cluster properties are missing and event log does not contain cluster information.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -257,6 +258,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
+          |- Failed to generate a cluster recommendation. Reason: Could not determine number of executors. Cluster properties are missing and event log does not contain cluster information.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -312,6 +314,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' should be set to 0.001.
           |- Could not infer the cluster configuration, recommendations are generated using default values!
+          |- Failed to generate a cluster recommendation. Reason: Could not determine number of executors. Cluster properties are missing and event log does not contain cluster information.
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
