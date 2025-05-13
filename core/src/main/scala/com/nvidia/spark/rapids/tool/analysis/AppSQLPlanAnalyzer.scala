@@ -41,8 +41,10 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * 3- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
  * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
+ * @param enableDiagnosticViews whether to collect metrics for diagnostic views (default: false)
  */
-class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
+class AppSQLPlanAnalyzer(app: AppBase, val enableDiagnosticViews: Boolean = false)
+    extends AppAnalysisBase(app) {
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -344,7 +346,7 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds)
 
-        if (isIODiagnosticMetricName(metric.name)) {
+        if (enableDiagnosticViews && isIODiagnosticMetricName(metric.name)) {
           updateIODiagnosticMetricsMap(sqlAccumProileResult)
         }
 
@@ -461,7 +463,7 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
               median = stat.med,
               max = stat.max,
               total = stat.total)
-            if (isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
+            if (enableDiagnosticViews && isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
               updateStageDiagnosticMetrics(accumProfileResults)
             }
             Some(accumProfileResults)
@@ -473,8 +475,8 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
 }
 
 object AppSQLPlanAnalyzer {
-  def apply(app: AppBase): AppSQLPlanAnalyzer = {
-    val sqlAnalyzer = new AppSQLPlanAnalyzer(app)
+  def apply(app: AppBase, enableDiagnosticViews: Boolean = false): AppSQLPlanAnalyzer = {
+    val sqlAnalyzer = new AppSQLPlanAnalyzer(app, enableDiagnosticViews)
     sqlAnalyzer.processSQLPlanMetrics()
     sqlAnalyzer
   }

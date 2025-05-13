@@ -55,6 +55,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val outputCSV: Boolean = appArgs.csv()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
+  private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -205,7 +206,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
         PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
       }
-      val app = new ApplicationInfo(hadoopConf, path, platform = platform)
+      val app = new ApplicationInfo(hadoopConf, path, platform = platform,
+        enableDiagnosticViews = enableDiagnosticViews)
       EventLogPathProcessor.logApplicationInfo(app)
       val endTime = System.currentTimeMillis()
       if (!app.isAppMetaDefined) {
@@ -256,7 +258,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
-    val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
+    val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps, enableDiagnosticViews)
     val maxTaskInputInfo = if (useAutoTuner) {
       analysis.maxTaskInputSizes
     } else {
@@ -303,7 +305,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       writeOpsInfo = collect.getWriteOperationInfo,
       sqlPlanInfo = collect.getSQLPlanInfoTruncated)
     (appInfoSummary,
-      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
+     DiagnosticSummaryInfo(analysis.stageDiagnostics,
+                           collect.getIODiagnosticMetrics(enableDiagnosticViews)))
   }
 
   /**
@@ -402,11 +405,13 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
       app.sparkRapidsBuildInfo)
-    profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
-      profilerResult.diagnostics.stageDiagnostics)
-    profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
-      profilerResult.diagnostics.IODiagnostics)
 
+    if (enableDiagnosticViews) {
+      profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
+        profilerResult.diagnostics.stageDiagnostics)
+      profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
+        profilerResult.diagnostics.IODiagnostics)
+    }
   }
 
   /**
