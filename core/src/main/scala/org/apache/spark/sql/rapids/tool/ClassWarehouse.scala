@@ -51,6 +51,7 @@ sealed trait ClusterInfo {
 // Information about the cluster used with to run the application we
 // are qualifying or profiling. This is compared to what we might recommend
 // for a cluster.
+// TODO: Add information about the existing GPUs on the cluster
 case class ExistingClusterInfo(
     vendor: String,
     coresPerExecutor: Int,

@@ -16,11 +16,15 @@
 
 package com.nvidia.spark.rapids.tool
 
+import java.io.{File, FilenameFilter, FileNotFoundException}
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-import java.io.{File, FilenameFilter, FileNotFoundException}
+import com.nvidia.spark.rapids.tool.tuning.{GpuWorkerProps, TargetClusterProps, WorkerInfo}
+import org.apache.hadoop.fs.Path
+import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.internal.Logging
@@ -52,7 +56,7 @@ object ToolTestUtils extends Logging {
   }
 
   def runAndCollect(appName: String)
-                   (fun: SparkSession => DataFrame): String = {
+    (fun: SparkSession => DataFrame): String = {
 
     // we need to close any existing sessions to ensure that we can
     // create a session with a new event log dir
@@ -76,9 +80,9 @@ object ToolTestUtils extends Logging {
   }
 
   def generateEventLog(eventLogDir: File, appName: String,
-                       confs: Option[Map[String, String]] = None,
-                       enableHive: Boolean = false)
-                      (fun: SparkSession => DataFrame): (String, String) = {
+      confs: Option[Map[String, String]] = None,
+      enableHive: Boolean = false)
+    (fun: SparkSession => DataFrame): (String, String) = {
 
     // we need to close any existing sessions to ensure that we can
     // create a session with a new event log dir
@@ -130,7 +134,7 @@ object ToolTestUtils extends Logging {
   }
 
   def readExpectationCSV(sparkSession: SparkSession, path: String,
-                         schema: Option[StructType] = None, escape: String = "\\"): DataFrame = {
+      schema: Option[StructType] = None, escape: String = "\\"): DataFrame = {
     // make sure to change null value so empty strings don't show up as nulls
     if (schema.isDefined) {
       sparkSession.read.option("header", "true").option("nullValue", "-").option("escape", escape)
@@ -142,7 +146,7 @@ object ToolTestUtils extends Logging {
   }
 
   def processProfileApps(logs: Array[String],
-                         sparkSession: SparkSession): ArrayBuffer[ApplicationInfo] = {
+      sparkSession: SparkSession): ArrayBuffer[ApplicationInfo] = {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(logs)
     var index: Int = 1
@@ -163,7 +167,7 @@ object ToolTestUtils extends Logging {
    * of different status categories (SUCCESS, FAILURE, UNKNOWN, SKIPPED).
    */
   def compareStatusReport(sparkSession: SparkSession, expStatusReportCount: StatusReportCounts,
-                          filePath: String): Unit = {
+      filePath: String): Unit = {
     val csvFile = new File(filePath)
 
     // If the status report file does not exist, all applications are expected to be failures.
@@ -197,6 +201,52 @@ object ToolTestUtils extends Logging {
   def loadClusterSummaryFromJson(path: String): Array[ClusterSummary] = {
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
     mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+  }
+
+  def buildTargetClusterInfo(
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): TargetClusterProps = {
+    val gpuWorkerProps = new GpuWorkerProps(
+      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
+    val workerProps = new WorkerInfo(instanceType, gpuWorkerProps)
+    new TargetClusterProps(workerProps)
+  }
+
+  def buildTargetClusterInfoAsString(
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): String = {
+    val targetCluster = buildTargetClusterInfo(instanceType, gpuCount, gpuMemory, gpuDevice)
+    // set the options to convert the object into formatted yaml content
+    val options = new DumperOptions()
+    options.setIndent(2)
+    options.setPrettyFlow(true)
+    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
+    val yaml = new Yaml(options)
+    val rawString = yaml.dump(targetCluster)
+    // Skip the first line as it contains "the name of the class"
+    rawString.split("\n").drop(1).mkString("\n")
+  }
+
+  def createTargetClusterInfoFile(
+      outputDirectory: String,
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): Path = {
+    val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
+      "Target Cluster Info")
+    try {
+      val targetClusterInfoString =
+        buildTargetClusterInfoAsString(instanceType, gpuCount, gpuMemory, gpuDevice)
+      fileWriter.write(targetClusterInfoString)
+      fileWriter.getFileOutputPath
+    } finally {
+      fileWriter.close()
+    }
   }
 }
 

@@ -106,7 +106,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
   }
@@ -129,7 +129,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some("3.2.0"), Seq())
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -229,8 +229,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Load cluster properties with CPU cores 0") {
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(0))
-    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, getGpuAppMockInfoProvider)
+    val workerInfo = buildGpuWorkerInfoAsString(None, Some(0))
+    val autoTuner = buildAutoTunerForTests(workerInfo, getGpuAppMockInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -264,7 +264,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   test("Load cluster properties with memory to cores ratio to small") {
     val workerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(workerInfo,
         getGpuAppMockInfoProvider, platform)
@@ -318,7 +318,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   test("Load cluster properties with CPU memory 0") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("0m"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -384,7 +384,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   test("Load cluster properties with number of workers 0") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -462,7 +462,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(0))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -530,7 +530,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), None)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -595,7 +595,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0M"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -654,7 +654,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), None)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -718,7 +718,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
       Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -766,10 +766,11 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   // This test should ignore executor memory specified in the properties as
   // CSP nodes have fixed memory configurations.
+  // TODO: Revisit this test
   test("Test executor memory on CSP where executor memory/cpu ratio is small") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("15360MiB"),
       Some(4), Some(1))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -884,7 +885,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -948,7 +949,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -1014,7 +1015,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
       getGpuAppMockInfoProvider, platform)
@@ -1058,7 +1059,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1140,7 +1141,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1211,7 +1212,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
@@ -1297,7 +1298,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1383,7 +1384,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
         getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
@@ -1469,7 +1470,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1548,7 +1549,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1614,7 +1615,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.task.resource.gpu.amount" -> "0.001")
     val sparkProps = defaultDataprocProps.++(customProps)
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
         getGpuAppMockInfoWithJars(rapidsJars), platform)
@@ -1786,7 +1787,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(testSparkVersion), Seq(), 40.0, 200000000000L)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1867,7 +1868,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(testSparkVersion), Seq(), 40.0, 2000000L)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -1919,7 +1920,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   test("test recommendations for databricks-aws platform argument") {
     val databricksWorkerInfo = buildGpuWorkerInfoAsString()
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(databricksWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(databricksWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
         getGpuAppMockInfoProvider, platform)
@@ -1966,7 +1967,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
       val infoProvider = getMockInfoProvider(8126464.0, Seq(0),
         Seq(0.004), logEventsProps, Some(testSparkVersion))
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
       val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform,
         sparkMaster)
@@ -1999,7 +2000,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DEFAULT, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
@@ -2037,7 +2038,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DEFAULT, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
@@ -2092,7 +2093,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.sql.concurrentGpuTasks" -> "2",
       "spark.task.resource.gpu.amount" -> "0.001")
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DEFAULT, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
@@ -2122,7 +2123,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     )
     val driverInfoProvider = DriverInfoProviderMockTest(unsupportedDriverOperators)
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DEFAULT, clusterPropsOpt)
     val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider
       .buildAutoTunerFromProps(workerInfo,
@@ -2166,7 +2167,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2246,8 +2247,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(gpuDevice.getMemory), Some(gpuDevice.toString))
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -2307,13 +2308,15 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "1")
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
+    val databricksWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.4, 0.4), logEventsProps,
       Some(testDatabricksVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
-    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(
+      databricksWorkerInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS,
+      clusterProperties = clusterPropsOpt)
+    val autoTuner = buildAutoTunerForTests(databricksWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2328,7 +2331,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -2510,7 +2513,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
       logEventsProps, Some(testSparkVersion), shuffleStagesWithPosSpilling = Set(1))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2593,7 +2596,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
       logEventsProps, Some(testSparkVersion), shuffleStagesWithPosSpilling = Set(1, 5),
       shuffleSkewStages = Set(1))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2889,7 +2892,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some("3.4.1-amzn-1"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(emrWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(emrWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(emrWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2908,7 +2911,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -3101,7 +3104,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         logEventsProps, Some(testSparkVersion), scanStagesWithGpuOom = hasGpuOOm)
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
       val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
       val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
       val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3235,7 +3238,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3312,7 +3315,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true,
       meanInput = 50000, meanShuffleRead = 80000)
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()

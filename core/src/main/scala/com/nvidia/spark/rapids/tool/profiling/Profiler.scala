@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterInfo, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterProps, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -204,7 +204,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
         val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfoPath)
         val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
-          PropertiesLoader[TargetClusterInfo].loadFromFile)
+          PropertiesLoader[TargetClusterProps].loadFromFile)
         PlatformFactory.createInstance(appArgs.platform(),
           clusterPropsOpt, targetClusterPropsOpt)
       }
@@ -409,12 +409,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profilerResult.diagnostics.stageDiagnostics)
     profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
       profilerResult.diagnostics.IODiagnostics)
+    // Construct the cluster summary information
+    // Note: This is available only after AutoTuner is run
     val clusterSummary = app.appLogPath.map { logInfo =>
       ClusterSummary(logInfo.appName, logInfo.appId.get, Some(logInfo.eventLogPath),
         profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
         profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
     }
-    profileOutputWriter.writeJsonFile("Cluster Summary", clusterSummary)
+    // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
+    profileOutputWriter.writeJsonFile("Cluster Information", clusterSummary)
   }
 
   /**

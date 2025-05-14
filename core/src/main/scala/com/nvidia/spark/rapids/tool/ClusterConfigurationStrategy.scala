@@ -26,8 +26,14 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 case class RecommendedClusterConfig(
     numExecutors: Int,
     coresPerExec: Int,
-    memoryPerNodeMb: Long // For onprem or cases where a matching CSP instance type is unavailable
-)
+    memoryPerNodeMb: Long, // For onprem or cases where a matching CSP instance type is unavailable
+    gpuDevice: GpuDevice,
+    numGpusPerNode: Int
+) {
+  def coresPerNode: Int = {
+    coresPerExec * numGpusPerNode
+  }
+}
 
 /**
  * Base trait for different cluster configuration strategies.
@@ -72,6 +78,10 @@ abstract class ClusterConfigurationStrategy(
 
   protected def getMemoryPerNodeMb: Long
 
+  protected def getNumGpus: Int
+
+  protected def getGpuDevice: GpuDevice
+
   /**
    * Generates the recommended cluster configuration based on the strategy.
    *
@@ -102,7 +112,9 @@ abstract class ClusterConfigurationStrategy(
       Some(RecommendedClusterConfig(
         numExecutors = recommendedNumExecutors,
         coresPerExec = recommendedCoresPerExec,
-        memoryPerNodeMb = getMemoryPerNodeMb))
+        memoryPerNodeMb = getMemoryPerNodeMb,
+        gpuDevice = getGpuDevice,
+        numGpusPerNode = getNumGpus))
     }
   }
 }
@@ -147,6 +159,15 @@ class ClusterPropertyBasedStrategy(
   override protected def getMemoryPerNodeMb: Long = {
     StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
+
+  override def getGpuDevice: GpuDevice = {
+    GpuDevice.createInstance(clusterProperties.getGpu.name)
+      .getOrElse(platform.defaultGpuDevice)
+  }
+
+  override def getNumGpus: Int = {
+    numGpusFromProps
+  }
 }
 
 /**
@@ -176,6 +197,16 @@ class EventLogBasedStrategy(
 
   override def calculateInitialCoresPerExec: Int = {
     clusterInfoFromEventLog.coresPerExecutor
+  }
+
+  // TODO: Add information about the existing GPU on the node
+  override def getGpuDevice: GpuDevice = {
+    platform.getGpuOrDefault
+  }
+
+  // TODO: Add information about the existing GPU count on the node
+  override def getNumGpus: Int = {
+    platform.defaultNumGpus
   }
 }
 

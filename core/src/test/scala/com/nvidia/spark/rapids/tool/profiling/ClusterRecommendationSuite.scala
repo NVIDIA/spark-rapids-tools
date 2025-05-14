@@ -18,13 +18,10 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
 
-import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils, ToolTextFileWriter}
-import com.nvidia.spark.rapids.tool.tuning.{GpuWorkerProps, TargetClusterInfo, WorkerInfo}
-import org.apache.hadoop.fs.Path
+import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
 import org.scalatest.FunSuite
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
-import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
@@ -41,44 +38,6 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
   }
 
   private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
-
-  protected final def buildTargetClusterInfoAsString(
-      instanceType: String,
-      gpuCount: Option[Int] = None,
-      gpuMemory: Option[String] = None,
-      gpuDevice: Option[String] = None): String = {
-    val gpuWorkerProps = new GpuWorkerProps(
-      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-    val workerProps = new WorkerInfo(instanceType, gpuWorkerProps)
-    val targetCluster = new TargetClusterInfo(workerProps)
-    // set the options to convert the object into formatted yaml content
-    val options = new DumperOptions()
-    options.setIndent(2)
-    options.setPrettyFlow(true)
-    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-    val yaml = new Yaml(options)
-    val rawString = yaml.dump(targetCluster)
-    // Skip the first line as it contains "the name of the class"
-    rawString.split("\n").drop(1).mkString("\n")
-  }
-
-  protected final def createTargetClusterInfoFile(
-      outputDirectory: String,
-      instanceType: String,
-      gpuCount: Option[Int] = None,
-      gpuMemory: Option[String] = None,
-      gpuDevice: Option[String] = None): Path = {
-    val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
-      "Target Cluster Info")
-    try {
-      val targetClusterInfoString =
-       buildTargetClusterInfoAsString(instanceType, gpuCount, gpuMemory, gpuDevice)
-      fileWriter.write(targetClusterInfoString)
-      fileWriter.getFileOutputPath
-    } finally {
-      fileWriter.close()
-    }
-  }
 
   val validClusterRecommendationScenarios: TableFor4[
       String, String, Option[Int], RecommendedClusterInfo] = Table(
@@ -180,7 +139,7 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       }
       test(s"test valid cluster shape recommendation on $platform - $scenarioName") {
         TrampolineUtil.withTempDir { tempDir =>
-          val targetClusterInfoFile = createTargetClusterInfoFile(
+          val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
             instanceType = instanceType,
             gpuCount = gpuCount)
@@ -279,7 +238,7 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       }
       test(s"test invalid cluster shape recommendation on $platform - $scenarioName") {
         TrampolineUtil.withTempDir { tempDir =>
-          val targetClusterInfoFile = createTargetClusterInfoFile(
+          val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
             instanceType = instanceType,
             gpuCount = gpuCount)

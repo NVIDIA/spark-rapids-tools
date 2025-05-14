@@ -150,7 +150,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           "spark.executor.memory" -> "8g",
           "spark.executor.memoryOverhead" -> "2g"
         )
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfo)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         logEventsProps, Some(testSparkVersion))
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)

@@ -69,7 +69,7 @@ class GpuWorkerProps(
   }
   def setDefaultGpuNameIfMissing(platform: Platform): Boolean = {
     if (!GpuDevice.deviceMap.contains(name)) {
-      name = platform.recommendedGpuDevice.toString
+      name = platform.gpuDevice.getOrElse(platform.defaultGpuDevice).toString
       true
     } else {
       false
@@ -1163,6 +1163,12 @@ class AutoTuner(
       skipList.foreach(skipSeq => skippedRecommendations ++= skipSeq)
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
+      // update GPU device of platform based on cluster properties if it is not already set.
+      // if the GPU device cannot be inferred from cluster properties, do not make any updates.
+      if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
+        GpuDevice.createInstance(clusterProps.gpu.getName)
+          .foreach(platform.setGpuDevice)
+      }
       // configured GPU recommended instance type NEEDS to happen before any of the other
       // recommendations as they are based on
       // the instance type
