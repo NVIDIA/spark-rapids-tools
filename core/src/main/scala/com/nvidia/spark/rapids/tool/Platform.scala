@@ -88,14 +88,12 @@ object InstanceInfo {
   }
 }
 
-// This is meant to be temporary mapping to figure out instance type based
-// on the number of GPUs and cores.  Eventually this should be read from files
-// generated based on CSP instance information.
-// format (numGpus, numCores, gpuName) -> InstanceInfo about that CSP node instance type
+// This is a map of the instance types to the InstanceInfo.
+// format (instance type name, gpu count) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
   // Using G6 instances for EMR
-  val EMR_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+  val EMR_BY_INSTANCE_NAME: Map[NodeInstanceMapKey, InstanceInfo] = Map(
     NodeInstanceMapKey("g6.xlarge") -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1, L4Gpu),
     NodeInstanceMapKey("g6.2xlarge") -> InstanceInfo(8, 32 * 1024, "g6.2xlarge", 1, L4Gpu),
     NodeInstanceMapKey("g6.4xlarge") -> InstanceInfo(16, 64 * 1024, "g6.4xlarge", 1, L4Gpu),
@@ -106,7 +104,7 @@ object PlatformInstanceTypes {
 
   // Using G5 instances. To be updated once G6 availability on Databricks
   // is consistent
-  val DATABRICKS_AWS_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+  val DATABRICKS_AWS_BY_INSTANCE_NAME: Map[NodeInstanceMapKey, InstanceInfo] = Map(
     NodeInstanceMapKey("g5.xlarge") -> InstanceInfo(4, 16 * 1024, "g5.xlarge", 1, A10GGpu),
     NodeInstanceMapKey("g5.2xlarge") -> InstanceInfo(8, 32 * 1024, "g5.2xlarge", 1, A10GGpu),
     NodeInstanceMapKey("g5.4xlarge") -> InstanceInfo(16, 64 * 1024, "g5.4xlarge", 1, A10GGpu),
@@ -116,7 +114,7 @@ object PlatformInstanceTypes {
   )
 
   // Standard_NC4as_T4_v3 - only recommending nodes with T4's for now, add more later
-  val AZURE_NCAS_T4_V3_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+  val AZURE_NCAS_T4_V3_BY_INSTANCE_NAME: Map[NodeInstanceMapKey, InstanceInfo] = Map(
     NodeInstanceMapKey("Standard_NC4as_T4_v3") ->
       InstanceInfo(4, 28 * 1024, "Standard_NC4as_T4_v3", 1, T4Gpu), // 1 GPU
     NodeInstanceMapKey("Standard_NC8as_T4_v3") ->
@@ -131,7 +129,7 @@ object PlatformInstanceTypes {
   // Google supports 1, 2, or 4 Gpus of most types
   // added to n1-standard boxes. You may be able to add 8 v100's but we
   // are going to ignore that.
-  val DATAPROC_BY_GPUS_CORES: Map[NodeInstanceMapKey, InstanceInfo] = Map(
+  val DATAPROC_BY_INSTANCE_NAME: Map[NodeInstanceMapKey, InstanceInfo] = Map(
     // g2-standard instances with Intel GPUs
     NodeInstanceMapKey("g2-standard-4") ->
       InstanceInfo(4, 16 * 1024, "g2-standard-4", 1, L4Gpu),
@@ -621,7 +619,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
-    PlatformInstanceTypes.DATABRICKS_AWS_BY_GPUS_CORES
+    PlatformInstanceTypes.DATABRICKS_AWS_BY_INSTANCE_NAME
   }
 }
 
@@ -637,7 +635,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
   override def maxGpusSupported: Int = 4
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
-    PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_GPUS_CORES
+    PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_INSTANCE_NAME
   }
 }
 
@@ -661,7 +659,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override def maxGpusSupported: Int = 4
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
-    PlatformInstanceTypes.DATAPROC_BY_GPUS_CORES
+    PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME
   }
 }
 
@@ -715,7 +713,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
-    PlatformInstanceTypes.EMR_BY_GPUS_CORES
+    PlatformInstanceTypes.EMR_BY_INSTANCE_NAME
   }
 }
 
@@ -725,7 +723,8 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
   // TODO: Add support for providing target cluster properties for OnPrem
   require(targetCluster.isEmpty,
-    "Currently, on-prem platform does not support target cluster properties.")
+    "OnPrem platform does not support target cluster properties yet. " +
+      "Use `--worker-info` option instead.")
 
   override val platformName: String = PlatformNames.ONPREM
   override def defaultGpuDevice: GpuDevice = L4Gpu
@@ -827,8 +826,8 @@ object PlatformFactory extends Logging {
     // TODO: Remove platformKey containing GPU name
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
     if (gpuName.nonEmpty) {
-      logWarning(s"Using GPU name in platform key will be deprecated in future. " +
-          s"Please use the --target-worker-info option to specify the GPU type.")
+      logWarning("Using GPU name in platform key will be deprecated in future. " +
+        "Please use the '--target-worker-info' option to specify the GPU type.")
     }
     val gpuDevice = gpuName.flatMap(GpuDevice.createInstance)
     // case when gpu name is detected but not in device map

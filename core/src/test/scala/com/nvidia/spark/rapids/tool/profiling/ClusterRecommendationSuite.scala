@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 
 import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
 import org.scalatest.FunSuite
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
@@ -158,7 +159,8 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
           val (exit, _) = ProfileMain.mainInternal(appArgs)
           assert(exit == 0)
           val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
-          val actualFilePath = s"${tempSubDir.getAbsolutePath}/cluster_summary.json"
+          val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
+          val actualFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
 
           val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualFilePath)
             .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
@@ -203,7 +205,8 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       val (exit, _) = ProfileMain.mainInternal(appArgs)
       assert(exit == 0)
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
-      val actualFilePath = s"${tempSubDir.getAbsolutePath}/cluster_summary.json"
+      val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
+      val actualFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
 
       val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualFilePath)
         .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
