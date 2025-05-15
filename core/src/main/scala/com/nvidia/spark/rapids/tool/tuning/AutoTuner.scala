@@ -657,11 +657,27 @@ class AutoTuner(
   def calculateJobLevelRecommendations(): Unit = {
     // TODO - do we do anything with 200 shuffle partitions or maybe if its close
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
+    val isDynamicAllocationEnabled = appInfoProvider.getSparkProperty(
+      "spark.dynamicAllocation.enabled").contains("true")
     getShuffleManagerClassName match {
-      case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
-      case Left(comment) => appendComment("spark.shuffle.manager", comment)
+      case Right(smClassName) =>
+        // Only add the shuffle manager recommendation if dynamic allocation is not enabled
+        if (!isDynamicAllocationEnabled) {
+          appendRecommendation("spark.shuffle.manager", smClassName)
+        }
+      case Left(comment) =>
+        // Always add the comment about dynamic allocation, but don't create a recommendation entry
+        if (isDynamicAllocationEnabled) {
+          comments += comment
+        } else {
+          // For other cases (like unsupported version), add both comment and recommendation entry
+          appendComment("spark.shuffle.manager", comment)
+        }
     }
-    appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
+    // Only add shuffle jars comment if dynamic allocation is not enabled
+    if (!isDynamicAllocationEnabled) {
+      appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
+    }
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
@@ -709,17 +725,23 @@ class AutoTuner(
    * @return Either an error message (Left) or the RapidsShuffleManager class name (Right)
    */
   def getShuffleManagerClassName: Either[String, String] = {
-    appInfoProvider.getSparkVersion match {
-      case Some(sparkVersion) =>
-        platform.getShuffleManagerVersion(sparkVersion) match {
-          case Some(smVersion) =>
-            Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
+    // Check if dynamic allocation is enabled
+    appInfoProvider.getSparkProperty("spark.dynamicAllocation.enabled") match {
+      case Some("true") =>
+        Left("RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled")
+      case _ =>
+        appInfoProvider.getSparkVersion match {
+          case Some(sparkVersion) =>
+            platform.getShuffleManagerVersion(sparkVersion) match {
+              case Some(smVersion) =>
+                Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
+              case None =>
+                Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(
+                  sparkVersion, platform))
+            }
           case None =>
-            Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(
-              sparkVersion, platform))
+            Left(autoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
         }
-      case None =>
-        Left(autoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
     }
   }
 
