@@ -202,6 +202,7 @@ object PlatformInstanceTypes {
 /**
  * Represents a platform and its associated recommendations.
  *
+ * @param gpuDevice Gpu Device present in the platform
  * @param clusterProperties Cluster Properties passed into the tool as worker info
  * @param targetCluster Target cluster information (e.g. instance type, GPU type)
  */
@@ -512,7 +513,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           case Some(clusterConfig) =>
             // If recommended node instance information is not already set, create it based on the
             // existing cluster configuration and platform defaults.
-            val nodeInstanceInfo = recommendedNodeInstanceInfo.getOrElse {
+            val recommendedNodeInstance = recommendedNodeInstanceInfo.getOrElse {
               InstanceInfo.createDefaultInstance(
                 cores = clusterConfig.coresPerNode,
                 memoryMB = clusterConfig.memoryPerNodeMb,
@@ -526,23 +527,23 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
             } else {
               // Calculate number of worker nodes based on executors and GPUs per instance
               math.ceil(clusterConfig.numExecutors.toDouble /
-                nodeInstanceInfo.numGpus).toInt
+                recommendedNodeInstance.numGpus).toInt
             }
 
             val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-            recommendedNodeInstanceInfo = Some(nodeInstanceInfo)
+            recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
             recommendedClusterInfo = Some(RecommendedClusterInfo(
               vendor = vendor,
               coresPerExecutor = clusterConfig.coresPerExec,
               numWorkerNodes = numWorkerNodes,
-              numGpusPerNode = nodeInstanceInfo.numGpus,
+              numGpusPerNode = recommendedNodeInstance.numGpus,
               numExecutors = clusterConfig.numExecutors,
-              gpuDevice = nodeInstanceInfo.gpuDevice.toString,
+              gpuDevice = recommendedNodeInstance.gpuDevice.toString,
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
               dynamicAllocationInitialExecutors = dynamicAllocSettings.initial,
-              workerNodeType = Some(nodeInstanceInfo.name)
+              workerNodeType = Some(recommendedNodeInstance.name)
             ))
 
           case None =>
