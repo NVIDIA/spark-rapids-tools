@@ -171,12 +171,29 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
    * expected results.
    */
   protected def compareOutput(expectedResults: String, autoTunerOutput: String): Unit = {
-    val outputsMatch = expectedResults == autoTunerOutput
-    assert(outputsMatch,
-      s"""|=== Expected ===
+    val expectedLines = expectedResults.split("\n").toSeq
+    val actualLines = autoTunerOutput.split("\n").toSeq
+    val maxLines = Math.max(expectedLines.length, actualLines.length)
+    var hasMismatch = false
+    val mismatches = new StringBuilder()
+    for (i <- 0 until maxLines) {
+      val expectedLine = if (i < expectedLines.length) expectedLines(i) else ""
+      val actualLine = if (i < actualLines.length) actualLines(i) else ""
+      if (expectedLine != actualLine) {
+        hasMismatch = true
+        mismatches.append(s"Line ${i + 1}:\n")
+        mismatches.append(s"  Expected: $expectedLine\n")
+        mismatches.append(s"  Actual  : $actualLine\n")
+      }
+    }
+    assert(!hasMismatch,
+      s"""|=== Mismatched Lines ===
+          |$mismatches
+          |
+          |=== Full Expected Output ===
           |$expectedResults
           |
-          |=== Actual ===
+          |=== Full Actual Output ===
           |$autoTunerOutput
           |""".stripMargin)
   }
