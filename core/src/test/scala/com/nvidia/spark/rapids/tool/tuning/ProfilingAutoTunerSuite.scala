@@ -3611,11 +3611,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
-          |- RAPIDS Accelerator for Apache Spark plugin jar is missing
-          |  from the classpath entries.
-          |  If the Spark RAPIDS jar is being bundled with your
-          |  Spark distribution, this step is not needed.
-          |- RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled.
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)

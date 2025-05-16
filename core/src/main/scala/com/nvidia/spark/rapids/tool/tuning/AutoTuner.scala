@@ -659,23 +659,13 @@ class AutoTuner(
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
     val isDynamicAllocationEnabled = appInfoProvider.getSparkProperty(
       "spark.dynamicAllocation.enabled").contains("true")
-    getShuffleManagerClassName match {
-      case Right(smClassName) =>
-        // Only add the shuffle manager recommendation if dynamic allocation is not enabled
-        if (!isDynamicAllocationEnabled) {
-          appendRecommendation("spark.shuffle.manager", smClassName)
-        }
-      case Left(comment) =>
-        // Always add the comment about dynamic allocation, but don't create a recommendation entry
-        if (isDynamicAllocationEnabled) {
-          comments += comment
-        } else {
-          // For other cases (like unsupported version), add both comment and recommendation entry
-          appendComment("spark.shuffle.manager", comment)
-        }
-    }
-    // Only add shuffle jars comment if dynamic allocation is not enabled
-    if (!isDynamicAllocationEnabled) {
+    if (isDynamicAllocationEnabled) {
+      comments += ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForDynamicAllocation
+    } else {
+      getShuffleManagerClassName match {
+        case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
+        case Left(comment) => appendComment("spark.shuffle.manager", comment)
+      }
       appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
     }
     recommendFileCache()
@@ -728,7 +718,7 @@ class AutoTuner(
     // Check if dynamic allocation is enabled
     appInfoProvider.getSparkProperty("spark.dynamicAllocation.enabled") match {
       case Some("true") =>
-        Left("RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled")
+        Left(autoTunerConfigsProvider.shuffleManagerCommentForDynamicAllocation)
       case _ =>
         appInfoProvider.getSparkVersion match {
           case Some(sparkVersion) =>
@@ -1549,6 +1539,10 @@ trait AutoTunerConfigsProvider extends Logging {
 
   def shuffleManagerCommentForMissingVersion: String = {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
+  }
+
+  def shuffleManagerCommentForDynamicAllocation: String = {
+    "RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled."
   }
 
   def latestPluginJarComment(latestJarMvnUrl: String, currentJarVer: String): String = {
