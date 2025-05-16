@@ -200,9 +200,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // we need a platform per application because it is storing cluster information, which could
       // vary between applications, especially when using dynamic allocation.
       val platform = {
-        val workerInfoPath = appArgs.workerInfo
-          .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
-        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfoPath)
+        val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
+          PropertiesLoader[ClusterProperties].loadFromFile)
         val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
           PropertiesLoader[TargetClusterProps].loadFromFile)
         PlatformFactory.createInstance(appArgs.platform(),

@@ -1325,7 +1325,6 @@ trait AutoTunerConfigsProvider extends Logging {
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
     "additional-functionality/advanced_configs.html#advanced-configuration"

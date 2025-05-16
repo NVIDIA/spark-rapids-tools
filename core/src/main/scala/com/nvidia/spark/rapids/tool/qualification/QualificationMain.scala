@@ -74,8 +74,8 @@ object QualificationMain extends Logging {
     // This platform instance should not be used for anything other then referencing the
     // files for this particular Platform.
     val referencePlatform = try {
-      val clusterPropsOpt =
-        PropertiesLoader[ClusterProperties].loadFromFile(appArgs.workerInfo())
+      val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
+        PropertiesLoader[ClusterProperties].loadFromFile)
       PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
     } catch {
       case NonFatal(e) =>
@@ -122,7 +122,7 @@ object QualificationMain extends Logging {
     val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
       nThreads, order, pluginTypeChecker, reportReadSchema, printStdout,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
-      tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo())
+      tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo.toOption)
     val res = qual.qualifyApps(filteredLogs)
     (0, res)
   }

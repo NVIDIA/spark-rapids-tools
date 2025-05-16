@@ -150,7 +150,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -340,7 +340,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -406,7 +406,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -456,7 +456,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.executor.memory" -> "32768m",
       "spark.executor.memoryOverhead" -> "7372m",
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.001")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -524,7 +524,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.sql.files.maxPartitionBytes" -> "512m",
       "spark.task.resource.gpu.amount" -> "0.001")
     val sparkProps = defaultDataprocProps.++(customProps)
@@ -584,7 +584,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -645,7 +645,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -709,7 +709,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -792,7 +792,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -842,7 +842,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -905,7 +905,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -976,7 +976,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1033,7 +1033,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.executor.memory" -> "47222m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -1079,7 +1079,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1117,7 +1117,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.executor.memory" -> "47222m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -1161,7 +1161,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1194,7 +1194,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1234,7 +1234,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -1277,7 +1277,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1318,7 +1318,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -1359,7 +1359,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1406,7 +1406,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1443,7 +1443,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1490,7 +1490,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1569,7 +1569,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1607,7 +1607,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.rapids.memory.pinnedPool.size" -> "4096m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -1808,7 +1808,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1888,7 +1888,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -1988,7 +1988,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     val unsupportedDriverOperators = Seq(
       DriverLogUnsupportedOperators(
@@ -2090,7 +2090,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     val workerInfo = buildGpuWorkerInfoAsString(Some(customProps))
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
@@ -2114,7 +2114,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     val unsupportedDriverOperators = Seq(
       DriverLogUnsupportedOperators(
@@ -2143,7 +2143,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2187,7 +2187,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -2226,7 +2226,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2324,16 +2324,16 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.databricks.adaptive.autoOptimizeShuffle.enabled=false
-          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memory=64g
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=48
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=48
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=64
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersionDatabricks.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -2489,7 +2489,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2533,7 +2533,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -2571,7 +2571,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "2",
+      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2616,7 +2616,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -2682,7 +2682,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -2758,7 +2758,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -2834,7 +2834,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -2976,7 +2976,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -3046,7 +3046,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
@@ -3124,7 +3124,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
             |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-            |--conf spark.rapids.sql.concurrentGpuTasks=2
+            |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
             |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3258,7 +3258,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3335,18 +3335,16 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=32m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=800
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=800
+          |--conf spark.sql.shuffle.partitions=100
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -3362,9 +3360,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' should be increased since task OOM occurred in shuffle stages.

@@ -31,7 +31,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ExistingClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, SourceClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
@@ -1589,28 +1589,28 @@ class QualificationSuite extends BaseTestSuite {
 
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
-  val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
+  val expectedClusterInfoMap: Seq[(String, Option[SourceClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
         numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
     "eventlog_4nodes_8cores_dynamic_alloc.zstd" -> // using dynamic allocation, total of 5 nodes, each with max 7
       // executor running having 4 cores. At the end it had 1 active executor.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,
         numExecsPerNode = -1, numExecutors = 7, numWorkerNodes = 5, executorHeapMemory = 20480L,
         dynamicAllocationEnabled = true, dynamicAllocationMaxExecutors = "2147483647",
         dynamicAllocationMinExecutors = "0", dynamicAllocationInitialExecutors = "2",
         driverHost = Some("10.10.6.9"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
@@ -1625,9 +1625,9 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   // Expected results as a map of platform -> cluster info.
-  val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
+  val expectedPlatformClusterInfoMap: Seq[(String, SourceClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
+        SourceClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
           coresPerExecutor = 8,
           numExecsPerNode = 1,
           numExecutors = 2,
@@ -1641,7 +1641,7 @@ class QualificationSuite extends BaseTestSuite {
           clusterId = Some("1212-214324-test"),
           clusterName = Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
+      SourceClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1655,7 +1655,7 @@ class QualificationSuite extends BaseTestSuite {
         clusterId = Some("1212-214324-test"),
         clusterName = Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ExistingClusterInfo(vendor = PlatformNames.DATAPROC,
+      SourceClusterInfo(vendor = PlatformNames.DATAPROC,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1665,7 +1665,7 @@ class QualificationSuite extends BaseTestSuite {
         "N/A", "N/A", "N/A",
         driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
-      ExistingClusterInfo(vendor = PlatformNames.EMR,
+      SourceClusterInfo(vendor = PlatformNames.EMR,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1676,7 +1676,7 @@ class QualificationSuite extends BaseTestSuite {
         driverHost = Some("10.10.10.100"),
         clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
-      ExistingClusterInfo(vendor = PlatformNames.ONPREM,
+      SourceClusterInfo(vendor = PlatformNames.ONPREM,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1698,7 +1698,7 @@ class QualificationSuite extends BaseTestSuite {
    * Runs the qualification tool and verifies cluster information against expected values.
    */
   private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
-      expectedClusterInfo: Option[ExistingClusterInfo]): Unit = {
+      expectedClusterInfo: Option[SourceClusterInfo]): Unit = {
     TrampolineUtil.withTempDir { outPath =>
       val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
       val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)
@@ -1710,7 +1710,7 @@ class QualificationSuite extends BaseTestSuite {
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
       val actualClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(outputResultFile)
-        .headOption.flatMap(_.clusterInfo)
+        .headOption.flatMap(_.sourceClusterInfo)
       assert(actualClusterInfo == expectedClusterInfo,
         "Actual cluster info does not match the expected cluster info.")
     }

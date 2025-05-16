@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool
 
 import org.apache.spark.network.util.ByteUnit
-import org.apache.spark.sql.rapids.tool.ExistingClusterInfo
+import org.apache.spark.sql.rapids.tool.SourceClusterInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -178,7 +178,7 @@ class EventLogBasedStrategy(
     sparkProperties: Map[String, String]
   ) extends ClusterConfigurationStrategy(platform, sparkProperties) {
 
-  private val clusterInfoFromEventLog: ExistingClusterInfo = {
+  private val clusterInfoFromEventLog: SourceClusterInfo = {
     platform.clusterInfoFromEventLog.getOrElse(
       throw new IllegalArgumentException("Cluster information from event log must be defined"))
   }

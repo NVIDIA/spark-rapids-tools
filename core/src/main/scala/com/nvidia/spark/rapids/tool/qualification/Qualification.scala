@@ -36,7 +36,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
     printStdout: Boolean, enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean, platformArg: String, workerInfoPath: String) extends ToolBase(timeout) {
+    clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String])
+  extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
   override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
@@ -115,7 +116,8 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       // we need a platform per application because it's storing cluster information which could
       // vary between applications, especially when using dynamic allocation
       val platform = {
-        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromFile(workerInfoPath)
+        val clusterPropsOpt = workerInfoPath.flatMap(
+          PropertiesLoader[ClusterProperties].loadFromFile)
         PlatformFactory.createInstance(platformArg, clusterPropsOpt)
       }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,

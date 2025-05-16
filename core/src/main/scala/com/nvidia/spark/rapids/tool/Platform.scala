@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, Targ
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
-import org.apache.spark.sql.rapids.tool.{ExistingClusterInfo, MatchingInstanceTypeNotFoundException, RecommendedClusterInfo}
+import org.apache.spark.sql.rapids.tool.{MatchingInstanceTypeNotFoundException, RecommendedClusterInfo, SourceClusterInfo}
 import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
@@ -61,7 +61,7 @@ case class DynamicAllocationInfo(enabled: Boolean, max: String, min: String, ini
  *                 cases where a given instance type can have multiple GPU counts
  *                 (e.g. n1-standard-16 with 1, 2, or 4 GPUs).
  */
-case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None) {
+case class    NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None) {
   override def toString: String = gpuCount match {
     case Some(count) => s"NodeInstanceMapKey(instanceType='$instanceType', gpuCount=$count)"
     case None => s"NodeInstanceMapKey(instanceType='$instanceType')"
@@ -220,7 +220,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   // It's not deal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
   // in future we can refactor.
-  var clusterInfoFromEventLog: Option[ExistingClusterInfo] = None
+  var clusterInfoFromEventLog: Option[SourceClusterInfo] = None
   // instance information for the gpu node type we will use to run with
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = {
     targetCluster.map(_.getWorkerInfo.getNodeInstanceMapKey) match {
@@ -447,11 +447,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       numExecs: Int,
       numWorkerNodes: Int,
       sparkProperties: Map[String, String],
-      systemProperties: Map[String, String]): ExistingClusterInfo = {
+      systemProperties: Map[String, String]): SourceClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
+    SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
       dynamicAllocSettings.min, dynamicAllocSettings.initial, driverHost = driverHost)
   }
@@ -594,7 +594,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
       numExecs: Int,
       numWorkerNodes: Int,
       sparkProperties: Map[String, String],
-      systemProperties: Map[String, String]): ExistingClusterInfo = {
+      systemProperties: Map[String, String]): SourceClusterInfo = {
     val workerNodeType = sparkProperties.get(DatabricksParseHelper.PROP_WORKER_TYPE_ID_KEY)
     val driverNodeType = sparkProperties.get(DatabricksParseHelper.PROP_DRIVER_TYPE_ID_KEY)
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
@@ -602,7 +602,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
+    SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
       dynamicAllocSettings.min, dynamicAllocSettings.initial, driverNodeType,
       workerNodeType, driverHost, clusterId, clusterName)
@@ -616,7 +616,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   with Logging {
   override val platformName: String = PlatformNames.DATABRICKS_AWS
   override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "g5.4xlarge"))
+    Some(NodeInstanceMapKey(instanceType = "g5.8xlarge"))
   }
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
@@ -630,7 +630,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
   extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATABRICKS_AZURE
   override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "Standard_NC16as_T4_v3"))
+    Some(NodeInstanceMapKey(instanceType = "Standard_NC8as_T4_v3"))
   }
 
   override def maxGpusSupported: Int = 4
@@ -646,7 +646,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATAPROC
   override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "n1-standard-16", gpuCount = Some(1)))
+    Some(NodeInstanceMapKey(instanceType = "g2-standard-16"))
   }
 
   override val recommendationsToInclude: Seq[(String, String)] = Seq(
@@ -702,12 +702,12 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
       numExecs: Int,
       numWorkerNodes: Int,
       sparkProperties: Map[String, String],
-      systemProperties: Map[String, String]): ExistingClusterInfo = {
+      systemProperties: Map[String, String]): SourceClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
     val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
-    ExistingClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs,
+    SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs,
       numWorkerNodes, executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
       dynamicAllocSettings.min, dynamicAllocSettings.initial, clusterId = clusterId,
       driverHost = driverHost)
