@@ -15,7 +15,6 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
 import org.json4s.DefaultFormats
@@ -55,12 +54,11 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
-  def writeSparkRapidsBuildInfo(headerText: String,
-      sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
+  def writeJsonFile(headerText: String, objToWrite: AnyRef): Unit = {
     val fileName = headerText.replace(" ", "_").toLowerCase
     val jsonWriter = new ToolTextFileWriter(outputDir, s"$fileName.json", s"$headerText JSON:")
     try {
-      jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
+      jsonWriter.write(Serialization.writePretty(objToWrite) + "\n")
     } finally {
       jsonWriter.close()
     }

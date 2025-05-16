@@ -216,7 +216,7 @@ case class AppStatusResult(
   }
 
   override def convertToSeq(): Array[String] = {
-    Array(path, status, appId, message)
+    Array(path, status, appId, StringUtils.reformatCSVString(message.replaceAll("\\R", "\\\\n")))
   }
 
   override def convertToCSVSeq(): Array[String] = convertToSeq()

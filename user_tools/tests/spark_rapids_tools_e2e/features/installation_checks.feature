@@ -28,10 +28,10 @@ Feature: Tool Installation Checks
 
     Examples:
       | platform         | cli    | expected_stdout                 |
-      | dataproc         | gcloud | 2 x n1-standard-16 (1 T4 each)  |
+      | dataproc         | gcloud | 2 x g2-standard-16 (1 L4 each)  |
       | emr              | aws    | 2 x g6.4xlarge                  |
-      | databricks-aws   | aws    | 2 x g5.4xlarge                  |
-      | databricks-azure | az     | 2 x Standard_NC16as_T4_v3       |
+      | databricks-aws   | aws    | 1 x g5.8xlarge                  |
+      | databricks-azure | az     | 4 x Standard_NC8as_T4_v3        |
 
   @test_id_IC_0002
   Scenario: Environment has missing java
