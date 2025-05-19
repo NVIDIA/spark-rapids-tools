@@ -15,13 +15,16 @@
  */
 package com.nvidia.spark.rapids.tool.profiling
 
-import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.lang3.StringUtils
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization
 
 
+/**
+ * ProfileOutputWriter by default writes to a text 'profile.log' file.
+ * In case the outputCSV is set to true, it will also write the output to a separate CSV file.
+ */
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
 
@@ -55,18 +58,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
-  def writeSparkRapidsBuildInfo(headerText: String,
-      sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent]): Unit = {
-    val fileName = headerText.replace(" ", "_").toLowerCase
-    val jsonWriter = new ToolTextFileWriter(outputDir, s"$fileName.json", s"$headerText JSON:")
-    try {
-      jsonWriter.write(Serialization.writePretty(sparkRapidsBuildInfo) + "\n")
-    } finally {
-      jsonWriter.close()
-    }
-  }
-
-  def write(headerText: String, outRows: Seq[ProfileResult],
+  def writeTextAsTable(headerText: String, outRows: Seq[ProfileResult],
       emptyTableText: Option[String] = None, tableDesc: Option[String] = None): Unit = {
     writeTextTable(headerText, outRows, emptyTableText, tableDesc)
     if (outputCSV) {
@@ -75,28 +67,14 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   }
 
   def writeCSVTable(headerText: String, outRows: Seq[ProfileResult]): Unit = {
-    if (outputCSV) {
       ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
-    }
   }
 
-  /**
-   * Writes the given profile results as JSON Lines (JSONL) format to a file.
-   *
-   * @param headerText The header text used to generate the filename.
-   * @param outRows The sequence of profile results to write.
-  */
-  def writeJsonL(headerText: String, outRows: Seq[ProfileResult]): Unit = {
-    if (outRows.nonEmpty) {
-      val fileName = headerText.replace(" ", "_").toLowerCase
-      val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
-      try {
-        outRows.foreach { row =>
-          jsonWriter.write(Serialization.write(row) + "\n")
-        }
-      } finally {
-        jsonWriter.close()
-      }
+  def writeJson(headerText: String, outRows: Seq[AnyRef], pretty: Boolean = true): Unit = {
+    if (pretty) {
+      ProfileOutputWriter.writeJsonPretty(headerText, outRows, outputDir)
+    } else {
+      ProfileOutputWriter.writeJsonL(headerText, outRows, outputDir)
     }
   }
 
@@ -106,11 +84,16 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
 }
 
 object ProfileOutputWriter {
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
+
   val CSVDelimiter = ","
 
   private def stringIfempty(str: String): String = {
     if (str == null || str.isEmpty) "\"\"" else str
   }
+
+  private def sanitizeFileName(header: String): String = header.replace(" ", "_").toLowerCase
 
   /**
    * Write a CSV file give the input header and data.
@@ -119,7 +102,7 @@ object ProfileOutputWriter {
     if (outRows.nonEmpty) {
       // need to have separate CSV file per table, use header text
       // with spaces as _ and lowercase as filename
-      val suffix = header.replace(" ", "_").toLowerCase
+      val suffix = sanitizeFileName(header)
       val csvWriter = new ToolTextFileWriter(outputDir, s"$suffix.csv", s"$header CSV:")
       try {
         val headerString = outRows.head.outputHeaders.mkString(CSVDelimiter)
@@ -132,6 +115,43 @@ object ProfileOutputWriter {
         }
       } finally {
         csvWriter.close()
+      }
+    }
+  }
+
+  /**
+   * Writes the given profile results as JSON Lines (JSONL) format to a file.
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+   */
+  private def writeJsonL(headerText: String, outRows: Seq[AnyRef], outputDir: String): Unit = {
+    if (outRows.nonEmpty) {
+      val fileName = sanitizeFileName(headerText)
+      val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+      try {
+        outRows.foreach { row =>
+          jsonWriter.write(Serialization.write(row) + "\n")
+        }
+      } finally {
+        jsonWriter.close()
+      }
+    }
+  }
+
+  /**
+   * Writes the passed output results as JSON format to a file.
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+   */
+  private def writeJsonPretty(headerText: String, outRows: Seq[AnyRef], outputDir: String): Unit = {
+    if (outRows.nonEmpty) {
+      val fileName = ProfileOutputWriter.sanitizeFileName(headerText)
+      val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
+      try {
+        jsonWriter.write(Serialization.writePretty(outRows) + "\n")
+      } finally {
+        jsonWriter.close()
       }
     }
   }
@@ -162,12 +182,12 @@ object ProfileOutputWriter {
    * For a string consisting of 1 million characters, the execution of this method requires
    * about 50ms.
    */
-  def stringHalfWidth(str: String): Int = {
+  private def stringHalfWidth(str: String): Int = {
     if (str == null) 0 else str.length + fullWidthRegex.findAllIn(str).size
   }
 
   // originally copied from Spark showString and modified
-  def makeFormattedString(
+  private def makeFormattedString(
       _numRows: Int,
       truncate: Int = 20,
       schema: Seq[String],

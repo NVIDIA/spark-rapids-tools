@@ -99,7 +99,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           logPath = Option(driverLogInfos),
           hadoopConf = hadoopConf)
       val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
-      profileOutputWriter.write(s"Unsupported operators in driver log",
+      profileOutputWriter.writeTextAsTable(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
@@ -345,53 +345,54 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val app = profilerResult.summary
     profileOutputWriter.writeText("### A. Information Collected ###")
-    profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
-    profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
-    profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
-    profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
-    profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
-    profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-    profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+    profileOutputWriter.writeTextAsTable(ProfInformationView.getLabel, app.appInfo)
+    profileOutputWriter.writeTextAsTable(ProfLogPathView.getLabel, app.appLogPath)
+    profileOutputWriter.writeTextAsTable(ProfDataSourceView.getLabel, app.dsInfo)
+    profileOutputWriter.writeTextAsTable(ProfExecutorView.getLabel, app.execInfo)
+    profileOutputWriter.writeTextAsTable(ProfJobsView.getLabel, app.jobInfo)
+    profileOutputWriter.writeTextAsTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+    profileOutputWriter.writeTextAsTable(RapidsQualPropertiesView.getLabel, app.rapidsProps,
       Some(RapidsQualPropertiesView.getDescription))
-    profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+    profileOutputWriter.writeTextAsTable(SparkQualPropertiesView.getLabel, app.sparkProps,
       Some(SparkQualPropertiesView.getDescription))
-    profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+    profileOutputWriter.writeTextAsTable(SystemQualPropertiesView.getLabel, app.sysProps,
       Some(SystemQualPropertiesView.getDescription))
-    profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+    profileOutputWriter.writeTextAsTable(ProfRapidsJarView.getLabel, app.rapidsJar,
       Some(ProfRapidsJarView.getDescription))
-    profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+    profileOutputWriter.writeTextAsTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
       Some(ProfSQLPlanMetricsView.getDescription))
-    profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
+    profileOutputWriter.writeTextAsTable(ProfStageMetricView.getLabel, app.stageMetrics,
       Some(ProfStageMetricView.getDescription))
-    profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
+    profileOutputWriter.writeTextAsTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
       Some(ProfSQLCodeGenView.getDescription))
-    profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
+    profileOutputWriter.writeJson(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo, pretty = false)
 
     profileOutputWriter.writeText("\n### B. Analysis ###\n")
-    profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+    profileOutputWriter.writeTextAsTable(JOB_AGG_LABEL, app.jobAggMetrics,
       Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
-    profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+    profileOutputWriter.writeTextAsTable(STAGE_AGG_LABEL, app.stageAggMetrics,
       Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
-    profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+    profileOutputWriter.writeTextAsTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
       Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
-    profileOutputWriter.write(IO_LABEL, app.ioMetrics)
-    profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+    profileOutputWriter.writeTextAsTable(IO_LABEL, app.ioMetrics)
+    profileOutputWriter.writeTextAsTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     val skewHeader = TASK_SHUFFLE_SKEW
     val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
-    profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
+    profileOutputWriter.writeTextAsTable(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
     profileOutputWriter.writeText("\n### C. Health Check###\n")
-    profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
-    profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
-    profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
-    profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
-    profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
-    profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
+    profileOutputWriter.writeTextAsTable(ProfFailedTaskView.getLabel, app.failedTasks)
+    profileOutputWriter.writeTextAsTable(ProfFailedStageView.getLabel, app.failedStages)
+    profileOutputWriter.writeTextAsTable(ProfFailedJobsView.getLabel, app.failedJobs)
+    profileOutputWriter.writeTextAsTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+    profileOutputWriter.writeTextAsTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
+    profileOutputWriter.writeTextAsTable("Unsupported SQL Plan", app.unsupportedOps,
       Some("Unsupported SQL Ops"))
     if (outputAlignedSQLIds) {
-      profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+      profileOutputWriter.writeTextAsTable(
+        ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
         Some(ProfSQLPlanAlignedView.getDescription))
     }
     if (useAutoTuner) {
@@ -400,8 +401,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }
 
-    profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
-      app.sparkRapidsBuildInfo)
+    profileOutputWriter.writeJson("Spark Rapids Build Info",
+      app.sparkRapidsBuildInfo, pretty = true)
     profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
       profilerResult.diagnostics.stageDiagnostics)
     profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
