@@ -18,14 +18,19 @@ package com.nvidia.spark.rapids.tool
 
 import java.io.{File, FilenameFilter, FileNotFoundException}
 
-import scala.collection.mutable.ArrayBuffer
-
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
+import com.nvidia.spark.rapids.tool.tuning.{GpuWorkerProps, TargetClusterProps, WorkerInfo}
+import org.apache.hadoop.fs.Path
+import org.yaml.snakeyaml.{DumperOptions, Yaml}
+import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.rapids.tool.ClusterSummary
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
@@ -185,6 +190,62 @@ object ToolTestUtils extends Logging {
       assert(actualStatusReportCount == expStatusReportCount,
         s"Expected status report counts: $expStatusReportCount, " +
           s"but got: $actualStatusReportCount")
+    }
+  }
+
+  /**
+   * Load a JSON file containing an array of ClusterSummary objects.
+   * @param path The path to the JSON file.
+   * @return An array of ClusterSummary objects.
+   */
+  def loadClusterSummaryFromJson(path: String): Array[ClusterSummary] = {
+    val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+    mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+  }
+
+  def buildTargetClusterInfo(
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): TargetClusterProps = {
+    val gpuWorkerProps = new GpuWorkerProps(
+      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
+    val workerProps = new WorkerInfo(instanceType, gpuWorkerProps)
+    new TargetClusterProps(workerProps)
+  }
+
+  def buildTargetClusterInfoAsString(
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): String = {
+    val targetCluster = buildTargetClusterInfo(instanceType, gpuCount, gpuMemory, gpuDevice)
+    // set the options to convert the object into formatted yaml content
+    val options = new DumperOptions()
+    options.setIndent(2)
+    options.setPrettyFlow(true)
+    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
+    val yaml = new Yaml(options)
+    val rawString = yaml.dump(targetCluster)
+    // Skip the first line as it contains "the name of the class"
+    rawString.split("\n").drop(1).mkString("\n")
+  }
+
+  def createTargetClusterInfoFile(
+      outputDirectory: String,
+      instanceType: String,
+      gpuCount: Option[Int] = None,
+      gpuMemory: Option[String] = None,
+      gpuDevice: Option[String] = None): Path = {
+    val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
+      "Target Cluster Info")
+    try {
+      val targetClusterInfoString =
+        buildTargetClusterInfoAsString(instanceType, gpuCount, gpuMemory, gpuDevice)
+      fileWriter.write(targetClusterInfoString)
+      fileWriter.getFileOutputPath
+    } finally {
+      fileWriter.close()
     }
   }
 }
