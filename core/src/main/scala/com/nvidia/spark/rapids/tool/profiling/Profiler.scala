@@ -99,7 +99,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           logPath = Option(driverLogInfos),
           hadoopConf = hadoopConf)
       val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
-      profileOutputWriter.writeTextAsTable(s"Unsupported operators in driver log",
+      profileOutputWriter.writeTable(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
@@ -345,53 +345,53 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val app = profilerResult.summary
     profileOutputWriter.writeText("### A. Information Collected ###")
-    profileOutputWriter.writeTextAsTable(ProfInformationView.getLabel, app.appInfo)
-    profileOutputWriter.writeTextAsTable(ProfLogPathView.getLabel, app.appLogPath)
-    profileOutputWriter.writeTextAsTable(ProfDataSourceView.getLabel, app.dsInfo)
-    profileOutputWriter.writeTextAsTable(ProfExecutorView.getLabel, app.execInfo)
-    profileOutputWriter.writeTextAsTable(ProfJobsView.getLabel, app.jobInfo)
-    profileOutputWriter.writeTextAsTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-    profileOutputWriter.writeTextAsTable(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+    profileOutputWriter.writeTable(ProfInformationView.getLabel, app.appInfo)
+    profileOutputWriter.writeTable(ProfLogPathView.getLabel, app.appLogPath)
+    profileOutputWriter.writeTable(ProfDataSourceView.getLabel, app.dsInfo)
+    profileOutputWriter.writeTable(ProfExecutorView.getLabel, app.execInfo)
+    profileOutputWriter.writeTable(ProfJobsView.getLabel, app.jobInfo)
+    profileOutputWriter.writeTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+    profileOutputWriter.writeTable(RapidsQualPropertiesView.getLabel, app.rapidsProps,
       Some(RapidsQualPropertiesView.getDescription))
-    profileOutputWriter.writeTextAsTable(SparkQualPropertiesView.getLabel, app.sparkProps,
+    profileOutputWriter.writeTable(SparkQualPropertiesView.getLabel, app.sparkProps,
       Some(SparkQualPropertiesView.getDescription))
-    profileOutputWriter.writeTextAsTable(SystemQualPropertiesView.getLabel, app.sysProps,
+    profileOutputWriter.writeTable(SystemQualPropertiesView.getLabel, app.sysProps,
       Some(SystemQualPropertiesView.getDescription))
-    profileOutputWriter.writeTextAsTable(ProfRapidsJarView.getLabel, app.rapidsJar,
+    profileOutputWriter.writeTable(ProfRapidsJarView.getLabel, app.rapidsJar,
       Some(ProfRapidsJarView.getDescription))
-    profileOutputWriter.writeTextAsTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+    profileOutputWriter.writeTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
       Some(ProfSQLPlanMetricsView.getDescription))
-    profileOutputWriter.writeTextAsTable(ProfStageMetricView.getLabel, app.stageMetrics,
+    profileOutputWriter.writeTable(ProfStageMetricView.getLabel, app.stageMetrics,
       Some(ProfStageMetricView.getDescription))
-    profileOutputWriter.writeTextAsTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
+    profileOutputWriter.writeTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
       Some(ProfSQLCodeGenView.getDescription))
     profileOutputWriter.writeJson(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo, pretty = false)
 
     profileOutputWriter.writeText("\n### B. Analysis ###\n")
-    profileOutputWriter.writeTextAsTable(JOB_AGG_LABEL, app.jobAggMetrics,
+    profileOutputWriter.writeTable(JOB_AGG_LABEL, app.jobAggMetrics,
       Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
-    profileOutputWriter.writeTextAsTable(STAGE_AGG_LABEL, app.stageAggMetrics,
+    profileOutputWriter.writeTable(STAGE_AGG_LABEL, app.stageAggMetrics,
       Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
-    profileOutputWriter.writeTextAsTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+    profileOutputWriter.writeTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
       Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
-    profileOutputWriter.writeTextAsTable(IO_LABEL, app.ioMetrics)
-    profileOutputWriter.writeTextAsTable(SQL_DUR_LABEL, app.durAndCpuMet)
+    profileOutputWriter.writeTable(IO_LABEL, app.ioMetrics)
+    profileOutputWriter.writeTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     val skewHeader = TASK_SHUFFLE_SKEW
     val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
-    profileOutputWriter.writeTextAsTable(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
+    profileOutputWriter.writeTable(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
     profileOutputWriter.writeText("\n### C. Health Check###\n")
-    profileOutputWriter.writeTextAsTable(ProfFailedTaskView.getLabel, app.failedTasks)
-    profileOutputWriter.writeTextAsTable(ProfFailedStageView.getLabel, app.failedStages)
-    profileOutputWriter.writeTextAsTable(ProfFailedJobsView.getLabel, app.failedJobs)
-    profileOutputWriter.writeTextAsTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
-    profileOutputWriter.writeTextAsTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
-    profileOutputWriter.writeTextAsTable("Unsupported SQL Plan", app.unsupportedOps,
+    profileOutputWriter.writeTable(ProfFailedTaskView.getLabel, app.failedTasks)
+    profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)
+    profileOutputWriter.writeTable(ProfFailedJobsView.getLabel, app.failedJobs)
+    profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+    profileOutputWriter.writeTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
+    profileOutputWriter.writeTable("Unsupported SQL Plan", app.unsupportedOps,
       Some("Unsupported SQL Ops"))
     if (outputAlignedSQLIds) {
-      profileOutputWriter.writeTextAsTable(
+      profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
         Some(ProfSQLPlanAlignedView.getDescription))
     }

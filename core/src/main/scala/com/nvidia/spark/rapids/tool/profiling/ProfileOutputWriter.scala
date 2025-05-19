@@ -23,7 +23,8 @@ import org.json4s.jackson.Serialization
 
 /**
  * ProfileOutputWriter by default writes to a text 'profile.log' file.
- * In case the outputCSV is set to true, it will also write the output to a separate CSV file.
+ * In case the outputCSV is set to true, it will write each table to a
+ * separate CSV file.
  */
 class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
@@ -58,7 +59,7 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
     }
   }
 
-  def writeTextAsTable(headerText: String, outRows: Seq[ProfileResult],
+  def writeTable(headerText: String, outRows: Seq[ProfileResult],
       emptyTableText: Option[String] = None, tableDesc: Option[String] = None): Unit = {
     writeTextTable(headerText, outRows, emptyTableText, tableDesc)
     if (outputCSV) {
@@ -70,6 +71,16 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
       ProfileOutputWriter.writeCSVTable(headerText, outRows, outputDir)
   }
 
+  /**
+   * Write the given profile results as JSON format to a file.
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+   * @param pretty If true, writes JSON sequence as an array with each JSON written in
+   *                pretty format.
+   *               If false, it will be written in JSON Lines (JSONL) format
+   *               ( each JSON object on a new line).
+   */
   def writeJson(headerText: String, outRows: Seq[AnyRef], pretty: Boolean = true): Unit = {
     if (pretty) {
       ProfileOutputWriter.writeJsonPretty(headerText, outRows, outputDir)
@@ -125,6 +136,9 @@ object ProfileOutputWriter {
 
   /**
    * Writes the given profile results as JSON Lines (JSONL) format to a file.
+   * eg JSON -
+   * {"name":"John", "age":30, "city":"New York"}
+   * {"name":"Jane", "age":25, "city":"Los Angeles"}
    *
    * @param headerText The header text used to generate the filename.
    * @param outRows The sequence of profile results to write.
@@ -145,6 +159,19 @@ object ProfileOutputWriter {
 
   /**
    * Writes the passed output results as JSON format to a file.
+   * eg JSON -
+   * [
+   *  {
+   *    "name":"John",
+   *    "age":30,
+   *    "city":"New York"
+   *  },
+   *  {
+   *   "name":"Jane",
+   *   "age":25,
+   *   "city":"Los Angeles"
+   *  }
+ *   ]
    * @param headerText The header text used to generate the filename.
    * @param outRows The sequence of profile results to write.
    */

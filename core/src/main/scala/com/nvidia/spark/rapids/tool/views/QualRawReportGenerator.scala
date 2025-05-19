@@ -52,13 +52,13 @@ object QualRawReportGenerator extends Logging {
   private def generateSQLProcessingView(
       pWriter: ProfileOutputWriter,
       sqlPlanAnalyzer: AppSQLPlanAnalyzer): Seq[SQLAccumProfileResults] = {
-    pWriter.writeTextAsTable(QualSQLToStageView.getLabel,
+    pWriter.writeTable(QualSQLToStageView.getLabel,
       QualSQLToStageView.getRawViewFromSqlProcessor(sqlPlanAnalyzer))
     val sqlPlanMetrics = QualSQLPlanMetricsView.getRawViewFromSqlProcessor(sqlPlanAnalyzer)
-    pWriter.writeTextAsTable(QualSQLPlanMetricsView.getLabel,
+    pWriter.writeTable(QualSQLPlanMetricsView.getLabel,
       sqlPlanMetrics,
       Some(QualSQLPlanMetricsView.getDescription))
-    pWriter.writeTextAsTable(QualSQLCodeGenView.getLabel,
+    pWriter.writeTable(QualSQLCodeGenView.getLabel,
       QualSQLCodeGenView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
       Some(QualSQLCodeGenView.getDescription))
     sqlPlanMetrics
@@ -74,9 +74,9 @@ object QualRawReportGenerator extends Logging {
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       pWriter.writeText("### A. Information Collected ###")
-      pWriter.writeTextAsTable(
+      pWriter.writeTable(
         QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
+      pWriter.writeTable(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
       val sqlPlanMetricsResults = generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
       pWriter.writeJson(
         QualAppSQLPlanInfoView.getLabel,
@@ -84,19 +84,19 @@ object QualRawReportGenerator extends Logging {
         pretty = false)
       // Skipping writing to profile file as it would be too large
       dataSourceInfo = QualDataSourceView.getRawView(Seq(app), sqlPlanMetricsResults)
-      pWriter.writeTextAsTable(QualDataSourceView.getLabel, dataSourceInfo)
-      pWriter.writeTextAsTable(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(QualStageMetricView.getLabel,
+      pWriter.writeTable(QualDataSourceView.getLabel, dataSourceInfo)
+      pWriter.writeTable(QualExecutorView.getLabel, QualExecutorView.getRawView(Seq(app)))
+      pWriter.writeTable(QualAppJobView.getLabel, QualAppJobView.getRawView(Seq(app)))
+      pWriter.writeTable(QualStageMetricView.getLabel,
         QualStageMetricView.getRawViewFromSqlProcessor(sqlPlanAnalyzer),
         Some(QualStageMetricView.getDescription))
-      pWriter.writeTextAsTable(RapidsQualPropertiesView.getLabel,
+      pWriter.writeTable(RapidsQualPropertiesView.getLabel,
         RapidsQualPropertiesView.getRawView(Seq(app)),
         Some(RapidsQualPropertiesView.getDescription))
-      pWriter.writeTextAsTable(SparkQualPropertiesView.getLabel,
+      pWriter.writeTable(SparkQualPropertiesView.getLabel,
         SparkQualPropertiesView.getRawView(Seq(app)),
         Some(SparkQualPropertiesView.getDescription))
-      pWriter.writeTextAsTable(SystemQualPropertiesView.getLabel,
+      pWriter.writeTable(SystemQualPropertiesView.getLabel,
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
@@ -106,18 +106,18 @@ object QualRawReportGenerator extends Logging {
           if (label == STAGE_DIAGNOSTICS_LABEL) {
             pWriter.writeCSVTable(label, metrics)
           } else {
-            pWriter.writeTextAsTable(label, metrics, AGG_DESCRIPTION.get(label))
+            pWriter.writeTable(label, metrics, AGG_DESCRIPTION.get(label))
           }
       }
       pWriter.writeText("\n### C. Health Check###\n")
-      pWriter.writeTextAsTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(
+      pWriter.writeTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
+      pWriter.writeTable(
         QualFailedStageView.getLabel, QualFailedStageView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(
+      pWriter.writeTable(
         QualAppFailedJobView.getLabel, QualAppFailedJobView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(
+      pWriter.writeTable(
         QualRemovedBLKMgrView.getLabel, QualRemovedBLKMgrView.getRawView(Seq(app)))
-      pWriter.writeTextAsTable(
+      pWriter.writeTable(
         QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
       // we only need to write the CSV report of the WriteOps
       pWriter.writeCSVTable(QualWriteOpsView.getLabel, QualWriteOpsView.getRawView(Seq(app)))
