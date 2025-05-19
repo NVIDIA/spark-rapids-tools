@@ -83,6 +83,10 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
   }
 }
 
+/**
+ * Utility object for writing profile results to CSV and JSON files.
+ * Each of the methods does not write anything in case of empty input.
+ */
 object ProfileOutputWriter {
 
   implicit val formats: DefaultFormats.type = DefaultFormats
