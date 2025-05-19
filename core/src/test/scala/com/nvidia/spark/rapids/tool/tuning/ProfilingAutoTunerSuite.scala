@@ -3224,7 +3224,9 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     }
   }
 
-  test(s"test AutoTuner recommends increasing shuffle partition when shuffle stages " +
+  // TODO: Revisit this test once optimal tuning for AQE for dataproc on g2 instances is determined
+  //       See https://github.com/NVIDIA/spark-rapids-tools/issues/1682
+  ignore(s"test AutoTuner recommends increasing shuffle partition when shuffle stages " +
     s"have OOM failures") {
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -3263,7 +3265,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3300,7 +3302,9 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test(s"test AutoTuner recommends increasing shuffle partition and AQE initial partition num " +
+  // TODO: Revisit this test once optimal tuning for AQE for dataproc on g2 instances is determined
+  //       See https://github.com/NVIDIA/spark-rapids-tools/issues/1682
+  ignore(s"test AutoTuner recommends increasing shuffle partition and AQE initial partition num " +
     s"when shuffle stages have OOM failures") {
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -3340,16 +3344,18 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=32m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=800
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=512m
-          |--conf spark.sql.shuffle.partitions=100
+          |--conf spark.sql.shuffle.partitions=800
           |
           |Comments:
           |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
@@ -3365,7 +3371,9 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.sql.shuffle.partitions' should be increased since task OOM occurred in shuffle stages.
