@@ -499,12 +499,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * @return Optional `RecommendedClusterInfo` containing the GPU cluster configuration
    *         recommendation.
    */
-  def createRecommendedGpuClusterInfo(sparkProperties: Map[String, String]): Unit = {
+  def createRecommendedGpuClusterInfo(
+      sparkProperties: Map[String, String],
+      recommendedClusterShapeStrategy: ClusterShapeStrategy): Unit = {
     // Get the appropriate cluster configuration strategy (either
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
-      platform = this, sparkProperties = sparkProperties)
+      platform = this, sparkProperties = sparkProperties,
+      recommendedClusterShapeStrategy = recommendedClusterShapeStrategy)
 
     configurationStrategyOpt match {
       case Some(strategy) =>
@@ -620,6 +623,8 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
     Some(NodeInstanceMapKey(instanceType = "g5.8xlarge"))
   }
 
+  override def maxGpusSupported: Int = 4
+
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATABRICKS_AWS_BY_INSTANCE_NAME
   }
@@ -694,6 +699,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def isPlatformCSP: Boolean = true
+  override def maxGpusSupported: Int = 4
   override def requirePathRecommendations: Boolean = false
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
