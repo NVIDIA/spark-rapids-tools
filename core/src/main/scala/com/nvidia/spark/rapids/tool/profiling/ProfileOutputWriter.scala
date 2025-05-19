@@ -189,7 +189,7 @@ object ProfileOutputWriter {
   // originally copied from Spark showString and modified
   private def makeFormattedString(
       _numRows: Int,
-      truncate: Int = 20,
+      truncate: Int,
       schema: Seq[String],
       rows: Seq[Array[String]]): String = {
     val numRows = _numRows.max(0).min(2147483632 - 1)
