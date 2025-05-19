@@ -30,8 +30,12 @@ case class RecommendedClusterConfig(
     gpuDevice: GpuDevice,
     numGpusPerNode: Int
 ) {
+  def execsPerNode: Int = {
+    numGpusPerNode
+  }
+
   def coresPerNode: Int = {
-    coresPerExec * numGpusPerNode
+    coresPerExec * execsPerNode
   }
 }
 
