@@ -3548,6 +3548,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   )
 
   test("Do not recommend RAPIDS Shuffle Manager when dynamic allocation is enabled") {
+    // This test checks if Auto-Tuner will append recommend and comment for rapids shuffle
+    // manager when spark.dynamicAllocation.enabled is set to true.
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -3619,6 +3621,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Do not recommend RAPIDS Shuffle Manager when shuffle manager is already set") {
+    // This test checks if Auto-Tuner will append recommend and comment for rapids shuffle
+    // manager when shuffle manager is already set.
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -3690,6 +3694,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Do not recommend RAPIDS Shuffle Manager when shuffle service is enabled") {
+    // This test checks if Auto-Tuner will append recommend and comment for rapids shuffle
+    // manager when spark.shuffle.service.enabled is set to true.
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -3761,6 +3767,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Recommend RAPIDS Shuffle Manager when dynamic allocation is disabled") {
+    // This test checks if Auto-Tuner will append recommend and comment for rapids shuffle
+    // manager when spark.dynamicAllocation.enabled is set to false.
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -3834,6 +3842,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("Recommend RAPIDS Shuffle Manager when dynamic allocation is not set") {
+    // This test checks if Auto-Tuner will append recommend and comment for rapids shuffle
+    // manager when dynamicAllocation is not set at all.
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
