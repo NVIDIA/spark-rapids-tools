@@ -3539,8 +3539,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3560,7 +3559,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3612,8 +3611,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3633,7 +3631,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3685,8 +3683,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3706,7 +3703,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3758,8 +3755,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3779,7 +3775,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
@@ -3832,8 +3828,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = ProfilingAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(dataprocWorkerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -3853,7 +3848,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
