@@ -659,8 +659,12 @@ class AutoTuner(
     // set the Spark config  spark.shuffle.sort.bypassMergeThreshold
     val isDynamicAllocationEnabled = appInfoProvider.getSparkProperty(
       "spark.dynamicAllocation.enabled").contains("true")
-    if (isDynamicAllocationEnabled) {
-      comments += ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForDynamicAllocation
+    val isShuffleManagerSet = appInfoProvider.getSparkProperty("spark.shuffle.manager")
+      .filter(s => !s.toLowerCase.contains("rapids")).nonEmpty
+    val isShuffleServiceEnabled = appInfoProvider.getSparkProperty("spark.shuffle.service.enabled")
+      .contains("true")
+    if (isDynamicAllocationEnabled || isShuffleManagerSet || isShuffleServiceEnabled) {
+      appendComment(ProfilingAutoTunerConfigsProvider.shuffleManagerCommentForDynamicAllocation)
     } else {
       getShuffleManagerClassName match {
         case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
@@ -1542,7 +1546,8 @@ trait AutoTunerConfigsProvider extends Logging {
   }
 
   def shuffleManagerCommentForDynamicAllocation: String = {
-    "RAPIDS Shuffle Manager is not recommended when dynamic allocation is enabled."
+    "RAPIDS Shuffle Manager is not recommended when dynamic allocation or shuffle service is" +
+      " enabled or another shuffle manager is already set."
   }
 
   def latestPluginJarComment(latestJarMvnUrl: String, currentJarVer: String): String = {
