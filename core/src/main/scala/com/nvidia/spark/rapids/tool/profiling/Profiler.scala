@@ -417,7 +417,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
     }
     // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
-    profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary)
+    profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary, pretty = true)
   }
 
   /**
