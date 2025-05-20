@@ -480,9 +480,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def requirePathRecommendations: Boolean = true
 
   /**
-   * The maximum number of Gpus any instance in this platform supports.
+   * The maximum number of GPUs supported by any instance type in this platform.
    */
-  def maxGpusSupported: Int = 1
+  lazy val maxGpusSupported: Int = {
+    val gpuCounts = getInstanceMapByName.values.map(_.numGpus)
+    if (gpuCounts.isEmpty) {
+      // Default to 1 if instance types are not defined (e.g. on-prem)
+      1
+    } else {
+      gpuCounts.max
+    }
+  }
 
   /**
    * Get the mapping of instance names to their corresponding instance information.
@@ -623,8 +631,6 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
     Some(NodeInstanceMapKey(instanceType = "g5.8xlarge"))
   }
 
-  override def maxGpusSupported: Int = 4
-
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATABRICKS_AWS_BY_INSTANCE_NAME
   }
@@ -638,8 +644,6 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
   override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "Standard_NC8as_T4_v3"))
   }
-
-  override def maxGpusSupported: Int = 4
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_INSTANCE_NAME
@@ -663,7 +667,6 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   )
 
   override def isPlatformCSP: Boolean = true
-  override def maxGpusSupported: Int = 4
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME
@@ -699,7 +702,6 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   }
 
   override def isPlatformCSP: Boolean = true
-  override def maxGpusSupported: Int = 4
   override def requirePathRecommendations: Boolean = false
 
   override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
@@ -739,7 +741,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
   // on prem is hard since we don't know what node configurations they have
   // assume 1 for now. We should have them pass this information in the future.
-  override def maxGpusSupported: Int = 1
+  override lazy val maxGpusSupported: Int = 1
 }
 
 object Platform {

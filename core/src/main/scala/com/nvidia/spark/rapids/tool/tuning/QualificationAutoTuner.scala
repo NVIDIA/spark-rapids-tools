@@ -51,7 +51,7 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
   // See https://github.com/NVIDIA/spark-rapids-tools/issues/1399
   override val BATCH_SIZE_BYTES = 1073741824
 
-  override val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainCoresStrategy
+  override lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainCoresStrategy
 
   override def createAutoTunerInstance(
       clusterProps: ClusterProperties,

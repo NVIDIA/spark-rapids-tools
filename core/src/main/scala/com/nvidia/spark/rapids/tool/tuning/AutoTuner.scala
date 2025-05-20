@@ -1346,7 +1346,7 @@ trait AutoTunerConfigsProvider extends Logging {
    * Default strategy for cluster shape recommendation.
    * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
    */
-  val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainGpuCountStrategy
+  lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainGpuCountStrategy
 
   val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->
