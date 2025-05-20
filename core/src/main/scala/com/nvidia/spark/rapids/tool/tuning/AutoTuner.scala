@@ -24,7 +24,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterShapeStrategy, GpuDevice, KeepTotalGpuCountStrategy, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, GpuDevice, MaintainGpuCountStrategy, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.yaml.snakeyaml.constructor.ConstructorException
 
@@ -434,7 +434,7 @@ class AutoTuner(
    */
   private def configureGPURecommendedInstanceType(): Unit = {
     platform.createRecommendedGpuClusterInfo(getAllProperties.toMap,
-      autoTunerConfigsProvider.recommendedClusterShapeStrategy)
+      autoTunerConfigsProvider.recommendedClusterSizingStrategy)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
       // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
@@ -1344,9 +1344,9 @@ trait AutoTunerConfigsProvider extends Logging {
 
   /**
    * Default strategy for cluster shape recommendation.
-   * See [[com.nvidia.spark.rapids.tool.ClusterShapeStrategy]] for different strategies.
+   * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
    */
-  val recommendedClusterShapeStrategy: ClusterShapeStrategy = KeepTotalGpuCountStrategy
+  val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainGpuCountStrategy
 
   val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->

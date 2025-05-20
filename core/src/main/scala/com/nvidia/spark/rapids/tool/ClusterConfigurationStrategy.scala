@@ -39,8 +39,10 @@ case class RecommendedClusterConfig(
   }
 }
 
-/** Base strategy trait for determining the shape of the cluster configuration. */
-trait ClusterShapeStrategy {
+/**
+ * Base strategy trait for determining the sizing of the cluster configuration.
+ */
+trait ClusterSizingStrategy {
 
   /** Utility method to compute recommended cores per executor. */
   final def computeRecommendedCoresPerExec(platform: Platform, totalCoresCount: Int): Int = {
@@ -64,10 +66,10 @@ trait ClusterShapeStrategy {
 }
 
 /**
- * Strategy that keeps the total number of cores same between source and target cluster
- * while adjusting number of executors (also number of GPUs).
+ * Strategy that maintains the total number of CPU cores between the source and
+ * target clusters. It adjusts the number of executors (and hence GPUs) accordingly.
  */
-object KeepTotalCoresStrategy extends ClusterShapeStrategy {
+object MaintainCoresStrategy extends ClusterSizingStrategy {
   def computeRecommendedConfig(
       platform: Platform,
       initialNumExecutors: Int,
@@ -85,9 +87,10 @@ object KeepTotalCoresStrategy extends ClusterShapeStrategy {
 }
 
 /**
- * Strategy that keeps the total number of GPUs same between source and target cluster.
+ * Strategy that maintains the total number of GPUs between the source and
+ * target clusters. The number of executors remains unchanged.
  */
-object KeepTotalGpuCountStrategy extends ClusterShapeStrategy {
+object MaintainGpuCountStrategy extends ClusterSizingStrategy {
   def computeRecommendedConfig(
       platform: Platform,
       initialNumExecutors: Int,
@@ -108,7 +111,7 @@ object KeepTotalGpuCountStrategy extends ClusterShapeStrategy {
 abstract class ClusterConfigurationStrategy(
     platform: Platform,
     sparkProperties: Map[String, String],
-    recommendationStrategy: ClusterShapeStrategy) {
+    recommendedClusterSizingStrategy: ClusterSizingStrategy) {
 
   /**
    * Calculates the initial number of executors based on the strategy.
@@ -167,7 +170,7 @@ abstract class ClusterConfigurationStrategy(
     if (initialNumExecutors <= 0) {
       None
     } else {
-      Some(recommendationStrategy.computeRecommendedConfig(
+      Some(recommendedClusterSizingStrategy.computeRecommendedConfig(
         platform,
         initialNumExecutors,
         getInitialCoresPerExec,
@@ -185,8 +188,9 @@ abstract class ClusterConfigurationStrategy(
 class ClusterPropertyBasedStrategy(
     platform: Platform,
     sparkProperties: Map[String, String],
-    recommendationStrategy: ClusterShapeStrategy)
-  extends ClusterConfigurationStrategy(platform, sparkProperties, recommendationStrategy) {
+    recommendedClusterSizingStrategy: ClusterSizingStrategy)
+  extends ClusterConfigurationStrategy(platform, sparkProperties,
+    recommendedClusterSizingStrategy) {
 
   private val clusterProperties = platform.clusterProperties.getOrElse(
       throw new IllegalArgumentException("Cluster properties must be defined"))
@@ -237,8 +241,9 @@ class ClusterPropertyBasedStrategy(
 class EventLogBasedStrategy(
     platform: Platform,
     sparkProperties: Map[String, String],
-    recommendationStrategy: ClusterShapeStrategy
-  ) extends ClusterConfigurationStrategy(platform, sparkProperties, recommendationStrategy) {
+    recommendedClusterSizingStrategy: ClusterSizingStrategy)
+  extends ClusterConfigurationStrategy(platform, sparkProperties,
+    recommendedClusterSizingStrategy) {
 
   private val clusterInfoFromEventLog: SourceClusterInfo = {
     platform.clusterInfoFromEventLog.getOrElse(
@@ -283,16 +288,16 @@ object ClusterConfigurationStrategy {
   def getStrategy(
       platform: Platform,
       sparkProperties: Map[String, String],
-      recommendedClusterShapeStrategy: ClusterShapeStrategy)
+      recommendedClusterSizingStrategy: ClusterSizingStrategy)
   : Option[ClusterConfigurationStrategy] = {
     if (platform.clusterProperties.isDefined) {
       // Use strategy based on cluster properties
       Some(new ClusterPropertyBasedStrategy(platform, sparkProperties,
-        recommendedClusterShapeStrategy))
+        recommendedClusterSizingStrategy))
     } else if (platform.clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
       Some(new EventLogBasedStrategy(platform, sparkProperties,
-        recommendedClusterShapeStrategy))
+        recommendedClusterSizingStrategy))
     } else {
       // Neither cluster properties are defined nor cluster information from event log is available
       None

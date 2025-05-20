@@ -501,13 +501,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def createRecommendedGpuClusterInfo(
       sparkProperties: Map[String, String],
-      recommendedClusterShapeStrategy: ClusterShapeStrategy): Unit = {
+      recommendedClusterSizingStrategy: ClusterSizingStrategy): Unit = {
     // Get the appropriate cluster configuration strategy (either
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
       platform = this, sparkProperties = sparkProperties,
-      recommendedClusterShapeStrategy = recommendedClusterShapeStrategy)
+      recommendedClusterSizingStrategy = recommendedClusterSizingStrategy)
 
     configurationStrategyOpt match {
       case Some(strategy) =>

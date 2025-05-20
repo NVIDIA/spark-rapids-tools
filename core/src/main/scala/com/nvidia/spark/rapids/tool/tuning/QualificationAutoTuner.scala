@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterShapeStrategy, KeepTotalCoresStrategy, Platform}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, MaintainCoresStrategy, Platform}
 import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
 
 /**
@@ -51,7 +51,7 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
   // See https://github.com/NVIDIA/spark-rapids-tools/issues/1399
   override val BATCH_SIZE_BYTES = 1073741824
 
-  override val recommendedClusterShapeStrategy: ClusterShapeStrategy = KeepTotalCoresStrategy
+  override val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainCoresStrategy
 
   override def createAutoTunerInstance(
       clusterProps: ClusterProperties,
