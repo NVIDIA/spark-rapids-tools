@@ -230,6 +230,10 @@ def extract_raw_features(
         app_duration_sum = app_duration_sum.rename(columns={'duration_sum': 'appDuration'})
         app_tbl = app_tbl.merge(app_duration_sum, on=['appId'], how='left', suffixes=['_orig', None])
 
+    # ensure task features are valid floats
+    app_task_features = ['taskCpu', 'taskGpu']
+    app_tbl[app_task_features] = app_tbl[app_task_features].fillna(0.0)
+
     # normalize timings from ns to ms
     ns_timing_mask = ops_tbl['metricType'] == 'nsTiming'
     ops_tbl.loc[ns_timing_mask, 'max'] = (
