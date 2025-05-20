@@ -257,6 +257,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     recommendedNodeInstanceInfo.map(_.gpuDevice).getOrElse(defaultGpuDevice)
   }
 
+  final def recommendedNumGpus: Int = {
+    recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(defaultNumGpus)
+  }
+
   // Default runtime for the platform
   val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
   // Set of supported runtimes for the platform
@@ -480,9 +484,17 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def requirePathRecommendations: Boolean = true
 
   /**
-   * The maximum number of Gpus any instance in this platform supports.
+   * The maximum number of GPUs supported by any instance type in this platform.
    */
-  def maxGpusSupported: Int = 1
+  lazy val maxGpusSupported: Int = {
+    val gpuCounts = getInstanceMapByName.values.map(_.numGpus)
+    if (gpuCounts.isEmpty) {
+      // Default to 1 if instance types are not defined (e.g. on-prem)
+      1
+    } else {
+      gpuCounts.max
+    }
+  }
 
   /**
    * Get the mapping of instance names to their corresponding instance information.
@@ -499,12 +511,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * @return Optional `RecommendedClusterInfo` containing the GPU cluster configuration
    *         recommendation.
    */
-  def createRecommendedGpuClusterInfo(sparkProperties: Map[String, String]): Unit = {
+  def createRecommendedGpuClusterInfo(
+      sparkProperties: Map[String, String],
+      recommendedClusterSizingStrategy: ClusterSizingStrategy): Unit = {
     // Get the appropriate cluster configuration strategy (either
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
-      platform = this, sparkProperties = sparkProperties)
+      platform = this, sparkProperties = sparkProperties,
+      recommendedClusterSizingStrategy = recommendedClusterSizingStrategy)
 
     configurationStrategyOpt match {
       case Some(strategy) =>
@@ -634,8 +649,6 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
     Some(NodeInstanceMapKey(instanceType = "Standard_NC8as_T4_v3"))
   }
 
-  override def maxGpusSupported: Int = 4
-
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_INSTANCE_NAME
   }
@@ -658,7 +671,6 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   )
 
   override def isPlatformCSP: Boolean = true
-  override def maxGpusSupported: Int = 4
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME
@@ -733,7 +745,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
   override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
   // on prem is hard since we don't know what node configurations they have
   // assume 1 for now. We should have them pass this information in the future.
-  override def maxGpusSupported: Int = 1
+  override lazy val maxGpusSupported: Int = 1
 }
 
 object Platform {

@@ -40,11 +40,79 @@ case class RecommendedClusterConfig(
 }
 
 /**
+ * Base strategy trait for determining the sizing of the cluster configuration.
+ */
+trait ClusterSizingStrategy {
+
+  /** Utility method to compute recommended cores per executor. */
+  final def computeRecommendedCoresPerExec(platform: Platform, totalCoresCount: Int): Int = {
+    if (platform.isPlatformCSP) {
+      // For CSPs, we already have the recommended cores per executor based on the instance type
+      platform.recommendedCoresPerExec
+    } else {
+      // For onprem, we do want to limit to the total cores count
+      math.min(platform.recommendedCoresPerExec, totalCoresCount)
+    }
+  }
+
+  /** Abstract method to compute the recommended cluster configuration. */
+  def computeRecommendedConfig(
+    platform: Platform,
+    initialNumExecutors: Int,
+    initialCoresPerExec: Int,
+    getMemoryPerNodeMb: => Long,
+    getRecommendedGpuDevice: => GpuDevice,
+    getRecommendedNumGpus: => Int): RecommendedClusterConfig
+}
+
+/**
+ * Strategy that keeps the total number of CPU cores between the source and
+ * target clusters constant. It adjusts the number of executors (and hence GPUs)
+ * accordingly.
+ */
+object ConstantTotalCoresStrategy extends ClusterSizingStrategy {
+  def computeRecommendedConfig(
+      platform: Platform,
+      initialNumExecutors: Int,
+      initialCoresPerExec: Int,
+      getMemoryPerNodeMb: => Long,
+      getRecommendedGpuDevice: => GpuDevice,
+      getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
+    val totalCoresCount = initialCoresPerExec * initialNumExecutors
+    val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
+    val recommendedNumExecutors =
+      math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt
+    RecommendedClusterConfig(recommendedNumExecutors, recommendedCoresPerExec,
+      getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
+  }
+}
+
+/**
+ * Strategy that keeps the total number of GPUs between the source and
+ * target clusters constant. The number of executors remains unchanged.
+ */
+object ConstantGpuCountStrategy extends ClusterSizingStrategy {
+  def computeRecommendedConfig(
+      platform: Platform,
+      initialNumExecutors: Int,
+      initialCoresPerExec: Int,
+      getMemoryPerNodeMb: => Long,
+      getRecommendedGpuDevice: => GpuDevice,
+      getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
+    val totalCoresCount = initialCoresPerExec * initialNumExecutors
+    val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
+    RecommendedClusterConfig(initialNumExecutors, recommendedCoresPerExec,
+      getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
+  }
+}
+
+/**
  * Base trait for different cluster configuration strategies.
  */
 abstract class ClusterConfigurationStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String]) {
+    sparkProperties: Map[String, String],
+    recommendedClusterSizingStrategy: ClusterSizingStrategy) {
 
   /**
    * Calculates the initial number of executors based on the strategy.
@@ -82,9 +150,13 @@ abstract class ClusterConfigurationStrategy(
 
   protected def getMemoryPerNodeMb: Long
 
-  protected def getNumGpus: Int
+  protected def getSourceNumGpus: Option[Int]
 
-  protected def getGpuDevice: GpuDevice
+  protected def getSourceGpuDevice: Option[GpuDevice]
+
+  protected def getRecommendedNumGpus: Int
+
+  protected def getRecommendedGpuDevice: GpuDevice
 
   /**
    * Generates the recommended cluster configuration based on the strategy.
@@ -103,22 +175,14 @@ abstract class ClusterConfigurationStrategy(
     if (initialNumExecutors <= 0) {
       None
     } else {
-      val initialCoresPerExec = getInitialCoresPerExec
-      val totalCoresCount = initialCoresPerExec * initialNumExecutors
-      val recommendedCoresPerExec = if (platform.isPlatformCSP) {
-        platform.recommendedCoresPerExec
-      } else {
-        // For onprem, recommended cores per executor should not exceed total core count
-        math.min(platform.recommendedCoresPerExec, totalCoresCount)
-      }
-      val recommendedNumExecutors =
-        math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt
-      Some(RecommendedClusterConfig(
-        numExecutors = recommendedNumExecutors,
-        coresPerExec = recommendedCoresPerExec,
-        memoryPerNodeMb = getMemoryPerNodeMb,
-        gpuDevice = getGpuDevice,
-        numGpusPerNode = getNumGpus))
+      Some(recommendedClusterSizingStrategy.computeRecommendedConfig(
+        platform,
+        initialNumExecutors,
+        getInitialCoresPerExec,
+        getMemoryPerNodeMb,
+        getRecommendedGpuDevice,
+        getRecommendedNumGpus
+      ))
     }
   }
 }
@@ -128,8 +192,10 @@ abstract class ClusterConfigurationStrategy(
  */
 class ClusterPropertyBasedStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String])
-  extends ClusterConfigurationStrategy(platform, sparkProperties) {
+    sparkProperties: Map[String, String],
+    recommendedClusterSizingStrategy: ClusterSizingStrategy)
+  extends ClusterConfigurationStrategy(platform, sparkProperties,
+    recommendedClusterSizingStrategy) {
 
   private val clusterProperties = platform.clusterProperties.getOrElse(
       throw new IllegalArgumentException("Cluster properties must be defined"))
@@ -164,13 +230,23 @@ class ClusterPropertyBasedStrategy(
     StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
 
-  override def getGpuDevice: GpuDevice = {
+  def getSourceGpuDevice: Option[GpuDevice] = {
     GpuDevice.createInstance(clusterProperties.getGpu.name)
-      .getOrElse(platform.defaultGpuDevice)
   }
 
-  override def getNumGpus: Int = {
-    numGpusFromProps
+  final def getSourceNumGpus: Option[Int] = {
+    Some(numGpusFromProps)
+  }
+
+  // TODO: In future, this logic should also consider the target cluster properties
+  def getRecommendedGpuDevice: GpuDevice = {
+    this.getSourceGpuDevice.getOrElse(platform.defaultGpuDevice)
+  }
+
+  // TODO: In future, this logic should also consider the target cluster properties
+  def getRecommendedNumGpus: Int = {
+    // `.get` is safe because `getSourceNumGpus` is final and always returns a value
+    this.getSourceNumGpus.get
   }
 }
 
@@ -179,8 +255,10 @@ class ClusterPropertyBasedStrategy(
  */
 class EventLogBasedStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String]
-  ) extends ClusterConfigurationStrategy(platform, sparkProperties) {
+    sparkProperties: Map[String, String],
+    recommendedClusterSizingStrategy: ClusterSizingStrategy)
+  extends ClusterConfigurationStrategy(platform, sparkProperties,
+    recommendedClusterSizingStrategy) {
 
   private val clusterInfoFromEventLog: SourceClusterInfo = {
     platform.clusterInfoFromEventLog.getOrElse(
@@ -203,14 +281,22 @@ class EventLogBasedStrategy(
     clusterInfoFromEventLog.coresPerExecutor
   }
 
-  // TODO: Add information about the existing GPU on the node
-  override def getGpuDevice: GpuDevice = {
-    platform.getGpuOrDefault
+  // TODO: Extract the GPU device on the source cluster node
+  def getSourceGpuDevice: Option[GpuDevice] = {
+    None
   }
 
-  // TODO: Add information about the existing GPU count on the node
-  override def getNumGpus: Int = {
-    platform.defaultNumGpus
+  // TODO: Extract the GPU count on the source cluster node
+  def getSourceNumGpus: Option[Int] = {
+    None
+  }
+
+  def getRecommendedGpuDevice: GpuDevice = {
+    platform.recommendedGpuDevice
+  }
+
+  def getRecommendedNumGpus: Int = {
+    platform.recommendedNumGpus
   }
 }
 
@@ -224,13 +310,17 @@ class EventLogBasedStrategy(
 object ClusterConfigurationStrategy {
   def getStrategy(
       platform: Platform,
-      sparkProperties: Map[String, String]): Option[ClusterConfigurationStrategy] = {
+      sparkProperties: Map[String, String],
+      recommendedClusterSizingStrategy: ClusterSizingStrategy)
+  : Option[ClusterConfigurationStrategy] = {
     if (platform.clusterProperties.isDefined) {
       // Use strategy based on cluster properties
-      Some(new ClusterPropertyBasedStrategy(platform, sparkProperties))
+      Some(new ClusterPropertyBasedStrategy(platform, sparkProperties,
+        recommendedClusterSizingStrategy))
     } else if (platform.clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
-      Some(new EventLogBasedStrategy(platform, sparkProperties))
+      Some(new EventLogBasedStrategy(platform, sparkProperties,
+        recommendedClusterSizingStrategy))
     } else {
       // Neither cluster properties are defined nor cluster information from event log is available
       None

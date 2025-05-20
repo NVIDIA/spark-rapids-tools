@@ -103,9 +103,9 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       RecommendedClusterInfo(
         vendor = PlatformNames.EMR,
         coresPerExecutor = 32,
-        numWorkerNodes = 4,
+        numWorkerNodes = 8,
         numGpusPerNode = 1,
-        numExecutors = 4,
+        numExecutors = 8,
         gpuDevice = GpuTypes.L4,
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
@@ -120,9 +120,9 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       RecommendedClusterInfo(
         vendor = PlatformNames.DATABRICKS_AWS,
         coresPerExecutor = 32,
-        numWorkerNodes = 4,
+        numWorkerNodes = 8,
         numGpusPerNode = 1,
-        numExecutors = 4,
+        numExecutors = 8,
         gpuDevice = GpuTypes.A10G,
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
