@@ -39,7 +39,7 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    * - count: Number of tasks in the stage
    * - total: Total accumulated value for the stage
    */
-  private val stagesStatMap: mutable.HashMap[Int, StatisticsMetrics] =
+  protected val stagesStatMap: mutable.HashMap[Int, StatisticsMetrics] =
     new mutable.HashMap[Int, StatisticsMetrics]()
 
   /**
@@ -66,6 +66,9 @@ class AccumInfo(val infoRef: AccumMetaRef) {
       case Some(v) => v
       case _ => update.getOrElse(0L)
     }
+    // We should not use the maximum of the existingEntry.total and the incomingValue because this
+    // will lead to incorrect values for metrics that are calculated by the Max/Min. For example,
+    // maxInputSize or, PeakMemory for a stage in that case will be the total of all the tasks.
     val newValue = Math.max(existingEntry.total, incomingValue)
     stagesStatMap.put(stageId, StatisticsMetrics(
       min = existingEntry.min,
@@ -179,24 +182,24 @@ class AccumInfo(val infoRef: AccumMetaRef) {
         a.total + b.total
       )
     }
-    StatisticsMetrics(
-      reduced_val.min,
-      reduced_val.med,
-      reduced_val.max,
-      reduced_val.count,
-      reduced_val.total)
+    readjustTotaStats(reduced_val)
+  }
+
+  /**
+   * Override this method to readjust the total value for the accumulator.
+   * This is useful to do any final adjustments of the aggregations on the metric.
+   */
+  protected def readjustTotaStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
+    statsRec
   }
 
   /**
    * Retrieves statistical metrics for a specific stage
    */
   def calculateAccStatsForStage(stageId: Int): Option[StatisticsMetrics] = {
-    stagesStatMap.get(stageId).map(statValue => StatisticsMetrics(
-      statValue.min,
-      statValue.med,
-      statValue.max,
-      statValue.count,
-      statValue.total))
+    stagesStatMap.get(stageId).map { statValue =>
+      readjustTotaStats(statValue)
+    }
   }
 
   /**
@@ -204,5 +207,40 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    */
   def containsStage(stageId: Int): Boolean = {
     stagesStatMap.contains(stageId)
+  }
+}
+
+/**
+ * Derived from AccumInfo, this class represents accumulators that are aggregated by the maximum
+ * value. The implementation overrides the original class by enforcing the "max" value to be used
+ * instead of the total
+ * @param infoRef - AccumMetaRef for the accumulator
+ */
+class AccumInfoWithMaxAgg(override val infoRef: AccumMetaRef) extends AccumInfo(infoRef) {
+  // The aggregate by max should not return the total field. instead, it enforces the max field.
+  override protected def readjustTotaStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
+    StatisticsMetrics(statsRec.min, statsRec.med, statsRec.max, statsRec.count, statsRec.max)
+  }
+  /**
+   * Get max total across stages. for that type of aggregates, the total should not be used.
+   * Instead, use the max.
+   */
+  override def getMaxTotalAcrossStages: Option[Long] = {
+    if (stagesStatMap.values.isEmpty) {
+      None
+    } else {
+      Some(stagesStatMap.values.map(_.max).max)
+    }
+  }
+}
+
+object AccumInfo {
+  def apply(infoRef: AccumMetaRef): AccumInfo = {
+    infoRef.metricCategory match {
+      case 1 => // max aggregate
+        new AccumInfoWithMaxAgg(infoRef)
+      case _ =>  // default
+        new AccumInfo(infoRef)
+    }
   }
 }

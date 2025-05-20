@@ -109,6 +109,7 @@ object EventUtils extends Logging {
   /**
    * Used to parse (value/update) fields of the AccumulableInfo object. If the data is not
    * a valid long, it tries to parse it as a duration in the format of "hour:mm:ss.SSS".
+   * Finally, if all the above fails, it tries to parse it as a GPU metric in human-readable format.
    *
    * @param data value stored in the (value/update) of the AccumulableInfo
    * @return valid parsed long of the content or the duration
@@ -120,7 +121,13 @@ object EventUtils extends Logging {
       Some(strData.toLong)
     } catch {
       case _ : NumberFormatException =>
-        StringUtils.parseFromDurationToLongOption(strData)
+        // if the data is not a valid long, try to parse it as a duration.
+        val durationValue = StringUtils.parseFromDurationToLongOption(strData)
+        if (durationValue.isDefined) {
+          return durationValue
+        }
+        // finally try to parse it as a human-readable GPU metric.
+        StringUtils.parseFromGPUMemoryMetricToLongOption(strData)
       case NonFatal(_) =>
         None
     }
