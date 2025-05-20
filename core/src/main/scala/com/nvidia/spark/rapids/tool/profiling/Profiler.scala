@@ -22,11 +22,11 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterProps, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatusException}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, FailureApp, IncorrectAppStatusException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -200,10 +200,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // we need a platform per application because it is storing cluster information, which could
       // vary between applications, especially when using dynamic allocation.
       val platform = {
-        val workerInfoPath = appArgs.workerInfo
-          .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
-        val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
-        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
+        val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
+          PropertiesLoader[ClusterProperties].loadFromFile)
+        val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
+          PropertiesLoader[TargetClusterProps].loadFromFile)
+        PlatformFactory.createInstance(appArgs.platform(),
+          clusterPropsOpt, targetClusterPropsOpt)
       }
       val app = new ApplicationInfo(hadoopConf, path, platform = platform)
       EventLogPathProcessor.logApplicationInfo(app)
@@ -407,7 +409,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profilerResult.diagnostics.stageDiagnostics)
     profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
       profilerResult.diagnostics.IODiagnostics)
-
+    // Construct the cluster summary information
+    // Note: This is available only after AutoTuner is run
+    val clusterSummary = app.appLogPath.map { logInfo =>
+      ClusterSummary(logInfo.appName, logInfo.appId.get, Some(logInfo.eventLogPath),
+        profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
+        profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
+    }
+    // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
+    profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary)
   }
 
   /**

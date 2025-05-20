@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool
 
 import org.apache.spark.network.util.ByteUnit
-import org.apache.spark.sql.rapids.tool.ExistingClusterInfo
+import org.apache.spark.sql.rapids.tool.SourceClusterInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
@@ -26,8 +26,9 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 case class RecommendedClusterConfig(
     numExecutors: Int,
     coresPerExec: Int,
-    numGpusPerNode: Int,
-    memoryPerNodeMb: Long // For onprem or cases where a matching CSP instance type is unavailable
+    memoryPerNodeMb: Long, // For onprem or cases where a matching CSP instance type is unavailable
+    gpuDevice: GpuDevice,
+    numGpusPerNode: Int
 ) {
   def execsPerNode: Int = {
     numGpusPerNode
@@ -81,6 +82,10 @@ abstract class ClusterConfigurationStrategy(
 
   protected def getMemoryPerNodeMb: Long
 
+  protected def getNumGpus: Int
+
+  protected def getGpuDevice: GpuDevice
+
   /**
    * Generates the recommended cluster configuration based on the strategy.
    *
@@ -111,8 +116,9 @@ abstract class ClusterConfigurationStrategy(
       Some(RecommendedClusterConfig(
         numExecutors = recommendedNumExecutors,
         coresPerExec = recommendedCoresPerExec,
-        numGpusPerNode = platform.recommendedGpusPerNode,
-        memoryPerNodeMb = getMemoryPerNodeMb))
+        memoryPerNodeMb = getMemoryPerNodeMb,
+        gpuDevice = getGpuDevice,
+        numGpusPerNode = getNumGpus))
     }
   }
 }
@@ -157,6 +163,15 @@ class ClusterPropertyBasedStrategy(
   override protected def getMemoryPerNodeMb: Long = {
     StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
+
+  override def getGpuDevice: GpuDevice = {
+    GpuDevice.createInstance(clusterProperties.getGpu.name)
+      .getOrElse(platform.defaultGpuDevice)
+  }
+
+  override def getNumGpus: Int = {
+    numGpusFromProps
+  }
 }
 
 /**
@@ -167,7 +182,7 @@ class EventLogBasedStrategy(
     sparkProperties: Map[String, String]
   ) extends ClusterConfigurationStrategy(platform, sparkProperties) {
 
-  private val clusterInfoFromEventLog: ExistingClusterInfo = {
+  private val clusterInfoFromEventLog: SourceClusterInfo = {
     platform.clusterInfoFromEventLog.getOrElse(
       throw new IllegalArgumentException("Cluster information from event log must be defined"))
   }
@@ -186,6 +201,16 @@ class EventLogBasedStrategy(
 
   override def calculateInitialCoresPerExec: Int = {
     clusterInfoFromEventLog.coresPerExecutor
+  }
+
+  // TODO: Add information about the existing GPU on the node
+  override def getGpuDevice: GpuDevice = {
+    platform.getGpuOrDefault
+  }
+
+  // TODO: Add information about the existing GPU count on the node
+  override def getNumGpus: Int = {
+    platform.defaultNumGpus
   }
 }
 

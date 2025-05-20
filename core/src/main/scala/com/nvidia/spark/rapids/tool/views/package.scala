@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ package object views {
   val SQL_DUR_LABEL = "SQL Duration and Executor CPU Time Percent"
   val SQL_MAX_INPUT_SIZE = "SQL Max Task Input Size"
   val STAGE_DIAGNOSTICS_LABEL = "Stage Level Diagnostic Metrics"
+  val CLUSTER_INFORMATION_LABEL = "Cluster Information"
 
   val AGG_DESCRIPTION = Map(
     STAGE_AGG_LABEL -> "Stage metrics",
