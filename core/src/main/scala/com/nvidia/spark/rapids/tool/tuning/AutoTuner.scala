@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import java.io.{BufferedReader, InputStreamReader, IOException}
 import java.util
 
 import scala.beans.BeanProperty
@@ -27,16 +26,12 @@ import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
-import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
-import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
-import org.yaml.snakeyaml.representer.Representer
+import org.yaml.snakeyaml.constructor.ConstructorException
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, WebCrawlerUtil}
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -440,6 +435,7 @@ class AutoTuner(
   private def configureGPURecommendedInstanceType(): Unit = {
     platform.createRecommendedGpuClusterInfo(getAllProperties.toMap)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
+      // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
       if (gpuClusterRec.numExecutors > 0) {
         appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
@@ -456,8 +452,9 @@ class AutoTuner(
    * Recommendation for 'spark.rapids.sql.concurrentGpuTasks' based on gpu memory.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
-  def calcGpuConcTasks(): Long = {
-    Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS, platform.getGpuOrDefault.getGpuConcTasks)
+  private def calcGpuConcTasks(): Long = {
+    Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS,
+      platform.recommendedGpuDevice.getGpuConcTasks)
   }
 
   /**
@@ -818,14 +815,14 @@ class AutoTuner(
       appInfoProvider.getMeanShuffleRead >
         autoTunerConfigsProvider.AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
-      platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
+      platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
       val initialPartitionNumProperty =
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
-        recInitialPartitionNum = platform.getGpuOrDefault.getInitialPartitionNum.getOrElse(0)
+        recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
       // We need to set this to false, else Spark ignores the target size specified by
       // spark.sql.adaptive.advisoryPartitionSizeInBytes.
@@ -1344,7 +1341,6 @@ trait AutoTunerConfigsProvider extends Logging {
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
     "additional-functionality/advanced_configs.html#advanced-configuration"
@@ -1446,41 +1442,6 @@ trait AutoTunerConfigsProvider extends Logging {
     tuning
   }
 
-  def loadClusterPropertiesFromContent(clusterProps: String): Option[ClusterProperties] = {
-    val representer = new Representer(new DumperOptions())
-    representer.getPropertyUtils.setSkipMissingProperties(true)
-    val constructor = new Constructor(classOf[ClusterProperties], new LoaderOptions())
-    val yamlObjNested = new Yaml(constructor, representer)
-    val loadedClusterProps = yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties]
-    if (loadedClusterProps != null && loadedClusterProps.softwareProperties == null) {
-      logInfo("softwareProperties is empty from input worker_info file")
-      loadedClusterProps.softwareProperties = new util.LinkedHashMap[String, String]()
-    }
-    Option(loadedClusterProps)
-  }
-
-  def loadClusterProps(filePath: String): Option[ClusterProperties] = {
-    val path = new Path(filePath)
-    var fsIs: FSDataInputStream = null
-    try {
-      val fs = FileSystem.get(path.toUri, new Configuration())
-      fsIs = fs.open(path)
-      val reader = new BufferedReader(new InputStreamReader(fsIs))
-      val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
-      loadClusterPropertiesFromContent(fileContent)
-    } catch {
-      // In case of missing file/malformed for cluster properties, default properties are used.
-      // Hence, catching and logging as a warning
-      case _: IOException =>
-        logWarning(s"No file found for input workerInfo path: $filePath")
-        None
-    } finally {
-      if (fsIs != null) {
-        fsIs.close()
-      }
-    }
-  }
-
   /**
    * Similar to [[buildAutoTuner]] but it allows constructing the AutoTuner without an
    * existing file. This can be used in testing.
@@ -1499,7 +1460,7 @@ trait AutoTunerConfigsProvider extends Logging {
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
-      val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
       createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
     } catch {
