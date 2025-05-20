@@ -297,3 +297,7 @@ HyperLogLogPlusPlus,1.5
 ArrayPosition,1.5
 Sha1,1.5
 ArrayDistinct,1.5
+BitwiseCount,1.5
+BitAndAgg,1.5
+BitOrAgg,1.5
+BitXorAgg,1.5
