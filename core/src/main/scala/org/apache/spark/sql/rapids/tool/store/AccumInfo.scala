@@ -182,15 +182,7 @@ class AccumInfo(val infoRef: AccumMetaRef) {
         a.total + b.total
       )
     }
-    readjustTotaStats(reduced_val)
-  }
-
-  /**
-   * Override this method to readjust the total value for the accumulator.
-   * This is useful to do any final adjustments of the aggregations on the metric.
-   */
-  protected def readjustTotaStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
-    statsRec
+    readjustTotalStats(reduced_val)
   }
 
   /**
@@ -198,7 +190,7 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    */
   def calculateAccStatsForStage(stageId: Int): Option[StatisticsMetrics] = {
     stagesStatMap.get(stageId).map { statValue =>
-      readjustTotaStats(statValue)
+      readjustTotalStats(statValue)
     }
   }
 
@@ -207,6 +199,14 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    */
   def containsStage(stageId: Int): Boolean = {
     stagesStatMap.contains(stageId)
+  }
+
+  /**
+   * Override this method to readjust the total value for the accumulator.
+   * This is useful to do any final adjustments of the aggregations on the metric.
+   */
+  protected def readjustTotalStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
+    statsRec
   }
 }
 
@@ -218,7 +218,7 @@ class AccumInfo(val infoRef: AccumMetaRef) {
  */
 class AccumInfoWithMaxAgg(override val infoRef: AccumMetaRef) extends AccumInfo(infoRef) {
   // The aggregate by max should not return the total field. instead, it enforces the max field.
-  override protected def readjustTotaStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
+  override protected def readjustTotalStats(statsRec: StatisticsMetrics): StatisticsMetrics = {
     StatisticsMetrics(statsRec.min, statsRec.med, statsRec.max, statsRec.count, statsRec.max)
   }
   /**
