@@ -24,7 +24,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, GpuDevice, MaintainGpuCountStrategy, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantGpuCountStrategy, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.yaml.snakeyaml.constructor.ConstructorException
 
@@ -1346,7 +1346,7 @@ trait AutoTunerConfigsProvider extends Logging {
    * Default strategy for cluster shape recommendation.
    * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
    */
-  lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = MaintainGpuCountStrategy
+  lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = ConstantGpuCountStrategy
 
   val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->

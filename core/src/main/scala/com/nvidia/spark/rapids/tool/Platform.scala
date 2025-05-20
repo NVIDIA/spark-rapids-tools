@@ -257,6 +257,10 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     recommendedNodeInstanceInfo.map(_.gpuDevice).getOrElse(defaultGpuDevice)
   }
 
+  final def recommendedNumGpus: Int = {
+    recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(defaultNumGpus)
+  }
+
   // Default runtime for the platform
   val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
   // Set of supported runtimes for the platform

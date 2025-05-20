@@ -61,47 +61,48 @@ trait ClusterSizingStrategy {
     initialNumExecutors: Int,
     initialCoresPerExec: Int,
     getMemoryPerNodeMb: => Long,
-    getGpuDevice: => GpuDevice,
-    getNumGpus: => Int): RecommendedClusterConfig
+    getRecommendedGpuDevice: => GpuDevice,
+    getRecommendedNumGpus: => Int): RecommendedClusterConfig
 }
 
 /**
- * Strategy that maintains the total number of CPU cores between the source and
- * target clusters. It adjusts the number of executors (and hence GPUs) accordingly.
+ * Strategy that keeps the total number of CPU cores between the source and
+ * target clusters constant. It adjusts the number of executors (and hence GPUs)
+ * accordingly.
  */
-object MaintainCoresStrategy extends ClusterSizingStrategy {
+object ConstantTotalCoresStrategy extends ClusterSizingStrategy {
   def computeRecommendedConfig(
       platform: Platform,
       initialNumExecutors: Int,
       initialCoresPerExec: Int,
       getMemoryPerNodeMb: => Long,
-      getGpuDevice: => GpuDevice,
-      getNumGpus: => Int): RecommendedClusterConfig = {
+      getRecommendedGpuDevice: => GpuDevice,
+      getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
     val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
     val recommendedNumExecutors =
       math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt
     RecommendedClusterConfig(recommendedNumExecutors, recommendedCoresPerExec,
-      getMemoryPerNodeMb, getGpuDevice, getNumGpus)
+      getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
 }
 
 /**
- * Strategy that maintains the total number of GPUs between the source and
- * target clusters. The number of executors remains unchanged.
+ * Strategy that keeps the total number of GPUs between the source and
+ * target clusters constant. The number of executors remains unchanged.
  */
-object MaintainGpuCountStrategy extends ClusterSizingStrategy {
+object ConstantGpuCountStrategy extends ClusterSizingStrategy {
   def computeRecommendedConfig(
       platform: Platform,
       initialNumExecutors: Int,
       initialCoresPerExec: Int,
       getMemoryPerNodeMb: => Long,
-      getGpuDevice: => GpuDevice,
-      getNumGpus: => Int): RecommendedClusterConfig = {
+      getRecommendedGpuDevice: => GpuDevice,
+      getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
     val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
     RecommendedClusterConfig(initialNumExecutors, recommendedCoresPerExec,
-      getMemoryPerNodeMb, getGpuDevice, getNumGpus)
+      getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
 }
 
@@ -149,9 +150,13 @@ abstract class ClusterConfigurationStrategy(
 
   protected def getMemoryPerNodeMb: Long
 
-  protected def getNumGpus: Int
+  protected def getSourceNumGpus: Option[Int]
 
-  protected def getGpuDevice: GpuDevice
+  protected def getSourceGpuDevice: Option[GpuDevice]
+
+  protected def getRecommendedNumGpus: Int
+
+  protected def getRecommendedGpuDevice: GpuDevice
 
   /**
    * Generates the recommended cluster configuration based on the strategy.
@@ -175,8 +180,8 @@ abstract class ClusterConfigurationStrategy(
         initialNumExecutors,
         getInitialCoresPerExec,
         getMemoryPerNodeMb,
-        getGpuDevice,
-        getNumGpus
+        getRecommendedGpuDevice,
+        getRecommendedNumGpus
       ))
     }
   }
@@ -225,13 +230,23 @@ class ClusterPropertyBasedStrategy(
     StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
 
-  override def getGpuDevice: GpuDevice = {
+  def getSourceGpuDevice: Option[GpuDevice] = {
     GpuDevice.createInstance(clusterProperties.getGpu.name)
-      .getOrElse(platform.defaultGpuDevice)
   }
 
-  override def getNumGpus: Int = {
-    numGpusFromProps
+  final def getSourceNumGpus: Option[Int] = {
+    Some(numGpusFromProps)
+  }
+
+  // TODO: In future, this logic should also consider the target cluster properties
+  def getRecommendedGpuDevice: GpuDevice = {
+    this.getSourceGpuDevice.getOrElse(platform.defaultGpuDevice)
+  }
+
+  // TODO: In future, this logic should also consider the target cluster properties
+  def getRecommendedNumGpus: Int = {
+    // `.get` is safe because `getSourceNumGpus` is final and always returns a value
+    this.getSourceNumGpus.get
   }
 }
 
@@ -266,14 +281,22 @@ class EventLogBasedStrategy(
     clusterInfoFromEventLog.coresPerExecutor
   }
 
-  // TODO: Add information about the existing GPU on the node
-  override def getGpuDevice: GpuDevice = {
+  // TODO: Extract the GPU device on the source cluster node
+  def getSourceGpuDevice: Option[GpuDevice] = {
+    None
+  }
+
+  // TODO: Extract the GPU count on the source cluster node
+  def getSourceNumGpus: Option[Int] = {
+    None
+  }
+
+  def getRecommendedGpuDevice: GpuDevice = {
     platform.recommendedGpuDevice
   }
 
-  // TODO: Add information about the existing GPU count on the node
-  override def getNumGpus: Int = {
-    platform.recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(platform.defaultNumGpus)
+  def getRecommendedNumGpus: Int = {
+    platform.recommendedNumGpus
   }
 }
 
