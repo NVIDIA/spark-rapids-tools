@@ -136,7 +136,7 @@ object ProfileOutputWriter {
 
   /**
    * Writes the given profile results as JSON Lines (JSONL) format to a file.
-   * eg JSON -
+   * eg JSONL -
    * {"name":"John", "age":30, "city":"New York"}
    * {"name":"Jane", "age":25, "city":"Los Angeles"}
    *
