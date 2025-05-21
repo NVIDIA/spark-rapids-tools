@@ -583,6 +583,25 @@ class RapidsJarTool(RapidsTool):
                 raise ValueError(f'Invalid dependency type [{defined_dep_type}]')
             return dep_item
 
+        def validate_env_var_dependency(dep: RuntimeDependency) -> str:
+            """
+            Validate the environment variable and return its value
+
+            For environment variables that are part of a path pattern (like ${SPARK_HOME}/jars/*),
+            we return the unexpanded form to allow shell expansion at command execution time.
+            """
+            env_var_path = dep.uri
+            # Validation for existence of the environment variable is done at model level
+            var_match = re.search(r'\${([^}]+)}', env_var_path)
+            var_name = var_match.group(1)
+            env_value = os.getenv(var_name)
+            if env_value is None:
+                raise ValueError(f'Environment variable [{var_name}] referenced in [{env_var_path}] not set')
+            # Replace the ${VAR} with its actual value
+            expanded_path = env_var_path.replace(f'${{{var_name}}}', env_value)
+            self.logger.info('Expanded environment variable %s to %s', env_var_path, expanded_path)
+            return expanded_path
+
         def cache_all_dependencies(dep_arr: List[RuntimeDependency]) -> List[str]:
             """
             Create a thread pool and download specified urls
@@ -618,9 +637,25 @@ class RapidsJarTool(RapidsTool):
 
         depend_arr = populate_dependency_list()
         if depend_arr:
-            dep_list = cache_all_dependencies(depend_arr)
-            if any(dep_item is None for dep_item in dep_list):
-                raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+            env_var_deps = [dep for dep in depend_arr if dep.dependency_type and
+                            dep.dependency_type.dep_type == DependencyType.ENV_VAR]
+            downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
+                         dep.dependency_type.dep_type != DependencyType.ENV_VAR]
+            dep_list = []
+            if downloadable_deps:
+                # download the dependencies
+                self.logger.info('Downloading dependencies %s', downloadable_deps)
+                dep_list = cache_all_dependencies(downloadable_deps)
+                if any(dep_item is None for dep_item in dep_list):
+                    raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+                self.logger.info('Downloadable dependencies are processed as: %s',
+                         Utils.gen_joined_str(join_elem='; ', items=dep_list))
+            if env_var_deps:
+                # validate the environment variable dependencies
+                self.logger.info('Validating environment variable dependencies %s', env_var_deps)
+                for dep in env_var_deps:
+                    dep_item = validate_env_var_dependency(dep)
+                    dep_list.append(dep_item)
             self.logger.info('Dependencies are processed as: %s',
                              Utils.gen_joined_str(join_elem='; ',
                                                   items=dep_list))
