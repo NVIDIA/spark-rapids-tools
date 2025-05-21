@@ -40,19 +40,18 @@ case class AccumMetaRef(id: Long, name: AccumNameRef) {
 }
 
 object AccumMetaRef {
-  // define a list of metrics that does not aggregate by sum. Instead it aggregates as maximum.
-  private val METRICS_WITH_MAX_VALUES = Set(
+  // Metrics for which the stage level accumulable value does not reflect the sum but the max value.
+  private val METRICS_WITH_MAX_AGGREGATES = Set(
     "gpuMaxPageableMemoryBytes",
     "gpuMaxDeviceMemoryBytes",
     "gpuMaxHostMemoryBytes",
-    "gpuMaxPinnedMemoryBytes",
-    "internal.metrics.peakExecutionMemory"
+    "gpuMaxPinnedMemoryBytes"
   )
   val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
 
   // Used to decide on setting the metricCategory
   private def isMetricAggregateByMax(metricName: String): Boolean = {
-    METRICS_WITH_MAX_VALUES.contains(metricName)
+    METRICS_WITH_MAX_AGGREGATES.contains(metricName)
   }
 
   def apply(id: Long, name: Option[String]): AccumMetaRef =
