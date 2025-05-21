@@ -186,7 +186,7 @@ class ToolUtilsSuite extends FunSuite with Logging {
         MockProfileResults("appID-0", nonEnglishString, Seq(1, 2, 3).mkString(","))
       )
       try {
-        profOutputWriter.write(tableHeader, profResults)
+        profOutputWriter.writeTable(tableHeader, profResults)
       } finally {
         profOutputWriter.close()
       }
