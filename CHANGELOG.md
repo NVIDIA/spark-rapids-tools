@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v25.04.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.0)
+Generated on 2025-05-21
+### User Tools
+
+- Add support for custom target GPU cluster info in Profiling Tool ([#1673](https://github.com/NVIDIA/spark-rapids-tools/pull/1673))
+
+### Core
+
+- Enable tool-specific cluster sizing strategies for Qualification and Profiling tool ([#1684](https://github.com/NVIDIA/spark-rapids-tools/pull/1684))
+- Add support for Bit operations ([#1687](https://github.com/NVIDIA/spark-rapids-tools/pull/1687))
+- Prevent empty file creation in case of `sql_info_json_pre_aqe` generation ([#1667](https://github.com/NVIDIA/spark-rapids-tools/pull/1667))
+- Change core mvn profiles to spark-xyz ([#1680](https://github.com/NVIDIA/spark-rapids-tools/pull/1680))
+- Add support for custom target GPU cluster info in Profiling Tool ([#1673](https://github.com/NVIDIA/spark-rapids-tools/pull/1673))
+- Add support to expressions Sha1 ArrayDistinct and Conv ([#1672](https://github.com/NVIDIA/spark-rapids-tools/pull/1672))
+
+### Miscellaneous
+
+- Add deepwiki badge [skip ci] ([#1665](https://github.com/NVIDIA/spark-rapids-tools/pull/1665))
+
+
+<br/>
+
 ## Release [v25.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.02.3)
 Generated on 2025-05-09
 ### User Tools
