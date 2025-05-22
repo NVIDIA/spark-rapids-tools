@@ -322,7 +322,7 @@ class AutoTuner(
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
-  private lazy val getAllProperties: collection.Map[String, String] = {
+  private lazy val getAllProperties: Map[String, String] = {
     // the cluster properties override the app properties as
     // it is provided by the user.
     appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
@@ -481,28 +481,32 @@ class AutoTuner(
   private def calcOverallMemory(
       execHeapCalculator: () => Long,
       numExecutorCores: Int,
-      containerMemCalculator: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
+      executorContainerMemExpr: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
     // Set executor heap to be at least 2GB/core
     val executorHeap = Math.max(execHeapCalculator(),
       autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecutorCores)
-    val containerMem = containerMemCalculator.apply()
-    val containerMemLeftOverOffHeap = containerMem - executorHeap
+    // Our CSP instance map stores the full node memory. We should account
+    // for reservations made by container managers (e.g., YARN).
+    val executorContainerMem = {
+      executorContainerMemExpr.apply() * platform.fractionOfAvailableMemory
+    }.toLong
+    val offHeapMemSetByUser = platform.getTotalOffHeapMemoryMB(getAllProperties)
+    val executorContainerMemLeft = executorContainerMem - executorHeap - offHeapMemSetByUser
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (
-      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION +
-        autoTunerConfigsProvider.DEF_PAGEABLE_POOL_MB
+      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION
     ).toLong
     val minOverhead = executorMemOverhead + (
       autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB + autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
     )
-    logDebug("containerMem " + containerMem + " executorHeap: " + executorHeap +
-      " executorMemOverhead: " + executorMemOverhead + " minOverhead " + minOverhead)
-    if (containerMemLeftOverOffHeap >= minOverhead) {
+    logDebug("executorContainerMem " + executorContainerMem + " executorHeap: " + executorHeap +
+      " offHeapMemSetByUser: " + offHeapMemSetByUser + " minOverhead " + minOverhead)
+    if (executorContainerMemLeft >= minOverhead) {
       // this is hopefully path in the majority of cases because CSPs generally have a good
       // memory to core ratio
       if (numExecutorCores >= 16 && platform.isPlatformCSP &&
-        containerMemLeftOverOffHeap >
+        executorContainerMemLeft >
           executorMemOverhead + 4096L + autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
             autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB) {
         // Account for the setting of:
@@ -512,12 +516,12 @@ class AutoTuner(
       }
       // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
       val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
-        (containerMemLeftOverOffHeap - executorMemOverhead) / 2).toLong
+        (executorContainerMemLeft - executorMemOverhead) / 2).toLong
       // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
       // memory though so the size worst case would be doesn't use any pinned memory and uses
       // all off heap memory.
       val spillMem = pinnedMem
-      if (containerMemLeftOverOffHeap >= executorMemOverhead + pinnedMem + spillMem) {
+      if (executorContainerMemLeft >= executorMemOverhead + pinnedMem + spillMem) {
         executorMemOverhead += pinnedMem + spillMem
       } else {
         // use min pinned and spill mem
@@ -528,7 +532,13 @@ class AutoTuner(
     } else {
       // Add a warning comment indicating that the current setup is not optimal
       // and no memory-related tunings are recommended.
-      Left(autoTunerConfigsProvider.notEnoughMemComment(executorHeap + minOverhead))
+      // TODO: For CSPs, we should recommend a different instance type.
+      val minExecutorContainerMem = (
+        // Estimate the full container memory by dividing by the fraction of available memory.
+        // This reverses the earlier reduction where the fraction was applied.
+        (executorHeap + minOverhead + offHeapMemSetByUser) / platform.fractionOfAvailableMemory
+      ).toLong
+      Left(autoTunerConfigsProvider.notEnoughMemComment(minExecutorContainerMem))
     }
   }
 
@@ -1308,7 +1318,8 @@ trait AutoTunerConfigsProvider extends Logging {
   val DEF_SPILL_MEMORY_MB: Long = DEF_PINNED_MEMORY_MB
   // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
   // leave this for now to account for off heap memory usage.
-  val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
+  // TODO: Should we remove this as its unused by the plugin?
+  // val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
