@@ -128,14 +128,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}",
         s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memoryOverhead")}",
         s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
-        s"- ${QualificationAutoTunerConfigsProvider.notEnoughMemComment(42188)}"
+        s"- ${QualificationAutoTunerConfigsProvider.notEnoughMemComment(40140)}"
       )),
     ("sufficient memory available for executors",
       "44g",
       Seq(
         "--conf spark.executor.memory=32g",
-        "--conf spark.executor.memoryOverhead=12g",
-        "--conf spark.rapids.memory.pinnedPool.size=3482m"
+        "--conf spark.executor.memoryOverhead=11468m",
+        "--conf spark.rapids.memory.pinnedPool.size=4g"
       ))
   )
   // scalastyle:on line.size.limit
