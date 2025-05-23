@@ -475,49 +475,46 @@ class AutoTuner(
    * Calculates recommended memory settings for a Spark executor container.
    *
    * The total memory for the executor is the sum of:
-   *   executorHeap + memoryOverhead + offHeap.size + pyspark.memory
+   *   executorHeap (spark.executor.memory)
+   *   + executorMemOverhead (spark.executor.memoryOverhead)
+   *   + sparkOffHeapMemMB (spark.memory.offHeap.size)
+   *   + pySparkMemMB (spark.executor.pyspark.memory)
    *
-   * Note: This function accounts for the fact that only a fraction of the physical system
-   * memory (e.g., 80% on YARN) is available to Spark executors, adjusting
-   * calculations accordingly.
+   * Note: In the below examples, `0.8` is the fraction of the physical system memory
+   * that is available to Spark executors (0.2 is reserved by Dataproc YARN).
    *
    * Example 1: g2-standard-8 machine (32 GB total memory) — Just enough memory
-   *   - Available memory for executor: 32 GB * 0.8 = 25.6 GB
-   *   - Executor heap: 16 GB
-   *   - Off-heap size set by user: 4 GB
-   *   - Executor memory left: 25.6 GB - 16 GB - 4 GB = 5.6 GB
-   *   - Min required overhead calculated as:
-   *       2 GB (min pinned) + 2 GB (min spill) + 1.6 GB (10% of executor heap) = 5.6 GB
-   *   - Since 5.6 GB == 5.6 GB, proceed with minimum recommended memory.
+   *   - actualMemForExec =  32 GB * 0.8 = 25.6 GB
+   *   - executorHeap = 16 GB
+   *   - sparkOffHeapMemMB = 4 GB
+   *   - execMemLeft = 25.6 GB - 16 GB - 4 GB = 5.6 GB
+   *   - minOverhead = 1.6 GB (10% of executor heap) + 2 GB (min pinned) + 2 GB (min spill) = 5.6 GB
+   *   - Since execMemLeft (5.6 GB) == minOverhead (5.6 GB), proceed with minimum memory recommendations:
    *   - Recommendation:
-   *       Executor heap: 16 GB, MemoryOverhead: 5.6 GB, PinnedMemory: 2 GB, SpillMemory: 2 GB
+   *       - executorHeap = 16 GB, executorMemOverhead = 5.6 GB (with pinnedMem = 2 GB and spillMem = 2 GB)
    *
    * Example 2: g2-standard-16 machine (64 GB total memory) — Not enough memory
-   *   - Available memory for executor: 64 GB * 0.8 = 51.2 GB
-   *   - Executor heap: 32 GB
-   *   - Off-heap size set by user: 20 GB
-   *   - Executor memory left: 51.2 GB - 32 GB - 20 GB = -0.8 GB
-   *   - Min required overhead calculated as:
-   *       2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
-   *   - Since -0.8 GB < 7.2 GB, do not proceed with recommendations.
-   *   - Recommendation:
-   *       - Min required executor memory: 32 GB + 20 GB + 7.2 GB = 59.2 GB
-   *       - Min required system memory: 59.2 GB / 0.8 = 74 GB
-   *       - Suggestion:
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 20 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 20 GB = -0.8 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (-0.8 GB) < minOverhead (7.2 GB), do not proceed with recommendations
+   *       - Add a warning comment indicating that the current setup is not optimal
+   *           - minTotalExecMemRequired = (32 GB + 20 GB + 7.2 GB) / 0.8 = (59.2 GB / 0.8) = 74 GB (as we are using 80% of system memory)
    *           - Reduce off-heap size or use a larger machine with at least 74 GB system memory.
    *
    * Example 3: g2-standard-16 machine (64 GB total memory) — More memory available
-   *   - Available memory for executor: 64 GB * 0.8 = 51.2 GB
-   *   - Executor heap: 32 GB
-   *   - Off-heap size set by user: 10 GB
-   *   - Executor memory left: 51.2 GB - 32 GB - 10 GB = 9.2 GB
-   *   - Min required overhead calculated as:
-   *       2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
-   *   - Since 9.2 GB > 7.2 GB, proceed with recommendations.
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 10 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 10 GB = 9.2 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (9.2 GB) > minOverhead (7.2 GB), proceed with recommendations.
    *       - Increase pinned and spill memory based on remaining memory (up to 4 GB max)
-   *       - MemoryOverhead = 3 GB (pinned) + 3 GB (spill) + 3.2 GB = 9.2 GB
+   *       - executorMemOverhead = 3 GB (pinned) + 3 GB (spill) + 3.2 GB = 9.2 GB
    *   - Recommendation:
-   *       Executor heap: 32 GB, MemoryOverhead: 9.2 GB, PinnedMemory: 3 GB, SpillMemory: 3 GB
+   *       - executorHeap = 32 GB, executorMemOverhead = 9.2 GB (with pinnedMem = 3 GB and spillMem = 3 GB)
    *
    *
    * @param execHeapCalculator    Function that returns the executor heap size in MB
