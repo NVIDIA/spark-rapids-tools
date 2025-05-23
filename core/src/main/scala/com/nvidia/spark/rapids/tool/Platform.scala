@@ -222,7 +222,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def fractionOfAvailableMemory: Double = 1.0
 
-
   val sparkVersionLabel: String = "Spark version"
 
   // It's not deal to use vars here but to minimize changes and
