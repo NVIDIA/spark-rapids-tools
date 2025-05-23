@@ -534,12 +534,12 @@ class AutoTuner(
       // Add a warning comment indicating that the current setup is not optimal
       // and no memory-related tunings are recommended.
       // TODO: For CSPs, we should recommend a different instance type.
-      val minExecutorContainerMem = (
+      val minTotalExecMemRequired = (
         // Estimate total executor memory by reversing the memory fraction adjustment.
         // This accounts for memory reserved by the container manager (e.g., YARN).
         (executorHeap + minOverhead + offHeapMemSetByUser) / platform.fractionOfAvailableMemory
       ).toLong
-      Left(autoTunerConfigsProvider.notEnoughMemComment(minExecutorContainerMem))
+      Left(autoTunerConfigsProvider.notEnoughMemComment(minTotalExecMemRequired))
     }
   }
 
