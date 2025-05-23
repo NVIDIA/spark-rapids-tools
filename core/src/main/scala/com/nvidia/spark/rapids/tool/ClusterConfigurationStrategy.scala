@@ -271,15 +271,15 @@ class EventLogBasedStrategy(
    * this method returns the memory per node.
    *
    * Reference:
-   * https://github.com/apache/spark/blob/branch-3.5/core/src/main/scala/org/apache/spark/resource/ResourceProfile.scala#L536
+   * https://spark.apache.org/docs/3.5.5/configuration.html#:~:text=spark.executor.memoryOverhead,pyspark.memory.
    */
   // scalastyle:on line.size.limit
   override def getMemoryPerNodeMb: Long = {
     val heapMemMB = clusterInfoFromEventLog.executorHeapMemory
     val overheadMemMB = platform.getExecutorOverheadMemoryMB(sparkProperties)
-    // This includes spark.memory.offHeap.size and spark.executor.pyspark.memor
-    val offHeapMemMB = platform.getTotalOffHeapMemoryMB(sparkProperties)
-    heapMemMB + overheadMemMB + offHeapMemMB
+    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkProperties).getOrElse(0L)
+    val pySparkMemMB = platform.getPySparkMemoryMB(sparkProperties).getOrElse(0L)
+    heapMemMB + overheadMemMB + sparkOffHeapMemMB + pySparkMemMB
   }
 
   override def calculateInitialNumExecutors: Int = {
