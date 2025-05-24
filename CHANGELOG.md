@@ -1,6 +1,22 @@
 
 <br/>
 
+## Release [v25.04.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.1)
+Generated on 2025-05-24
+### User Tools
+
+- Remove toml deprecation and update build and gitignore ([#1698](https://github.com/NVIDIA/spark-rapids-tools/pull/1698))
+- Remove cast of taskCpu and taskGpu to int in Qualx default.py featurizer ([#1688](https://github.com/NVIDIA/spark-rapids-tools/pull/1688))
+
+### Core
+
+- AutoTuner: Fix executor memory recommendation by accounting for off-heap usage and container reservations ([#1695](https://github.com/NVIDIA/spark-rapids-tools/pull/1695))
+- Set hiveParquet and hiveORC as supported in Qual tool ([#1691](https://github.com/NVIDIA/spark-rapids-tools/pull/1691))
+- Add support to parse gpu metrics stored in non-numeric format ([#1685](https://github.com/NVIDIA/spark-rapids-tools/pull/1685))
+
+
+<br/>
+
 ## Release [v25.04.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.0)
 Generated on 2025-05-21
 ### User Tools
