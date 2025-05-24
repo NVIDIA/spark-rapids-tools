@@ -322,7 +322,7 @@ class AutoTuner(
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
-  private lazy val getAllProperties: collection.Map[String, String] = {
+  private lazy val getAllProperties: Map[String, String] = {
     // the cluster properties override the app properties as
     // it is provided by the user.
     appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
@@ -470,39 +470,97 @@ class AutoTuner(
     Math.min(maxExecutorHeap, autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecCores)
   }
 
+  // scalastyle:off line.size.limit
   /**
-   * Recommendation of memory settings for executor.
-   * Returns:
-   * (pinned memory size,
-   *  executor memory overhead size,
-   *  executor heap size,
-   *  boolean if should set MaxBytesInFlight)
+   * Calculates recommended memory settings for a Spark executor container.
+   *
+   * The total memory for the executor is the sum of:
+   *   executorHeap (spark.executor.memory)
+   *   + executorMemOverhead (spark.executor.memoryOverhead)
+   *   + sparkOffHeapMemMB (spark.memory.offHeap.size)
+   *   + pySparkMemMB (spark.executor.pyspark.memory)
+   *
+   * Note: In the below examples, `0.8` is the fraction of the physical system memory
+   * that is available to Spark executors (0.2 is reserved by Dataproc YARN).
+   *
+   * Example 1: g2-standard-8 machine (32 GB total memory) — Just enough memory
+   *   - actualMemForExec =  32 GB * 0.8 = 25.6 GB
+   *   - executorHeap = 16 GB
+   *   - sparkOffHeapMemMB = 4 GB
+   *   - execMemLeft = 25.6 GB - 16 GB - 4 GB = 5.6 GB
+   *   - minOverhead = 1.6 GB (10% of executor heap) + 2 GB (min pinned) + 2 GB (min spill) = 5.6 GB
+   *   - Since execMemLeft (5.6 GB) == minOverhead (5.6 GB), proceed with minimum memory recommendations:
+   *   - Recommendation:
+   *       - executorHeap = 16 GB, executorMemOverhead = 5.6 GB (with pinnedMem = 2 GB and spillMem = 2 GB)
+   *
+   * Example 2: g2-standard-16 machine (64 GB total memory) — Not enough memory
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 20 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 20 GB = -0.8 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (-0.8 GB) < minOverhead (7.2 GB), do not proceed with recommendations
+   *       - Add a warning comment indicating that the current setup is not optimal
+   *           - minTotalExecMemRequired = (32 GB + 20 GB + 7.2 GB) / 0.8 = (59.2 GB / 0.8) = 74 GB (as we are using 80% of system memory)
+   *           - Reduce off-heap size or use a larger machine with at least 74 GB system memory.
+   *
+   * Example 3: g2-standard-16 machine (64 GB total memory) — More memory available
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 10 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 10 GB = 9.2 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (9.2 GB) > minOverhead (7.2 GB), proceed with recommendations.
+   *       - Increase pinned and spill memory based on remaining memory (up to 4 GB max)
+   *       - executorMemOverhead = 3 GB (pinned) + 3 GB (spill) + 3.2 GB = 9.2 GB
+   *   - Recommendation:
+   *       - executorHeap = 32 GB, executorMemOverhead = 9.2 GB (with pinnedMem = 3 GB and spillMem = 3 GB)
+   *
+   *
+   * @param execHeapCalculator    Function that returns the executor heap size in MB
+   * @param numExecutorCores      Number of executor cores
+   * @param totalMemForExecExpr   Function that returns total memory available to the executor (MB)
+   * @return Either a String with an error message if memory is insufficient,
+   *         or a tuple containing:
+   *           - pinned memory size (MB)
+   *           - executor memory overhead size (MB)
+   *           - executor heap size (MB)
+   *           - boolean indicating if "maxBytesInFlight" should be set
    */
+   // scalastyle:on line.size.limit
   private def calcOverallMemory(
       execHeapCalculator: () => Long,
       numExecutorCores: Int,
-      containerMemCalculator: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
+      totalMemForExecExpr: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
     // Set executor heap to be at least 2GB/core
     val executorHeap = Math.max(execHeapCalculator(),
       autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecutorCores)
-    val containerMem = containerMemCalculator.apply()
-    val containerMemLeftOverOffHeap = containerMem - executorHeap
+    // Our CSP instance map stores full node memory, but container managers
+    // (e.g., YARN) may reserve a portion. Adjust to get the memory
+    // actually available to the executor.
+    val actualMemForExec = {
+      totalMemForExecExpr.apply() * platform.fractionOfSystemMemoryForExecutors
+    }.toLong
+
+    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(getAllProperties).getOrElse(0L)
+    val pySparkMemMB = platform.getPySparkMemoryMB(getAllProperties).getOrElse(0L)
+    val execMemLeft = actualMemForExec - executorHeap - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (
-      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION +
-        autoTunerConfigsProvider.DEF_PAGEABLE_POOL_MB
+      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION
     ).toLong
     val minOverhead = executorMemOverhead + (
       autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB + autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
     )
-    logDebug("containerMem " + containerMem + " executorHeap: " + executorHeap +
-      " executorMemOverhead: " + executorMemOverhead + " minOverhead " + minOverhead)
-    if (containerMemLeftOverOffHeap >= minOverhead) {
+    logDebug(s"Memory calculations:  actualMemForExec=$actualMemForExec MB, " +
+      s"executorHeap=$executorHeap MB, sparkOffHeapMem=$sparkOffHeapMemMB MB, " +
+      s"pySparkMem=$pySparkMemMB MB minOverhead=$minOverhead MB")
+    if (execMemLeft >= minOverhead) {
       // this is hopefully path in the majority of cases because CSPs generally have a good
       // memory to core ratio
       if (numExecutorCores >= 16 && platform.isPlatformCSP &&
-        containerMemLeftOverOffHeap >
+        execMemLeft >
           executorMemOverhead + 4096L + autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
             autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB) {
         // Account for the setting of:
@@ -512,12 +570,12 @@ class AutoTuner(
       }
       // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
       val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
-        (containerMemLeftOverOffHeap - executorMemOverhead) / 2).toLong
+        (execMemLeft - executorMemOverhead) / 2).toLong
       // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
       // memory though so the size worst case would be doesn't use any pinned memory and uses
       // all off heap memory.
       val spillMem = pinnedMem
-      if (containerMemLeftOverOffHeap >= executorMemOverhead + pinnedMem + spillMem) {
+      if (execMemLeft >= executorMemOverhead + pinnedMem + spillMem) {
         executorMemOverhead += pinnedMem + spillMem
       } else {
         // use min pinned and spill mem
@@ -528,7 +586,14 @@ class AutoTuner(
     } else {
       // Add a warning comment indicating that the current setup is not optimal
       // and no memory-related tunings are recommended.
-      Left(autoTunerConfigsProvider.notEnoughMemComment(executorHeap + minOverhead))
+      // TODO: For CSPs, we should recommend a different instance type.
+      val minTotalExecMemRequired = (
+        // Calculate total system memory needed by dividing executor memory by usable fraction.
+        // Accounts for memory reserved by the container manager (e.g., YARN).
+        (executorHeap + minOverhead + sparkOffHeapMemMB + pySparkMemMB) /
+          platform.fractionOfSystemMemoryForExecutors
+        ).toLong
+      Left(autoTunerConfigsProvider.notEnoughMemComment(minTotalExecMemRequired))
     }
   }
 
@@ -1308,7 +1373,8 @@ trait AutoTunerConfigsProvider extends Logging {
   val DEF_SPILL_MEMORY_MB: Long = DEF_PINNED_MEMORY_MB
   // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
   // leave this for now to account for off heap memory usage.
-  val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
+  // TODO: Should we remove this as its unused by the plugin?
+  // val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
@@ -1509,8 +1575,9 @@ trait AutoTunerConfigsProvider extends Logging {
     s"""
        |This node/worker configuration is not ideal for using the RAPIDS Accelerator
        |for Apache Spark because it doesn't have enough memory for the executors.
-       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB
-       |memory per executor.
+       |We recommend either using nodes with more memory or reducing 'spark.memory.offHeap.size',
+       |as off-heap memory is unused by the RAPIDS Accelerator, unless explicitly required by
+       |the application. Need at least $minSizeInMB MB memory per executor.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 
