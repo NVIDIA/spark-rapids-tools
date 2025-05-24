@@ -69,16 +69,33 @@ def _create_dataset_json(
         app_meta[row['appId_cpu']] = {'runType': 'CPU', 'scaleFactor': 1}
         app_meta[row['appId_gpu']] = {'runType': 'GPU', 'scaleFactor': 1}
 
+    # get list of all CPU and GPU appIds
+    cpu_app_ids = delta_df['appId_cpu'].unique()
+    gpu_app_ids = delta_df['appId_gpu'].unique()
+    app_ids = list(itertools.chain(cpu_app_ids, gpu_app_ids))
+
+    # get list of all eventlogs for targeted CPU and GPU appIds
+    # note: getting direct paths to files, since the parent directory may contain extra eventlogs
+    eventlogs = []
+    for eventlog_path in ds_eventlogs:
+        if os.path.isdir(eventlog_path):
+            eventlogs.extend(find_paths(eventlog_path, lambda f: any(app_id in f for app_id in app_ids)))
+        else:
+            eventlogs.append(eventlog_path)
+    # remove duplicates
+    eventlogs = sorted(list(set(eventlogs)))
+
     # create datasets/platform directory if it doesn't exist
     platform_dir = os.path.join(datasets, platform)
     ensure_directory(platform_dir)
 
+    # create dataset path
     dataset_path = os.path.join(platform_dir, f'{dataset_name}.json')
 
     # create dataset JSON
     dataset_json = {
         dataset_name: {
-            'eventlogs': ds_eventlogs,
+            'eventlogs': eventlogs,
             'app_meta': dict(sorted(app_meta.items())),
             'platform': platform
         }
