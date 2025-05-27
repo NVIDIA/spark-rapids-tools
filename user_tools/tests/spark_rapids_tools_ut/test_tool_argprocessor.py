@@ -20,7 +20,6 @@ from collections import defaultdict
 from typing import Dict, Callable, List
 
 import pytest  # pylint: disable=import-error
-from pydantic import ValidationError
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase

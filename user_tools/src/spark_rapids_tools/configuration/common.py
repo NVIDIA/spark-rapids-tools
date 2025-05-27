@@ -16,7 +16,7 @@
 modules as well."""
 import re
 from pathlib import Path
-from pydantic import BaseModel, Field, AnyUrl, FilePath, AliasChoices, model_validator, ValidationError, field_validator
+from pydantic import BaseModel, Field, AnyUrl, AliasChoices, model_validator, ValidationError, field_validator
 
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib.tools.fs_utils import FileHashAlgorithm
@@ -87,7 +87,7 @@ class RuntimeDependency(BaseConfig):
         description='Optional specification to verify the dependency file.')
 
     @field_validator('uri')
-    def validate_uri(self, v):
+    def validate_uri(cls, v):
         # Check for environment variable pattern
         env_var_pattern = r'^\$\{[A-Za-z_][A-Za-z0-9_]*\}.*'
         if re.match(env_var_pattern, v):
@@ -102,10 +102,12 @@ class RuntimeDependency(BaseConfig):
         if Path(v).exists():
             return v
 
-        raise ValueError('Dependency URI must be either:\n'
-                       '1. A valid environment variable path (e.g., ${ENV_VAR}/file.jar)\n'
-                       '2. A valid URL\n'
-                       '3. An existing file path')
+        raise ValueError(
+            'Dependency URI must be either:\n'
+            '1. A valid environment variable path (e.g., ${ENV_VAR}/file.jar)\n'
+            '2. A valid URL\n'
+            '3. An existing file path'
+        )
 
     @model_validator(mode='after')
     def validate_dependency_type_constraints(self):
@@ -115,11 +117,11 @@ class RuntimeDependency(BaseConfig):
 
         # If URI is environment variable, dependency type cannot be archive
         if is_env_var and self.dependency_type.dep_type == DependencyType.ARCHIVE:
-            raise ValueError("Archive dependency type cannot be used with environment variable URIs")
+            raise ValueError('Archive dependency type cannot be used with environment variable URIs')
 
         # If dependency type is not archive, relative_path cannot be set
         if self.dependency_type.dep_type != DependencyType.ARCHIVE and self.dependency_type.relative_path:
-            raise ValueError("Relative path can only be set for archive dependency types")
+            raise ValueError('Relative path can only be set for archive dependency types')
 
         return self
 

@@ -640,7 +640,7 @@ class RapidsJarTool(RapidsTool):
             env_var_deps = [dep for dep in depend_arr if dep.dependency_type and
                             dep.dependency_type.dep_type == DependencyType.ENV_VAR]
             downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
-                         dep.dependency_type.dep_type != DependencyType.ENV_VAR]
+                                 dep.dependency_type.dep_type != DependencyType.ENV_VAR]
             dep_list = []
             if downloadable_deps:
                 # download the dependencies
@@ -649,7 +649,7 @@ class RapidsJarTool(RapidsTool):
                 if any(dep_item is None for dep_item in dep_list):
                     raise RuntimeError('Could not download all dependencies. Aborting Executions.')
                 self.logger.info('Downloadable dependencies are processed as: %s',
-                         Utils.gen_joined_str(join_elem='; ', items=dep_list))
+                                 Utils.gen_joined_str(join_elem='; ', items=dep_list))
             if env_var_deps:
                 # validate the environment variable dependencies
                 self.logger.info('Validating environment variable dependencies %s', env_var_deps)
