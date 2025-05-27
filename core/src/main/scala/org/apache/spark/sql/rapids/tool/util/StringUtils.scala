@@ -37,6 +37,21 @@ object StringUtils extends Logging {
   private val regExDurationFormat = "^(\\d+):([0-5]\\d):([0-5]\\d\\.\\d+)$"
   private val regExMemorySize =
     "^(?i)(\\d+(?:\\.\\d+)?)(b|k(?:ib|b)?|m(?:ib|b)?|g(?:ib|b)?|t(?:ib|b)?|p(?:ib|b)?)$".r
+  // Regular expression to retrieve the memory size of GPU metrics into 3 groups.
+  // The new GPU metrics introduced in https://github.com/NVIDIA/spark-rapids/pull/12517 are not
+  // parsed as long. Instead, it is parsed as a composite string of the value and the unit:
+  // - 111534336000 -> 0.74GB (11534336000 bytes)
+  // - 1289750 -> 1.23MB (1289750 bytes)
+  // - 1044585 -> 1020.10KB (1044585 bytes)
+  // The three groups are:
+  // - 0: the entire content
+  // - 1: the numeric value preceding the unit
+  // - 2: the unit
+  // - 3: the number of bytes
+  // scalastyle:off line.size.limit
+  private val regExMemoryMetric =
+    "^(?i)(\\d+(?:\\.\\d+)?)(b|k(?:ib|b)?|m(?:ib|b)?|g(?:ib|b)?|t(?:ib|b)?|p(?:ib|b)?)\\s+\\((\\d+)\\s+bytes\\)$".r
+  // scalastyle:on line.size.limit
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   /**
    * Checks if the strData is of pattern 'HH:MM:SS.FFF' and return the time as long if applicable.
@@ -56,6 +71,26 @@ object StringUtils extends Logging {
         tokens(2).toDouble.seconds.toMillis)
     } else {
       None
+    }
+  }
+
+  /**
+   * A utility that parses the value of RAPIDS GPU metrics that were introduced in
+   * https://github.com/NVIDIA/spark-rapids/pull/12517.
+   * The metrics are in human readable format (e.g., 0.74GB (11534336000 bytes)).
+   * @param strData the metric value
+   * @return the number of bytes if the string is in the expected format
+   */
+  def parseFromGPUMemoryMetricToLongOption(strData: String): Option[Long] = {
+    regExMemoryMetric.findFirstMatchIn(strData) flatMap { m =>
+      try {
+        // return the group containing the actual values in bytes.
+        // (see the comment definition of regExMemoryMetric)
+        Some(m.group(3).toLong)
+      } catch {
+        case _: NumberFormatException =>
+          None
+      }
     }
   }
 

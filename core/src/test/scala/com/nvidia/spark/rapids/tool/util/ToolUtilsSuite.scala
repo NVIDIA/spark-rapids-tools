@@ -173,6 +173,36 @@ class ToolUtilsSuite extends FunSuite with Logging {
     StringUtils.parseFromDurationToLongOption("Hello Worlds") should not be 'defined
   }
 
+  test("parse memory sizes from RAPIDS metrics") {
+    // This unit test is to evaluate the parser used to handle the new GPU metrics introduced in
+    // https://github.com/NVIDIA/spark-rapids/pull/12517
+    // Note that:
+    // - the metrics are in human readable format (e.g., 0.74GB (11534336000 bytes)).
+    // - we do not care to evaluate the case when the metric is just "0" because this would be
+    //   handled by a different parser EventUtils.parseAccumFieldToLong
+
+    // test default case
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41.47GB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test no floating point
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41GB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test lower case
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41gb (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test different formatting
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41GiB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test bytes as unit
+    StringUtils.parseFromGPUMemoryMetricToLongOption(
+      "44533943056B (44533943056 bytes)") shouldBe Some(44533943056L)
+    // test correct formatting with 0.
+    StringUtils.parseFromGPUMemoryMetricToLongOption("0B (0 bytes)") shouldBe Some(0)
+    // test incorrect formatting with W/S separating memory units
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41 GiB (44533943056 bytes)") shouldBe
+      None
+  }
+
   test("output non-english characters") {
     val nonEnglishString = "你好"
     TrampolineUtil.withTempDir { tempDir =>

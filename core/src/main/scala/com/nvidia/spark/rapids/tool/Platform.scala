@@ -142,7 +142,7 @@ object PlatformInstanceTypes {
     NodeInstanceMapKey("g2-standard-24") ->
       InstanceInfo(24, 96 * 1024, "g2-standard-24", 2, L4Gpu),
     NodeInstanceMapKey("g2-standard-32") ->
-      InstanceInfo(32, 128 * 1024, "g2-standard-32", 2, L4Gpu),
+      InstanceInfo(32, 128 * 1024, "g2-standard-32", 1, L4Gpu),
     NodeInstanceMapKey("g2-standard-48") ->
       InstanceInfo(48, 192 * 1024, "g2-standard-48", 4, L4Gpu),
     NodeInstanceMapKey("g2-standard-96") ->
@@ -214,6 +214,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def defaultRecommendedCoresPerExec: Int = 16
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
+
+  /**
+   * Fraction of the system’s total memory that is available for executor use.
+   * This value should be set based on the platform to account for memory
+   * reserved by the resource managers (e.g., YARN).
+   */
+  def fractionOfSystemMemoryForExecutors: Double
 
   val sparkVersionLabel: String = "Spark version"
 
@@ -404,6 +411,25 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       //  added or resource profile added events for the heap size
       val sparkMaster = SparkMaster(sparkProperties.get("spark.master"))
       sparkMaster.map(_.defaultExecutorMemoryMB).getOrElse(0L)
+    }
+  }
+
+  def getSparkOffHeapMemoryMB(sparkProperties: Map[String, String]): Option[Long] = {
+    // Return if offHeap is not enabled
+    if (!sparkProperties.getOrElse("spark.memory.offHeap.enabled", "false").toBoolean) {
+      return None
+    }
+
+    sparkProperties.get("spark.memory.offHeap.size").map { size =>
+      StringUtils.convertToMB(size, Some(ByteUnit.BYTE))
+    }
+  }
+
+  def getPySparkMemoryMB(sparkProperties: Map[String, String]): Option[Long] = {
+    // Avoiding explicitly checking if it is PySpark app, if the user has set
+    // the memory for PySpark, we will use that.
+    sparkProperties.get("spark.executor.pyspark.memory").map {
+      size => StringUtils.convertToMB(size, Some(ByteUnit.MiB))
     }
   }
 
@@ -638,6 +664,12 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATABRICKS_AWS_BY_INSTANCE_NAME
   }
+
+  /**
+   * Could not find public documentation for this. This was determined based on
+   * manual inspection of Databricks AWS configurations.
+   */
+  override def fractionOfSystemMemoryForExecutors = 0.65
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
@@ -652,6 +684,12 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_INSTANCE_NAME
   }
+
+  /**
+   * Could not find public documentation for this. This was determined based on
+   * manual inspection of Databricks Azure configurations.
+   */
+  override def fractionOfSystemMemoryForExecutors = 0.7
 }
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
@@ -662,6 +700,15 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "g2-standard-16"))
   }
+
+  // scalastyle:off line.size.limit
+  /**
+   * For YARN on Dataproc, this limit is set to 0.8 which is a representation of the
+   * yarn.nodemanager.resource.memory-mb
+   * Reference: https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/autoscaling#hadoop_yarn_metrics
+   */
+  // scalastyle:on line.size.limit
+  override def fractionOfSystemMemoryForExecutors: Double = 0.8
 
   override val recommendationsToInclude: Seq[(String, String)] = Seq(
     // Keep disabled. This property does not work well with GPU clusters.
@@ -705,6 +752,15 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
     Some(NodeInstanceMapKey(instanceType = "g6.4xlarge"))
   }
 
+  // scalastyle:off line.size.limit
+  /**
+   * For YARN on EMR, this limit is set to 0.7 which is a representation of the
+   * yarn.nodemanager.resource.memory-mb
+   * Reference: https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-hadoop-task-config.html#emr-hadoop-task-config-g6
+   */
+  // scalastyle:on line.size.limit
+  override def fractionOfSystemMemoryForExecutors: Double = 0.7
+
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
 
@@ -746,6 +802,14 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
   // on prem is hard since we don't know what node configurations they have
   // assume 1 for now. We should have them pass this information in the future.
   override lazy val maxGpusSupported: Int = 1
+
+  /**
+   * For OnPrem, setting this value to 1.0 since we are calculating the
+   * overall memory by ourselves or it is provided by the user.
+   *
+   * See `getMemoryPerNodeMb()` in [[com.nvidia.spark.rapids.tool.ClusterConfigurationStrategy]]
+   */
+  def fractionOfSystemMemoryForExecutors: Double = 1.0
 }
 
 object Platform {

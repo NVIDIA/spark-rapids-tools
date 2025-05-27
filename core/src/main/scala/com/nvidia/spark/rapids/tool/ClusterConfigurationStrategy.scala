@@ -265,12 +265,21 @@ class EventLogBasedStrategy(
       throw new IllegalArgumentException("Cluster information from event log must be defined"))
   }
 
-  // For onprem or cases where a matching CSP instance type is unavailable,
-  // Returns the memory per node
+  // scalastyle:off line.size.limit
+  /**
+   * For onprem or cases where a matching CSP instance type is unavailable,
+   * this method returns the memory per node.
+   *
+   * Reference:
+   * https://spark.apache.org/docs/3.5.5/configuration.html#:~:text=spark.executor.memoryOverhead,pyspark.memory.
+   */
+  // scalastyle:on line.size.limit
   override def getMemoryPerNodeMb: Long = {
     val heapMemMB = clusterInfoFromEventLog.executorHeapMemory
     val overheadMemMB = platform.getExecutorOverheadMemoryMB(sparkProperties)
-    heapMemMB + overheadMemMB
+    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkProperties).getOrElse(0L)
+    val pySparkMemMB = platform.getPySparkMemoryMB(sparkProperties).getOrElse(0L)
+    heapMemMB + overheadMemMB + sparkOffHeapMemMB + pySparkMemMB
   }
 
   override def calculateInitialNumExecutors: Int = {
