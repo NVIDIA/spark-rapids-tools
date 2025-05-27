@@ -15,6 +15,7 @@
 """Common types and definitions used by the configurations. This module is used by other
 modules as well."""
 import re
+from pathlib import Path
 from pydantic import BaseModel, Field, AnyUrl, FilePath, AliasChoices, model_validator, ValidationError, field_validator
 
 from spark_rapids_tools.enums import DependencyType
@@ -85,23 +86,26 @@ class RuntimeDependency(BaseConfig):
         default=None,
         description='Optional specification to verify the dependency file.')
 
-    @classmethod
     @field_validator('uri')
-    def validate_uri(cls, v):
+    def validate_uri(self, v):
+        # Check for environment variable pattern
         env_var_pattern = r'^\$\{[A-Za-z_][A-Za-z0-9_]*\}.*'
         if re.match(env_var_pattern, v):
             return v
+
         try:
             AnyUrl(v)
             return v
         except ValidationError:
             pass
-        try:
-            FilePath(v)
+
+        if Path(v).exists():
             return v
-        except ValidationError:
-            pass
-        raise ValueError('uri must be a valid URL, file path, or environment variable path (e.g., ${ENV_VAR}/file.jar)')
+
+        raise ValueError('Dependency URI must be either:\n'
+                       '1. A valid environment variable path (e.g., ${ENV_VAR}/file.jar)\n'
+                       '2. A valid URL\n'
+                       '3. An existing file path')
 
     @model_validator(mode='after')
     def validate_dependency_type_constraints(self):

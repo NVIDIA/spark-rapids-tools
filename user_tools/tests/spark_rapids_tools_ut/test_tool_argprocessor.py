@@ -324,11 +324,12 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
     def test_invalid_tools_configs(self, get_ut_data_dir, tool_name, csp, tools_conf_fname):
         tools_conf_path = f'{get_ut_data_dir}/tools_config/invalid/{tools_conf_fname}'
         # should pass: tools config file is provided
-        with pytest.raises((ValueError, ValidationError)) as pytest_wrapped_e:
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
             AbsToolUserArgModel.create_tool_args(tool_name,
                                                  platform=csp,
                                                  eventlogs=f'{get_ut_data_dir}/eventlogs',
                                                  tools_config_path=tools_conf_path)
+            assert pytest_wrapped_e.type == SystemExit
 
     @pytest.mark.parametrize('tool_name', ['qualification'])
     @pytest.mark.parametrize('csp', ['onprem'])
