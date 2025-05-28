@@ -539,7 +539,12 @@ case class FailedTaskProfileResults(
     )
   }
   override def convertToSeq(): Array[String] = {
-    convertToSeqInternal(endReason)
+    convertToSeqInternal(
+      // No need to escape the characters because that was done during the construction of the
+      // profile result.
+      StringUtils.renderStr(endReason,
+        doEscapeMetaCharacters = false,
+        showEllipses = true))
   }
 
   override def convertToCSVSeq(): Array[String] = {
