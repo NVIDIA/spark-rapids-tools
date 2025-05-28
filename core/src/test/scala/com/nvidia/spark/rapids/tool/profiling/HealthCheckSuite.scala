@@ -57,15 +57,8 @@ class HealthCheckSuite extends FunSuite {
     val healthCheck = new HealthCheck(apps)
     for (_ <- apps) {
       val failedTasks = healthCheck.getFailedTasks
-      // the end reason gets the delimiter changed when writing to CSV so to compare properly
-      // change it to be the same here.
-      val failedWithDelimiter = failedTasks.map { t =>
-        val delimited = StringUtils.renderStr(t.endReason, doEscapeMetaCharacters = true,
-          maxLength = 0)
-        t.copy(endReason = delimited)
-      }
       import sparkSession.implicits._
-      val taskAccums = failedWithDelimiter.toDF
+      val taskAccums = failedTasks.toDF
       val tasksResultExpectation =
         new File(expRoot, "tasks_failure_eventlog_expectation.csv")
       val tasksDfExpect =
