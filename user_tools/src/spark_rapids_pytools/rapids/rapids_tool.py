@@ -591,7 +591,7 @@ class RapidsJarTool(RapidsTool):
             we return the unexpanded form to allow shell expansion at command execution time.
             """
             env_var_path = dep.uri
-            # Validation for existence of the environment variable is done at model level
+            # Validation for existence of the environment variable is done at pydantic model level
             var_match = re.search(r'\${([^}]+)}', env_var_path)
             var_name = var_match.group(1)
             env_value = os.getenv(var_name)
@@ -608,18 +608,45 @@ class RapidsJarTool(RapidsTool):
             """
             futures_list = []
             results = []
+            # Create a mapping of futures to their corresponding dependencies
+            future_to_dep = {}
+
             with ThreadPoolExecutor(max_workers=4) as executor:
                 for dep in dep_arr:
                     futures = executor.submit(cache_single_dependency, dep)
                     futures.add_done_callback(exception_handler)
                     futures_list.append(futures)
+                    future_to_dep[futures] = dep
+
                 try:
                     # set the timeout to 30 minutes.
                     for future in concurrent.futures.as_completed(futures_list, timeout=1800):
                         result = future.result()
                         results.append(result)
+                except concurrent.futures.TimeoutError:
+                    pending_deps = [
+                        f"{dep.name} ({dep.uri})"
+                        for f, dep in future_to_dep.items()
+                        if not f.done()
+                    ]
+                    error_msg = (
+                        f"Download timed out after 30 minutes. "
+                        f"The following dependencies are still pending: {', '.join(pending_deps)}"
+                    )
+                    self.logger.error(error_msg)
+                    raise TimeoutError(error_msg)
                 except Exception as ex:    # pylint: disable=broad-except
-                    self.logger.error('Failed to download dependencies %s', ex)
+                    failed_deps = [
+                        f"{dep.name} ({dep.uri})"
+                        for f, dep in future_to_dep.items()
+                        if f.done() and f.exception() is not None
+                    ]
+                    error_msg = (
+                        f"Failed to download dependencies. "
+                        f"The following dependencies failed: {', '.join(failed_deps)}. "
+                        f"Error: {str(ex)}"
+                    )
+                    self.logger.error(error_msg)
                     raise ex
             return results
 
