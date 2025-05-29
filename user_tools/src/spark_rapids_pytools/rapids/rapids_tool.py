@@ -631,7 +631,8 @@ class RapidsJarTool(RapidsTool):
                     ]
                     error_msg = (
                         f'Download timed out after 30 minutes. '
-                        f'The following dependencies are still pending: {", ".join(pending_deps)}'
+                        f'The following dependencies are still pending: '
+                        f'{", ".join(pending_deps)}'
                     )
                     self.logger.error(error_msg)
                     raise TimeoutError(error_msg) from timeout_ex
@@ -643,7 +644,8 @@ class RapidsJarTool(RapidsTool):
                     ]
                     error_msg = (
                         f'Failed to download dependencies. '
-                        f'The following dependencies failed: {", ".join(failed_deps)}. '
+                        f'The following dependencies failed: '
+                        f'{", ".join(failed_deps)}. '
                         f'Error: {str(ex)}'
                     )
                     self.logger.error(error_msg)
