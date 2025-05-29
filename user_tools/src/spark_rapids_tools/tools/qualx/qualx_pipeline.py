@@ -216,7 +216,7 @@ def train_and_evaluate(
     model_name = model_config['model_name']
     n_trials = model_config['n_trials']
     qual_tool_filter = model_config['qual_tool_filter']
-    output_dir = os.path.join(os.path.dirname(cfg.file_path), cfg.output_dir)
+    output_dir = cfg.output_dir
 
     model_path = f'{output_dir}/{model_type}/{model_name}'
 
