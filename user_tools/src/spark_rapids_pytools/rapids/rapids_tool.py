@@ -623,28 +623,28 @@ class RapidsJarTool(RapidsTool):
                     for future in concurrent.futures.as_completed(futures_list, timeout=1800):
                         result = future.result()
                         results.append(result)
-                except concurrent.futures.TimeoutError:
+                except concurrent.futures.TimeoutError as timeout_ex:
                     pending_deps = [
-                        f"{dep.name} ({dep.uri})"
+                        f'{dep.name} ({dep.uri})'
                         for f, dep in future_to_dep.items()
                         if not f.done()
                     ]
                     error_msg = (
-                        f"Download timed out after 30 minutes. "
-                        f"The following dependencies are still pending: {', '.join(pending_deps)}"
+                        f'Download timed out after 30 minutes. '
+                        f'The following dependencies are still pending: {", ".join(pending_deps)}'
                     )
                     self.logger.error(error_msg)
-                    raise TimeoutError(error_msg)
+                    raise TimeoutError(error_msg) from timeout_ex
                 except Exception as ex:    # pylint: disable=broad-except
                     failed_deps = [
-                        f"{dep.name} ({dep.uri})"
+                        f'{dep.name} ({dep.uri})'
                         for f, dep in future_to_dep.items()
                         if f.done() and f.exception() is not None
                     ]
                     error_msg = (
-                        f"Failed to download dependencies. "
-                        f"The following dependencies failed: {', '.join(failed_deps)}. "
-                        f"Error: {str(ex)}"
+                        f'Failed to download dependencies. '
+                        f'The following dependencies failed: {", ".join(failed_deps)}. '
+                        f'Error: {str(ex)}'
                     )
                     self.logger.error(error_msg)
                     raise ex
