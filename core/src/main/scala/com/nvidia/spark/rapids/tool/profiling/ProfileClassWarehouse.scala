@@ -470,8 +470,15 @@ case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)
 
 case class FailedTaskProfileResults(
-    stageId: Int, stageAttemptId: Int,
-    taskId: Long, taskAttemptId: Int, endReason: String,
+    // task info
+    stageId: Int,
+    stageAttemptId: Int,
+    taskId: Long,
+    taskAttemptId: Int,
+    endReason: String,
+    // used to distinguish between termination nature. If we look at taskEnd events, the values of
+    // the status can be one of the following: FAILED, KILLED, SUCCESS, and UNKNOWN
+    taskStatus: String,
     taskType: String,
     speculative: String,
     // task metrics
@@ -509,7 +516,9 @@ case class FailedTaskProfileResults(
       taskAttemptId.toString,
       reason,
       // columns that can be used to categorize failures
-      taskType, speculative,
+      taskStatus,
+      taskType,
+      speculative,
       // columns for task metrics
       duration.toString,
       diskBytesSpilled.toString,
@@ -565,6 +574,7 @@ object FailedTaskProfileResults {
       taskModel.taskId,
       taskModel.attempt,
       StringUtils.renderStr(taskModel.endReason, doEscapeMetaCharacters = true, maxLength = 0),
+      taskStatus = taskModel.taskStatus,
       taskModel.taskType,
       taskModel.speculative.toString,
       // fields for task metrics

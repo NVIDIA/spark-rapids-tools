@@ -71,7 +71,8 @@ object OutHeaderRegistry {
       Array(
           // Begin metadata of the failed task.
           "stageId", "stageAttemptId", "taskId", "attempt", "failureReason",
-          // some useful colums that could be used to categorize failures
+          // some useful columns that could be used to categorize failures
+          "taskStatus",
           "taskType",
           "speculative",
           // Begin metrics the failed task if any.
