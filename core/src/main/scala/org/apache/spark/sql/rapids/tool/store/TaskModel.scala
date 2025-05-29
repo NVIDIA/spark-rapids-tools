@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,10 @@ case class TaskModel(
     finishTime: Long,
     duration: Long,
     successful: Boolean,
+    // Used to indicate how a task was terminated.
+    // For taskEnd events, the values of the status can be one of the following:
+    // FAILED, KILLED, SUCCESS, UNKNOWN
+    taskStatus: String,
     executorId: String,
     host: String,
     taskLocality: String,
@@ -84,6 +88,7 @@ object TaskModel {
       event.taskInfo.finishTime,
       event.taskInfo.duration,
       event.taskInfo.successful,
+      taskStatus = event.taskInfo.status,
       event.taskInfo.executorId,
       event.taskInfo.host,
       event.taskInfo.taskLocality.toString,
