@@ -63,17 +63,21 @@ def download_url_request(url: str, fpath: str, timeout: float = None,
     #    - First chunk read
     # 2. For subsequent chunks, no timeout is enforced by requests library
     # 3. This is why we need our own timeout check for the total download time
-    # 4. Each time we are done downloading a chunk, we check if the total download time has exceeded the timeout.
+    # 4. We check timeout after writing each chunk, but allow the last chunk to complete
     start_time = time.time()
     with requests.get(url, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         with open(fpath, 'wb') as f:
-            # set chunk size to 16 MB to lower the count of iterations.
-            for chunk in r.iter_content(chunk_size=chunk_size):
-                # Check if we've exceeded the total timeout
-                if timeout and (time.time() - start_time) > timeout:
-                    raise TimeoutError(f'Download timed out after {timeout} seconds')
+            # Set chunk size to 16 MB to lower the count of iterations.
+            chunks = r.iter_content(chunk_size=chunk_size)
+            chunk = next(chunks, None)
+            while chunk is not None:
                 f.write(chunk)
+                if timeout and (time.time() - start_time) > timeout:
+                    next_chunk = next(chunks, None)
+                    if next_chunk is not None:
+                        raise TimeoutError(f'Download timed out after {timeout} seconds')
+                chunk = next(chunks, None)
     return fpath
 
 

@@ -49,7 +49,7 @@ PREPACKAGED_FOLDER="csp-resources"
 # Constants and variables of core module
 CORE_DIR="$WORK_DIR/../core"
 TOOLS_JAR_FILE=""
-DOWNLOAD_DIR="/var/tmp/spark_rapids_build_$(date +%s)"
+BUILD_DIR="/var/tmp/spark_rapids_user_tools_cache/build_$(date +%Y%m%d_%H%M%S)"
 
 # Function to download JAR from URL
 download_jar_from_url() {
@@ -82,12 +82,8 @@ download_jar_from_url() {
 }
 
 clean_up_downloaded_jars() {
-  if [ -d "$DOWNLOAD_DIR" ]; then
-    echo "Cleaning up temporary download directory: $DOWNLOAD_DIR"
-    rm -rf "$DOWNLOAD_DIR"
-  else
-    echo "No temporary download directory to clean up."
-  fi
+  if [ -d "$BUILD_DIR" ]; then
+    rm -rf "$BUILD_DIR"
 }
 
 # Function to run mvn command to build the tools jar
@@ -163,7 +159,7 @@ build() {
   # Build the tools jar from source
   if [ -n "$jar_url" ]; then
       echo "Using provided JAR URL instead of building from source"
-      download_jar_from_url "$jar_url" "$DOWNLOAD_DIR"
+      download_jar_from_url "$jar_url" "$BUILD_DIR"
     else
       echo "Building JAR from source"
       build_jar_from_source

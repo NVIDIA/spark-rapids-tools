@@ -14,14 +14,11 @@
 
 """Common types and definitions used by the configurations. This module is used by other
 modules as well."""
-import re
-from pathlib import Path
-from pydantic import BaseModel, Field, AnyUrl, AliasChoices, model_validator, ValidationError, field_validator
+import os
+from pydantic import BaseModel, Field, AnyUrl, AliasChoices, ValidationError, model_validator
 
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib.tools.fs_utils import FileHashAlgorithm
-
-ENV_VAR_PATTERN = r'\${([A-Za-z_][A-Za-z0-9_]*)}'
 
 
 class BaseConfig(BaseModel, extra='forbid'):
@@ -76,8 +73,8 @@ class RuntimeDependency(BaseConfig):
                     'or an environment variable path (e.g., ${ENV_VAR}/file.jar).',
         examples=['file:///path/to/file.tgz',
                   'https://mvn-url/24.08.1/rapids-4-spark-tools_2.12-24.08.1.jar',
-                  'gs://bucket-name/path/to/file.jar',
-                  '${SPARK_HOME}/jars/some.jar'])
+                  'gs://bucket-name/path/to/file.jar'],
+        validate_default=True)
     dependency_type: RuntimeDependencyType = Field(
         default_factory=lambda: RuntimeDependencyType(dep_type=DependencyType.get_default()),
         description='Specifies the dependency type to determine how the item is processed. '
@@ -88,42 +85,21 @@ class RuntimeDependency(BaseConfig):
         default=None,
         description='Optional specification to verify the dependency file.')
 
-    @field_validator('uri')
-    def validate_uri(cls, v):
-        # Check for environment variable pattern
-        if re.match(ENV_VAR_PATTERN, v):
-            return v
+    @model_validator(mode='after')
+    def validate_dependency(self) -> 'RuntimeDependency':
+        """Validate that the URI is a valid URL or file path when dependency type is not CLASSPATH."""
+        dep_type = self.dependency_type.dep_type
+
+        if dep_type == DependencyType.CLASSPATH:
+            return self
 
         try:
-            AnyUrl(v)
-            return v
-        except ValidationError:
-            pass
-
-        if Path(v).exists():
-            return v
-
-        raise ValueError(
-            'Dependency URI must be either:\n'
-            '1. A valid environment variable path (e.g., ${ENV_VAR}/file.jar)\n'
-            '2. A valid URL\n'
-            '3. An existing file path'
-        )
-
-    @model_validator(mode='after')
-    def validate_dependency_type_constraints(self):
-        # Check if URI contains environment variable
-        is_env_var = re.match(ENV_VAR_PATTERN, self.uri) is not None
-
-        # If URI is environment variable, dependency type cannot be archive
-        if is_env_var and self.dependency_type.dep_type == DependencyType.ARCHIVE:
-            raise ValueError('Archive dependency type cannot be used with environment variable URIs')
-
-        # If dependency type is not archive, relative_path cannot be set
-        if self.dependency_type.dep_type != DependencyType.ARCHIVE and self.dependency_type.relative_path:
-            raise ValueError('Relative path can only be set for archive dependency types')
-
-        return self
+            AnyUrl(self.uri)
+            return self
+        except ValidationError as exc:
+            if not os.path.isfile(self.uri):
+                raise ValueError(f'File does not exist: {self.uri}. Error: {exc}') from exc
+            return self
 
 
 class SparkProperty(BaseConfig):

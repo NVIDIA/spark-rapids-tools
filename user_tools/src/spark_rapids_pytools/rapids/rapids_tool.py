@@ -38,7 +38,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.configuration.common import RuntimeDependency, ENV_VAR_PATTERN
+from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
@@ -587,30 +587,6 @@ class RapidsJarTool(RapidsTool):
                 raise ValueError(f'Invalid dependency type [{defined_dep_type}]')
             return dep_item
 
-        def validate_env_var_dependency(dep: RuntimeDependency) -> str:
-            """
-            Validate the environment variable and return its value
-
-            For environment variables that are part of a path pattern (like ${SPARK_HOME}/jars/*),
-            we return the unexpanded form to allow shell expansion at command execution time.
-            """
-            env_var_path = dep.uri
-            var_matches = re.finditer(ENV_VAR_PATTERN, env_var_path)
-            missing_vars = []
-            # Check each environment variable exists
-            for match in var_matches:
-                var_name = match.group(1)
-                if os.getenv(var_name) is None:
-                    missing_vars.append(var_name)
-            if missing_vars:
-                vars_str = ', '.join(missing_vars)
-                raise ValueError(
-                    f'Environment variables [{vars_str}] referenced in [{env_var_path}] not set'
-                )
-            expanded_path = os.path.expandvars(env_var_path)
-            self.logger.info('Expanded uri %s to %s', env_var_path, expanded_path)
-            return expanded_path
-
         def cache_all_dependencies(dep_arr: List[RuntimeDependency]) -> List[str]:
             """
             Create a thread pool and download specified urls
@@ -646,7 +622,7 @@ class RapidsJarTool(RapidsTool):
 
         depend_arr = populate_dependency_list()
         if depend_arr:
-            env_var_deps = [dep for dep in depend_arr if dep.dependency_type and
+            classpath_deps = [dep for dep in depend_arr if dep.dependency_type and
                             dep.dependency_type.dep_type == DependencyType.CLASSPATH]
             downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
                                  dep.dependency_type.dep_type != DependencyType.CLASSPATH]
@@ -659,12 +635,9 @@ class RapidsJarTool(RapidsTool):
                     raise RuntimeError('Could not download all dependencies. Aborting Executions.')
                 self.logger.info('Downloadable dependencies are processed as: %s',
                                  Utils.gen_joined_str(join_elem='; ', items=dep_list))
-            if env_var_deps:
-                # validate the environment variable dependencies
-                self.logger.info('Validating environment variable dependencies %s', env_var_deps)
-                for dep in env_var_deps:
-                    dep_item = validate_env_var_dependency(dep)
-                    dep_list.append(dep_item)
+            if classpath_deps:
+                for dep_item in classpath_deps:
+                    dep_list.append(dep_item.uri)
             self.logger.info('Dependencies are processed as: %s',
                              Utils.gen_joined_str(join_elem='; ',
                                                   items=dep_list))
