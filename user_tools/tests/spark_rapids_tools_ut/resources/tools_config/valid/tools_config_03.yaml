@@ -13,6 +13,7 @@
 # limitations under the License.
 
 # This yaml file is a configuration file for a tool that uses Spark 3.5.0 as dependency
+# and uses the environment variable SPARK_HOME to locate the jars.
 # Minimal file content.
 api_version: '1.0'
 runtime:
@@ -20,4 +21,4 @@ runtime:
     - name: my-spark350
       uri: ${SPARK_HOME}/jars/*
       dependency_type:
-        dep_type: environment
+        dep_type: classpath

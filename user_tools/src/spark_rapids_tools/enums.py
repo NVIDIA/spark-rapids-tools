@@ -106,7 +106,7 @@ class DependencyType(EnumeratedType):
     """Represents the dependency type for the tools' java cmd."""
     JAR = 'jar'
     ARCHIVE = 'archive'
-    ENV_VAR = 'environment'
+    CLASSPATH = 'classpath'
 
     @classmethod
     def get_default(cls) -> 'DependencyType':

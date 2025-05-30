@@ -44,7 +44,7 @@ from spark_rapids_tools.storagelib.tools.fs_utils import FileVerificationResult
 
 
 def download_url_request(url: str, fpath: str, timeout: float = None,
-                         chunk_size: int = 32 * 1024 * 1024) -> str:
+                         chunk_size: int = 16 * 1024 * 1024) -> str:
     """
     Downloads a file from url source using the requests library.
     This implementation is more suitable for large files as the chunk size is set to 32 MB.
@@ -57,11 +57,22 @@ def download_url_request(url: str, fpath: str, timeout: float = None,
     """
     # disable the urllib3 debug messages
     logging.getLogger('urllib3').setLevel(logging.WARNING)
+    # Note on requests timeout behavior with streaming:
+    # 1. When stream=True, the timeout parameter in requests.get() only applies to:
+    #    - Initial connection establishment
+    #    - First chunk read
+    # 2. For subsequent chunks, no timeout is enforced by requests library
+    # 3. This is why we need our own timeout check for the total download time
+    # 4. Each time we are done downloading a chunk, we check if the total download time has exceeded the timeout.
+    start_time = time.time()
     with requests.get(url, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         with open(fpath, 'wb') as f:
             # set chunk size to 16 MB to lower the count of iterations.
             for chunk in r.iter_content(chunk_size=chunk_size):
+                # Check if we've exceeded the total timeout
+                if timeout and (time.time() - start_time) > timeout:
+                    raise TimeoutError(f'Download timed out after {timeout} seconds')
                 f.write(chunk)
     return fpath
 

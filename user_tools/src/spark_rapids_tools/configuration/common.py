@@ -21,6 +21,8 @@ from pydantic import BaseModel, Field, AnyUrl, AliasChoices, model_validator, Va
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib.tools.fs_utils import FileHashAlgorithm
 
+ENV_VAR_PATTERN = r'\${([A-Za-z_][A-Za-z0-9_]*)}'
+
 
 class BaseConfig(BaseModel, extra='forbid'):
     """
@@ -70,7 +72,7 @@ class RuntimeDependency(BaseConfig):
         description='The name of the dependency.',
         examples=['Spark-3.5.0', 'AWS Java SDK'])
     uri: str = Field(
-        description='The location of the dependency file.It can be a URL, a file path,'
+        description='The location of the dependency file. It can be a URL, a file path,'
                     'or an environment variable path (e.g., ${ENV_VAR}/file.jar).',
         examples=['file:///path/to/file.tgz',
                   'https://mvn-url/24.08.1/rapids-4-spark-tools_2.12-24.08.1.jar',
@@ -89,8 +91,7 @@ class RuntimeDependency(BaseConfig):
     @field_validator('uri')
     def validate_uri(cls, v):
         # Check for environment variable pattern
-        env_var_pattern = r'^\$\{[A-Za-z_][A-Za-z0-9_]*\}.*'
-        if re.match(env_var_pattern, v):
+        if re.match(ENV_VAR_PATTERN, v):
             return v
 
         try:
@@ -112,8 +113,7 @@ class RuntimeDependency(BaseConfig):
     @model_validator(mode='after')
     def validate_dependency_type_constraints(self):
         # Check if URI contains environment variable
-        env_var_pattern = r'^\$\{[A-Za-z_][A-Za-z0-9_]*\}.*'
-        is_env_var = re.match(env_var_pattern, self.uri) is not None
+        is_env_var = re.match(ENV_VAR_PATTERN, self.uri) is not None
 
         # If URI is environment variable, dependency type cannot be archive
         if is_env_var and self.dependency_type.dep_type == DependencyType.ARCHIVE:

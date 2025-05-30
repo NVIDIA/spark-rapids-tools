@@ -38,7 +38,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.configuration.common import RuntimeDependency
+from spark_rapids_tools.configuration.common import RuntimeDependency, ENV_VAR_PATTERN
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
@@ -551,11 +551,15 @@ class RapidsJarTool(RapidsTool):
             self.logger.info('Checking dependency %s', dep.name)
             dest_folder = self.ctxt.get_cache_folder()
             verify_opts = {}
+            configs = {}
+            # set the timeout to 30 minutes
+            configs['timeOut'] = 1800
             if dep.verification is not None:
                 verify_opts = dict(dep.verification)
             download_task = DownloadTask(src_url=dep.uri,     # pylint: disable=no-value-for-parameter)
                                          dest_folder=dest_folder,
-                                         verification=verify_opts)
+                                         verification=verify_opts,
+                                         configs=configs)
             download_result = download_task.run_task()
             self.logger.info('Completed downloading of dependency [%s] => %s',
                              dep.name,
@@ -591,15 +595,20 @@ class RapidsJarTool(RapidsTool):
             we return the unexpanded form to allow shell expansion at command execution time.
             """
             env_var_path = dep.uri
-            # Validation for existence of the environment variable is done at pydantic model level
-            var_match = re.search(r'\${([^}]+)}', env_var_path)
-            var_name = var_match.group(1)
-            env_value = os.getenv(var_name)
-            if env_value is None:
-                raise ValueError(f'Environment variable [{var_name}] referenced in [{env_var_path}] not set')
-            # Replace the ${VAR} with its actual value
-            expanded_path = env_var_path.replace(f'${{{var_name}}}', env_value)
-            self.logger.info('Expanded environment variable %s to %s', env_var_path, expanded_path)
+            var_matches = re.finditer(ENV_VAR_PATTERN, env_var_path)
+            missing_vars = []
+            # Check each environment variable exists
+            for match in var_matches:
+                var_name = match.group(1)
+                if os.getenv(var_name) is None:
+                    missing_vars.append(var_name)
+            if missing_vars:
+                vars_str = ', '.join(missing_vars)
+                raise ValueError(
+                    f'Environment variables [{vars_str}] referenced in [{env_var_path}] not set'
+                )
+            expanded_path = os.path.expandvars(env_var_path)
+            self.logger.info('Expanded uri %s to %s', env_var_path, expanded_path)
             return expanded_path
 
         def cache_all_dependencies(dep_arr: List[RuntimeDependency]) -> List[str]:
@@ -608,47 +617,18 @@ class RapidsJarTool(RapidsTool):
             """
             futures_list = []
             results = []
-            # Create a mapping of futures to their corresponding dependencies
-            future_to_dep = {}
-
             with ThreadPoolExecutor(max_workers=4) as executor:
                 for dep in dep_arr:
                     futures = executor.submit(cache_single_dependency, dep)
                     futures.add_done_callback(exception_handler)
                     futures_list.append(futures)
-                    future_to_dep[futures] = dep
 
                 try:
                     # set the timeout to 30 minutes.
                     for future in concurrent.futures.as_completed(futures_list, timeout=1800):
                         result = future.result()
                         results.append(result)
-                except concurrent.futures.TimeoutError as timeout_ex:
-                    pending_deps = [
-                        f'{dep.name} ({dep.uri})'
-                        for f, dep in future_to_dep.items()
-                        if not f.done()
-                    ]
-                    error_msg = (
-                        f'Download timed out after 30 minutes. '
-                        f'The following dependencies are still pending: '
-                        f'{", ".join(pending_deps)}'
-                    )
-                    self.logger.error(error_msg)
-                    raise TimeoutError(error_msg) from timeout_ex
                 except Exception as ex:    # pylint: disable=broad-except
-                    failed_deps = [
-                        f'{dep.name} ({dep.uri})'
-                        for f, dep in future_to_dep.items()
-                        if f.done() and f.exception() is not None
-                    ]
-                    error_msg = (
-                        f'Failed to download dependencies. '
-                        f'The following dependencies failed: '
-                        f'{", ".join(failed_deps)}. '
-                        f'Error: {str(ex)}'
-                    )
-                    self.logger.error(error_msg)
                     raise ex
             return results
 
@@ -667,9 +647,9 @@ class RapidsJarTool(RapidsTool):
         depend_arr = populate_dependency_list()
         if depend_arr:
             env_var_deps = [dep for dep in depend_arr if dep.dependency_type and
-                            dep.dependency_type.dep_type == DependencyType.ENV_VAR]
+                            dep.dependency_type.dep_type == DependencyType.CLASSPATH]
             downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
-                                 dep.dependency_type.dep_type != DependencyType.ENV_VAR]
+                                 dep.dependency_type.dep_type != DependencyType.CLASSPATH]
             dep_list = []
             if downloadable_deps:
                 # download the dependencies
