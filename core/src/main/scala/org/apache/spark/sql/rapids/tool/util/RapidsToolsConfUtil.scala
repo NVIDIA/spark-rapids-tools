@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.FileNotFoundException
 import java.util.Properties
 
+import collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -32,6 +33,8 @@ object RapidsToolsConfUtil extends Logging {
   // Directory name inside resources that hosts all the configurations in plain properties format
   private val CONFIG_DIR = "/configs"
   private val BUILD_PROPS_FILE_NAME = "build.properties"
+
+  lazy val toolsBuildProperties = loadBuildProperties()
 
   /**
    * Creates a sparkConfiguration object with system properties applied on-top.
@@ -86,7 +89,9 @@ object RapidsToolsConfUtil extends Logging {
    * @param fileName the name of the file in the directory
    * @return a Java properties object
    */
-  private def loadPropFile(fileName: String): Properties = {
+  private def loadPropFile(
+      fileName: String,
+      filterPredicate: (String, String) => Boolean): Properties = {
     val props: Properties = new SortedJProperties
     val propsFilePath = s"$CONFIG_DIR/$fileName"
     getClass.getResourceAsStream(propsFilePath) match {
@@ -94,11 +99,15 @@ object RapidsToolsConfUtil extends Logging {
         logError("Cannot load properties from file", new FileNotFoundException(fileName))
       case stream =>
         props.load(UTF8Source.fromInputStream(stream).bufferedReader())
+        props.stringPropertyNames.asScala
+          .filter(k => filterPredicate(k, props.getProperty(k)))
+          .foreach(k => props.setProperty(k, props.getProperty(k)))
     }
     props
   }
 
-  def loadBuildProperties: Properties = {
-    loadPropFile(BUILD_PROPS_FILE_NAME)
+  def loadBuildProperties(
+      filterPredicate: (String, String) => Boolean = (_, _) => true): Properties = {
+    loadPropFile(BUILD_PROPS_FILE_NAME, filterPredicate)
   }
 }

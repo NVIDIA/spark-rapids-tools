@@ -21,6 +21,7 @@ import scala.util.{Failure, Success, Try}
 import com.nvidia.spark.rapids.tool.Platform
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, RecommendedCommentResult, RecommendedPropertyResult}
+import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -44,7 +45,7 @@ case class TunerContext (
     hadoopConf: Configuration) extends Logging {
 
   def getOutputPath: String = {
-    s"$outputRootDir/rapids_4_spark_qualification_output/tuning"
+    QualReportGenConfProvider.getTuningReportPath(outputRootDir)
   }
 
   def tuneApplication(

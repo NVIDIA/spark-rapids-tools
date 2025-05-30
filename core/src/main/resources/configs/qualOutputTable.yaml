@@ -1,0 +1,351 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+qualTableDefinitions:
+  - label: qualCoreCSVStatus
+    description: >-
+      TBA
+    fileName: status.csv
+    scope: global
+    columns:
+      - name: Event Log
+        dataType: string
+        description: >-
+          TBA
+      - name: Status
+        dataType: string
+        description: >-
+          TBA
+      - name: App ID
+        dataType: string
+        description: >-
+          TBA
+      - name: Description
+        dataType: string
+        description: >-
+          TBA
+  - label: qualCoreCSVSummary
+    description: >-
+      TBA
+    fileName: apps_summary.csv
+    scope: global
+    columns:
+      - name: App Name
+        dataType: string
+        description: >-
+          TBA
+      - name: App ID
+        dataType: string
+        description: >-
+          TBA
+      - name: Attempt ID
+        dataType: string
+        description: >-
+          TBA
+      - name: App Duration
+        dataType: string
+        description: >-
+          TBA
+      - name: Executor CPU Time Percent
+        dataType: string
+        description: >-
+          TBA
+      - name: SQL Ids with Failures
+        dataType: string
+        description: >-
+          TBA
+      - name: Unsupported Read File Formats and Types
+        dataType: string
+        description: >-
+          TBA
+      - name: Unsupported Write Data Format
+        dataType: string
+        description: >-
+          TBA
+      - name: Complex Types
+        dataType: string
+        description: >-
+          TBA
+      - name: Nested Complex Types
+        dataType: string
+        description: >-
+          TBA
+      - name: Potential Problems
+        dataType: string
+        description: >-
+          TBA
+      - name: Longest SQL Duration
+        dataType: string
+        description: >-
+          TBA
+      - name: App Duration Estimated
+        dataType: boolean
+        description: >-
+          TBA
+      - name: Total Core Seconds
+        dataType: long
+        description: >-
+          TBA
+  # the following table seems to be useless
+  - label: perSqlCSVReport
+    description:
+    fileName: persql.csv
+    scope: per-app
+    columns:
+      - name: Root SQL ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: SQL ID
+        dataType: string
+        description: >-
+          TBA
+      - name: SQL Description
+        dataType: Long
+        description: >-
+          TBA
+      - name: SQL DF Duration
+        dataType: string
+        description: >-
+          TBA
+      - name: GPU Opportunity
+        dataType: string
+        description: >-
+          TBA
+  - label: execCSVReport
+    description: >-
+        TBA
+    fileName: execs.csv
+    scope: per-app
+    columns:
+      - name: SQL ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: Exec Name
+        dataType: string
+        description: >-
+          TBA
+      - name: Expression Name
+        dataType: Long
+        description: >-
+          TBA
+      - name: Exec Duration
+        dataType: string
+        description: >-
+          TBA
+      - name: SQL Node Id
+        dataType: string
+        description: >-
+          TBA
+      - name: Exec Is Supported
+        dataType: Long
+        description: >-
+          TBA
+      - name: Exec Stages
+        dataType: string
+        description: >-
+          TBA
+      - name: Exec Children
+        dataType: Long
+        description: >-
+          TBA
+      - name: Exec Children Node Ids
+        dataType: string
+        description: >-
+          TBA
+      - name: Exec Should Remove
+        dataType: string
+        description: >-
+          TBA
+      - name: Exec Should Ignore
+        dataType: string
+        description: >-
+          TBA
+      - name: Action
+        dataType: string
+        description: >-
+          TBA
+  - label: unsupportedOpsCSVReport
+    description: >-
+      TBA
+    fileName: unsupported_operators.csv
+    scope: per-app
+    columns:
+      - name: SQL ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: Stage ID
+        dataType: string
+        description: >-
+          TBA
+      - name: ExecId
+        dataType: Long
+        description: >-
+          TBA
+      - name: Unsupported Type
+        dataType: string
+        description: >-
+          TBA
+      - name: Unsupported Operator
+        dataType: string
+        description: >-
+          TBA
+      - name: Details
+        dataType: Long
+        description: >-
+          TBA
+      - name: Stage Duration
+        dataType: string
+        description: >-
+          STAGE_WALLCLOCK_DUR_STR
+      - name: App Duration
+        dataType: Long
+        description: >-
+          TBA
+      - name: Action
+        dataType: string
+        description: >-
+          TBA
+  - label: operatorsStatsCSVReport
+    description: >-
+      TBA
+    fileName: operators_stats.csv
+    scope: per-app
+    columns:
+      - name: SQL ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: Operator Type
+        dataType: string
+        description: >-
+          TBA
+      - name: Operator Name
+        dataType: Long
+        description: >-
+          TBA
+      - name: Count
+        dataType: string
+        description: >-
+          TBA
+      - name: Supported
+        dataType: boolean
+        description: >-
+          TBA
+      - name: Stages
+        dataType: string
+        description: >-
+          TBA
+  - label: stagesCSVReport
+    description: >-
+      TBA
+    fileName: stages.csv
+    scope: per-app
+    columns:
+      - name: Stage ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: Stage Task Duration
+        dataType: string
+        description: >-
+          Calculated as the total of all the task durations for that stage
+      - name: Unsupported Task Duration
+        dataType: Long
+        description: >-
+          TBA
+      - name: Stage Estimated
+        dataType: boolean
+        description: >-
+          TBA
+  - label: clusterInfoJSONReport
+    description: >-
+      TBA
+    fileName: cluster_information.json
+    fileFormat: JSON
+    scope: per-app
+    columns:
+      - name: appName
+        dataType: String
+        description: >-
+          TBA
+      - name: appId
+        dataType: String
+        description: >-
+          TBA
+      - name: eventLogPath
+        dataType: String
+        description: >-
+          TBA
+      - name: sourceClusterInfo
+        dataType: Dict
+        description: >-
+          TBA
+      - name: recommendedClusterInfo
+        dataType: Dict
+        description: >-
+          TBA
+  # the following table is databricks specific table
+  - label: clusterTagsCSVReport
+    description: >-
+      TBA
+    fileName: clusters_tags.csv
+    scope: per-app
+    columns:
+      - name: Property Name
+        dataType: string
+        description: >-
+          TBA
+      - name: Property Value
+        dataType: string
+        description: >-
+          TBA
+  # the following table is enabled only when ml-functions argument is added to the arguments.
+  - label: mlFunctionsCSVReport
+    description:
+    fileName: ml_functions.csv
+    scope: per-app
+    columns:
+      - name: Stage ID
+        dataType: Long
+        description: >-
+          TBA
+      - name: ML Functions
+        dataType: string
+        description: >-
+          TBA
+      - name: Stage WallClock Duration (ms)
+        dataType: Long
+        description: >-
+          Calculated as (submissionTime - completionTime) of the given stage
+  # the following table is enabled only when ml-functions argument is added to the arguments.
+  - label: mlFunctionsDurationsCSVReport
+    description:
+    fileName: ml_functions_durations.csv
+    scope: per-app
+    columns:
+      - name: Stage Ids
+        dataType: String
+        description: >-
+          TBA
+      - name: ML Function Name
+        dataType: String
+        description: >-
+          TBA
+      - name: Total Duration
+        dataType: Long
+        description: >-
+          TBA

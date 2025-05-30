@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,6 +54,13 @@ class ToolTextFileWriter(
 
   def write(stringToWrite: String): Unit = {
     utf8Writer.foreach(_.write(stringToWrite))
+  }
+
+  def writeLn(stringToWrite: String): Unit = {
+    utf8Writer.foreach { w =>
+      w.write(stringToWrite)
+      w.write("\n")
+    }
   }
 
   def writeProperties(props: Properties, comment: String): Unit = {
