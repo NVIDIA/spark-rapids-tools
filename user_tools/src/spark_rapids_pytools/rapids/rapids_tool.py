@@ -623,7 +623,7 @@ class RapidsJarTool(RapidsTool):
         depend_arr = populate_dependency_list()
         if depend_arr:
             classpath_deps = [dep for dep in depend_arr if dep.dependency_type and
-                            dep.dependency_type.dep_type == DependencyType.CLASSPATH]
+                              dep.dependency_type.dep_type == DependencyType.CLASSPATH]
             downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
                                  dep.dependency_type.dep_type != DependencyType.CLASSPATH]
             dep_list = []
