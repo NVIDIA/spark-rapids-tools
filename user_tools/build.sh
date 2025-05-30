@@ -84,6 +84,7 @@ download_jar_from_url() {
 clean_up_downloaded_jars() {
   if [ -d "$BUILD_DIR" ]; then
     rm -rf "$BUILD_DIR"
+  fi
 }
 
 # Function to run mvn command to build the tools jar
