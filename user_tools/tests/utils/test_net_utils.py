@@ -31,7 +31,7 @@ class MockResponse:
     def raise_for_status(self):
         pass
 
-    def iter_content(self, chunk_size=None):  # Removed unused chunk_size parameter
+    def iter_content(self, chunk_size=None):
         return iter(self._chunks)
 
     def __enter__(self):
