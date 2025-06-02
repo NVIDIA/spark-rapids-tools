@@ -537,6 +537,8 @@ class RapidsJarTool(RapidsTool):
 
     @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
+        # Default timeout in seconds (30 minutes)
+        default_download_timeout = 1800
 
         def exception_handler(future):
             # Handle any exceptions raised by the task
@@ -551,15 +553,14 @@ class RapidsJarTool(RapidsTool):
             self.logger.info('Checking dependency %s', dep.name)
             dest_folder = self.ctxt.get_cache_folder()
             verify_opts = {}
-            configs = {}
-            # set the timeout to 30 minutes
-            configs['timeOut'] = 1800
+            download_configs = {}
+            download_configs['timeOut'] = default_download_timeout
             if dep.verification is not None:
                 verify_opts = dict(dep.verification)
             download_task = DownloadTask(src_url=dep.uri,     # pylint: disable=no-value-for-parameter)
                                          dest_folder=dest_folder,
                                          verification=verify_opts,
-                                         configs=configs)
+                                         configs=download_configs)
             download_result = download_task.run_task()
             self.logger.info('Completed downloading of dependency [%s] => %s',
                              dep.name,
@@ -600,8 +601,7 @@ class RapidsJarTool(RapidsTool):
                     futures_list.append(futures)
 
                 try:
-                    # set the timeout to 30 minutes.
-                    for future in concurrent.futures.as_completed(futures_list, timeout=1800):
+                    for future in concurrent.futures.as_completed(futures_list, timeout=default_download_timeout):
                         result = future.result()
                         results.append(result)
                 except Exception as ex:    # pylint: disable=broad-except

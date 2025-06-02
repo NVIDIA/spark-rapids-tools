@@ -76,7 +76,7 @@ def download_url_request(url: str, fpath: str, timeout: float = None,
                 if timeout and (time.time() - start_time) > timeout:
                     next_chunk = next(chunks, None)
                     if next_chunk is not None:
-                        raise TimeoutError(f'Download timed out after {timeout} seconds')
+                        raise TimeoutError(f'Download timed out after {timeout} seconds while downloading from {url}')
                 chunk = next(chunks, None)
     return fpath
 
@@ -289,7 +289,7 @@ class DownloadTask:
         download_opts = {
             'srcUrl': str(self.src_url),
             'destPath': local_res.no_scheme,
-            # set default timeout oif a single task to 1 hour
+            # set default timeout of a single task to 1 hour
             'timeOut': self.configs.get('timeOut', 3600),
         }
         download_res = self._download_resource(download_opts)

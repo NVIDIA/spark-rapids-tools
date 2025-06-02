@@ -91,6 +91,10 @@ class RuntimeDependency(BaseConfig):
         dep_type = self.dependency_type.dep_type
 
         if dep_type == DependencyType.CLASSPATH:
+            # This checks for empty strings, and whitespace-only strings.
+            # None value is checked for by Pydantic validation.
+            if not self.uri.strip():
+                raise ValidationError('URI cannot be empty for classpath dependency', model=RuntimeDependency)
             return self
 
         try:
@@ -98,7 +102,10 @@ class RuntimeDependency(BaseConfig):
             return self
         except ValidationError as exc:
             if not os.path.isfile(self.uri):
-                raise ValueError(f'File does not exist: {self.uri}. Error: {exc}') from exc
+                raise ValidationError(
+                    f'Invalid URI for dependency: {self.uri}. Error: {exc}',
+                    model=RuntimeDependency
+                ) from exc
             return self
 
 
