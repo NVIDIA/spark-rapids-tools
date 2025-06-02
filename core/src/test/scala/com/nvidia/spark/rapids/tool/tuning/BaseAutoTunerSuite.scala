@@ -55,6 +55,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getMeanShuffleRead: Double = meanShuffleRead
   override def getSpilledMetrics: Seq[Long] = spilledMetrics
   override def getJvmGCFractions: Seq[Double] = jvmGCFractions
+  override def getAllProperties: Map[String, String] = propsFromLog.toMap
   override def getRapidsProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSystemProperty(propKey: String): Option[String] = propsFromLog.get(propKey)

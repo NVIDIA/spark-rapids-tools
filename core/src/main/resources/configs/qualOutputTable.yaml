@@ -290,7 +290,7 @@ qualTableDefinitions:
         dataType: String
         description: >-
           TBA
-      - name: clusterInfo
+      - name: sourceClusterInfo
         dataType: Dict
         description: >-
           TBA

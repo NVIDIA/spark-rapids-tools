@@ -120,8 +120,8 @@ def verify_expected_features(context, label):
     extra_features = actual_features - expected_features
 
     assert label in actual_features, f'Label {label} should be in the expected features'
-    assert not missing_features, f'Missing expected features: {missing_features}'
-    assert not extra_features, f'Found unexpected features: {extra_features}'
+    assert not missing_features, f'Missing expected features: {missing_features} (try removing preprocessed.parquet)'
+    assert not extra_features, f'Found unexpected features: {extra_features} (try removing preprocessed.parquet)'
 
     assert len(context.profile_df) == 194, 'Profile DataFrame should have 194 rows'
 

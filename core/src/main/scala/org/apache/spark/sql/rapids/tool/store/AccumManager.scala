@@ -32,7 +32,7 @@ class AccumManager {
   }
 
   private def getOrCreateAccumInfo(id: Long, name: Option[String]): AccumInfo = {
-    accumInfoMap.getOrElseUpdate(id, new AccumInfo(AccumMetaRef(id, name)))
+    accumInfoMap.getOrElseUpdate(id, AccumInfo(AccumMetaRef(id, name)))
   }
 
   def addAccToStage(stageId: Int, accumulableInfo: AccumulableInfo): Unit = {

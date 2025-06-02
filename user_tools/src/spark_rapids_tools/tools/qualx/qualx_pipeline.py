@@ -16,6 +16,7 @@
 
 from typing import List, Union
 import glob
+import itertools
 import json
 import os
 import shutil
@@ -35,7 +36,7 @@ logger = get_logger(__name__)
 
 def _create_dataset_json(
         delta_df: pd.DataFrame,
-        ds_eventlogs: str,
+        ds_eventlogs: List[str],
         datasets: str,
         platform: str,
         dataset_name: str,
@@ -46,8 +47,8 @@ def _create_dataset_json(
     ----------
     delta_df: pd.DataFrame
         DataFrame containing new rows of appId and sqlID alignments between CPU and GPU runs
-    ds_eventlogs: str
-        Path to directory in QUALX_DATA_DIR containing CPU and GPU eventlogs
+    ds_eventlogs: List[str]
+        Paths to directories in QUALX_DATA_DIR containing CPU and GPU eventlogs
     datasets: str
         Path to directory containing dataset JSON files
     platform: str
@@ -68,16 +69,33 @@ def _create_dataset_json(
         app_meta[row['appId_cpu']] = {'runType': 'CPU', 'scaleFactor': 1}
         app_meta[row['appId_gpu']] = {'runType': 'GPU', 'scaleFactor': 1}
 
+    # get list of all CPU and GPU appIds
+    cpu_app_ids = delta_df['appId_cpu'].unique()
+    gpu_app_ids = delta_df['appId_gpu'].unique()
+    app_ids = list(itertools.chain(cpu_app_ids, gpu_app_ids))
+
+    # get list of all eventlogs for targeted CPU and GPU appIds
+    # note: getting direct paths to files, since the parent directory may contain extra eventlogs
+    eventlogs = []
+    for eventlog_path in ds_eventlogs:
+        if os.path.isdir(eventlog_path):
+            eventlogs.extend(find_paths(eventlog_path, lambda f: any(app_id in f for app_id in app_ids)))
+        else:
+            eventlogs.append(eventlog_path)
+    # remove duplicates
+    eventlogs = sorted(list(set(eventlogs)))
+
     # create datasets/platform directory if it doesn't exist
     platform_dir = os.path.join(datasets, platform)
     ensure_directory(platform_dir)
 
+    # create dataset path
     dataset_path = os.path.join(platform_dir, f'{dataset_name}.json')
 
     # create dataset JSON
     dataset_json = {
         dataset_name: {
-            'eventlogs': [ds_eventlogs],
+            'eventlogs': eventlogs,
             'app_meta': dict(sorted(app_meta.items())),
             'platform': platform
         }
@@ -99,7 +117,7 @@ def _unzip_eventlogs(
         cpu_eventlogs: List[str],
         gpu_eventlogs: List[str],
         dataset_basename: str,
-        ds_name: str) -> str:
+        ds_name: str) -> List[str]:
     """Unzip the eventlogs to QUAL_DATA_DIR.
 
     Parameters
@@ -114,10 +132,16 @@ def _unzip_eventlogs(
         Path in QUAL_DATA_DIR to unzip the eventlogs to.
     ds_name: str
         Name of the dataset
+
+    Returns
+    -------
+    List[str]
+        Paths to the unzipped eventlogs
     """
     # get path to QUAL_DATA_DIR destination directory
     qualx_data_dir = os.getenv('QUALX_DATA_DIR')
-    ds_eventlogs = os.path.join(qualx_data_dir, 'customers', dataset_basename, ds_name)
+    ds_eventlogs = []
+    ds_eventlogs_base = os.path.join(qualx_data_dir, 'customers', dataset_basename, ds_name)
     if os.path.exists(os.path.expandvars(ds_eventlogs)):
         logger.warning('Eventlog directory already exists: %s, skipping unzip', ds_eventlogs)
         return ds_eventlogs
@@ -134,19 +158,25 @@ def _unzip_eventlogs(
     for path in gpu_eventlogs:
         gpu_logs.extend(find_paths(path, lambda f: any(app_id in f for app_id in gpu_app_ids)))
 
-    ensure_directory(ds_eventlogs, parent=True)
-    logger.info('Unzipping eventlogs to %s', ds_eventlogs)
     # unzip cpu eventlogs using zipfile
+    cpu_eventlogs = os.path.join(ds_eventlogs_base, 'eventlogs', 'cpu')
+    ds_eventlogs.append(cpu_eventlogs)
+    ensure_directory(cpu_eventlogs, parent=True)
+    logger.info('Unzipping eventlogs to %s', cpu_eventlogs)
     for cpu_log in cpu_logs:
         with zipfile.ZipFile(cpu_log, 'r') as zip_ref:
             logger.debug('Unzipping CPU eventlog: %s', cpu_log)
-            zip_ref.extractall(f'{ds_eventlogs}/cpu')
+            zip_ref.extractall(cpu_eventlogs)
 
     # unzip gpu eventlogs using zipfile
+    gpu_eventlogs = os.path.join(ds_eventlogs_base, 'eventlogs', 'gpu')
+    ds_eventlogs.append(gpu_eventlogs)
+    ensure_directory(gpu_eventlogs, parent=True)
+    logger.info('Unzipping eventlogs to %s', gpu_eventlogs)
     for gpu_log in gpu_logs:
         with zipfile.ZipFile(gpu_log, 'r') as zip_ref:
             logger.debug('Unzipping GPU eventlog: %s', gpu_log)
-            zip_ref.extractall(f'{ds_eventlogs}/gpu')
+            zip_ref.extractall(gpu_eventlogs)
 
     return ds_eventlogs
 
@@ -177,6 +207,7 @@ def train_and_evaluate(
     alignment_dir = get_abs_path(cfg.alignment_dir)
     cpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['cpu']]
     gpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['gpu']]
+    zipped_eventlogs = cfg.eventlogs.get('zipped', True)
     datasets = get_abs_path(cfg.datasets)
     platform = cfg.platform
     dataset_basename = cfg.dataset_name
@@ -185,7 +216,7 @@ def train_and_evaluate(
     model_name = model_config['model_name']
     n_trials = model_config['n_trials']
     qual_tool_filter = model_config['qual_tool_filter']
-    output_dir = os.path.join(os.path.dirname(cfg.file_path), cfg.output_dir)
+    output_dir = cfg.output_dir
 
     model_path = f'{output_dir}/{model_type}/{model_name}'
 
@@ -213,7 +244,7 @@ def train_and_evaluate(
     if missing_cols:
         raise ValueError(f'Alignment CSV missing required columns: {missing_cols}')
 
-    # get previous alignment file, if exists
+    # get previous alignment files, if exist
     prev_alignments = glob.glob(os.path.join(alignment_dir, f'{dataset_basename}_*.csv'))
     if len(prev_alignments) > 0:
         # load all previous alignment files, remove duplicates, and mark as processed
@@ -238,18 +269,21 @@ def train_and_evaluate(
 
     logger.info('New alignment rows: %d', len(delta_df))
 
-    # for new alignment with new data, mark as in progress
+    # for new alignment with new data, save deltas and mark as in progress
     if not inprogress_files:
-        shutil.copy(alignment_file, inprogress_file)
+        delta_df.to_csv(inprogress_file, index=False)
 
     # unzip and archive the eventlogs to QUAL_DATA_DIR
-    ds_eventlogs = _unzip_eventlogs(
-        delta_df,
-        cpu_eventlogs,
-        gpu_eventlogs,
-        dataset_basename,
-        ds_name
-    )
+    if zipped_eventlogs:
+        ds_eventlogs = _unzip_eventlogs(
+            delta_df,
+            cpu_eventlogs,
+            gpu_eventlogs,
+            dataset_basename,
+            ds_name
+        )
+    else:
+        ds_eventlogs = list(itertools.chain(cpu_eventlogs, gpu_eventlogs))
 
     # if trained model exists, evaluate new dataset against existing model
     if os.path.exists(model_path):
@@ -267,18 +301,17 @@ def train_and_evaluate(
         # evaluate the previous model on the new dataset
         with open(dataset_json, 'r', encoding='utf-8') as f:
             logger.info('Evaluating %s model on %s', model_name, dataset_json)
-            dataset = json.load(f)
-            for ds_name in dataset.keys():
-                evaluate(
-                    platform=platform,
-                    dataset=dataset_json,
-                    output_dir=f'{output_dir}/evaluate',
-                    model=model_path,
-                    qual_tool_filter=qual_tool_filter
-                )
+            evaluate(
+                platform=platform,
+                dataset=dataset_json,
+                output_dir=f'{output_dir}/evaluate',
+                model=model_path,
+                qual_tool_filter=qual_tool_filter
+            )
 
         # archive the previous output directory with date suffix
         output_dir_archive = f'{output_dir}_{suffix}'
+        logger.info('Archiving output directory: %s to: %s', output_dir, output_dir_archive)
         shutil.move(output_dir, output_dir_archive)
 
     logger.info('Adding new dataset to training')

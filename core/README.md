@@ -32,6 +32,14 @@ mvn -Dbuildver=351 clean package
 
 Run `mvn help:all-profiles` to list supported Spark versions.
 
+### Building JAR for release
+
+To build a release JAR file, run the profile `release`
+
+```shell script
+mvn clean package -P release
+```
+
 ### Running tests
 
 The unit tests are run by default when building unless they are explicitly skipped by specifying `-DskipTests`.
@@ -53,8 +61,8 @@ mvn test -Dsuites=com.nvidia.spark.rapids.tool.qualification.QualificationSuite
 
 ### Setting up an Integrated Development Environment
 
-Before proceeding with importing spark-rapids-tools into IDEA or switching to a different Spark release
-profile, execute the install phase with the corresponding `buildver`, e.g. for Spark 3.5.0:
+Before proceeding with importing spark-rapids-tools into IDEA or switching to a different Spark
+profile, execute the installation's phase cmd with the corresponding `buildver`, e.g. for Spark 3.5.0:
 
 ##### Manual Maven Install for a target Spark build
 

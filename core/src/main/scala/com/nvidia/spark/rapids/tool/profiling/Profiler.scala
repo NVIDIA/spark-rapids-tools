@@ -22,11 +22,11 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerConfigsProvider, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterProps, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp, IncorrectAppStatusException}
+import org.apache.spark.sql.rapids.tool.{AppBase, ClusterSummary, FailureApp, IncorrectAppStatusException}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -99,7 +99,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           logPath = Option(driverLogInfos),
           hadoopConf = hadoopConf)
       val unsupportedDriverOperators = driverLogProcessor.getUnsupportedOperators
-      profileOutputWriter.write(s"Unsupported operators in driver log",
+      profileOutputWriter.writeTable(s"Unsupported operators in driver log",
         unsupportedDriverOperators)
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
@@ -200,10 +200,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // we need a platform per application because it is storing cluster information, which could
       // vary between applications, especially when using dynamic allocation.
       val platform = {
-        val workerInfoPath = appArgs.workerInfo
-          .getOrElse(ProfilingAutoTunerConfigsProvider.DEFAULT_WORKER_INFO_PATH)
-        val clusterPropsOpt = ProfilingAutoTunerConfigsProvider.loadClusterProps(workerInfoPath)
-        PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
+        val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
+          PropertiesLoader[ClusterProperties].loadFromFile)
+        val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
+          PropertiesLoader[TargetClusterProps].loadFromFile)
+        PlatformFactory.createInstance(appArgs.platform(),
+          clusterPropsOpt, targetClusterPropsOpt)
       }
       val app = new ApplicationInfo(hadoopConf, path, platform = platform)
       EventLogPathProcessor.logApplicationInfo(app)
@@ -345,53 +347,54 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val app = profilerResult.summary
     profileOutputWriter.writeText("### A. Information Collected ###")
-    profileOutputWriter.write(ProfInformationView.getLabel, app.appInfo)
-    profileOutputWriter.write(ProfLogPathView.getLabel, app.appLogPath)
-    profileOutputWriter.write(ProfDataSourceView.getLabel, app.dsInfo)
-    profileOutputWriter.write(ProfExecutorView.getLabel, app.execInfo)
-    profileOutputWriter.write(ProfJobsView.getLabel, app.jobInfo)
-    profileOutputWriter.write(ProfSQLToStageView.getLabel, app.sqlStageInfo)
-    profileOutputWriter.write(RapidsQualPropertiesView.getLabel, app.rapidsProps,
+    profileOutputWriter.writeTable(ProfInformationView.getLabel, app.appInfo)
+    profileOutputWriter.writeTable(ProfLogPathView.getLabel, app.appLogPath)
+    profileOutputWriter.writeTable(ProfDataSourceView.getLabel, app.dsInfo)
+    profileOutputWriter.writeTable(ProfExecutorView.getLabel, app.execInfo)
+    profileOutputWriter.writeTable(ProfJobsView.getLabel, app.jobInfo)
+    profileOutputWriter.writeTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+    profileOutputWriter.writeTable(RapidsQualPropertiesView.getLabel, app.rapidsProps,
       Some(RapidsQualPropertiesView.getDescription))
-    profileOutputWriter.write(SparkQualPropertiesView.getLabel, app.sparkProps,
+    profileOutputWriter.writeTable(SparkQualPropertiesView.getLabel, app.sparkProps,
       Some(SparkQualPropertiesView.getDescription))
-    profileOutputWriter.write(SystemQualPropertiesView.getLabel, app.sysProps,
+    profileOutputWriter.writeTable(SystemQualPropertiesView.getLabel, app.sysProps,
       Some(SystemQualPropertiesView.getDescription))
-    profileOutputWriter.write(ProfRapidsJarView.getLabel, app.rapidsJar,
+    profileOutputWriter.writeTable(ProfRapidsJarView.getLabel, app.rapidsJar,
       Some(ProfRapidsJarView.getDescription))
-    profileOutputWriter.write(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
+    profileOutputWriter.writeTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
       Some(ProfSQLPlanMetricsView.getDescription))
-    profileOutputWriter.write(ProfStageMetricView.getLabel, app.stageMetrics,
+    profileOutputWriter.writeTable(ProfStageMetricView.getLabel, app.stageMetrics,
       Some(ProfStageMetricView.getDescription))
-    profileOutputWriter.write(ProfSQLCodeGenView.getLabel, app.wholeStage,
+    profileOutputWriter.writeTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
       Some(ProfSQLCodeGenView.getDescription))
-    profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
+    profileOutputWriter.writeJson(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo, pretty = false)
 
     profileOutputWriter.writeText("\n### B. Analysis ###\n")
-    profileOutputWriter.write(JOB_AGG_LABEL, app.jobAggMetrics,
+    profileOutputWriter.writeTable(JOB_AGG_LABEL, app.jobAggMetrics,
       Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
-    profileOutputWriter.write(STAGE_AGG_LABEL, app.stageAggMetrics,
+    profileOutputWriter.writeTable(STAGE_AGG_LABEL, app.stageAggMetrics,
       Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
-    profileOutputWriter.write(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
+    profileOutputWriter.writeTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
       Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
-    profileOutputWriter.write(IO_LABEL, app.ioMetrics)
-    profileOutputWriter.write(SQL_DUR_LABEL, app.durAndCpuMet)
+    profileOutputWriter.writeTable(IO_LABEL, app.ioMetrics)
+    profileOutputWriter.writeTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     val skewHeader = TASK_SHUFFLE_SKEW
     val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
-    profileOutputWriter.write(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
+    profileOutputWriter.writeTable(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
 
     profileOutputWriter.writeText("\n### C. Health Check###\n")
-    profileOutputWriter.write(ProfFailedTaskView.getLabel, app.failedTasks)
-    profileOutputWriter.write(ProfFailedStageView.getLabel, app.failedStages)
-    profileOutputWriter.write(ProfFailedJobsView.getLabel, app.failedJobs)
-    profileOutputWriter.write(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
-    profileOutputWriter.write(ProfRemovedExecutorView.getLabel, app.removedExecutors)
-    profileOutputWriter.write("Unsupported SQL Plan", app.unsupportedOps,
+    profileOutputWriter.writeTable(ProfFailedTaskView.getLabel, app.failedTasks)
+    profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)
+    profileOutputWriter.writeTable(ProfFailedJobsView.getLabel, app.failedJobs)
+    profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
+    profileOutputWriter.writeTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
+    profileOutputWriter.writeTable("Unsupported SQL Plan", app.unsupportedOps,
       Some("Unsupported SQL Ops"))
     if (outputAlignedSQLIds) {
-      profileOutputWriter.write(ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
+      profileOutputWriter.writeTable(
+        ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
         Some(ProfSQLPlanAlignedView.getDescription))
     }
     if (useAutoTuner) {
@@ -400,13 +403,21 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }
 
-    profileOutputWriter.writeSparkRapidsBuildInfo("Spark Rapids Build Info",
-      app.sparkRapidsBuildInfo)
+    profileOutputWriter.writeJson("Spark Rapids Build Info",
+      app.sparkRapidsBuildInfo, pretty = true)
     profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
       profilerResult.diagnostics.stageDiagnostics)
     profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
       profilerResult.diagnostics.IODiagnostics)
-
+    // Construct the cluster summary information
+    // Note: This is available only after AutoTuner is run
+    val clusterSummary = app.appLogPath.map { logInfo =>
+      ClusterSummary(logInfo.appName, logInfo.appId.get, Some(logInfo.eventLogPath),
+        profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
+        profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
+    }
+    // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
+    profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary, pretty = true)
   }
 
   /**

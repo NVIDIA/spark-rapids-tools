@@ -467,6 +467,9 @@ case class UnsupportedSparkRuntimeException(
 class InvalidMemoryUnitFormatException(message: String)
   extends IllegalArgumentException(message)
 
+class MatchingInstanceTypeNotFoundException(message: String)
+  extends Exception(message)
+
 // Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
 // to simplify arguments of methods and caching.
 case class SqlPlanInfoGraphEntry(

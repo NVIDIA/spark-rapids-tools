@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.analysis.StatisticsMetrics
 import com.nvidia.spark.rapids.tool.views.OutHeaderRegistry
 
 import org.apache.spark.resource.{ExecutorResourceRequest, TaskResourceRequest}
-import org.apache.spark.sql.rapids.tool.store.{AccumMetaRef, SparkPlanInfoTruncated}
+import org.apache.spark.sql.rapids.tool.store.{AccumMetaRef, SparkPlanInfoTruncated, TaskModel}
 import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, StringUtils}
 
 /**
@@ -216,7 +216,7 @@ case class AppStatusResult(
   }
 
   override def convertToSeq(): Array[String] = {
-    Array(path, status, appId, message)
+    Array(path, status, appId, StringUtils.reformatCSVString(message.replaceAll("\\R", "\\\\n")))
   }
 
   override def convertToCSVSeq(): Array[String] = convertToSeq()
@@ -470,20 +470,140 @@ case class UnsupportedSQLPlan(sqlID: Long, nodeID: Long, nodeName: String,
     nodeDesc: String, reason: String)
 
 case class FailedTaskProfileResults(
-    stageId: Int, stageAttemptId: Int,
-    taskId: Long, taskAttemptId: Int, endReason: String) extends ProfileResult {
+    // task info
+    stageId: Int,
+    stageAttemptId: Int,
+    taskId: Long,
+    taskAttemptId: Int,
+    endReason: String,
+    // used to distinguish between termination nature. If we look at taskEnd events, the values of
+    // the status can be one of the following: FAILED, KILLED, SUCCESS, and UNKNOWN
+    taskStatus: String,
+    taskType: String,
+    speculative: String,
+    // task metrics
+    duration: Long,
+    diskBytesSpilled: Long,
+    executorCPUTimeNS: Long,
+    executorDeserializeCPUTimeNS: Long,
+    executorDeserializeTime: Long,
+    executorRunTime: Long,
+    inputBytesRead: Long,
+    inputRecordsRead: Long,
+    jvmGCTime: Long,
+    memoryBytesSpilled: Long,
+    outputBytesWritten: Long,
+    outputRecordsWritten: Long,
+    peakExecutionMemory: Long,
+    resultSerializationTime: Long,
+    resultSize: Long,
+    srFetchWaitTime: Long,
+    srLocalBlocksFetched: Long,
+    srLocalBytesRead: Long,
+    srRemoteBlocksFetch: Long,
+    srRemoteBytesRead: Long,
+    srRemoteBytesReadToDisk: Long,
+    srTotalBytesRead: Long,
+    swBytesWritten: Long,
+    swRecordsWritten: Long,
+    swWriteTimeNS: Long) extends ProfileResult {
+
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("FailedTaskProfileResults")
   }
-  override def convertToSeq(): Array[String] = {
-    Array(stageId.toString, stageAttemptId.toString, taskId.toString,
-      taskAttemptId.toString, StringUtils.renderStr(endReason, doEscapeMetaCharacters = true))
-  }
-  override def convertToCSVSeq(): Array[String] = {
+  private def convertToSeqInternal(reason: String): Array[String] = {
     Array(stageId.toString, stageAttemptId.toString, taskId.toString,
       taskAttemptId.toString,
-      StringUtils.reformatCSVString(
-        StringUtils.renderStr(endReason, doEscapeMetaCharacters = true, maxLength = 0)))
+      reason,
+      // columns that can be used to categorize failures
+      taskStatus,
+      taskType,
+      speculative,
+      // columns for task metrics
+      duration.toString,
+      diskBytesSpilled.toString,
+      executorCPUTimeNS.toString,
+      executorDeserializeCPUTimeNS.toString,
+      executorDeserializeTime.toString,
+      executorRunTime.toString,
+      inputBytesRead.toString,
+      inputRecordsRead.toString,
+      jvmGCTime.toString,
+      memoryBytesSpilled.toString,
+      outputBytesWritten.toString,
+      outputRecordsWritten.toString,
+      peakExecutionMemory.toString,
+      resultSerializationTime.toString,
+      resultSize.toString,
+      srFetchWaitTime.toString,
+      srLocalBlocksFetched.toString,
+      srLocalBytesRead.toString,
+      srRemoteBlocksFetch.toString,
+      srRemoteBytesRead.toString,
+      srRemoteBytesReadToDisk.toString,
+      srTotalBytesRead.toString,
+      swBytesWritten.toString,
+      swRecordsWritten.toString,
+      swWriteTimeNS.toString
+    )
+  }
+  override def convertToSeq(): Array[String] = {
+    convertToSeqInternal(
+      // No need to escape the characters because that was done during the construction of the
+      // profile result.
+      StringUtils.renderStr(endReason,
+        doEscapeMetaCharacters = false,
+        showEllipses = true))
+  }
+
+  override def convertToCSVSeq(): Array[String] = {
+    convertToSeqInternal(StringUtils.reformatCSVString(endReason))
+  }
+}
+
+object FailedTaskProfileResults {
+  /**
+   * Constructs a FailedTaskProfileResults from a TaskModel
+   * @param taskModel the taskModel to convert
+   * @return a new FailedTaskProfileResults
+   */
+  def apply(taskModel: TaskModel): FailedTaskProfileResults = {
+    FailedTaskProfileResults(
+      taskModel.stageId,
+      taskModel.stageAttemptId,
+      taskModel.taskId,
+      taskModel.attempt,
+      StringUtils.renderStr(taskModel.endReason, doEscapeMetaCharacters = true, maxLength = 0),
+      taskStatus = taskModel.taskStatus,
+      taskModel.taskType,
+      taskModel.speculative.toString,
+      // fields for task metrics
+      duration = taskModel.duration,
+      diskBytesSpilled = taskModel.diskBytesSpilled,
+      executorCPUTimeNS = taskModel.executorCPUTime,
+      executorDeserializeCPUTimeNS = taskModel.executorDeserializeCPUTime,
+      executorDeserializeTime = taskModel.executorDeserializeTime,
+      executorRunTime = taskModel.executorRunTime,
+      inputBytesRead = taskModel.input_bytesRead,
+      inputRecordsRead = taskModel.input_recordsRead,
+      jvmGCTime = taskModel.jvmGCTime,
+      memoryBytesSpilled = taskModel.memoryBytesSpilled,
+      outputBytesWritten = taskModel.output_bytesWritten,
+      outputRecordsWritten = taskModel.output_recordsWritten,
+      peakExecutionMemory = taskModel.peakExecutionMemory,
+      resultSerializationTime = taskModel.resultSerializationTime,
+      resultSize = taskModel.resultSize,
+      srFetchWaitTime = taskModel.sr_fetchWaitTime,
+      srLocalBlocksFetched = taskModel.sr_localBlocksFetched,
+      srLocalBytesRead = taskModel.sr_localBytesRead,
+      srRemoteBlocksFetch = taskModel.sr_remoteBlocksFetched,
+      srRemoteBytesRead = taskModel.sr_remoteBytesRead,
+      srRemoteBytesReadToDisk = taskModel.sr_remoteBytesReadToDisk,
+      srTotalBytesRead = taskModel.sr_totalBytesRead,
+      swBytesWritten = taskModel.sw_bytesWritten,
+      swRecordsWritten = taskModel.sw_recordsWritten,
+      swWriteTimeNS = taskModel.sw_writeTime
+    )
   }
 }
 
