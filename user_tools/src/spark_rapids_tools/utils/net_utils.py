@@ -76,7 +76,7 @@ def download_url_request(url: str, fpath: str, timeout: float = None,
                 if timeout and (time.time() - start_time) > timeout:
                     next_chunk = next(chunks, None)
                     if next_chunk is not None:
-                        raise TimeoutError(f'Download timed out after {timeout} seconds while downloading from {url}')
+                        raise TimeoutError(f'Download timed out post {timeout} seconds while downloading from {url}')
                 chunk = next(chunks, None)
     return fpath
 
