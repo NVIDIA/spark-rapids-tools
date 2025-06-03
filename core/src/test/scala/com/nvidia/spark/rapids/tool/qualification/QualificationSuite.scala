@@ -21,8 +21,6 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.BaseTestSuite
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
@@ -33,7 +31,7 @@ import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.functions.{desc, hex, to_json, udf}
-import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, ClusterSummary, ExistingClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.{AppBase, AppFilterImpl, SourceClusterInfo, ToolUtils}
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationSummaryInfo, RunningQualificationEventProcessor}
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, RapidsToolsConfUtil, UTF8Source}
 import org.apache.spark.sql.types._
@@ -42,6 +40,7 @@ import org.apache.spark.sql.types._
 case class TestQualificationSummary(
     appName: String,
     appId: String,
+    attemptId: Int,
     sqlDataframeDuration: Long,
     sqlDataframeTaskDuration: Long,
     appDuration: Long,
@@ -61,7 +60,6 @@ case class TestQualificationSummary(
     endDurationEstimated: Boolean,
     unsupportedExecs: String,
     unsupportedExprs: String,
-    estimatedFrequency: Long,
     totalCoreSecs: Long)
 
 class QualificationSuite extends BaseTestSuite {
@@ -72,6 +70,7 @@ class QualificationSuite extends BaseTestSuite {
   private val csvDetailedFields = Seq(
     (QualOutputWriter.APP_NAME_STR, StringType),
     (QualOutputWriter.APP_ID_STR, StringType),
+    (QualOutputWriter.ATTEMPT_ID_STR, IntegerType),
     (QualOutputWriter.SQL_DUR_STR, LongType),
     (QualOutputWriter.TASK_DUR_STR, LongType),
     (QualOutputWriter.APP_DUR_STR, LongType),
@@ -91,7 +90,6 @@ class QualificationSuite extends BaseTestSuite {
     (QualOutputWriter.APP_DUR_ESTIMATED_STR, BooleanType),
     (QualOutputWriter.UNSUPPORTED_EXECS, StringType),
     (QualOutputWriter.UNSUPPORTED_EXPRS, StringType),
-    (QualOutputWriter.ESTIMATED_FREQUENCY, LongType),
     (QualOutputWriter.TOTAL_CORE_SEC, LongType))
 
   private val csvPerSQLFields = Seq(
@@ -123,7 +121,7 @@ class QualificationSuite extends BaseTestSuite {
       appSums: Seq[QualificationSummaryInfo]): Seq[TestQualificationSummary] = {
     appSums.map { appInfoRec =>
       val sum = QualOutputWriter.createFormattedQualSummaryInfo(appInfoRec, ",")
-      TestQualificationSummary(sum.appName, sum.appId, sum.sqlDataframeDuration,
+      TestQualificationSummary(sum.appName, sum.appId, sum.attemptId, sum.sqlDataframeDuration,
         sum.sqlDataframeTaskDuration, sum.appDuration,
         sum.gpuOpportunity, sum.executorCpuTimePercent, sum.failedSQLIds,
         sum.readFileFormatAndTypesNotSupported, sum.writeDataFormat,
@@ -131,7 +129,7 @@ class QualificationSuite extends BaseTestSuite {
         sum.sqlStageDurationsSum, sum.nonSqlTaskDurationAndOverhead,
         sum.unsupportedSQLTaskDuration, sum.supportedSQLTaskDuration,
         sum.endDurationEstimated, sum.unSupportedExecs, sum.unSupportedExprs,
-        sum.estimatedFrequency, sum.totalCoreSec)
+        sum.totalCoreSec)
     }
   }
 
@@ -1071,9 +1069,9 @@ class QualificationSuite extends BaseTestSuite {
       val stdOut = sumOut.split("\n")
       val stdOutValues = stdOut(1).split("\\|")
       // index of unsupportedExecs
-      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 3)
+      val stdOutunsupportedExecs = stdOutValues(stdOutValues.length - 2)
       // index of unsupportedExprs
-      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 2)
+      val stdOutunsupportedExprs = stdOutValues(stdOutValues.length - 1)
       val expectedstdOutExecs = "Scan unknown;Filter;Se..."
       assert(stdOutunsupportedExecs == expectedstdOutExecs)
       // Exec value is Scan;Filter;SerializeFromObject and UNSUPPORTED_EXECS_MAX_SIZE is 25
@@ -1271,11 +1269,13 @@ class QualificationSuite extends BaseTestSuite {
         val allSQLIds = qualApp.getAvailableSqlIDs
         val numSQLIds = allSQLIds.size
         assert(numSQLIds > 0)
-        val sqlIdToLookup = allSQLIds.head
+        // We want to pick the last SqlID. Otherwise, we could pick the sqlIds related to Parquet
+        // or Json.
+        val sqlIdToLookup = allSQLIds.max
         val (csvOut, txtOut) = qualApp.getPerSqlTextAndCSVSummary(sqlIdToLookup)
-        assert(csvOut.contains("collect at ToolTestUtils.scala:67") && csvOut.contains(","),
+        assert(csvOut.contains("collect at ToolTestUtils.scala:73") && csvOut.contains(","),
           s"CSV output was: $csvOut")
-        assert(txtOut.contains("collect at ToolTestUtils.scala:67") && txtOut.contains("|"),
+        assert(txtOut.contains("collect at ToolTestUtils.scala:73") && txtOut.contains("|"),
           s"TXT output was: $txtOut")
         val sqlOut = qualApp.getPerSQLSummary(sqlIdToLookup, ":", true, 5)
         assert(sqlOut.contains("colle:"), s"SQL output was: $sqlOut")
@@ -1290,10 +1290,11 @@ class QualificationSuite extends BaseTestSuite {
         assert(appInfo.nonEmpty)
         assert(headers.size ==
           QualOutputWriter.getSummaryHeaderStringsAndSizes(30, 30).keys.size)
-        assert(values.size == headers.size)
-        // 3 should be the SQL DF Duration
-        assert(headers(3).contains("SQL DF"))
-        assert(values(3).toInt > 0)
+        // the unsupported expression is empty so, it does not appear as an entry in the values.
+        assert(values.size == headers.size - 1)
+        // 4 should be the SQL DF Duration
+        assert(headers(4).contains("SQL DF"))
+        assert(values(4).toInt > 0)
         val detailedOut = qualApp.getDetailed(":", prettyPrint = false, reportReadSchema = true)
         val rowsDetailedOut = detailedOut.split("\n")
         assert(rowsDetailedOut.size == 2)
@@ -1472,7 +1473,7 @@ class QualificationSuite extends BaseTestSuite {
     }
   }
 
-  test("test frequency of repeated job") {
+  test("test repeated jobName") {
     val logFiles = Array(s"$logDir/empty_eventlog", s"$logDir/nested_type_eventlog")
     runQualificationTest(logFiles, "multi_run_freq_test_expectation.csv")
   }
@@ -1588,28 +1589,28 @@ class QualificationSuite extends BaseTestSuite {
 
   // Expected results as a map of event log -> cluster info.
   // scalastyle:off line.size.limit
-  val expectedClusterInfoMap: Seq[(String, Option[ExistingClusterInfo])] = Seq(
+  val expectedClusterInfoMap: Seq[(String, Option[SourceClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
         numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
     "eventlog_4nodes_8cores_dynamic_alloc.zstd" -> // using dynamic allocation, total of 5 nodes, each with max 7
       // executor running having 4 cores. At the end it had 1 active executor.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 4,
         numExecsPerNode = -1, numExecutors = 7, numWorkerNodes = 5, executorHeapMemory = 20480L,
         dynamicAllocationEnabled = true, dynamicAllocationMaxExecutors = "2147483647",
         dynamicAllocationMinExecutors = "0", dynamicAllocationInitialExecutors = "2",
         driverHost = Some("10.10.6.9"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
-      Some(ExistingClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
+      Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
         numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
@@ -1624,9 +1625,9 @@ class QualificationSuite extends BaseTestSuite {
   }
 
   // Expected results as a map of platform -> cluster info.
-  val expectedPlatformClusterInfoMap: Seq[(String, ExistingClusterInfo)] = Seq(
+  val expectedPlatformClusterInfoMap: Seq[(String, SourceClusterInfo)] = Seq(
     PlatformNames.DATABRICKS_AWS ->
-        ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
+        SourceClusterInfo(vendor = PlatformNames.DATABRICKS_AWS,
           coresPerExecutor = 8,
           numExecsPerNode = 1,
           numExecutors = 2,
@@ -1640,7 +1641,7 @@ class QualificationSuite extends BaseTestSuite {
           clusterId = Some("1212-214324-test"),
           clusterName = Some("test-db-aws-cluster")),
     PlatformNames.DATABRICKS_AZURE ->
-      ExistingClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
+      SourceClusterInfo(vendor = PlatformNames.DATABRICKS_AZURE,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1654,7 +1655,7 @@ class QualificationSuite extends BaseTestSuite {
         clusterId = Some("1212-214324-test"),
         clusterName = Some("test-db-azure-cluster")),
     PlatformNames.DATAPROC ->
-      ExistingClusterInfo(vendor = PlatformNames.DATAPROC,
+      SourceClusterInfo(vendor = PlatformNames.DATAPROC,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1664,7 +1665,7 @@ class QualificationSuite extends BaseTestSuite {
         "N/A", "N/A", "N/A",
         driverHost = Some("dataproc-test-m.c.internal")),
     PlatformNames.EMR ->
-      ExistingClusterInfo(vendor = PlatformNames.EMR,
+      SourceClusterInfo(vendor = PlatformNames.EMR,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1675,7 +1676,7 @@ class QualificationSuite extends BaseTestSuite {
         driverHost = Some("10.10.10.100"),
         clusterId = Some("j-123AB678XY321")),
     PlatformNames.ONPREM ->
-      ExistingClusterInfo(vendor = PlatformNames.ONPREM,
+      SourceClusterInfo(vendor = PlatformNames.ONPREM,
         coresPerExecutor = 8,
         numExecsPerNode = 1,
         numExecutors = 2,
@@ -1697,7 +1698,7 @@ class QualificationSuite extends BaseTestSuite {
    * Runs the qualification tool and verifies cluster information against expected values.
    */
   private def runQualificationAndTestClusterInfo(eventlogPath: String, platform: String,
-      expectedClusterInfo: Option[ExistingClusterInfo]): Unit = {
+      expectedClusterInfo: Option[SourceClusterInfo]): Unit = {
     TrampolineUtil.withTempDir { outPath =>
       val baseArgs = Array("--output-directory", outPath.getAbsolutePath, "--platform", platform)
       val appArgs = new QualificationArgs(baseArgs :+ eventlogPath)
@@ -1705,16 +1706,11 @@ class QualificationSuite extends BaseTestSuite {
       assert(exitCode == 0 && result.size == 1,
         "Qualification tool returned unexpected results.")
 
-      // Read JSON as [{'appId': 'app-id-1', ..}]
-      def readJson(path: String): Array[ClusterSummary] = {
-        val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-        mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
-      }
-
       // Read output JSON and create a set of (event log, cluster info)
       val outputResultFile = s"$outPath/${QualOutputWriter.LOGFILE_NAME}/" +
         s"${QualOutputWriter.LOGFILE_NAME}_cluster_information.json"
-      val actualClusterInfo = readJson(outputResultFile).headOption.flatMap(_.clusterInfo)
+      val actualClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(outputResultFile)
+        .headOption.flatMap(_.sourceClusterInfo)
       assert(actualClusterInfo == expectedClusterInfo,
         "Actual cluster info does not match the expected cluster info.")
     }
@@ -1802,6 +1798,15 @@ class QualificationSuite extends BaseTestSuite {
       // Status counts: 1 SUCCESS, 0 FAILURE, 3 SKIPPED, 0 UNKNOWN
       val expectedStatusCount = StatusReportCounts(1, 0, 3, 0)
       ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount, statusResultFile)
+
+      // verify that the app_summary contains the valid attempt id.
+      val outputResults = s"$outPath/rapids_4_spark_qualification_output/" +
+        s"rapids_4_spark_qualification_output.csv"
+      val outputActual = readExpectedFile(new File(outputResults), "\"")
+      val attemptId = {
+        outputActual.select(QualOutputWriter.ATTEMPT_ID_STR).first.getInt(0)
+      }
+      assert(attemptId == 4, "attemptId is not correct in the app summary.")
     }
   }
 

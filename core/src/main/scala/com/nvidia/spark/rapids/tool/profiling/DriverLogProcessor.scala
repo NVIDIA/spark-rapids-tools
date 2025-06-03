@@ -16,8 +16,16 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
+import java.io.{BufferedReader, InputStreamReader, IOException}
+
+import scala.collection.{breakOut, mutable}
+import scala.util.control.NonFatal
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
+
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.util.UTF8Source
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 trait DriverLogInfoProvider {
   def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = Seq.empty
@@ -27,43 +35,65 @@ trait DriverLogInfoProvider {
  * A base class definition that provides an empty implementation of the driver log information
  * [[ApplicationSummaryInfo]].
  */
-class BaseDriverLogInfoProvider(driverlogPath: Option[String] = None)
+class BaseDriverLogInfoProvider
   extends DriverLogInfoProvider {
-  def isLogPathAvailable = driverlogPath.isDefined
+  def isLogPathAvailable = false
 }
 
-class DriverLogProcessor(logPath: String)
-  extends BaseDriverLogInfoProvider(Some(logPath))
+class DriverLogProcessor(hadoopConf: Configuration, logPath: String)
+  extends BaseDriverLogInfoProvider()
   with Logging {
 
-  lazy val unsupportedOps = processDriverLog()
-  override def getUnsupportedOperators = unsupportedOps
-  private def processDriverLog(): Seq[DriverLogUnsupportedOperators] = {
-    val source = UTF8Source.fromFile(logPath)
-    // Create a map to store the counts for each operator and reason
-    var countsMap = Map[(String, String), Int]().withDefaultValue(0)
+  private def processDriverLogFile(): Seq[DriverLogUnsupportedOperators] = {
+    val path = new Path(logPath)
+    var fsIs: FSDataInputStream = null
+    val countsMap = mutable.Map[(String, String), Int]().withDefaultValue(0)
     try {
+      val fs = FileSystem.get(path.toUri, hadoopConf)
+      fsIs = fs.open(path)
+      val reader = new BufferedReader(new InputStreamReader(fsIs))
       // Process each line in the file
-      for (line <- source.getLines()) {
-        // condition to check if the line contains unsupported operators
-        if (line.contains("cannot run on GPU") &&
-          !line.contains("not all expressions can be replaced")) {
+      Stream.continually(reader.readLine()).takeWhile(_ != null)
+        .filter { line =>
+          line.contains("cannot run on GPU") &&
+            !line.contains("not all expressions can be replaced")
+        }.foreach { line =>
           val operatorName = line.split("<")(1).split(">")(0)
           val reason = line.split("because")(1).trim()
           val key = (operatorName, reason)
           countsMap += key -> (countsMap(key) + 1)
         }
-      }
     } catch {
-      case e: Exception =>
-        logError(s"Unexpected exception processing driver log: $logPath", e)
+      // In case of missing file/malformed for driver log catch and log as a warning
+      case e: IOException =>
+        logError(s"Could not load/open logDriver: $logPath", e)
+      case NonFatal(e) =>
+        logError(s"Unexpected error while processing driver log: $logPath", e)
     } finally {
-      source.close()
+      if (fsIs != null) {
+        try {
+          fsIs.close()
+        } catch {
+          case e: IOException =>
+            logError(s"Failed to close the input stream for driver log: $logPath", e)
+        }
+      }
     }
-    countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2)).toSeq
+    countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2))(breakOut)
   }
+
+  lazy val unsupportedOps: Seq[DriverLogUnsupportedOperators] = processDriverLogFile()
+  override def getUnsupportedOperators: Seq[DriverLogUnsupportedOperators] = unsupportedOps
 }
 
 object BaseDriverLogInfoProvider {
   def noneDriverLog: BaseDriverLogInfoProvider = new BaseDriverLogInfoProvider()
+  def apply(logPath: Option[String], hadoopConf: Option[Configuration]): DriverLogInfoProvider = {
+    logPath match {
+      case Some(path) =>
+        new DriverLogProcessor(hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf()), path)
+      case None =>
+        noneDriverLog
+    }
+  }
 }

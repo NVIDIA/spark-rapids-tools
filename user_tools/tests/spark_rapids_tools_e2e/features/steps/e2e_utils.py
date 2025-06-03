@@ -19,6 +19,7 @@ This module defines utility functions used by the end-to-end tests using behave.
 import glob
 import logging
 import os
+import pandas as pd
 import subprocess
 from attr import dataclass
 from enum import auto
@@ -171,6 +172,15 @@ class E2ETestUtils:
             format='%(levelname)s: %(message)s'
         )
         return logging.getLogger(__name__)
+
+    @staticmethod
+    def read_csv_as_dataframe(file_path: str) -> pd.DataFrame:
+        """
+        Reads a CSV file from the given file path and returns it as a pandas DataFrame.
+        :param file_path: Path to the CSV file.
+        :return: pandas DataFrame containing the CSV data.
+        """
+        return pd.read_csv(file_path)
 
 
 class HdfsStatus(EnumeratedType):

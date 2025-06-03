@@ -16,12 +16,13 @@
 
 from typing import Callable, Mapping, Optional, List, Tuple
 import json
-import random
 import shap
 import numpy as np
 import pandas as pd
+
 import xgboost as xgb
 from xgboost import Booster
+
 from spark_rapids_tools.tools.qualx.config import get_label
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
@@ -36,7 +37,6 @@ logger = get_logger(__name__)
 FILTER_SPILLS = False  # remove queries with any disk/mem spill
 LOG_LABEL = True  # use log(y) as target
 
-
 # non-training features (and labels)
 ignored_features = {
     'appDuration',
@@ -44,6 +44,7 @@ ignored_features = {
     'appName',
     'description',
     'fraction_supported',
+    'hash',
     'jobStartTime_min',
     'pluginEnabled',
     'runType',
@@ -222,9 +223,9 @@ def extract_model_features(
 ) -> Tuple[pd.DataFrame, List[str], str]:
     """Extract model features from raw features."""
     label = get_label()
-    expected_model_features = expected_raw_features - ignored_features
+    expected_model_features = expected_raw_features() - ignored_features
     expected_model_features.remove(label)
-    missing = expected_raw_features - set(df.columns)
+    missing = expected_raw_features() - set(df.columns)
     if missing:
         logger.warning('Input dataframe is missing expected raw features: %s', missing)
 
@@ -355,48 +356,6 @@ def extract_model_features(
             else:
                 raise ValueError('Default split_function unexpectedly modified row indices.')
     return cpu_aug_tbl, feature_cols, label_col
-
-
-def split_random(
-    cpu_aug_tbl: pd.DataFrame, seed: int = 0, val_pct: float = 0.2
-) -> pd.DataFrame:
-    # Random split by percentage
-    test_pct = 0.2
-    num_rows = len(cpu_aug_tbl)
-    indices = list(range(num_rows))
-    random.Random(seed).shuffle(indices)
-
-    cpu_aug_tbl.loc[indices[0: int(test_pct * num_rows)], 'split'] = 'test'
-    cpu_aug_tbl.loc[
-        indices[int(test_pct * num_rows): int((test_pct + val_pct) * num_rows)],
-        'split',
-    ] = 'val'
-    cpu_aug_tbl.loc[indices[int((test_pct + val_pct) * num_rows):], 'split'] = 'train'
-    return cpu_aug_tbl
-
-
-def split_train_val(cpu_aug_tbl: pd.DataFrame, seed: int = 0, val_pct: float = 0.2,) -> pd.DataFrame:
-    """Sets all rows without a split value to 'train'."""
-    if 'split' in cpu_aug_tbl.columns:
-        # if 'split' already present, just modify the NaN rows
-        indices = cpu_aug_tbl.index[cpu_aug_tbl['split'].isna()].tolist()
-    else:
-        # otherwise, modify all rows
-        indices = cpu_aug_tbl.index.tolist()
-
-    num_rows = len(indices)
-    random.Random(seed).shuffle(indices)
-
-    # Split remaining rows into train/val sets
-    cpu_aug_tbl.loc[indices[0: int(val_pct * num_rows)], 'split'] = 'val'
-    cpu_aug_tbl.loc[indices[int(val_pct * num_rows):], 'split'] = 'train'
-    return cpu_aug_tbl
-
-
-def split_all_test(cpu_aug_tbl: pd.DataFrame) -> pd.DataFrame:
-    """Sets all rows to 'test' split."""
-    cpu_aug_tbl['split'] = 'test'
-    return cpu_aug_tbl
 
 
 def tune_hyperparameters(x, y, n_trials: int = 200) -> dict:

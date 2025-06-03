@@ -27,13 +27,13 @@ trait AppInformationViewTrait extends ViewableTrait[AppInfoProfileResults] {
 
   def getRawView(app: AppBase, index: Int): Seq[AppInfoProfileResults] = {
     app.appMetaData.map { a =>
-      AppInfoProfileResults(a.appName, a.appId,
+      AppInfoProfileResults(a.appName, a.appId, Option(a.attemptId),
         a.sparkUser, a.startTime, a.endTime, app.getAppDuration,
         a.getDurationString, app.getSparkRuntime, app.sparkVersion, app.gpuMode)
     }.toSeq
   }
   override def sortView(rows: Seq[AppInfoProfileResults]): Seq[AppInfoProfileResults] = {
-    rows.sortBy(cols => cols.appId)
+    rows.sortBy(cols => (cols.appId, cols.attemptId))
   }
 }
 
@@ -96,11 +96,6 @@ trait AppRapidsJarViewTrait extends ViewableTrait[RapidsJarProfileResult] {
   override def sortView(rows: Seq[RapidsJarProfileResult]): Seq[RapidsJarProfileResult] = {
     rows.sortBy(cols => cols.jar)
   }
-}
-
-
-object QualRapidsJarView extends AppRapidsJarViewTrait with QualAppIndexMapperTrait {
-  // Keep for the following refactor stages to customize the view based on the app type (Qual/Prof)
 }
 
 object ProfRapidsJarView extends AppRapidsJarViewTrait with ProfAppIndexMapperTrait {

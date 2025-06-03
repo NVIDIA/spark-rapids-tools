@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantTotalCoresStrategy, Platform}
 import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
 
 /**
@@ -50,6 +50,13 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
   // For qualification tool's auto-tuner, the batch size to be recommended is 1GB
   // See https://github.com/NVIDIA/spark-rapids-tools/issues/1399
   override val BATCH_SIZE_BYTES = 1073741824
+
+  /**
+   * For the Qualification Tool's recommendation for cluster sizing, we want to keep
+   * the total number of CPU cores between the source and target clusters constant.
+   */
+  override lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy =
+    ConstantTotalCoresStrategy
 
   override def createAutoTunerInstance(
       clusterProps: ClusterProperties,

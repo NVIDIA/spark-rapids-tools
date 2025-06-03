@@ -30,9 +30,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
 ]
+# see https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for list of supported licenses
+license = "Apache-2.0 AND MIT"
+license-files = ["LICENSE"]
 dependencies = [
     # numpy-2.0.0 supports python [3.9, 3.13]. numpy2.1.0 drooped support for Python 3.9.
     "numpy>=2.0.0",
@@ -102,7 +104,7 @@ where = ["src"]
 [tool.setuptools.dynamic]
 version = {attr = "spark_rapids_pytools.__version__"}
 [tool.setuptools.package-data]
-"*"= ["*.json", "*.yaml", "*.ms", "*.sh", "*.tgz", "*.properties"]
+"*"= ["*.json", "*.yaml", "*.ms", "*.sh", "*.tgz", "*.properties","*.jar"]
 [tool.poetry]
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]

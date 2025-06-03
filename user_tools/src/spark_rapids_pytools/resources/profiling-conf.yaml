@@ -54,6 +54,7 @@ sparkRapids:
       - s
       - start-app-time
       - t
+      - target-cluster-info
       - timeout
 local:
   output:

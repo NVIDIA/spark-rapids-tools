@@ -29,7 +29,9 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.rapids.tool.InvalidMemoryUnitFormatException
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, InPlaceMedianArrView, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
 
 class ToolUtilsSuite extends FunSuite with Logging {
@@ -171,6 +173,36 @@ class ToolUtilsSuite extends FunSuite with Logging {
     StringUtils.parseFromDurationToLongOption("Hello Worlds") should not be 'defined
   }
 
+  test("parse memory sizes from RAPIDS metrics") {
+    // This unit test is to evaluate the parser used to handle the new GPU metrics introduced in
+    // https://github.com/NVIDIA/spark-rapids/pull/12517
+    // Note that:
+    // - the metrics are in human readable format (e.g., 0.74GB (11534336000 bytes)).
+    // - we do not care to evaluate the case when the metric is just "0" because this would be
+    //   handled by a different parser EventUtils.parseAccumFieldToLong
+
+    // test default case
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41.47GB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test no floating point
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41GB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test lower case
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41gb (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test different formatting
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41GiB (44533943056 bytes)") shouldBe
+      Some(44533943056L)
+    // test bytes as unit
+    StringUtils.parseFromGPUMemoryMetricToLongOption(
+      "44533943056B (44533943056 bytes)") shouldBe Some(44533943056L)
+    // test correct formatting with 0.
+    StringUtils.parseFromGPUMemoryMetricToLongOption("0B (0 bytes)") shouldBe Some(0)
+    // test incorrect formatting with W/S separating memory units
+    StringUtils.parseFromGPUMemoryMetricToLongOption("41 GiB (44533943056 bytes)") shouldBe
+      None
+  }
+
   test("output non-english characters") {
     val nonEnglishString = "你好"
     TrampolineUtil.withTempDir { tempDir =>
@@ -184,7 +216,7 @@ class ToolUtilsSuite extends FunSuite with Logging {
         MockProfileResults("appID-0", nonEnglishString, Seq(1, 2, 3).mkString(","))
       )
       try {
-        profOutputWriter.write(tableHeader, profResults)
+        profOutputWriter.writeTable(tableHeader, profResults)
       } finally {
         profOutputWriter.close()
       }
@@ -231,17 +263,109 @@ class ToolUtilsSuite extends FunSuite with Logging {
     }
   }
 
+  test("convertMemorySizeToBytes should correctly parse memory sizes") {
+    // Test basic unit conversions with default ByteUnit.BYTE
+    StringUtils.convertMemorySizeToBytes("1024b", None) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1k", None) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1m", None) shouldBe 1024L * 1024
+    StringUtils.convertMemorySizeToBytes("1g", None) shouldBe 1024L * 1024 * 1024
+
+    // Test decimal values
+    StringUtils.convertMemorySizeToBytes("1.5k", None) shouldBe (1.5 * 1024).toLong
+    StringUtils.convertMemorySizeToBytes("2.5g", None) shouldBe (2.5 * 1024 * 1024 * 1024).toLong
+
+    // Test case insensitivity
+    StringUtils.convertMemorySizeToBytes("1K", None) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1KB", None) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1KiB", None) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1M", None) shouldBe 1024L * 1024
+    StringUtils.convertMemorySizeToBytes("1G", None) shouldBe 1024L * 1024 * 1024
+
+    // Test with different default units
+    // When unit is specified in string, defaultUnit should be ignored
+    StringUtils.convertMemorySizeToBytes("1024b", Some(ByteUnit.KiB)) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1k", Some(ByteUnit.MiB)) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1m", Some(ByteUnit.GiB)) shouldBe 1024L * 1024
+
+    // When no unit in string, defaultUnit should be used
+    StringUtils.convertMemorySizeToBytes("1", Some(ByteUnit.KiB)) shouldBe 1024L
+    StringUtils.convertMemorySizeToBytes("1", Some(ByteUnit.MiB)) shouldBe 1024L * 1024
+    StringUtils.convertMemorySizeToBytes("1", Some(ByteUnit.GiB)) shouldBe 1024L * 1024 * 1024
+
+    // Test decimal values with different default units
+    StringUtils.convertMemorySizeToBytes("1.5", Some(ByteUnit.KiB)) shouldBe (
+      1.5 * 1024).toLong
+    StringUtils.convertMemorySizeToBytes("2.5", Some(ByteUnit.GiB)) shouldBe (
+      2.5 * 1024 * 1024 * 1024).toLong
+    StringUtils.convertMemorySizeToBytes("0.5", Some(ByteUnit.TiB)) shouldBe (
+      0.5 * 1024 * 1024 * 1024 * 1024).toLong
+
+    // Test zero values
+    StringUtils.convertMemorySizeToBytes("0b", None) shouldBe 0L
+    StringUtils.convertMemorySizeToBytes("0k", None) shouldBe 0L
+    StringUtils.convertMemorySizeToBytes("0", Some(ByteUnit.GiB)) shouldBe 0L
+  }
+
+  test("convertMemorySizeToBytes should handle invalid input") {
+    intercept[InvalidMemoryUnitFormatException] {
+      StringUtils.convertMemorySizeToBytes("invalid", None)
+    }
+    intercept[InvalidMemoryUnitFormatException] {
+      StringUtils.convertMemorySizeToBytes("invalid", Some(ByteUnit.GiB))
+    }
+    intercept[InvalidMemoryUnitFormatException] {
+      StringUtils.convertMemorySizeToBytes("1z", None)
+    }
+    intercept[InvalidMemoryUnitFormatException] {
+      StringUtils.convertMemorySizeToBytes("-1k", None)
+    }
+    intercept[InvalidMemoryUnitFormatException] {
+      StringUtils.convertMemorySizeToBytes("1.5", None)
+    }
+  }
+
+  test("convertBytesToLargestUnit should convert bytes to appropriate units") {
+    // Test exact conversions that result in whole numbers
+    StringUtils.convertBytesToLargestUnit(1024) shouldBe "1k"
+    StringUtils.convertBytesToLargestUnit(4194304) shouldBe "4m"
+    StringUtils.convertBytesToLargestUnit(2147483648L) shouldBe "2g"
+    StringUtils.convertBytesToLargestUnit(5497558138880L) shouldBe "5t"
+
+    // Test values that should remain in bytes to avoid fractions
+    StringUtils.convertBytesToLargestUnit(1536) shouldBe "1536b"
+    StringUtils.convertBytesToLargestUnit(1) shouldBe "1b"
+    StringUtils.convertBytesToLargestUnit(0) shouldBe "0b"
+
+    // Test falling back to lower units to avoid fractions
+    // 1.5m -> fallback to 1536k
+    StringUtils.convertBytesToLargestUnit(1536 * 1024) shouldBe "1536k"
+    // 1.5g -> fallback to 1536m
+    StringUtils.convertBytesToLargestUnit(1536 * 1024 * 1024) shouldBe "1536m"
+
+    // Test complex fallback cases
+    // 1g + 1 byte -> bytes
+    StringUtils.convertBytesToLargestUnit(1024 * 1024 * 1024 + 1) shouldBe "1073741825b"
+    // 2m + 1k -> k
+    StringUtils.convertBytesToLargestUnit(2048 * 1024 + 1024) shouldBe "2049k"
+    // 3t + 1m -> m
+    StringUtils.convertBytesToLargestUnit(3L * 1024 * 1024 * 1024 * 1024 + 1024 * 1024) shouldBe
+      "3145729m"
+
+    // Test large values that don't perfectly align with units
+    StringUtils.convertBytesToLargestUnit(1234567) shouldBe "1234567b"
+  }
+
   case class MockProfileResults(appID: String, nonEnglishField: String,
       parentIDs: String) extends ProfileResult {
-    override val outputHeaders: Seq[String] = Seq("appID", "nonEnglishField",
+    override val outputHeaders: Array[String] = Array("appID", "nonEnglishField",
       "parentIDs")
 
-    override def convertToSeq: Seq[String] = {
-      Seq(appID, nonEnglishField, parentIDs)
+    override def convertToSeq(): Array[String] = {
+      Array(appID, nonEnglishField, parentIDs)
     }
 
-    override def convertToCSVSeq: Seq[String] = {
-      Seq(appID, StringUtils.reformatCSVString(nonEnglishField),
+    override def convertToCSVSeq(): Array[String] = {
+      Array(appID, StringUtils.reformatCSVString(nonEnglishField),
         StringUtils.reformatCSVString(parentIDs))
     }
   }

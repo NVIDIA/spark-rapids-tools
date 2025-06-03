@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import java.io.{BufferedReader, InputStreamReader, IOException}
 import java.util
 
 import scala.beans.BeanProperty
@@ -25,17 +24,14 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantGpuCountStrategy, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, Path}
-import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
-import org.yaml.snakeyaml.constructor.{Constructor, ConstructorException}
-import org.yaml.snakeyaml.representer.Representer
+import org.yaml.snakeyaml.constructor.ConstructorException
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.util.{StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, WebCrawlerUtil}
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -197,11 +193,23 @@ class ClusterProperties(
 /**
  * Represents different Spark master types.
  */
-sealed trait SparkMaster
-case object Local extends SparkMaster
-case object Yarn extends SparkMaster
-case object Kubernetes extends SparkMaster
-case object Standalone extends SparkMaster
+sealed trait SparkMaster {
+  // Default executor memory to use in case not set by the user.
+  val defaultExecutorMemoryMB: Long
+}
+case object Local extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 0L
+}
+case object Yarn extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Kubernetes extends SparkMaster {
+  val defaultExecutorMemoryMB: Long = 1024L
+}
+case object Standalone extends SparkMaster {
+  // Would be the entire node memory by default
+  val defaultExecutorMemoryMB: Long = 0L
+}
 
 object SparkMaster {
   def apply(master: Option[String]): Option[SparkMaster] = {
@@ -314,7 +322,7 @@ class AutoTuner(
     fromProfile.orElse(Option(clusterProps.softwareProperties.get(key)))
   }
 
-  private lazy val getAllProperties: collection.Map[String, String] = {
+  private lazy val getAllProperties: Map[String, String] = {
     // the cluster properties override the app properties as
     // it is provided by the user.
     appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
@@ -378,7 +386,7 @@ class AutoTuner(
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
-      if (recomRecord.originalValue.isEmpty) {
+      if (recomRecord.getOriginalValue.isEmpty) {
         // add missing comment if any
         appendMissingComment(key)
       } else {
@@ -425,8 +433,10 @@ class AutoTuner(
    * Returns None if the platform doesn't support specific instance types.
    */
   private def configureGPURecommendedInstanceType(): Unit = {
-    platform.createRecommendedGpuClusterInfo(getAllProperties.toMap)
+    platform.createRecommendedGpuClusterInfo(getAllProperties.toMap,
+      autoTunerConfigsProvider.recommendedClusterSizingStrategy)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
+      // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
       if (gpuClusterRec.numExecutors > 0) {
         appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
@@ -443,8 +453,9 @@ class AutoTuner(
    * Recommendation for 'spark.rapids.sql.concurrentGpuTasks' based on gpu memory.
    * Assumption - cluster properties were updated to have a default values if missing.
    */
-  def calcGpuConcTasks(): Long = {
-    Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS, platform.getGpuOrDefault.getGpuConcTasks)
+  private def calcGpuConcTasks(): Long = {
+    Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS,
+      platform.recommendedGpuDevice.getGpuConcTasks)
   }
 
   /**
@@ -459,39 +470,99 @@ class AutoTuner(
     Math.min(maxExecutorHeap, autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecCores)
   }
 
+  // scalastyle:off line.size.limit
   /**
-   * Recommendation of memory settings for executor.
-   * Returns:
-   * (pinned memory size,
-   *  executor memory overhead size,
-   *  executor heap size,
-   *  boolean if should set MaxBytesInFlight)
+   * Calculates recommended memory settings for a Spark executor container.
+   *
+   * The total memory for the executor is the sum of:
+   *   executorHeap (spark.executor.memory)
+   *   + executorMemOverhead (spark.executor.memoryOverhead)
+   *   + sparkOffHeapMemMB (spark.memory.offHeap.size)
+   *   + pySparkMemMB (spark.executor.pyspark.memory)
+   *
+   * Note: In the below examples, `0.8` is the fraction of the physical system memory
+   * that is available to Spark executors (0.2 is reserved by Dataproc YARN).
+   *
+   * Example 1: g2-standard-8 machine (32 GB total memory) — Just enough memory
+   *   - actualMemForExec =  32 GB * 0.8 = 25.6 GB
+   *   - executorHeap = 16 GB
+   *   - sparkOffHeapMemMB = 4 GB
+   *   - execMemLeft = 25.6 GB - 16 GB - 4 GB = 5.6 GB
+   *   - minOverhead = 1.6 GB (10% of executor heap) + 2 GB (min pinned) + 2 GB (min spill) = 5.6 GB
+   *   - Since execMemLeft (5.6 GB) == minOverhead (5.6 GB), proceed with minimum memory recommendations:
+   *   - Recommendation:
+   *       - executorHeap = 16 GB, executorMemOverhead = 5.6 GB (with pinnedMem = 2 GB and spillMem = 2 GB)
+   *
+   * Example 2: g2-standard-16 machine (64 GB total memory) — Not enough memory
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 20 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 20 GB = -0.8 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (-0.8 GB) < minOverhead (7.2 GB), do not proceed with recommendations
+   *       - Add a warning comment indicating that the current setup is not optimal
+   *           - minTotalExecMemRequired = (32 GB + 20 GB + 7.2 GB) / 0.8 = (59.2 GB / 0.8) = 74 GB (as we are using 80% of system memory)
+   *           - Reduce off-heap size or use a larger machine with at least 74 GB system memory.
+   *
+   * Example 3: g2-standard-16 machine (64 GB total memory) — More memory available
+   *   - actualMemForExec = 64 GB * 0.8 = 51.2 GB
+   *   - executorHeap = 32 GB
+   *   - sparkOffHeapMemMB = 10 GB
+   *   - execMemLeft = 51.2 GB - 32 GB - 10 GB = 9.2 GB
+   *   - minOverhead = 2 GB (min pinned) + 2 GB (min spill) + 3.2 GB (10% of executor heap) = 7.2 GB
+   *   - Since execMemLeft (9.2 GB) > minOverhead (7.2 GB), proceed with recommendations.
+   *       - Increase pinned and spill memory based on remaining memory (up to 4 GB max)
+   *       - executorMemOverhead = 3 GB (pinned) + 3 GB (spill) + 3.2 GB = 9.2 GB
+   *   - Recommendation:
+   *       - executorHeap = 32 GB, executorMemOverhead = 9.2 GB (with pinnedMem = 3 GB and spillMem = 3 GB)
+   *
+   *
+   * @param execHeapCalculator    Function that returns the executor heap size in MB
+   * @param numExecutorCores      Number of executor cores
+   * @param totalMemForExecExpr   Function that returns total memory available to the executor (MB)
+   * @return Either a String with an error message if memory is insufficient,
+   *         or a tuple containing:
+   *           - pinned memory size (MB)
+   *           - executor memory overhead size (MB)
+   *           - executor heap size (MB)
+   *           - boolean indicating if "maxBytesInFlight" should be set
    */
-  def calcOverallMemory(
+   // scalastyle:on line.size.limit
+  private def calcOverallMemory(
       execHeapCalculator: () => Long,
       numExecutorCores: Int,
-      containerMemCalculator: () => Double): (Long, Long, Long, Boolean) = {
-    val executorHeap = execHeapCalculator()
-    val containerMem = containerMemCalculator.apply()
+      totalMemForExecExpr: () => Double): Either[String, (Long, Long, Long, Boolean)] = {
+    // Set executor heap to be at least 2GB/core
+    val executorHeap = Math.max(execHeapCalculator(),
+      autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecutorCores)
+    // Our CSP instance map stores full node memory, but container managers
+    // (e.g., YARN) may reserve a portion. Adjust to get the memory
+    // actually available to the executor.
+    val actualMemForExec = {
+      totalMemForExecExpr.apply() * platform.fractionOfSystemMemoryForExecutors
+    }.toLong
+
+    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(getAllProperties).getOrElse(0L)
+    val pySparkMemMB = platform.getPySparkMemoryMB(getAllProperties).getOrElse(0L)
+    val execMemLeft = actualMemForExec - executorHeap - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (
       executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION
     ).toLong
-    executorMemOverhead += autoTunerConfigsProvider.DEF_PAGEABLE_POOL_MB
-    val containerMemLeftOverOffHeap = containerMem - executorHeap
     val minOverhead = executorMemOverhead + (
-      autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB + autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB
+      autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB + autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
     )
-    logDebug("containerMem " + containerMem + " executorHeap: " + executorHeap +
-      " executorMemOverhead: " + executorMemOverhead + " minOverhead " + minOverhead)
-    if (containerMemLeftOverOffHeap >= minOverhead) {
+    logDebug(s"Memory calculations:  actualMemForExec=$actualMemForExec MB, " +
+      s"executorHeap=$executorHeap MB, sparkOffHeapMem=$sparkOffHeapMemMB MB, " +
+      s"pySparkMem=$pySparkMemMB MB minOverhead=$minOverhead MB")
+    if (execMemLeft >= minOverhead) {
       // this is hopefully path in the majority of cases because CSPs generally have a good
       // memory to core ratio
       if (numExecutorCores >= 16 && platform.isPlatformCSP &&
-        containerMemLeftOverOffHeap >
-          executorMemOverhead + 4096L + autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB +
-            autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB) {
+        execMemLeft >
+          executorMemOverhead + 4096L + autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
+            autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB) {
         // Account for the setting of:
         // appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
         executorMemOverhead += 4096L
@@ -499,71 +570,30 @@ class AutoTuner(
       }
       // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
       val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
-        (containerMemLeftOverOffHeap - executorMemOverhead) / 2).toLong
+        (execMemLeft - executorMemOverhead) / 2).toLong
       // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
       // memory though so the size worst case would be doesn't use any pinned memory and uses
       // all off heap memory.
       val spillMem = pinnedMem
-      if (containerMemLeftOverOffHeap >= executorMemOverhead + pinnedMem + spillMem) {
+      if (execMemLeft >= executorMemOverhead + pinnedMem + spillMem) {
         executorMemOverhead += pinnedMem + spillMem
       } else {
         // use min pinned and spill mem
-        executorMemOverhead += autoTunerConfigsProvider.MIN_PINNED_MEMORY_MB +
-          autoTunerConfigsProvider.MIN_SPILL_MEMORY_MB
+        executorMemOverhead += autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
+          autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
       }
-      (pinnedMem, executorMemOverhead, executorHeap, setMaxBytesInFlight)
+      Right((pinnedMem, executorMemOverhead, executorHeap, setMaxBytesInFlight))
     } else {
-      // otherwise we have to adjust heuristic of the executor heap size
-      // recommendedMinHeap = DEF_HEAP_PER_CORE_MB * numExecutorCores
-      // first calculate what we think min overhead is and make sure we have enough
-      // for that
-      // calculate minimum heap size
-      val minExecHeapMem = autoTunerConfigsProvider.MIN_HEAP_PER_CORE_MB * numExecutorCores
-      if ((containerMem - minOverhead) < minExecHeapMem) {
-        // For now just throw so we don't get any tunings and its obvious to user this isn't a good
-        // setup. In the future we may just recommend them to use larger nodes. This would be more
-        // ideal once we hook up actual executor heap from an eventlog vs what user passes in.
-        appendComment(autoTunerConfigsProvider.notEnoughMemComment(
-          minExecHeapMem + minOverhead))
-        (0, 0, 0, false)
-      } else {
-        val leftOverMemUsingMinHeap = containerMem - minExecHeapMem
-        if (leftOverMemUsingMinHeap < 0) {
-          appendComment(autoTunerConfigsProvider.notEnoughMemComment(
-            minExecHeapMem + minOverhead))
-        }
-        // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
-        val pinnedMem = Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
-          leftOverMemUsingMinHeap / 2).toLong
-        val spillMem = pinnedMem
-        // spill memory is by default same size as pinned memory
-        executorMemOverhead += pinnedMem + spillMem
-        (pinnedMem, executorMemOverhead, minExecHeapMem, setMaxBytesInFlight)
-      }
-    }
-  }
-
-  /**
-   * Flow:
-   *   if "spark.master" is standalone => Do Nothing
-   *   if "spark.rapids.memory.pinnedPool.size" is set
-   *     if yarn -> recommend "spark.executor.memoryOverhead"
-   *     if using k8s ->
-   *         if version > 3.3.0 recommend "spark.executor.memoryOverheadFactor" and add comment
-   *         else recommend "spark.kubernetes.memoryOverheadFactor" and add comment if missing
-   */
-  private def addRecommendationForMemoryOverhead(recomValue: String): Unit = {
-    if (!sparkMaster.contains(Standalone)) {
-      val memOverheadLookup = autoTunerConfigsProvider.getMemoryOverheadLabel(sparkMaster,
-        appInfoProvider.getSparkVersion)
-      val pinnedPoolSizeLookup = "spark.rapids.memory.pinnedPool.size"
-      appendRecommendationForMemoryMB(memOverheadLookup, recomValue)
-      // if using k8s and pinned pool size is set, add a comment if memory overhead is missing
-      if (sparkMaster.contains(Kubernetes) &&
-            getPropertyValue(pinnedPoolSizeLookup).isDefined &&
-              getPropertyValue(memOverheadLookup).isEmpty) {
-        appendComment(s"'$memOverheadLookup' must be set if using '$pinnedPoolSizeLookup'.")
-      }
+      // Add a warning comment indicating that the current setup is not optimal
+      // and no memory-related tunings are recommended.
+      // TODO: For CSPs, we should recommend a different instance type.
+      val minTotalExecMemRequired = (
+        // Calculate total system memory needed by dividing executor memory by usable fraction.
+        // Accounts for memory reserved by the container manager (e.g., YARN).
+        (executorHeap + minOverhead + sparkOffHeapMemMB + pySparkMemMB) /
+          platform.fractionOfSystemMemoryForExecutors
+        ).toLong
+      Left(autoTunerConfigsProvider.notEnoughMemComment(minTotalExecMemRequired))
     }
   }
 
@@ -641,12 +671,35 @@ class AutoTuner(
         val availableMemPerExecExpr = () => availableMemPerExec
         val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
         val executorHeapExpr = () => executorHeap
-        val (pinnedMemory, memoryOverhead, finalExecutorHeap, setMaxBytesInFlight) =
-          calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr)
-        appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMemory")
-        addRecommendationForMemoryOverhead(memoryOverhead.toString)
-        appendRecommendationForMemoryMB("spark.executor.memory", s"$finalExecutorHeap")
-        setMaxBytesInFlight
+        calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
+          case Right((pinnedMem, memoryOverhead, executorHeap, setMaxBytesInFlight)) =>
+            // Sufficient memory available, proceed with recommendations
+            appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size", s"$pinnedMem")
+            // scalastyle:off line.size.limit
+            // For YARN and Kubernetes, we need to set the executor memory overhead
+            // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
+            // scalastyle:on line.size.limit
+            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+              appendRecommendationForMemoryMB("spark.executor.memoryOverhead", s"$memoryOverhead")
+            }
+            appendRecommendationForMemoryMB("spark.executor.memory", s"$executorHeap")
+            setMaxBytesInFlight
+          case Left(notEnoughMemComment) =>
+            // Not enough memory available, add warning comments
+            appendComment(notEnoughMemComment)
+            appendComment("spark.rapids.memory.pinnedPool.size",
+              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                "spark.rapids.memory.pinnedPool.size"))
+            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+              appendComment("spark.executor.memoryOverhead",
+                autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                  "spark.executor.memoryOverhead"))
+            }
+            appendComment("spark.executor.memory",
+              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                "spark.executor.memory"))
+            false
+        }
       } else {
         logInfo("Available memory per exec is not specified")
         addMissingMemoryComments()
@@ -697,7 +750,7 @@ class AutoTuner(
       // set the kryo serializer buffer size to prevent OOMs
       val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
       val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
-        .map(StringUtils.convertToMB)
+        .map(StringUtils.convertToMB(_, Some(ByteUnit.MiB)))
         .getOrElse(0L)
       if (currentBufferMaxMb < desiredBufferMax) {
         appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMax")
@@ -812,14 +865,14 @@ class AutoTuner(
       appInfoProvider.getMeanShuffleRead >
         autoTunerConfigsProvider.AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
       // AQE Recommendations for large input and large shuffle reads
-      platform.getGpuOrDefault.getAdvisoryPartitionSizeInBytes.foreach { size =>
+      platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
       val initialPartitionNumProperty =
         getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
-        recInitialPartitionNum = platform.getGpuOrDefault.getInitialPartitionNum.getOrElse(0)
+        recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
       // We need to set this to false, else Spark ignores the target size specified by
       // spark.sql.adaptive.advisoryPartitionSizeInBytes.
@@ -852,11 +905,11 @@ class AutoTuner(
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
     val autoBroadcastJoinThresholdProperty =
-      getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB)
+      getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
     if (autoBroadcastJoinThresholdProperty.isEmpty) {
       appendComment(autoBroadcastJoinKey, s"'$autoBroadcastJoinKey' was not set.")
     } else if (autoBroadcastJoinThresholdProperty.get >
-        StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD)) {
+        StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD, None)) {
       appendComment(s"Setting '$autoBroadcastJoinKey' > " +
         s"${autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD} could " +
         s"lead to performance\n" +
@@ -942,7 +995,7 @@ class AutoTuner(
   protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
     val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes)
+    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes, Some(ByteUnit.BYTE))
     if (inputBytesMax == 0.0) {
       Some(maxPartitionBytesNum)
     } else {
@@ -996,7 +1049,7 @@ class AutoTuner(
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
         calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
       } else {
-        s"${StringUtils.convertToMB(maxPartitionProp)}"
+        s"${StringUtils.convertToMB(maxPartitionProp, Some(ByteUnit.BYTE))}"
       }
     appendRecommendationForMemoryMB("spark.sql.files.maxPartitionBytes", recommended)
   }
@@ -1257,7 +1310,7 @@ class ProfilingAutoTuner(
     getPropertyValue("spark.sql.files.maxPartitionBytes") match {
       case Some(currentValue) if appInfoProvider.hasScanStagesWithGpuOom =>
         // GPU OOM detected. We may want to reduce max partition size.
-        val halvedValue = StringUtils.convertToMB(currentValue) / 2
+        val halvedValue = StringUtils.convertToMB(currentValue, Some(ByteUnit.BYTE)) / 2
         // Choose the minimum between the calculated value and half of the current value.
         calculatedValueFromInputSize match {
           case Some(calculatedValue) => Some(math.min(calculatedValue, halvedValue))
@@ -1313,16 +1366,15 @@ trait AutoTunerConfigsProvider extends Logging {
   val MIN_HEAP_PER_CORE_MB: Long = 750L
   // Ideal amount of JVM heap memory to request per CPU core in megabytes
   val DEF_HEAP_PER_CORE_MB: Long = 2 * 1024L
-  // Minimum amount of pinned memory to use per executor in MB
-  val MIN_PINNED_MEMORY_MB: Long = 1024L
-  val MIN_SPILL_MEMORY_MB: Long = MIN_PINNED_MEMORY_MB
   // Maximum amount of pinned memory to use per executor in MB
   val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
   // Default pinned memory to use per executor in MB
   val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
+  val DEF_SPILL_MEMORY_MB: Long = DEF_PINNED_MEMORY_MB
   // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
   // leave this for now to account for off heap memory usage.
-  val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
+  // TODO: Should we remove this as its unused by the plugin?
+  // val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
   // value in MB
   val MIN_PARTITION_BYTES_RANGE_MB = 128L
   // value in MB
@@ -1340,7 +1392,6 @@ trait AutoTunerConfigsProvider extends Logging {
   val DEF_DISTINCT_READ_THRESHOLD = 50.0
   // Default file cache size minimum is 100 GB
   val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  val DEFAULT_WORKER_INFO_PATH = "./worker_info.yaml"
   val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
   private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
     "additional-functionality/advanced_configs.html#advanced-configuration"
@@ -1356,6 +1407,12 @@ trait AutoTunerConfigsProvider extends Logging {
   val filteredPropKeys: Set[String] = Set(
     "spark.app.id"
   )
+
+  /**
+   * Default strategy for cluster shape recommendation.
+   * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
+   */
+  lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = ConstantGpuCountStrategy
 
   val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->
@@ -1442,41 +1499,6 @@ trait AutoTunerConfigsProvider extends Logging {
     tuning
   }
 
-  def loadClusterPropertiesFromContent(clusterProps: String): Option[ClusterProperties] = {
-    val representer = new Representer(new DumperOptions())
-    representer.getPropertyUtils.setSkipMissingProperties(true)
-    val constructor = new Constructor(classOf[ClusterProperties], new LoaderOptions())
-    val yamlObjNested = new Yaml(constructor, representer)
-    val loadedClusterProps = yamlObjNested.load(clusterProps).asInstanceOf[ClusterProperties]
-    if (loadedClusterProps != null && loadedClusterProps.softwareProperties == null) {
-      logInfo("softwareProperties is empty from input worker_info file")
-      loadedClusterProps.softwareProperties = new util.LinkedHashMap[String, String]()
-    }
-    Option(loadedClusterProps)
-  }
-
-  def loadClusterProps(filePath: String): Option[ClusterProperties] = {
-    val path = new Path(filePath)
-    var fsIs: FSDataInputStream = null
-    try {
-      val fs = FileSystem.get(path.toUri, new Configuration())
-      fsIs = fs.open(path)
-      val reader = new BufferedReader(new InputStreamReader(fsIs))
-      val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
-      loadClusterPropertiesFromContent(fileContent)
-    } catch {
-      // In case of missing file/malformed for cluster properties, default properties are used.
-      // Hence, catching and logging as a warning
-      case _: IOException =>
-        logWarning(s"No file found for input workerInfo path: $filePath")
-        None
-    } finally {
-      if (fsIs != null) {
-        fsIs.close()
-      }
-    }
-  }
-
   /**
    * Similar to [[buildAutoTuner]] but it allows constructing the AutoTuner without an
    * existing file. This can be used in testing.
@@ -1495,7 +1517,7 @@ trait AutoTunerConfigsProvider extends Logging {
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
-      val clusterPropsOpt = loadClusterPropertiesFromContent(clusterProps)
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
       createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider)
     } catch {
@@ -1553,33 +1575,14 @@ trait AutoTunerConfigsProvider extends Logging {
     s"""
        |This node/worker configuration is not ideal for using the RAPIDS Accelerator
        |for Apache Spark because it doesn't have enough memory for the executors.
-       |We recommend using nodes/workers with more memory. Need at least $minSizeInMB MB memory.
+       |We recommend either using nodes with more memory or reducing 'spark.memory.offHeap.size',
+       |as off-heap memory is unused by the RAPIDS Accelerator, unless explicitly required by
+       |the application. Need at least $minSizeInMB MB memory per executor.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 
-  /**
-   * Find the label of the memory overhead based on the spark master configuration and the spark
-   * version.
-   * @return "spark.executor.memoryOverhead", "spark.kubernetes.memoryOverheadFactor",
-   *         or "spark.executor.memoryOverheadFactor".
-   */
-  def getMemoryOverheadLabel(
-      sparkMaster: Option[SparkMaster],
-      sparkVersion: Option[String]) : String = {
-    val defaultLabel = "spark.executor.memoryOverhead"
-    sparkMaster match {
-      case Some(Kubernetes) =>
-        sparkVersion match {
-          case Some(version) =>
-            if (ToolUtils.isSpark330OrLater(version)) {
-              "spark.executor.memoryOverheadFactor"
-            } else {
-              "spark.kubernetes.memoryOverheadFactor"
-            }
-          case None => defaultLabel
-        }
-      case _ => defaultLabel
-    }
+  def notEnoughMemCommentForKey(key: String): String = {
+    s"Not enough memory to set '$key'. See comments for more details."
   }
 }
 

@@ -20,16 +20,22 @@ import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
+import org.scalatest.prop.TableDrivenPropertyChecks._
+import org.scalatest.prop.TableFor3
+
+import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
 
 /**
  * Suite to test the Qualification Tool's AutoTuner
  */
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
+  val autoTunerConfigsProvider: AutoTunerConfigsProvider = QualificationAutoTunerConfigsProvider
+
   /**
    * Default Spark properties to be used when building the Qualification AutoTuner
    */
-  private val defaultSparkProps: mutable.Map[String, String] = {
+  private def defaultSparkProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "32",
       "spark.executor.instances" -> "1",
@@ -58,22 +64,40 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       Some("212992MiB"), Some(5))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = QualificationAutoTunerConfigsProvider
-      .loadClusterPropertiesFromContent(workerInfo)
+    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    QualificationAutoTunerConfigsProvider.buildAutoTunerFromProps(
-      workerInfo, infoProvider, platform)
+    buildAutoTunerForTests(workerInfo, infoProvider, platform)
+  }
+
+  /**
+   * Helper method to check if the expected lines exist in the AutoTuner output.
+   */
+  private def assertExpectedLinesExist(
+      expectedResults: Seq[String], autoTunerOutput: String): Unit = {
+    val missingLines = expectedResults.filterNot(autoTunerOutput.contains)
+
+    if (missingLines.nonEmpty) {
+      val errorMessage =
+        s"""|=== Missing Lines ===
+            |${missingLines.mkString("\n")}
+            |
+            |=== Actual Output ===
+            |$autoTunerOutput
+            |""".stripMargin
+      fail(errorMessage)
+    }
   }
 
   test("test AutoTuner for Qualification sets batch size to 1GB") {
     val autoTuner = buildDefaultAutoTuner()
-    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+      QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults = Seq(
-        "--conf spark.rapids.sql.batchSizeBytes=1073741824",
+        "--conf spark.rapids.sql.batchSizeBytes=1g",
         "- 'spark.rapids.sql.batchSizeBytes' was not set."
     )
-    assert(expectedResults.forall(autoTunerOutput.contains))
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
   }
 
   test("test AutoTuner for Qualification should not change shuffle partitions") {
@@ -83,11 +107,59 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val autoTuner = buildDefaultAutoTuner(
       defaultSparkProps ++ mutable.Map("spark.sql.shuffle.partitions" -> "100")
     )
-    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+      QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     val expectedResults = Seq(
-      "--conf spark.sql.shuffle.partitions"
+      "--conf spark.sql.shuffle.partitions=100"
     )
-    assert(expectedResults.forall(t => !autoTunerOutput.contains(t)))
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  }
+
+  // scalastyle:off line.size.limit
+  val testData: TableFor3[String, String, Seq[String]] = Table(
+    ("testName", "workerMemory", "expectedResults"),
+    ("less memory available for executors",
+      "16g",
+      Seq(
+        "--conf spark.executor.memory=[FILL_IN_VALUE]",
+        "--conf spark.executor.memoryOverhead=[FILL_IN_VALUE]",
+        "--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]",
+        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}",
+        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memoryOverhead")}",
+        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
+        s"- ${QualificationAutoTunerConfigsProvider.notEnoughMemComment(40140)}"
+      )),
+    ("sufficient memory available for executors",
+      "44g",
+      Seq(
+        "--conf spark.executor.memory=32g",
+        "--conf spark.executor.memoryOverhead=11468m",
+        "--conf spark.rapids.memory.pinnedPool.size=4g"
+      ))
+  )
+  // scalastyle:on line.size.limit
+
+  forAll(testData) { (testName: String, workerMemory: String, expectedResults: Seq[String]) =>
+    test(s"test memory warnings for case: $testName") {
+      val workerInfo = buildCpuWorkerInfoAsString(None, Some(16), Some(workerMemory), Some(2))
+      val logEventsProps: mutable.Map[String, String] =
+        mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> "8",
+          "spark.executor.instances" -> "4",
+          "spark.executor.memory" -> "8g",
+          "spark.executor.memoryOverhead" -> "2g"
+        )
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+      val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+        logEventsProps, Some(testSparkVersion))
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+      val autoTuner = buildAutoTunerForTests(workerInfo,
+        infoProvider, platform, sparkMaster = Some(Yarn))
+      val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+        QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
+      val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+      assertExpectedLinesExist(expectedResults, autoTunerOutput)
+    }
   }
 }

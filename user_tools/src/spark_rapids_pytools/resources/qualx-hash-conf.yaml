@@ -1,0 +1,68 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+remove_nodes_exact:
+  - Exchange  # inconsistent appearance in plans
+  - Sort  # inconsistent appearance in plans
+
+remove_nodes_prefix:
+  # CPU
+  - AdaptiveSparkPlan  # only appears in CPU plans
+  - ColumnarToRow  # only appears in CPU plans
+  - InputAdapter  # only appears in CPU plans
+  - ReusedExchange  # only appears in CPU plans
+  - WholeStageCodegen  # only appears in CPU plans
+  # GPU
+  - GpuCoalesceBatches  # only appears in GPU plans
+  - GpuColumnarExchange  # only appears in GPU plans
+  - GpuColumnarToRow  # only appears in GPU plans
+  - GpuRapidsDeltaWrite  # only appears in GPU plans
+  - GpuRowToColumnar  # only appears in GPU plans
+  - GpuShuffleCoalesce  # only appears in GPU plans
+  - GpuSort  # inconsistent appearance in plans
+  # Velox
+  - RowToVeloxColumnar  # only appears in Velox plans
+  - VeloxColumnarToRowExec  # only appears in Velox plans
+  - VeloxRowToColumnar  # only appears in Velox plans
+
+rename_nodes:
+  # strip suffixes
+  Scan parquet: Scan parquet
+  Scan ExistingRDD Delta Table State: Scan ExistingRDD
+  Scan ExistingRDD Delta Table Checkpoint: Scan parquet
+  # CPU
+  BucketUnion: Union
+  ObjectHashAggregate: HashAggregate
+  ShuffledHashJoin: SortMergeJoin
+  # GPU
+  Execute GpuInsertIntoHadoopFsRelationCommand: Execute InsertIntoHadoopFsRelationCommand
+  Execute GpuInsertIntoHiveTable: Execute InsertIntoHiveTable
+  GpuBroadcastExchange: BroadcastExchange
+  GpuBroadcastHashJoin: BroadcastHashJoin
+  GpuCoalesce: Coalesce
+  CpuCustomShuffleReader: AQEShuffleRead
+  GpuExpand: Expand
+  GpuExecute SaveIntoDataSourceCommand: Execute SaveIntoDataSourceCommand
+  GpuFilter: Filter
+  GpuGenerate: Generate
+  GpuGlobalLimit: GlobalLimit
+  GpuHashAggregate: HashAggregate
+  GpuLocalLimit: LocalLimit
+  GpuProject: Project
+  GpuRunningWindow: Window
+  GpuScan parquet: Scan parquet
+  GpuShuffledHashJoin: SortMergeJoin
+  GpuUnion: Union
+  # Velox
+  ProjectExecTransformer: Project
