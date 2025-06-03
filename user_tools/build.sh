@@ -81,7 +81,7 @@ download_jar_from_url() {
   echo "Downloaded JAR file: $TOOLS_JAR_FILE"
 }
 
-clean_up_downloaded_jars() {
+clean_up_build_jars() {
   if [ -d "$BUILD_DIR" ]; then
     rm -rf "$BUILD_DIR"
   fi
@@ -179,7 +179,7 @@ build() {
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
-  clean_up_downloaded_jars
+  clean_up_build_jars
 }
 
 # Main script execution
