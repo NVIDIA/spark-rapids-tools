@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.tuning
 
 import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
+import java.util
 import scala.beans.BeanProperty
 
 class WorkerInfo(
@@ -31,21 +32,44 @@ class WorkerInfo(
    * [[com.nvidia.spark.rapids.tool.Platform.getInstanceMapByName]]
    * @return
    */
-  def getNodeInstanceMapKey: NodeInstanceMapKey = {
+  def getNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+    if (this.getInstanceType == null || this.getInstanceType.isEmpty) {
+      return None
+    }
     val gpuCount = this.getGpu.getCount
     if (gpuCount > 0) {
-      NodeInstanceMapKey(instanceType = this.getInstanceType, gpuCount = Some(gpuCount))
+      Some(NodeInstanceMapKey(instanceType = this.getInstanceType, gpuCount = Some(gpuCount)))
     } else {
-      NodeInstanceMapKey(instanceType = this.getInstanceType)
+      Some(NodeInstanceMapKey(instanceType = this.getInstanceType))
+    }
+  }
+}
+
+/**
+ * Class to hold the Spark properties specified for the target cluster.
+ * This will be extended in future to include preserved and removed categories.
+ */
+class SparkProperties(
+  @BeanProperty var enforced: util.LinkedHashMap[String, String]) {
+  def this() = this(new util.LinkedHashMap[String, String]())
+
+  lazy val enforcedPropertiesMap: Map[String, String] = {
+    if (enforced == null || enforced.isEmpty) {
+      Map.empty
+    } else {
+      import scala.collection.JavaConverters.mapAsScalaMapConverter
+      enforced.asScala.toMap
     }
   }
 }
 
 class TargetClusterProps(
-  @BeanProperty var workerInfo: WorkerInfo) {
-  def this() = this(new WorkerInfo())
+  @BeanProperty var workerInfo: WorkerInfo,
+  @BeanProperty var sparkProperties: SparkProperties) {
+
+  def this() = this(new WorkerInfo(), new SparkProperties())
 
   override def toString: String = {
-    s"${getClass.getSimpleName}(workerInfo=$workerInfo)"
+    s"${getClass.getSimpleName}(workerInfo=$workerInfo, sparkProperties=$sparkProperties)"
   }
 }

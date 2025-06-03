@@ -30,17 +30,17 @@ import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, PropertiesLoader, WebCrawlerUtil}
 
 /**
- * Suite to test the Profiling Tool's AutoTuner
+ * Base class for Profiling AutoTuner test suites.
  */
-class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
+abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
 
   val autoTunerConfigsProvider: AutoTunerConfigsProvider = ProfilingAutoTunerConfigsProvider
-  private val profilingLogDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
+  val profilingLogDir: String = ToolTestUtils.getTestResourcePath("spark-events-profiling")
 
   /**
    * Helper method to get the path to the output file
    */
-  def getOutputFilePath(outputDir: File, fileName: String): String = {
+  protected def getOutputFilePath(outputDir: File, fileName: String): String = {
     val profilerOutputDir = new File(outputDir, s"${Profiler.SUBDIR}")
     val outputFile = profilerOutputDir.listFiles()
       .filter(_.isDirectory)
@@ -58,7 +58,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * Helper method to extract the AutoTuner results from the profile log content
    * TODO: We should store the AutoTuner results in a separate file.
    */
-  def extractAutoTunerResults(profileLogContent: String): String = {
+  protected def extractAutoTunerResults(profileLogContent: String): String = {
     val startSubstring = "### D. Recommended Configuration ###"
     val indexOfAutoTunerOutput = profileLogContent.indexOf(startSubstring)
     if (indexOfAutoTunerOutput > 0) {
@@ -97,14 +97,14 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some(instanceInfo.gpuDevice.toString))
   }
 
-  private def getGpuAppMockInfoProvider: AppInfoProviderMockTest = {
+  protected def getGpuAppMockInfoProvider: AppInfoProviderMockTest = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(testSparkVersion), Seq())
   }
 
-  private def getGpuAppMockInfoWithJars(rapidsJars: Seq[String]): AppInfoProviderMockTest = {
+  protected def getGpuAppMockInfoWithJars(rapidsJars: Seq[String]): AppInfoProviderMockTest = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
@@ -115,7 +115,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * Helper method to return an instance of the Profiling AutoTuner with default properties
    * for Dataproc.
    */
-  def buildDefaultDataprocAutoTuner(logEventsProps: mutable.Map[String, String]): AutoTuner = {
+  protected def buildDefaultDataprocAutoTuner(
+      logEventsProps: mutable.Map[String, String]) : AutoTuner = {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -128,7 +129,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   /**
    * Helper method to return the latest Spark RAPIDS plugin jar URL.
    */
-  private lazy val latestPluginJarUrl: String = {
+  protected lazy val latestPluginJarUrl: String = {
     val latestRelease = WebCrawlerUtil.getLatestPluginRelease match {
       case Some(v) => v
       case None => fail("Could not find pull the latest release successfully")
@@ -136,6 +137,23 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
       s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
   }
+}
+
+/**
+ * Test suite for the Profiling Tool's AutoTuner (DEPRECATED. Use [[ProfilingAutoTunerSuiteV2]])
+ *
+ * IMPORTANT NOTE:
+ * 1. This test suite uses the legacy worker info properties format, which is overloaded to be
+ *    used for both source and target cluster properties.
+ * 2. These tests will be migrated to use the new target cluster info format, which explicitly
+ *    specifies target cluster shape and Spark properties.
+ * 3. All new Profiling AutoTuner test cases should be added to [[ProfilingAutoTunerSuiteV2]]
+ *    instead of this suite.
+ *
+ * TODO:
+ * Migrate all tests in this suite to use the new target cluster properties format.
+ */
+class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
   test("verify 3.2.0+ auto conf setting") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
@@ -281,7 +299,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(workerInfo,
-        getGpuAppMockInfoProvider, platform)
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -956,7 +974,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.executor.memory" -> "47222m",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -993,6 +1010,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1031,15 +1049,15 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
   // Test that the properties from the custom props will be used to calculate the recommendations.
-  // For example, the output should use "spark.executor.cores" -> 4 when calculating the
-  // recommendations.
+  // For example, the output should use "spark.sql.shuffle.partitions" -> 400 when calculating the
+  // recommendations instead of the one from the event log which is 200.
   test("AutoTuner gives precedence to properties from custom props") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "4",
       "spark.executor.memory" -> "47222m",
+      "spark.sql.shuffle.partitions" -> "400",
       "spark.rapids.shuffle.multiThreaded.reader.threads" -> "8",
       "spark.rapids.shuffle.multiThreaded.writer.threads" -> "8",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
       "spark.shuffle.manager" ->
         s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
@@ -1074,6 +1092,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1115,7 +1134,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1146,6 +1164,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1191,13 +1210,12 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Why this test to see if it carries over the sql.enabled false???? This is broken
-  // if needed
+  // Test that the AutoTuner recommends the config for enabling
+  // the plugin when the plugin is not enabled.
   test("plugin not enabled") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -1229,6 +1247,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1277,9 +1296,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   test("Recommendation of maxPartitions is calculated based on maxInput of tasks") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
-      "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.task.resource.gpu.amount" -> "0.001")
+      "spark.executor.memory" -> "47222m")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1306,8 +1323,8 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
-        getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
-          Some(testSparkVersion)), platform)
+      getMockInfoProvider(3.7449728E7, Seq(0, 0), Seq(0.01, 0.0), logEventsProps,
+        Some(testSparkVersion)), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1316,6 +1333,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1360,9 +1378,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   test("Output contains GC comments when GC Fraction is higher than threshold") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
-      "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.task.resource.gpu.amount" -> "0.001")
+      "spark.executor.memory" -> "47222m")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1399,6 +1415,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -1491,7 +1508,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.files.maxPartitionBytes=39m
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1534,7 +1551,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
-        getGpuAppMockInfoWithJars(rapidsJars), platform)
+      getGpuAppMockInfoWithJars(rapidsJars), platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     Profiler.getAutoTunerResultsAsString(properties, comments)
   }
@@ -1729,7 +1746,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.files.maxPartitionBytes=39m
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1808,7 +1825,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.files.maxPartitionBytes=39m
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1837,7 +1854,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(databricksWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS, clusterPropsOpt)
     val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
-        getGpuAppMockInfoProvider, platform)
+      getGpuAppMockInfoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
 
     // Assert recommendations are excluded in properties
@@ -1861,41 +1878,42 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
 
   forAll(MEMORY_OVERHEAD_TEST_CASES) {
     (sparkMaster: Option[SparkMaster], shouldIncludeMemoryOverhead: Boolean) =>
-    test("memoryOverhead comment is " +
-      s"${if (shouldIncludeMemoryOverhead) "included" else "excluded"} " +
-      s"for sparkMaster=${sparkMaster.getOrElse("undefined")}") {
-      val logEventsProps = mutable.LinkedHashMap[String, String](
-        "spark.executor.cores" -> "16",
-        "spark.executor.memory" -> "80g",
-        "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
-        "spark.sql.shuffle.partitions" -> "200",
-        "spark.sql.files.maxPartitionBytes" -> "1g",
-        "spark.task.resource.gpu.amount" -> "0.001",
-        "spark.rapids.memory.pinnedPool.size" -> "5g",
-        "spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4"
-      )
+      test("memoryOverhead comment is " +
+        s"${if (shouldIncludeMemoryOverhead) "included" else "excluded"} " +
+        s"for sparkMaster=${sparkMaster.getOrElse("undefined")}") {
+        val logEventsProps = mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> "16",
+          "spark.executor.memory" -> "80g",
+          "spark.executor.resource.gpu.amount" -> "1",
+          "spark.executor.instances" -> "1",
+          "spark.sql.shuffle.partitions" -> "200",
+          "spark.sql.files.maxPartitionBytes" -> "1g",
+          "spark.task.resource.gpu.amount" -> "0.001",
+          "spark.rapids.memory.pinnedPool.size" -> "5g",
+          "spark.rapids.sql.enabled" -> "true",
+          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+          "spark.rapids.sql.concurrentGpuTasks" -> "4"
+        )
 
-      val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
-      val infoProvider = getMockInfoProvider(8126464.0, Seq(0),
-        Seq(0.004), logEventsProps, Some(testSparkVersion))
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
-      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-      val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform,
-        sparkMaster)
-      val (_, comments) = autoTuner.getRecommendedProperties()
-      val expectedComment = "'spark.executor.memoryOverhead' was not set."
+        val dataprocWorkerInfo = buildGpuWorkerInfoAsString()
+        val infoProvider = getMockInfoProvider(8126464.0, Seq(0),
+          Seq(0.004), logEventsProps, Some(testSparkVersion))
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(
+          dataprocWorkerInfo)
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+        val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo, infoProvider, platform,
+          sparkMaster)
+        val (_, comments) = autoTuner.getRecommendedProperties()
+        val expectedComment = "'spark.executor.memoryOverhead' was not set."
 
-      if (shouldIncludeMemoryOverhead) {
-        assert(comments.exists(_.comment == expectedComment),
-          s"Expected comment '$expectedComment' not found")
-      } else {
-        assert(comments.forall(_.comment != expectedComment),
-          s"Unexpected comment '$expectedComment' found")
+        if (shouldIncludeMemoryOverhead) {
+          assert(comments.exists(_.comment == expectedComment),
+            s"Expected comment '$expectedComment' not found")
+        } else {
+          assert(comments.forall(_.comment != expectedComment),
+            s"Unexpected comment '$expectedComment' found")
+        }
       }
-    }
   }
 
   test("Recommendations generated for unsupported operators from driver logs only") {
@@ -2057,7 +2075,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2092,6 +2109,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -2327,7 +2345,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(customSparkVersion), Seq())
     val autoTuner = buildAutoTunerForTests(workerInfo,
-        infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.createInstance())
     // Assert shuffle manager string for supported custom Spark v3.3.0
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "330")
   }
@@ -2358,7 +2376,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
       Some(databricksVersion), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = buildAutoTunerForTests(databricksWorkerInfo,
-        infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
+      infoProvider, PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
   }
 
@@ -2370,7 +2388,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(sparkVersion), Seq())
     val autoTuner = buildAutoTunerForTests(workerInfo,
-        infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, sparkVersion)
   }
 
@@ -2382,7 +2400,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       Some(customSparkVersion), Seq())
     val autoTuner = buildAutoTunerForTests(workerInfo,
-        infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.createInstance())
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, customSparkVersion)
   }
 
@@ -2393,7 +2411,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
       None, Seq())
     val autoTuner = buildAutoTunerForTests(workerInfo,
-        infoProvider, PlatformFactory.createInstance())
+      infoProvider, PlatformFactory.createInstance())
     // Verify that the shuffle manager is not recommended for missing Spark version
     autoTuner.getShuffleManagerClassName match {
       case Right(smClassName) =>
@@ -2407,7 +2425,6 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
       "spark.task.resource.gpu.amount" -> "0.001")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
@@ -2442,6 +2459,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -2487,9 +2505,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   test("Test spilling occurred in shuffle stages with shuffle skew") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
-      "spark.executor.memory" -> "47222m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.task.resource.gpu.amount" -> "0.001")
+      "spark.executor.memory" -> "47222m")
     // mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -2524,6 +2540,7 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
@@ -3113,8 +3130,12 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
             |
             |Comments:
             |- 'spark.executor.instances' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
             |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
             |- 'spark.rapids.sql.enabled' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
             |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
@@ -3300,19 +3321,19 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
   /**
    * Helper method to test AutoTuner recommendations for memory configurations.
    *
-   * @param testName Name of the test case
-   * @param confKey The Spark configuration key to test
-   * @param initialValue Initial value of the configuration (with or without unit)
+   * @param testName      Name of the test case
+   * @param confKey       The Spark configuration key to test
+   * @param initialValue  Initial value of the configuration (with or without unit)
    * @param expectedValue Expected value after AutoTuner processing (None if no change expected)
-   * @param extraProps Additional properties needed for the test
+   * @param extraProps    Additional properties needed for the test
    */
   private def testAutoTunerConf(
-      testName: String,
-      confKey: String,
-      initialValue: String,
-      expectedValue: Option[String],
-      extraProps: Map[String, String] = Map.empty
-  ): Unit = {
+                                 testName: String,
+                                 confKey: String,
+                                 initialValue: String,
+                                 expectedValue: Option[String],
+                                 extraProps: Map[String, String] = Map.empty
+                               ): Unit = {
     test(testName) {
       val baseProps = Map(
         "spark.executor.cores" -> "16",
@@ -3356,10 +3377,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * Tests how the AutoTuner handles spark.executor.memoryOverhead with and without units.
    */
   private def testMemoryOverhead(
-      testName: String,
-      initialValue: String,
-      expectedValue: Option[String]
-  ): Unit = {
+                                  testName: String,
+                                  initialValue: String,
+                                  expectedValue: Option[String]
+                                ): Unit = {
     testAutoTunerConf(
       testName = testName,
       confKey = "spark.executor.memoryOverhead",
@@ -3373,10 +3394,10 @@ class ProfilingAutoTunerSuite extends BaseAutoTunerSuite {
    * Tests how the AutoTuner handles spark.kryoserializer.buffer.max with and without units.
    */
   private def testKryoMaxBuffer(
-      testName: String,
-      initialValue: String,
-      expectedValue: Option[String]
-  ): Unit = {
+                                 testName: String,
+                                 initialValue: String,
+                                 expectedValue: Option[String]
+                               ): Unit = {
     testAutoTunerConf(
       testName = testName,
       confKey = "spark.kryoserializer.buffer.max",
