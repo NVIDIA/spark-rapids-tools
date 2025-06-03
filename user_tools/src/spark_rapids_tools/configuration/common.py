@@ -94,7 +94,7 @@ class RuntimeDependency(BaseConfig):
             # This checks for empty strings, and whitespace-only strings.
             # None value is checked for by Pydantic validation.
             if not self.uri.strip():
-                raise ValidationError('URI cannot be empty for classpath dependency', model=RuntimeDependency)
+                raise ValueError('URI cannot be empty for classpath dependency')
             return self
 
         try:
@@ -102,10 +102,7 @@ class RuntimeDependency(BaseConfig):
             return self
         except ValidationError as exc:
             if not os.path.isfile(self.uri):
-                raise ValidationError(
-                    f'Invalid URI for dependency: {self.uri}. Error: {exc}',
-                    model=RuntimeDependency
-                ) from exc
+                raise ValueError(f'Invalid URI for dependency: {self.uri}. Error: {exc}') from exc
             return self
 
 

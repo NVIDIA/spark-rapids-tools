@@ -79,7 +79,7 @@ def test_timeout_before_last_chunk(temp_file, slow_mock_response):
     with patch('requests.get', return_value=slow_mock_response):
         with pytest.raises(TimeoutError) as exc_info:
             download_url_request('http://test.com/file', temp_file, timeout=0.2)
-        assert "Download timed out after 0.2 seconds" in str(exc_info.value)
+        assert "Download timed out post 0.2 seconds" in str(exc_info.value)
 
 
 def test_timeout_on_last_chunk(temp_file, slow_mock_response):
