@@ -142,8 +142,8 @@ def _unzip_eventlogs(
     qualx_data_dir = os.getenv('QUALX_DATA_DIR')
     ds_eventlogs = []
     ds_eventlogs_base = os.path.join(qualx_data_dir, 'customers', dataset_basename, ds_name)
-    if os.path.exists(os.path.expandvars(ds_eventlogs)):
-        logger.warning('Eventlog directory already exists: %s, skipping unzip', ds_eventlogs)
+    if os.path.exists(os.path.expandvars(ds_eventlogs_base)):
+        logger.warning('Eventlog directory already exists: %s, skipping unzip', ds_eventlogs_base)
         return ds_eventlogs
 
     # get appIds from delta_df
