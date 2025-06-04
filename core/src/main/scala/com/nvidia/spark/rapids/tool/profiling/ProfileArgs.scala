@@ -108,7 +108,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val workerInfo: ScallopOption[String] =
     opt[String](required = false,
       descr = "File path containing the system information of a worker node. It is assumed " +
-        "that all workers are homogenous. It requires the AutoTuner to be enabled.")
+        "that all workers are homogenous. It requires the AutoTuner to be enabled")
   val enableDiagnosticViews: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Toggle diagnostic views generation. Disabled by default.",
