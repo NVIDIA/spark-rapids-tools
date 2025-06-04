@@ -15,7 +15,7 @@
 # This yaml file is a sample configuration file for the distributed tools. It is valid
 # only if `--submission_mode distributed` is passed to the CLI. It provides runtime
 # dependencies and submission related configurations.
-api_version: '1.1'
+api_version: '1.2'
 runtime:
   dependencies:
     - name: my-spark350

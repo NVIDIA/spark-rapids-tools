@@ -21,7 +21,7 @@
 #    For further information visit https://errors.pydantic.dev/2.9/v/url_parsing
 # runtime.dependencies.0.uri.function-after[validate_file(), lax-or-strict[lax=union[json-or-python[json=function-after[path_validator(), str],python=is-instance[Path]],function-after[path_validator(), str]],strict=json-or-python[json=function-after[path_validator(), str],python=is-instance[Path]]]]
 #  Path does not point to a file [type=path_not_file, input_value='/home/archive.apache.org...k-3.5.0-bin-hadoop3.tgz', input_type=str]
-api_version: '1.0'
+api_version: '1.2'
 runtime:
   dependencies:
     - name: my-spark350

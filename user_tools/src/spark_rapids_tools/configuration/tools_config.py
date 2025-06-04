@@ -34,7 +34,7 @@ class ToolsConfig(BaseConfig):
                     'configuration file against the current tools release.',
         examples=['1.0, 1.1'],
         le=1.2,  # minimum version compatible with the current tools implementation
-        ge=1.0)
+        ge=1.2)
 
     runtime: Optional[ToolsRuntimeConfig] = Field(
         default=None,

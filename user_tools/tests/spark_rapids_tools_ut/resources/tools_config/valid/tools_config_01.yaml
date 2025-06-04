@@ -15,7 +15,7 @@
 # This yaml file is a sample configuration file for the distributed tools. It is valid
 # only if `--submission_mode distributed` is passed to the CLI. It provides submission
 # related configurations.
-api_version: '1.1'
+api_version: '1.2'
 submission:
   remote_cache_dir: 'hdfs:///tmp/spark_rapids_distributed_tools_cache'
   spark_properties:
