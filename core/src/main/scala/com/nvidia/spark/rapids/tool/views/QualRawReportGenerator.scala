@@ -101,11 +101,11 @@ object QualRawReportGenerator extends Logging {
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
       constructLabelsMaps(QualSparkMetricsAggregator.
+        // In context of Qual, we don't need the Diagnostic Views
+        // That is handled because the QualAggregator returns an empty Seq
         getAggRawMetrics(
           app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
-          if (label != STAGE_DIAGNOSTICS_LABEL) {
-            pWriter.writeTable(label, metrics, AGG_DESCRIPTION.get(label))
-          }
+          pWriter.writeTable(label, metrics, AGG_DESCRIPTION.get(label))
       }
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
