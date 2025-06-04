@@ -17,6 +17,6 @@
 #  Error:1 validation error for ToolsConfig
 #  runtime.dependencies
 #   Input should be a valid list [type=list_type, input_value=None, input_type=NoneType]
-api_version: '1.2'
+api_version: '1.0'
 runtime:
   dependencies:

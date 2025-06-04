@@ -14,7 +14,7 @@
 
 # This yaml file is a configuration file for a tool that uses Spark 3.5.0 as dependency
 # Minimal file content.
-api_version: '1.2'
+api_version: '1.0'
 runtime:
   dependencies:
     - name: my-spark350
