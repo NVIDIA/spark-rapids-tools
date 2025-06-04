@@ -15,7 +15,7 @@
 # This yaml file is a configuration file for a tool that uses Spark as dependency
 # and uses the environment variable SPARK_HOME to locate the jars.
 # Minimal file content.
-api_version: '1.01'
+api_version: '1.2'
 runtime:
   dependencies:
     - name: my-spark-from-cp
