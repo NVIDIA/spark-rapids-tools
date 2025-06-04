@@ -537,6 +537,8 @@ class RapidsJarTool(RapidsTool):
 
     @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
+        # Default timeout in seconds (30 minutes)
+        default_download_timeout = 1800
 
         def exception_handler(future):
             # Handle any exceptions raised by the task
@@ -551,11 +553,14 @@ class RapidsJarTool(RapidsTool):
             self.logger.info('Checking dependency %s', dep.name)
             dest_folder = self.ctxt.get_cache_folder()
             verify_opts = {}
+            download_configs = {}
+            download_configs['timeOut'] = default_download_timeout
             if dep.verification is not None:
                 verify_opts = dict(dep.verification)
             download_task = DownloadTask(src_url=dep.uri,     # pylint: disable=no-value-for-parameter)
                                          dest_folder=dest_folder,
-                                         verification=verify_opts)
+                                         verification=verify_opts,
+                                         configs=download_configs)
             download_result = download_task.run_task()
             self.logger.info('Completed downloading of dependency [%s] => %s',
                              dep.name,
@@ -594,13 +599,12 @@ class RapidsJarTool(RapidsTool):
                     futures = executor.submit(cache_single_dependency, dep)
                     futures.add_done_callback(exception_handler)
                     futures_list.append(futures)
+
                 try:
-                    # set the timeout to 30 minutes.
-                    for future in concurrent.futures.as_completed(futures_list, timeout=1800):
+                    for future in concurrent.futures.as_completed(futures_list, timeout=default_download_timeout):
                         result = future.result()
                         results.append(result)
                 except Exception as ex:    # pylint: disable=broad-except
-                    self.logger.error('Failed to download dependencies %s', ex)
                     raise ex
             return results
 
@@ -618,9 +622,22 @@ class RapidsJarTool(RapidsTool):
 
         depend_arr = populate_dependency_list()
         if depend_arr:
-            dep_list = cache_all_dependencies(depend_arr)
-            if any(dep_item is None for dep_item in dep_list):
-                raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+            classpath_deps = [dep for dep in depend_arr if dep.dependency_type and
+                              dep.dependency_type.dep_type == DependencyType.CLASSPATH]
+            downloadable_deps = [dep for dep in depend_arr if not dep.dependency_type or
+                                 dep.dependency_type.dep_type != DependencyType.CLASSPATH]
+            dep_list = []
+            if downloadable_deps:
+                # download the dependencies
+                self.logger.info('Downloading dependencies %s', downloadable_deps)
+                dep_list = cache_all_dependencies(downloadable_deps)
+                if any(dep_item is None for dep_item in dep_list):
+                    raise RuntimeError('Could not download all dependencies. Aborting Executions.')
+                self.logger.info('Downloadable dependencies are processed as: %s',
+                                 Utils.gen_joined_str(join_elem='; ', items=dep_list))
+            if classpath_deps:
+                for dep_item in classpath_deps:
+                    dep_list.append(dep_item.uri)
             self.logger.info('Dependencies are processed as: %s',
                              Utils.gen_joined_str(join_elem='; ',
                                                   items=dep_list))

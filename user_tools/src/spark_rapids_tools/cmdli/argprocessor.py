@@ -134,7 +134,7 @@ class AbsToolUserArgModel:
             impl_class = impl_entry.validator_class
             new_obj = impl_class(*args, **kwargs)
             return new_obj.build_tools_args()
-        except (ValidationError, PydanticCustomError) as e:
+        except (ValueError, ValidationError, PydanticCustomError) as e:
             impl_class.logger.error('Validation err: %s\n', e)
             dump_tool_usage(cli_class, cli_name, tool_name)
         return None

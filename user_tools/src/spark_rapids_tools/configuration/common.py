@@ -14,9 +14,8 @@
 
 """Common types and definitions used by the configurations. This module is used by other
 modules as well."""
-
-from typing import Union
-from pydantic import BaseModel, Field, AnyUrl, FilePath, AliasChoices
+import os
+from pydantic import BaseModel, Field, AnyUrl, AliasChoices, ValidationError, model_validator
 
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib.tools.fs_utils import FileHashAlgorithm
@@ -69,11 +68,13 @@ class RuntimeDependency(BaseConfig):
     name: str = Field(
         description='The name of the dependency.',
         examples=['Spark-3.5.0', 'AWS Java SDK'])
-    uri: Union[AnyUrl, FilePath] = Field(
-        description='The location of the dependency file. It can be a URL to a remote web/storage or a file path.',
+    uri: str = Field(
+        description='The location of the dependency file. It can be a URL, a file path,'
+                    'or an environment variable path (e.g., ${ENV_VAR}/file.jar).',
         examples=['file:///path/to/file.tgz',
                   'https://mvn-url/24.08.1/rapids-4-spark-tools_2.12-24.08.1.jar',
-                  'gs://bucket-name/path/to/file.jar'])
+                  'gs://bucket-name/path/to/file.jar'],
+        validate_default=True)
     dependency_type: RuntimeDependencyType = Field(
         default_factory=lambda: RuntimeDependencyType(dep_type=DependencyType.get_default()),
         description='Specifies the dependency type to determine how the item is processed. '
@@ -83,6 +84,26 @@ class RuntimeDependency(BaseConfig):
     verification: DependencyVerification = Field(
         default=None,
         description='Optional specification to verify the dependency file.')
+
+    @model_validator(mode='after')
+    def validate_dependency(self) -> 'RuntimeDependency':
+        """Validate that the URI is a valid URL or file path when dependency type is not CLASSPATH."""
+        dep_type = self.dependency_type.dep_type
+
+        if dep_type == DependencyType.CLASSPATH:
+            # This checks for empty strings, and whitespace-only strings.
+            # None value is checked for by Pydantic validation.
+            if not self.uri.strip():
+                raise ValueError('URI cannot be empty for classpath dependency')
+            return self
+
+        try:
+            AnyUrl(self.uri)
+            return self
+        except ValidationError as exc:
+            if not os.path.isfile(self.uri):
+                raise ValueError(f'Invalid URI for dependency: {self.uri}. Error: {exc}') from exc
+            return self
 
 
 class SparkProperty(BaseConfig):

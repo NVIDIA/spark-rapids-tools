@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ from spark_rapids_tools.storagelib.tools.fs_utils import FileVerificationResult
 
 
 def download_url_request(url: str, fpath: str, timeout: float = None,
-                         chunk_size: int = 32 * 1024 * 1024) -> str:
+                         chunk_size: int = 16 * 1024 * 1024) -> str:
     """
     Downloads a file from url source using the requests library.
     This implementation is more suitable for large files as the chunk size is set to 32 MB.
@@ -57,12 +57,27 @@ def download_url_request(url: str, fpath: str, timeout: float = None,
     """
     # disable the urllib3 debug messages
     logging.getLogger('urllib3').setLevel(logging.WARNING)
+    # Note on requests timeout behavior with streaming:
+    # 1. When stream=True, the timeout parameter in requests.get() only applies to:
+    #    - Initial connection establishment
+    #    - First chunk read
+    # 2. For subsequent chunks, no timeout is enforced by requests library
+    # 3. This is why we need our own timeout check for the total download time
+    # 4. We check timeout after writing each chunk, but allow the last chunk to complete
+    start_time = time.time()
     with requests.get(url, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         with open(fpath, 'wb') as f:
-            # set chunk size to 16 MB to lower the count of iterations.
-            for chunk in r.iter_content(chunk_size=chunk_size):
+            # Set chunk size to 16 MB to lower the count of iterations.
+            chunks = r.iter_content(chunk_size=chunk_size)
+            chunk = next(chunks, None)
+            while chunk is not None:
                 f.write(chunk)
+                if timeout and (time.time() - start_time) > timeout:
+                    next_chunk = next(chunks, None)
+                    if next_chunk is not None:
+                        raise TimeoutError(f'Download timed out post {timeout} seconds while downloading from {url}')
+                chunk = next(chunks, None)
     return fpath
 
 
@@ -274,7 +289,7 @@ class DownloadTask:
         download_opts = {
             'srcUrl': str(self.src_url),
             'destPath': local_res.no_scheme,
-            # set default timeout oif a single task to 1 hour
+            # set default timeout of a single task to 1 hour
             'timeOut': self.configs.get('timeOut', 3600),
         }
         download_res = self._download_resource(download_opts)
