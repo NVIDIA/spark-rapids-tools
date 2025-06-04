@@ -325,16 +325,16 @@ class AutoTuner(
   }
 
   /**
-   * Used to get the property value in the following order:
-   * 1. User-enforced Spark property (if exists)
+   * Used to get the property value in the following priority order:
+   * 1. Recommendations (this also includes the user-enforced properties)
    * 2. Source Spark properties (i.e. from app info and cluster properties)
    */
   protected def getPropertyValue(key: String): Option[String] = {
-    platform.getSparkPropertyWithUserOverrides(getAllSourceProperties)(key)
+    AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)(key)
   }
 
   /**
-   * Kept for backwards compatibility.
+   * Get combined properties from the app info and cluster properties.
    */
   private lazy val getAllSourceProperties: Map[String, String] = {
     // the cluster properties override the app properties as
@@ -349,6 +349,14 @@ class AutoTuner(
         val recommendationVal = TuningEntry.build(key, Option(propVal), None)
         recommendations(key) = recommendationVal
       }
+    }
+    // Add the enforced properties to the recommendations.
+    platform.userEnforcedRecommendations.foreach {
+      case (key, value) =>
+        val recomRecord = recommendations.getOrElseUpdate(key,
+          TuningEntry.build(key, getPropertyValueFromSource(key), None))
+        recomRecord.setRecommendedValue(value)
+        appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
     }
   }
 
@@ -394,31 +402,26 @@ class AutoTuner(
       // do not do anything if the recommendations should be skipped
       return
     }
-    val tuningEntry = TuningEntry.build(key, getPropertyValueFromSource(key), None)
-    platform.getUserEnforcedSparkProperty(key) match {
-      case Some(userEnforcedValue) =>
-        // If the property is user-enforced, then update the recommendation if the existing
-        // value is different or if not present in the recommendations.
-        val recomRecord = recommendations.get(key)
-        val needsUpdate =
-          recomRecord.isEmpty || recomRecord.exists(_.getTuneValue() != userEnforcedValue)
-        if (needsUpdate) {
-          val recomRecord = recommendations.getOrElseUpdate(key, tuningEntry)
-          recomRecord.setRecommendedValue(userEnforcedValue)
-          appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
-        }
-      case None =>
-        // Proceed with normal recommendation if not enforced
-        val recomRecord = recommendations.getOrElseUpdate(key, tuningEntry)
-        Option(value).foreach { nonNullValue =>
-          recomRecord.setRecommendedValue(nonNullValue)
-          if (recomRecord.getOriginalValue.isEmpty) {
-            appendMissingComment(key)
-          } else {
-            appendUpdatedComment(key)
-          }
-          appendPersistentComment(key)
-        }
+    if (platform.getUserEnforcedSparkProperty(key).isDefined) {
+      // If the property is enforced by the user, the recommendation should be
+      // skipped as we have already added it during the initialization.
+      return
+    }
+    // Update the recommendation entry or update the existing one.
+    val recomRecord = recommendations.getOrElseUpdate(key,
+      TuningEntry.build(key, getPropertyValue(key), None))
+    // if the value is not null, then proceed to add the recommendation.
+    Option(value).foreach { nonNullValue =>
+      recomRecord.setRecommendedValue(nonNullValue)
+      if (recomRecord.getOriginalValue.isEmpty) {
+        // add missing comment if any
+        appendMissingComment(key)
+      } else {
+        // add updated comment if any
+        appendUpdatedComment(key)
+      }
+      // add the persistent comment if any.
+      appendPersistentComment(key)
     }
   }
 
@@ -457,7 +460,7 @@ class AutoTuner(
    * Returns None if the platform doesn't support specific instance types.
    */
   private def configureGPURecommendedInstanceType(): Unit = {
-    platform.createRecommendedGpuClusterInfo(getAllSourceProperties,
+    platform.createRecommendedGpuClusterInfo(recommendations, getAllSourceProperties,
       autoTunerConfigsProvider.recommendedClusterSizingStrategy)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
       // TODO: Should we skip recommendation if cores per executor is lower than a min value?
@@ -618,7 +621,7 @@ class AutoTuner(
     }.toLong
     // Get a combined spark properties function that includes user enforced properties
     // and properties from the event log
-    val sparkPropertiesFn = platform.getSparkPropertyWithUserOverrides(getAllSourceProperties)
+    val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)
     val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkPropertiesFn).getOrElse(0L)
     val pySparkMemMB = platform.getPySparkMemoryMB(sparkPropertiesFn).getOrElse(0L)
     val execMemLeft = actualMemForExec - executorHeap - sparkOffHeapMemMB - pySparkMemMB
@@ -1342,11 +1345,6 @@ class AutoTuner(
         case (property, value) if getPropertyValueFromSource(property).isEmpty =>
           appendRecommendation(property, value)
       }
-
-      // Add user enforced recommendations
-      platform.userEnforcedRecommendations.foreach {
-        case (property, value) => appendRecommendation(property, value)
-      }
     }
     recommendFromDriverLogs()
     finalizeTuning()
@@ -1373,6 +1371,25 @@ class AutoTuner(
       ++ recommendedSet.map(r => r.name -> r.getTuneValue()).toMap).toSeq.sortBy(_._1)
     combinedProps.collect {
       case (pK, pV) => RecommendedPropertyResult(pK, pV)
+    }
+  }
+}
+
+object AutoTuner {
+  /**
+   * Helper function to get a combined property function that can be used
+   * to retrieve the value of a property in the following priority order:
+   * 1. From the recommendations map
+   *    - This will include the user-enforced Spark properties
+   *    - This implies the properties to be present in the target application
+   * 2. From the source Spark properties
+   */
+  def getCombinedPropertyFn(
+    recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
+    sourceSparkProperties: Map[String, String]): String => Option[String] = {
+    (key: String) => {
+      recommendations.get(key).map(_.getTuneValue())
+        .orElse(sourceSparkProperties.get(key))
     }
   }
 }

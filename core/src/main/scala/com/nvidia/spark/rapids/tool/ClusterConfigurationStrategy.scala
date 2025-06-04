@@ -16,6 +16,10 @@
 
 package com.nvidia.spark.rapids.tool
 
+import scala.collection.mutable
+
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, TuningEntryTrait}
+
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.SourceClusterInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
@@ -266,6 +270,7 @@ class ClusterPropertyBasedStrategy(
  */
 class EventLogBasedStrategy(
     platform: Platform,
+    recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
     sourceSparkProperties: Map[String, String],
     recommendedClusterSizingStrategy: ClusterSizingStrategy)
   extends ClusterConfigurationStrategy(platform, sourceSparkProperties,
@@ -291,7 +296,8 @@ class EventLogBasedStrategy(
       .getOrElse(clusterInfoFromEventLog.executorHeapMemory)
     // Get a combined spark properties function that includes user enforced properties
     // and properties from the event log
-    val sparkPropertiesFn = platform.getSparkPropertyWithUserOverrides(sourceSparkProperties)
+    val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations,
+      sourceSparkProperties)
     val overheadMemMB = platform.getExecutorOverheadMemoryMB(sparkPropertiesFn)
     val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkPropertiesFn)
       .getOrElse(0L)
@@ -336,6 +342,7 @@ class EventLogBasedStrategy(
 object ClusterConfigurationStrategy {
   def getStrategy(
       platform: Platform,
+      recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
       sourceSparkProperties: Map[String, String],
       recommendedClusterSizingStrategy: ClusterSizingStrategy)
   : Option[ClusterConfigurationStrategy] = {
@@ -345,8 +352,8 @@ object ClusterConfigurationStrategy {
         recommendedClusterSizingStrategy))
     } else if (platform.clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
-      Some(new EventLogBasedStrategy(platform, sourceSparkProperties,
-        recommendedClusterSizingStrategy))
+      Some(new EventLogBasedStrategy(platform, recommendations,
+        sourceSparkProperties, recommendedClusterSizingStrategy))
     } else {
       // Neither cluster properties are defined nor cluster information from event log is available
       None

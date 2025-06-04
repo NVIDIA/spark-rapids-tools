@@ -16,9 +16,10 @@
 package com.nvidia.spark.rapids.tool
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps, TuningEntryTrait}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -545,13 +546,16 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    *         recommendation.
    */
   def createRecommendedGpuClusterInfo(
+      recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
       sourceSparkProperties: Map[String, String],
       recommendedClusterSizingStrategy: ClusterSizingStrategy): Unit = {
     // Get the appropriate cluster configuration strategy (either
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
-      platform = this, sourceSparkProperties = sourceSparkProperties,
+      platform = this,
+      recommendations = recommendations,
+      sourceSparkProperties = sourceSparkProperties,
       recommendedClusterSizingStrategy = recommendedClusterSizingStrategy)
 
     configurationStrategyOpt match {
@@ -614,24 +618,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
     userEnforcedRecommendations.get(propertyKey)
-  }
-
-  /**
-   * Returns a function that retrieves the value of a Spark property in the following order:
-   * 1. User-enforced Spark property (if exists)
-   * 2. Source Spark properties (if exists)
-   *
-   * - This mimics the default Spark properties that would be set in the target cluster
-   * (without the AutoTuner's modifications).
-   * - We are returning a function to avoid making a copy of the sourceSparkProperties
-   */
-  final def getSparkPropertyWithUserOverrides(sourceSparkProperties: Map[String, String])
-      : String => Option[String] = {
-    (propertyKey: String) => {
-      // Check if the property is user-enforced
-      getUserEnforcedSparkProperty(propertyKey)
-        .orElse(sourceSparkProperties.get(propertyKey))
-    }
   }
 }
 
