@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAnalyzer}
+import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
 import org.apache.spark.internal.Logging
@@ -100,7 +100,7 @@ object QualRawReportGenerator extends Logging {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      constructLabelsMaps(QualSparkMetricsAnalyzer.
+      constructLabelsMaps(QualSparkMetricsAggregator.
         getAggRawMetrics(
           app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
           if (label != STAGE_DIAGNOSTICS_LABEL) {

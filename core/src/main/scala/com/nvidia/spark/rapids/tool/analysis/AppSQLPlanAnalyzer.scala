@@ -342,15 +342,15 @@ class AppSQLPlanAnalyzer(app: AppBase, val enableDiagnosticViews: Boolean = fals
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
-        val sqlAccumProileResult = SQLAccumProfileResults(metric.sqlID,
+        val sqlAccumProfileResult = SQLAccumProfileResults(metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds)
 
         if (enableDiagnosticViews && isIODiagnosticMetricName(metric.name)) {
-          updateIODiagnosticMetricsMap(sqlAccumProileResult)
+          updateIODiagnosticMetricsMap(sqlAccumProfileResult)
         }
 
-        Some(sqlAccumProileResult)
+        Some(sqlAccumProfileResult)
       } else {
         None
       }

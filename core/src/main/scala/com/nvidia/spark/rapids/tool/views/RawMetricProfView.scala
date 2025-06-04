@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
+import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAggregator
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -38,8 +38,8 @@ object RawMetricProfilerView  {
     apps: Seq[ApplicationInfo],
     enableDiagnosticViews: Boolean = false
   ): ProfilerAggregatedView = {
-    val aggMetricsResults =
-      ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps, enableDiagnosticViews)
+    ProfSparkMetricsAggregator.toggleDiagnosticViews(enableDiagnosticViews)
+    val aggMetricsResults = ProfSparkMetricsAggregator.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.stageAggs),
