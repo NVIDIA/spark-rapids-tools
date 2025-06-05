@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAnalyzer
+import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAggregator
 import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
@@ -35,7 +35,7 @@ case class ProfilerAggregatedView(
 
 object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
-    val aggMetricsResults = ProfSparkMetricsAnalyzer.getAggregateRawMetrics(apps)
+    val aggMetricsResults = ProfSparkMetricsAggregator.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.stageAggs),
