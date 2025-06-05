@@ -19,6 +19,10 @@ featurizers:
   - hash_plan.py
 modifiers:
 #  - align_sql_id.py
+#sample_weight:
+#  threshold: 1.0
+#  positive: 1.0
+#  negative: 1.0
 label: Duration
 split_functions:
   train: split_train_val.py

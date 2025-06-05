@@ -64,7 +64,7 @@ class TestModel(SparkRapidsToolsUT):
 
     @pytest.mark.parametrize('label', ['Duration', 'duration_sum'])
     def test_train_and_predict(self, monkeypatch, label) -> None:
-        # mock os.environ
+        # mock os.environ to override the default label
         monkeypatch.setenv('QUALX_LABEL', label)
         get_config(reload=True)  # reload config
 
@@ -108,3 +108,42 @@ class TestModel(SparkRapidsToolsUT):
         assert 'feature' in feature_importance.columns
         assert 'shap_value' in feature_importance.columns
         assert len(shap_values.columns) == len(feature_cols) + 1
+
+    def test_train_with_sample_weight(self, monkeypatch) -> None:
+        """Test training models with different sample weights"""
+        # Create test data
+        df = self.generate_test_data('Duration')  # Use default label
+        plugin = load_plugin(get_abs_path('split_random.py', 'split_functions'))
+        features, feature_cols, label_col = extract_model_features(
+            df, split_functions={'default': plugin.split_function}
+        )
+
+        # Mock config for default weights
+        default_config = get_config(reload=True)
+        default_config.sample_weight = {}
+        monkeypatch.setattr('spark_rapids_tools.tools.qualx.config.get_config', lambda: default_config)
+
+        # Train model with default weights
+        default_model = train(features, feature_cols, label_col, n_trials=5)
+
+        # Mock config for custom weights
+        weighted_config = get_config(reload=True)
+        weighted_config.sample_weight = {
+            'threshold': 1.0,  # speedup threshold
+            'positive': 2.0,   # weight for speedup > threshold
+            'negative': 1.0    # weight for speedup <= threshold
+        }
+        monkeypatch.setattr('spark_rapids_tools.tools.qualx.config.get_config', lambda: weighted_config)
+
+        # Train model with custom weights
+        weighted_model = train(features, feature_cols, label_col, n_trials=5)
+
+        # Make predictions with both models
+        default_results = predict(default_model, features, feature_cols, label_col)
+        weighted_results = predict(weighted_model, features, feature_cols, label_col)
+
+        # Compare predictions
+        # The weighted model should generally predict higher values for positive samples
+        positive_mask = features[label_col] > 1.0
+        positive_diff = weighted_results.loc[positive_mask, 'y_pred'] - default_results.loc[positive_mask, 'y_pred']
+        assert positive_diff.mean() > 0, 'Weighted model should predict higher values for positive samples'

@@ -23,7 +23,7 @@ import pandas as pd
 import xgboost as xgb
 from xgboost import Booster
 
-from spark_rapids_tools.tools.qualx.config import get_label
+from spark_rapids_tools.tools.qualx.config import get_config, get_label
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.util import get_logger
 # Import optional packages
@@ -100,7 +100,16 @@ def train(
     cpu_aug_tbl = cpu_aug_tbl.sort_values('description').reset_index(drop=True)
     x_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', feature_cols]
     y_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', label_col]
-    d_tune = xgb.DMatrix(x_tune, y_tune)
+
+    # create d_tune with positive/negative sample weights (if provided)
+    cfg = get_config()
+    sample_weight = cfg.__dict__.get('sample_weight', {})
+    sample_weights = np.where(
+        y_tune > sample_weight.get('threshold', 1.0),
+        sample_weight.get('positive', 1),
+        sample_weight.get('negative', 1),
+    )
+    d_tune = xgb.DMatrix(x_tune, y_tune, weight=sample_weights)
 
     if base_model:
         # use hyperparameters from base model (w/ modifications to learning rate and num trees)
@@ -116,7 +125,7 @@ def train(
         n_estimators = int(float(n_estimators) * 1.1)              # increase n_estimators
     else:
         # use optuna hyper-parameter tuning
-        best_params = tune_hyperparameters(x_tune, y_tune, n_trials)
+        best_params = tune_hyperparameters(x_tune, y_tune, n_trials, sample_weights)
         logger.info(best_params)
 
         # train model w/ the best hyperparameters using data splits
@@ -358,7 +367,7 @@ def extract_model_features(
     return cpu_aug_tbl, feature_cols, label_col
 
 
-def tune_hyperparameters(x, y, n_trials: int = 200) -> dict:
+def tune_hyperparameters(x, y, n_trials: int = 200, sample_weights: Optional[np.ndarray] = None) -> dict:
     # use full training set for hyperparameter search
 
     xgb_tmp = xgb.XGBRegressor(objective='reg:squarederror')
@@ -387,7 +396,10 @@ def tune_hyperparameters(x, y, n_trials: int = 200) -> dict:
     )
 
     # run the search
-    optuna_search.fit(x, y)
+    if sample_weights is not None:
+        optuna_search.fit(x, y, sample_weight=sample_weights)
+    else:
+        optuna_search.fit(x, y)
 
     return optuna_search.best_params_
 
