@@ -310,12 +310,23 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   def aggregateDiagnosticMetricsByStage(index: Int, analyzer: Option[AppSQLPlanAnalyzer] = None):
       Seq[StageDiagnosticResult] = {
-    val sqlAnalyzer = analyzer match {
-      case Some(res) => res
-      case None =>
-        // for Profiler this is present in ApplicationInfo
-        app.asInstanceOf[ApplicationInfo].planMetricProcessor
+    // We only return the diagnostic metrics if the diagnostic views are enabled.
+    // This is done only in case of Profiler and that too when explicitly enabled.
+    val isDiagnosticEnabled = app match {
+      case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
+      case _ => false
     }
+    
+    if (!isDiagnosticEnabled) {
+      return Seq.empty
+    }
+
+    // Then get the appropriate analyzer
+    val sqlAnalyzer = analyzer match {
+      case Some(analyzer) => analyzer
+      case None => app.asInstanceOf[ApplicationInfo].planMetricProcessor
+    }
+
     val zeroAccumProfileResults =
       AccumProfileResults(0, AccumMetaRef.EMPTY_ACCUM_META_REF, 0L, 0L, 0L, 0L)
     val emptyNodeNames = Seq.empty[String]

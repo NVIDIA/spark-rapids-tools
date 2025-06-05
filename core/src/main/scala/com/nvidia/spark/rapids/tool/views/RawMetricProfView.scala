@@ -38,7 +38,6 @@ object RawMetricProfilerView  {
     apps: Seq[ApplicationInfo],
     enableDiagnosticViews: Boolean = false
   ): ProfilerAggregatedView = {
-    ProfSparkMetricsAggregator.toggleDiagnosticViews(enableDiagnosticViews)
     val aggMetricsResults = ProfSparkMetricsAggregator.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),

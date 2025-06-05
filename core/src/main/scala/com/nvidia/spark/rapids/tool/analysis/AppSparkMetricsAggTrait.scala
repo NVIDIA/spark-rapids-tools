@@ -35,7 +35,19 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
   def getAggRawMetrics(
       app: AppBase,
       index: Int = 1,
-      sqlAnalyzer: Option[AppSQLPlanAnalyzer]): AggRawMetricsResult
+      sqlAnalyzer: Option[AppSQLPlanAnalyzer]): AggRawMetricsResult = {
+    val analysisObj = new AppSparkMetricsAnalyzer(app)
+    val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
+    AggRawMetricsResult(
+      analysisObj.aggregateSparkMetricsByJob(index),
+      analysisObj.aggregateSparkMetricsByStage(index),
+      analysisObj.shuffleSkewCheck(index),
+      sqlMetricsAgg,
+      analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
+      analysisObj.aggregateDurationAndCPUTimeBySql(index),
+      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
+      analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
+  }
 
   /**
    * Given a list of applications, this method aggregates the raw metrics for all the applications
@@ -44,5 +56,19 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
    * @return a single record of all the aggregated metrics
    */
   def getAggregateRawMetrics(
-      apps: Seq[AppBase]): AggRawMetricsResult
+      apps: Seq[AppBase]): AggRawMetricsResult = {
+    zipAppsWithIndex(apps).map { case (app, index) =>
+      getAggRawMetrics(app, index, sqlAnalyzer = None)
+    }.reduce { (agg1, agg2) =>
+      AggRawMetricsResult(
+        agg1.jobAggs ++ agg2.jobAggs,
+        agg1.stageAggs ++ agg2.stageAggs,
+        agg1.taskShuffleSkew ++ agg2.taskShuffleSkew,
+        agg1.sqlAggs ++ agg2.sqlAggs,
+        agg1.ioAggs ++ agg2.ioAggs,
+        agg1.sqlDurAggs ++ agg2.sqlDurAggs,
+        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes,
+        agg1.stageDiagnostics ++ agg2.stageDiagnostics)
+    }
+  }
 }

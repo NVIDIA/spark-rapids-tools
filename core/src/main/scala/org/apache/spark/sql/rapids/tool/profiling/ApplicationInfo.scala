@@ -196,7 +196,13 @@ class ApplicationInfo(
   processEvents()
 
   // Process SQL Plan Metrics after all events are processed
-  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this, enableDiagnosticViews)
+  val planMetricProcessor: AppSQLPlanAnalyzer = AppSQLPlanAnalyzer(this)
+
+  /**
+   * Returns whether diagnostic views are enabled for this application
+   * @return true if diagnostic views are enabled, false otherwise
+   */
+  def isDiagnosticViewsEnabled: Boolean = enableDiagnosticViews
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     eventProcessor.processAnyEvent(event)

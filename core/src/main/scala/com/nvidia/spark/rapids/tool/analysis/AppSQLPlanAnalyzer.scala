@@ -26,6 +26,7 @@ import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnostic
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
@@ -41,10 +42,15 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * 3- it updates sqlIdToInfo.DsOrRdd as boolean to indicate whether a sql is an RDD/DS or not
  * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
- * @param enableDiagnosticViews whether to collect metrics for diagnostic views (default: false)
  */
-class AppSQLPlanAnalyzer(app: AppBase, val enableDiagnosticViews: Boolean = false)
+class AppSQLPlanAnalyzer(app: AppBase)
     extends AppAnalysisBase(app) {
+  // Diagnostic views are enabled in case of Profiler and only when explicitly
+  // enabled in the ApplicationInfo object.
+  private val enableDiagnosticViews: Boolean = app match {
+    case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
+    case _ => false
+  }
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -59,7 +65,6 @@ class AppSQLPlanAnalyzer(app: AppBase, val enableDiagnosticViews: Boolean = fals
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   // A map between stage ID and a set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-
   // A mapping from stage ID to diagnostic metrics results.
   // Each stage ID maps to another HashMap, where:
   //   - The key is the diagnostic metric name (String).
@@ -475,8 +480,8 @@ class AppSQLPlanAnalyzer(app: AppBase, val enableDiagnosticViews: Boolean = fals
 }
 
 object AppSQLPlanAnalyzer {
-  def apply(app: AppBase, enableDiagnosticViews: Boolean = false): AppSQLPlanAnalyzer = {
-    val sqlAnalyzer = new AppSQLPlanAnalyzer(app, enableDiagnosticViews)
+  def apply(app: AppBase): AppSQLPlanAnalyzer = {
+    val sqlAnalyzer = new AppSQLPlanAnalyzer(app)
     sqlAnalyzer.processSQLPlanMetrics()
     sqlAnalyzer
   }

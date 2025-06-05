@@ -27,6 +27,7 @@ import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.IOUtils
 import org.scalatest.FunSuite
+import org.scalatest.prop.TableDrivenPropertyChecks._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.resource.ResourceProfile
@@ -888,71 +889,75 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
   }
 
-  test("test csv file output with failures") {
-    val eventLog = s"$logDir/tasks_executors_fail_compressed_eventlog.zstd"
-    TrampolineUtil.withTempDir { tempDir =>
-      val appArgs = new ProfileArgs(Array(
-        "--csv",
-        "--output-directory",
-        tempDir.getAbsolutePath,
-        eventLog))
-      val (exit, _) = ProfileMain.mainInternal(appArgs)
-      assert(exit == 0)
-      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1603128018386_7846")
+  test("test csv file output with and without diagnostic views") {
+    // The test cases are defined in the table below.
+    // The test cases are:
+    // 1. Profiler run with failures without diagnostic views
+    // 2. Profiler run with failures with diagnostic views
+    // 3. Profiler run without failures without diagnostic views
+    // 4. Profiler run without failures with diagnostic views
+    val testCases = Table(
+      ("testName", "eventLog", "appId", "expectedFileCount", "enableDiagnosticViews"),
+      ("failures without diagnostic views",
+        s"$logDir/tasks_executors_fail_compressed_eventlog.zstd",
+        "application_1603128018386_7846",
+        20,
+        false),
+      ("failures with diagnostic views",
+        s"$logDir/tasks_executors_fail_compressed_eventlog.zstd",
+        "application_1603128018386_7846",
+        22,
+        true),
+      ("gpu without diagnostic views",
+        s"$qualLogDir/udf_dataset_eventlog",
+        "local-1651188809790",
+        16,
+        false),
+      ("gpu with diagnostic views",
+        s"$qualLogDir/udf_dataset_eventlog",
+        "local-1651188809790",
+        18,
+        true)
+    )
 
-      // assert that a file was generated
-      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
-        f.endsWith(".csv")
-      })
-      // compare the number of files generated
-      assert(dotDirs.length === 20)
-      for (file <- dotDirs) {
-        assert(file.getAbsolutePath.endsWith(".csv"))
-        // just load each one to make sure formatted properly
-        val df = sparkSession.read.option("header", "true").csv(file.getAbsolutePath)
-        val res = df.collect()
-        assert(res.nonEmpty)
+    forAll(testCases) { (testName, eventLog, appId, expectedFileCount, enableDiagnosticViews) =>
+      TrampolineUtil.withTempDir { tempDir =>
+        val baseArgs = Array(
+          "--csv",
+          "--output-directory",
+          tempDir.getAbsolutePath
+        )
+        val args = if (enableDiagnosticViews) {
+          baseArgs :+ "--enable-diagnostic-views" :+ eventLog
+        } else {
+          baseArgs :+ eventLog
+        }
+        val appArgs = new ProfileArgs(args)
+        val (exit, _) = ProfileMain.mainInternal(appArgs)
+        assert(exit == 0)
+        val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/$appId")
+
+        // assert that files were generated
+        val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
+          f.endsWith(".csv")
+        })
+        // compare the number of files generated
+        assert(dotDirs.length === expectedFileCount, s"Test case '$testName' failed: " +
+            s"expected $expectedFileCount files but got ${dotDirs.length}")
+        for (file <- dotDirs) {
+          assert(file.getAbsolutePath.endsWith(".csv"))
+          // just load each one to make sure formatted properly
+          val df = sparkSession.read.option("header", "true").csv(file.getAbsolutePath)
+          val res = df.collect()
+          assert(res.nonEmpty)
+        }
+
+        // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+        val expectedStatusCount = StatusReportCounts(1, 0, 0, 0)
+        // Compare the expected status counts with the actual status counts from the application
+        ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
+          s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
       }
-
-      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
-      val expectedStatusCount = StatusReportCounts(1, 0, 0, 0)
-      // Compare the expected status counts with the actual status counts from the application
-      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
-        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
-    }
-  }
-
-  test("test csv file output gpu") {
-    val eventLog = s"$qualLogDir/udf_dataset_eventlog"
-    TrampolineUtil.withTempDir { tempDir =>
-      val appArgs = new ProfileArgs(Array(
-        "--csv",
-        "--output-directory",
-        tempDir.getAbsolutePath,
-        eventLog))
-      val (exit, _) = ProfileMain.mainInternal(appArgs)
-      assert(exit == 0)
-      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/local-1651188809790")
-
-      // assert that a file was generated
-      val dotDirs = ToolTestUtils.listFilesMatching(tempSubDir, { f =>
-        f.endsWith(".csv")
-      })
-      // compare the number of files generated
-      assert(dotDirs.length === 16)
-      for (file <- dotDirs) {
-        assert(file.getAbsolutePath.endsWith(".csv"))
-        // just load each one to make sure formatted properly
-        val df = sparkSession.read.option("header", "true").csv(file.getAbsolutePath)
-        val res = df.collect()
-        assert(res.nonEmpty)
-      }
-
-      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
-      val expectedStatusCount = StatusReportCounts(1, 0, 0, 0)
-      // Compare the expected status counts with the actual status counts from the application
-      ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
-        s"${tempDir.getAbsolutePath}/rapids_4_spark_profile/profiling_status.csv")
     }
   }
 

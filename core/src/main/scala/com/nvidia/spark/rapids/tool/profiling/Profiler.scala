@@ -260,7 +260,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           s"to $outputDir in $duration second(s)\n")
       }
     }
-    val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps, enableDiagnosticViews)
+    val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
     val maxTaskInputInfo = if (useAutoTuner) {
       analysis.maxTaskInputSizes
     } else {
@@ -308,7 +308,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sqlPlanInfo = collect.getSQLPlanInfoTruncated)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics,
-                           collect.getIODiagnosticMetrics(enableDiagnosticViews)))
+                           collect.getIODiagnosticMetrics))
   }
 
   /**
