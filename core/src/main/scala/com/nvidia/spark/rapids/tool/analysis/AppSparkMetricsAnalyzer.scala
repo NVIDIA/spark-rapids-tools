@@ -316,7 +316,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
       case _ => false
     }
-    
+
     if (!isDiagnosticEnabled) {
       return Seq.empty
     }
