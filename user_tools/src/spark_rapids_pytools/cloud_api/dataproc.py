@@ -617,11 +617,15 @@ class DataprocCluster(ClusterBase):
     @classmethod
     def _get_ssd_configuration(cls) -> dict:
         """
-        TODO: We should recommend correct number of SSDs instead a fixed number.
+        Currently, we recommend either `g2-standard` and `n1-standard` series which
+        supports minimum 1 SSD per worker.
+
+        TODO: We should recommend correct number of SSDs instead of a fixed number.
+         See https://github.com/NVIDIA/spark-rapids-tools/issues/657
         """
         return {
             'ssdInfo': {
-                'ssdPerWorker': 2
+                'ssdPerWorker': 1
             }
         }
 

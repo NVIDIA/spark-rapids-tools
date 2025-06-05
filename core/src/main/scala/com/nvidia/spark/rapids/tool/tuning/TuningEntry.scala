@@ -30,7 +30,7 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 abstract class TuningEntryBase(
     override val name: String,
     originalValueRaw: Option[String],
-    tunedValueRaw: Option[String],
+    var tunedValueRaw: Option[String],
     definition: Option[TuningEntryDefinition] = None) extends TuningEntryTrait {
 
   /**
@@ -65,6 +65,11 @@ abstract class TuningEntryBase(
       case None => true
     }
     globalFlag && enabled
+  }
+
+  override def setRecommendedValue(value: String): Unit = {
+    tunedValueRaw = Option(value)
+    super.setRecommendedValue(value)
   }
 
   /////////////////////////

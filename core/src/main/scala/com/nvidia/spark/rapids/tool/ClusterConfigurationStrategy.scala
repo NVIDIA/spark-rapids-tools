@@ -16,6 +16,10 @@
 
 package com.nvidia.spark.rapids.tool
 
+import scala.collection.mutable
+
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, TuningEntryTrait}
+
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.SourceClusterInfo
 import org.apache.spark.sql.rapids.tool.util.StringUtils
@@ -46,13 +50,22 @@ trait ClusterSizingStrategy {
 
   /** Utility method to compute recommended cores per executor. */
   final def computeRecommendedCoresPerExec(platform: Platform, totalCoresCount: Int): Int = {
-    if (platform.isPlatformCSP) {
-      // For CSPs, we already have the recommended cores per executor based on the instance type
-      platform.recommendedCoresPerExec
-    } else {
-      // For onprem, we do want to limit to the total cores count
-      math.min(platform.recommendedCoresPerExec, totalCoresCount)
+    platform.getUserEnforcedSparkProperty("spark.executor.cores").map(_.toInt).getOrElse {
+      if (platform.isPlatformCSP) {
+        // For CSPs, we already have the recommended cores per executor based on the instance type
+        platform.recommendedCoresPerExec
+      } else {
+        // For onprem, we do want to limit to the total cores count
+        math.min(platform.recommendedCoresPerExec, totalCoresCount)
+      }
     }
+  }
+
+  final def computeRecommendedInstances(
+      platform: Platform,
+      computeRecommendedInstancesExpr: () => Int): Int = {
+    platform.getUserEnforcedSparkProperty("spark.executor.instances").map(_.toInt)
+      .getOrElse(computeRecommendedInstancesExpr())
   }
 
   /** Abstract method to compute the recommended cluster configuration. */
@@ -80,8 +93,8 @@ object ConstantTotalCoresStrategy extends ClusterSizingStrategy {
       getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
     val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
-    val recommendedNumExecutors =
-      math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt
+    val recommendedNumExecutors = computeRecommendedInstances(platform,
+      () => math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt)
     RecommendedClusterConfig(recommendedNumExecutors, recommendedCoresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
@@ -101,7 +114,9 @@ object ConstantGpuCountStrategy extends ClusterSizingStrategy {
       getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
     val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
-    RecommendedClusterConfig(initialNumExecutors, recommendedCoresPerExec,
+    val recommendNumExecutors = computeRecommendedInstances(platform,
+      () => initialNumExecutors)
+    RecommendedClusterConfig(recommendNumExecutors, recommendedCoresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
 }
@@ -111,7 +126,7 @@ object ConstantGpuCountStrategy extends ClusterSizingStrategy {
  */
 abstract class ClusterConfigurationStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String],
+    sourceSparkProperties: Map[String, String],
     recommendedClusterSizingStrategy: ClusterSizingStrategy) {
 
   /**
@@ -120,8 +135,8 @@ abstract class ClusterConfigurationStrategy(
   protected def calculateInitialNumExecutors: Int
 
   private def getInitialNumExecutors: Int = {
-    val dynamicAllocationEnabled = Platform.isDynamicAllocationEnabled(sparkProperties)
-    val execInstFromProps = sparkProperties.get("spark.executor.instances")
+    val dynamicAllocationEnabled = Platform.isDynamicAllocationEnabled(sourceSparkProperties)
+    val execInstFromProps = sourceSparkProperties.get("spark.executor.instances")
     // If dynamic allocation is disabled, use spark.executor.instances in precedence
     if (execInstFromProps.isDefined && !dynamicAllocationEnabled) {
       // Spark Properties are in order:
@@ -139,7 +154,7 @@ abstract class ClusterConfigurationStrategy(
   protected def calculateInitialCoresPerExec: Int
 
   private def getInitialCoresPerExec: Int = {
-    val coresFromProps = sparkProperties.get("spark.executor.cores")
+    val coresFromProps = sourceSparkProperties.get("spark.executor.cores")
     // Use spark.executor.cores in precedence
     if (coresFromProps.isDefined) {
       coresFromProps.get.toInt
@@ -148,7 +163,7 @@ abstract class ClusterConfigurationStrategy(
     }
   }
 
-  protected def getMemoryPerNodeMb: Long
+  protected def getRecommendedMemoryPerNodeMb: Long
 
   protected def getSourceNumGpus: Option[Int]
 
@@ -179,7 +194,7 @@ abstract class ClusterConfigurationStrategy(
         platform,
         initialNumExecutors,
         getInitialCoresPerExec,
-        getMemoryPerNodeMb,
+        getRecommendedMemoryPerNodeMb,
         getRecommendedGpuDevice,
         getRecommendedNumGpus
       ))
@@ -192,9 +207,9 @@ abstract class ClusterConfigurationStrategy(
  */
 class ClusterPropertyBasedStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String],
+    sourceSparkProperties: Map[String, String],
     recommendedClusterSizingStrategy: ClusterSizingStrategy)
-  extends ClusterConfigurationStrategy(platform, sparkProperties,
+  extends ClusterConfigurationStrategy(platform, sourceSparkProperties,
     recommendedClusterSizingStrategy) {
 
   private val clusterProperties = platform.clusterProperties.getOrElse(
@@ -226,7 +241,7 @@ class ClusterPropertyBasedStrategy(
     math.ceil(coresPerGpu).toInt
   }
 
-  override protected def getMemoryPerNodeMb: Long = {
+  override protected def getRecommendedMemoryPerNodeMb: Long = {
     StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
   }
 
@@ -255,9 +270,10 @@ class ClusterPropertyBasedStrategy(
  */
 class EventLogBasedStrategy(
     platform: Platform,
-    sparkProperties: Map[String, String],
+    recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
+    sourceSparkProperties: Map[String, String],
     recommendedClusterSizingStrategy: ClusterSizingStrategy)
-  extends ClusterConfigurationStrategy(platform, sparkProperties,
+  extends ClusterConfigurationStrategy(platform, sourceSparkProperties,
     recommendedClusterSizingStrategy) {
 
   private val clusterInfoFromEventLog: SourceClusterInfo = {
@@ -268,17 +284,24 @@ class EventLogBasedStrategy(
   // scalastyle:off line.size.limit
   /**
    * For onprem or cases where a matching CSP instance type is unavailable,
-   * this method returns the memory per node.
+   * this method returns the memory for the recommended node in MB.
    *
    * Reference:
    * https://spark.apache.org/docs/3.5.5/configuration.html#:~:text=spark.executor.memoryOverhead,pyspark.memory.
    */
   // scalastyle:on line.size.limit
-  override def getMemoryPerNodeMb: Long = {
-    val heapMemMB = clusterInfoFromEventLog.executorHeapMemory
-    val overheadMemMB = platform.getExecutorOverheadMemoryMB(sparkProperties)
-    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkProperties).getOrElse(0L)
-    val pySparkMemMB = platform.getPySparkMemoryMB(sparkProperties).getOrElse(0L)
+  override def getRecommendedMemoryPerNodeMb: Long = {
+    val heapMemMB = platform.getUserEnforcedSparkProperty("spark.executor.memory")
+      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
+      .getOrElse(clusterInfoFromEventLog.executorHeapMemory)
+    // Get a combined spark properties function that includes user enforced properties
+    // and properties from the event log
+    val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations,
+      sourceSparkProperties)
+    val overheadMemMB = platform.getExecutorOverheadMemoryMB(sparkPropertiesFn)
+    val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkPropertiesFn)
+      .getOrElse(0L)
+    val pySparkMemMB = platform.getPySparkMemoryMB(sparkPropertiesFn).getOrElse(0L)
     heapMemMB + overheadMemMB + sparkOffHeapMemMB + pySparkMemMB
   }
 
@@ -319,17 +342,18 @@ class EventLogBasedStrategy(
 object ClusterConfigurationStrategy {
   def getStrategy(
       platform: Platform,
-      sparkProperties: Map[String, String],
+      recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
+      sourceSparkProperties: Map[String, String],
       recommendedClusterSizingStrategy: ClusterSizingStrategy)
   : Option[ClusterConfigurationStrategy] = {
     if (platform.clusterProperties.isDefined) {
       // Use strategy based on cluster properties
-      Some(new ClusterPropertyBasedStrategy(platform, sparkProperties,
+      Some(new ClusterPropertyBasedStrategy(platform, sourceSparkProperties,
         recommendedClusterSizingStrategy))
     } else if (platform.clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
-      Some(new EventLogBasedStrategy(platform, sparkProperties,
-        recommendedClusterSizingStrategy))
+      Some(new EventLogBasedStrategy(platform, recommendations,
+        sourceSparkProperties, recommendedClusterSizingStrategy))
     } else {
       // Neither cluster properties are defined nor cluster information from event log is available
       None

@@ -33,7 +33,7 @@ class ToolsConfig(BaseConfig):
                     'This is used to test the compatibility of the '
                     'configuration file against the current tools release.',
         examples=['1.0, 1.1'],
-        le=1.1,  # minimum version compatible with the current tools implementation
+        le=1.2,  # minimum version compatible with the current tools implementation
         ge=1.0)
 
     runtime: Optional[ToolsRuntimeConfig] = Field(

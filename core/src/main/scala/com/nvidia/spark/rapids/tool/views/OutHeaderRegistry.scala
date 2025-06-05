@@ -68,7 +68,39 @@ object OutHeaderRegistry {
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->
-      Array("stageId", "stageAttemptId", "taskId", "attempt", "failureReason"),
+      Array(
+          // Begin metadata of the failed task.
+          "stageId", "stageAttemptId", "taskId", "attempt", "failureReason",
+          // some useful columns that could be used to categorize failures
+          "taskStatus",
+          "taskType",
+          "speculative",
+          // Begin metrics the failed task if any.
+          "duration",
+          "diskBytesSpilled",
+          "executorCPUTimeNS",
+          "executorDeserializeCPUTimeNS",
+          "executorDeserializeTime",
+          "executorRunTime",
+          "input_bytesRead",
+          "input_recordsRead",
+          "jvmGCTime",
+          "memoryBytesSpilled",
+          "output_bytesWritten",
+          "output_recordsWritten",
+          "peakExecutionMemory",
+          "resultSerializationTime",
+          "resultSize",
+          "sr_fetchWaitTime",
+          "sr_localBlocksFetched",
+          "sr_localBytesRead",
+          "sr_remoteBlocksFetched",
+          "sr_remoteBytesRead",
+          "sr_remoteBytesReadToDisk",
+          "sr_totalBytesRead",
+          "sw_bytesWritten",
+          "sw_recordsWritten",
+          "sw_writeTimeNS"),
     "FailedStagesProfileResults" ->
       Array("stageId", "attemptId", "name", "numTasks", "failureReason"),
     "FailedJobsProfileResults" ->

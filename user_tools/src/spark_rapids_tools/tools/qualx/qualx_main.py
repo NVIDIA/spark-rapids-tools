@@ -821,7 +821,7 @@ def _predict_cli(
         # --eventlogs takes priority over --qual_output
         if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
             # run qual tool if no existing qual output found
-            run_qualification_tool(platform, eventlogs, output_dir)
+            run_qualification_tool(platform, [eventlogs], output_dir)
         qual = output_dir
     else:
         qual = qual_output
@@ -906,9 +906,8 @@ def evaluate(
         if ds_name not in quals:
             # run qual tool if needed
             eventlogs = ds_meta['eventlogs']
-            for eventlog in eventlogs:
-                eventlog = os.path.expandvars(eventlog)
-                run_qualification_tool(platform, eventlog, f'{qual_dir}/{ds_name}')
+            eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
+            run_qualification_tool(platform, eventlogs, f'{qual_dir}/{ds_name}')
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 

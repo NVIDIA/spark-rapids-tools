@@ -185,11 +185,8 @@ def load_datasets(
             for ds_name, ds_meta in datasets.items():
                 if ds_name not in profiles:
                     eventlogs = ds_meta['eventlogs']
-                    for eventlog in eventlogs:
-                        eventlog = os.path.expandvars(eventlog)
-                        run_profiler_tool(
-                            platform, eventlog, f'{profile_dir}/{ds_name}'
-                        )
+                    eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
+                    run_profiler_tool(platform, eventlogs, f'{profile_dir}/{ds_name}')
 
             # load/preprocess profiler data
             profile_df = load_profiles(datasets, profile_dir=profile_dir)

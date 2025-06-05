@@ -339,15 +339,20 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
-def run_profiler_tool(platform: str, eventlog: str, output_dir: str) -> None:
+def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str) -> None:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
-    logger.info('Running profiling on: %s', eventlog)
+    logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
     platform_base = platform.split('_')[0]  # remove any platform variants when invoking profiler
     cmds = []
-    eventlogs = find_eventlogs(eventlog)
-    for log in eventlogs:
+
+    eventlog_files = []
+    for eventlog in eventlogs:
+        eventlog_files.extend(find_eventlogs(eventlog))
+
+    # construct commands for each eventlog file
+    for log in eventlog_files:
         logfile = os.path.basename(log)
         match = re.search('sf[0-9]+[k]*-', logfile)
         if match:
@@ -365,16 +370,21 @@ def run_profiler_tool(platform: str, eventlog: str, output_dir: str) -> None:
     run_commands(cmds)
 
 
-def run_qualification_tool(platform: str, eventlog: str, output_dir: str) -> None:
+def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str) -> None:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
-    logger.info('Running qualification on: %s', eventlog)
+    logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
     platform_base = platform.split('_')[0]  # remove any platform variants when invoking qualification
     cmds = []
-    eventlogs = find_eventlogs(eventlog)
-    for log in eventlogs:
-        # skip gpu logs, assuming /gpu appearing in path can be used to distinguis
+
+    eventlog_files = []
+    for eventlog in eventlogs:
+        eventlog_files.extend(find_eventlogs(eventlog))
+
+    # construct commands for each eventlog file
+    for log in eventlog_files:
+        # skip gpu logs, assuming /gpu appearing in path can be used to distinguish
         if '/gpu' in str(log).lower():
             continue
         suffix = random_string(6)
