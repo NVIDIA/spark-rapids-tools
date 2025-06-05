@@ -18,18 +18,20 @@ package com.nvidia.spark.rapids.tool.analysis
 import org.apache.spark.sql.rapids.tool.AppBase
 
 /**
- * Aggregates application data for the qualification tool, handling standard Spark metrics and performance analysis.
- * 
+ * Aggregates application data for the qualification tool, handling
+ * standard Spark metrics and performance analysis.
+ *
  * This object extends [[AppSparkMetricsAggTrait]] for basic Spark metrics aggregation and
- * [[QualAppIndexMapperTrait]] for application index mapping. It provides comprehensive qualification
+ * [[QualAppIndexMapperTrait]] for application index mapping.
+ * It provides comprehensive qualification
  * capabilities through:
- * 
+ *
  * - Standard Spark metrics aggregation
  * - Performance analysis and qualification
  * - SQL-level metrics processing
  * - Stage-level metrics analysis
  * - Application qualification metrics collection
- * 
+ *
  * @see [[AppSparkMetricsAggTrait]]
  * @see [[QualAppIndexMapperTrait]]
  */

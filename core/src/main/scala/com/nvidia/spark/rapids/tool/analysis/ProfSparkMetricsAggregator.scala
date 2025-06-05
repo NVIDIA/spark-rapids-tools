@@ -19,18 +19,19 @@ package com.nvidia.spark.rapids.tool.analysis
 import org.apache.spark.sql.rapids.tool.AppBase
 
 /**
- * Aggregates application data for the profiler, handling both standard Spark metrics and GPU-specific metrics.
- * 
+ * Aggregates application data for the profiler, handling
+ * both standard Spark metrics and GPU-specific metrics.
+ *
  * This object extends [[AppSparkMetricsAggTrait]] for basic Spark metrics aggregation and
  * [[ProfAppIndexMapperTrait]] for application index mapping. It provides comprehensive profiling
  * capabilities through:
- * 
+ *
  * - Standard Spark metrics aggregation
  * - GPU-specific metrics processing
  * - Diagnostic views via the enableDiagnosticViews toggle
  * - Stage-level metrics analysis
  * - GPU performance data collection
- * 
+ *
  * @see [[AppSparkMetricsAggTrait]]
  * @see [[ProfAppIndexMapperTrait]]
  */
