@@ -34,10 +34,7 @@ case class ProfilerAggregatedView(
     stageDiagnostics: Seq[StageDiagnosticResult])
 
 object RawMetricProfilerView  {
-  def getAggMetrics(
-    apps: Seq[ApplicationInfo],
-    enableDiagnosticViews: Boolean = false
-  ): ProfilerAggregatedView = {
+  def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
     val aggMetricsResults = ProfSparkMetricsAggregator.getAggregateRawMetrics(apps)
     ProfilerAggregatedView(
       AggMetricsResultSorter.sortJobSparkMetrics(aggMetricsResults.jobAggs),

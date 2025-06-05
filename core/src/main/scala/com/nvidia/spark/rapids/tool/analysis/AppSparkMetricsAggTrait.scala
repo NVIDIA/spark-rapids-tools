@@ -35,7 +35,7 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
   def getAggRawMetrics(
       app: AppBase,
       index: Int = 1,
-      sqlAnalyzer: Option[AppSQLPlanAnalyzer]): AggRawMetricsResult = {
+      sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None): AggRawMetricsResult = {
     val analysisObj = new AppSparkMetricsAnalyzer(app)
     val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
     AggRawMetricsResult(
@@ -58,7 +58,7 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
   def getAggregateRawMetrics(
       apps: Seq[AppBase]): AggRawMetricsResult = {
     zipAppsWithIndex(apps).map { case (app, index) =>
-      getAggRawMetrics(app, index, sqlAnalyzer = None)
+      getAggRawMetrics(app, index)
     }.reduce { (agg1, agg2) =>
       AggRawMetricsResult(
         agg1.jobAggs ++ agg2.jobAggs,
