@@ -1,6 +1,27 @@
 
 <br/>
 
+## Release [v25.04.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.2)
+Generated on 2025-06-05
+### User Tools
+
+- Allow users to use classpath to set append jar dependencies ([#1703](https://github.com/NVIDIA/spark-rapids-tools/pull/1703))
+- Fix invalid SSD recommendation for g2-standard series in cluster shape ([#1713](https://github.com/NVIDIA/spark-rapids-tools/pull/1713))
+- Support unzipped eventlogs in Qualx train_and_evaluate pipeline ([#1704](https://github.com/NVIDIA/spark-rapids-tools/pull/1704))
+- Qualx model updates from weekly KPI run 2025-05-25 ([#1701](https://github.com/NVIDIA/spark-rapids-tools/pull/1701))
+
+### Core
+
+- Add support for user enforced spark property overrides in Profiling Tool's AutoTuner ([#1715](https://github.com/NVIDIA/spark-rapids-tools/pull/1715))
+- Add task info and metrics to failed_tasks report ([#1706](https://github.com/NVIDIA/spark-rapids-tools/pull/1706))
+
+### Miscellaneous
+
+- Fix regression when unzipping eventlogs ([#1714](https://github.com/NVIDIA/spark-rapids-tools/pull/1714))
+
+
+<br/>
+
 ## Release [v25.04.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.1)
 Generated on 2025-05-24
 ### User Tools
