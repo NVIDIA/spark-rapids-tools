@@ -37,7 +37,6 @@ sparkRapids:
       - application-name
       - d
       - driverlog
-      - e
       - enable-diagnostic-views
       - f
       - filter-criteria
