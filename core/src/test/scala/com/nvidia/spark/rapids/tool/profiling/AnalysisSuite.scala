@@ -238,7 +238,8 @@ class AnalysisSuite extends FunSuite {
   test("test stage-level diagnostic metrics with diagnostic views enabled") {
     val expectFile = "rapids_join_eventlog_stagediagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = true)
+    val logsWithArgs = Array("--enable-diagnostic-views") ++ logs
+    val apps = ToolTestUtils.processProfileApps(logsWithArgs, sparkSession)
     assert(apps.size == logs.size)
 
     // This step is to compute stage to node names and diagnostic metrics mappings,
@@ -257,7 +258,7 @@ class AnalysisSuite extends FunSuite {
 
   test("test stage-level diagnostic metrics with diagnostic views disabled") {
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = false)
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)
@@ -271,7 +272,8 @@ class AnalysisSuite extends FunSuite {
   test("test IO diagnostic metrics with diagnostic views enabled") {
     val expectFile = "rapids_join_eventlog_iodiagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = true)
+    val logsWithArgs = Array("--enable-diagnostic-views") ++ logs
+    val apps = ToolTestUtils.processProfileApps(logsWithArgs, sparkSession)
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)
@@ -286,7 +288,7 @@ class AnalysisSuite extends FunSuite {
 
   test("test IO diagnostic metrics with diagnostic views disabled") {
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession, enableDiagnosticViews = false)
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)

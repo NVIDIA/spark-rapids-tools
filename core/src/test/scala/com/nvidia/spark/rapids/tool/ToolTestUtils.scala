@@ -146,10 +146,10 @@ object ToolTestUtils extends Logging {
   }
 
   def processProfileApps(logs: Array[String],
-      sparkSession: SparkSession,
-      enableDiagnosticViews: Boolean = false): ArrayBuffer[ApplicationInfo] = {
+      sparkSession: SparkSession): ArrayBuffer[ApplicationInfo] = {
     val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
     val appArgs = new ProfileArgs(logs)
+    val enableDiagnosticViews = appArgs.enableDiagnosticViews()
     var index: Int = 1
     val platform = PlatformFactory.createInstance(appArgs.platform())
     for (path <- appArgs.eventlog()) {
