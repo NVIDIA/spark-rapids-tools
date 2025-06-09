@@ -14,7 +14,7 @@
 
 """ Model training and prediction functions for QualX """
 
-from typing import Callable, Mapping, Optional, List, Tuple
+from typing import Callable, Mapping, Optional, List, Tuple, Union
 import json
 import shap
 import numpy as np
@@ -53,6 +53,26 @@ ignored_features = {
     'sparkVersion',
     'sqlID'
 }
+
+
+def compute_sample_weights(
+    y_tune: pd.Series,
+    threshold: float,
+    positive_weight: Union[float, str],
+    negative_weight: Union[float, str],
+) -> Tuple[float, float]:
+    """Automatically compute sample weights for positive/negative samples.
+
+    Note: the default/minimum weight is 1.0.
+    """
+    if positive_weight == 'auto' or negative_weight == 'auto':
+        num_positives = y_tune[y_tune > threshold].count()
+        num_negatives = y_tune[y_tune <= threshold].count()
+        if positive_weight == 'auto':
+            positive_weight = np.max([num_negatives / num_positives, 1.0]) if num_positives > 0 else 1.0
+        if negative_weight == 'auto':
+            negative_weight = np.max([num_positives / num_negatives, 1.0]) if num_negatives > 0 else 1.0
+    return positive_weight, negative_weight
 
 
 def train(
@@ -101,13 +121,20 @@ def train(
     x_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', feature_cols]
     y_tune = cpu_aug_tbl.loc[cpu_aug_tbl['split'] != 'test', label_col]
 
-    # create d_tune with positive/negative sample weights (if provided)
+    # get positive/negative sample weights from config, or default to 1.0
     cfg = get_config()
     sample_weight = cfg.__dict__.get('sample_weight', {})
+    threshold = sample_weight.get('threshold', 1.0)
+    positive_weight = sample_weight.get('positive', 1.0)
+    negative_weight = sample_weight.get('negative', 1.0)
+
+    # automatically compute weights (if 'auto' is specified) to balance positive/negative samples
+    positive_weight, negative_weight = compute_sample_weights(y_tune, threshold, positive_weight, negative_weight)
+
     sample_weights = np.where(
-        y_tune > sample_weight.get('threshold', 1.0),
-        sample_weight.get('positive', 1),
-        sample_weight.get('negative', 1),
+        y_tune > threshold,
+        positive_weight,
+        negative_weight,
     )
     d_tune = xgb.DMatrix(x_tune, y_tune, weight=sample_weights)
 

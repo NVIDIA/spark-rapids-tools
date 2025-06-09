@@ -25,6 +25,7 @@ from xgboost import Booster
 from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
 from spark_rapids_tools.tools.qualx.model import (
+    compute_sample_weights,
     extract_model_features,
     predict,
     train,
@@ -109,6 +110,66 @@ class TestModel(SparkRapidsToolsUT):
         assert 'shap_value' in feature_importance.columns
         assert len(shap_values.columns) == len(feature_cols) + 1
 
+    def test_compute_weights(self) -> None:
+        """Test compute_weights function"""
+        # Create test data
+        df = self.generate_test_data('Duration')  # Use default label
+        features, _, label_col = extract_model_features(df)
+        y = features[label_col]
+
+        threshold = 1.0
+        num_positives = y[y > threshold].count()
+        num_negatives = y[y <= threshold].count()
+
+        # Test with manual weights
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 2.0, 3.0)
+        assert positive_weight == 2.0
+        assert negative_weight == 3.0
+
+        # Test with auto weights
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 'auto', 'auto')
+        assert positive_weight == np.max([num_negatives / num_positives, 1.0])
+        assert negative_weight == np.max([num_positives / num_negatives, 1.0])
+
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 2.0, 'auto')
+        assert positive_weight == 2.0
+        assert negative_weight == np.max([num_positives / num_negatives, 1.0])
+
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 'auto', 2.0)
+        assert positive_weight == np.max([num_negatives / num_positives, 1.0])
+        assert negative_weight == 2.0
+
+        # Test with auto weights and unbalanced samples
+        threshold = 2.0
+        num_positives = y[y > threshold].count()
+        num_negatives = y[y <= threshold].count()
+
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 'auto', 'auto')
+        assert positive_weight == np.max([num_negatives / num_positives, 1.0])
+        assert negative_weight == np.max([num_positives / num_negatives, 1.0])
+
+        # Test with auto weights and zero positives
+        threshold = y.max() + 1.0
+        num_positives = y[y > threshold].count()
+        num_negatives = y[y <= threshold].count()
+        assert num_positives == 0
+        assert num_negatives == 100
+
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 'auto', 'auto')
+        assert positive_weight == 1.0
+        assert negative_weight == 1.0
+
+        # Test with auto weights and zero negatives
+        threshold = y.min() - 1.0
+        num_positives = y[y > threshold].count()
+        num_negatives = y[y <= threshold].count()
+        assert num_positives == 100
+        assert num_negatives == 0
+
+        positive_weight, negative_weight = compute_sample_weights(y, threshold, 'auto', 'auto')
+        assert positive_weight == 1.0
+        assert negative_weight == 1.0
+
     def test_train_with_sample_weight(self, monkeypatch) -> None:
         """Test training models with different sample weights"""
         # Create test data
@@ -126,23 +187,24 @@ class TestModel(SparkRapidsToolsUT):
         # Train model with default weights
         default_model = train(features, feature_cols, label_col, n_trials=5)
 
+        # Make predictions with default model
+        default_results = predict(default_model, features, feature_cols, label_col)
+
         # Mock config for custom weights
         weighted_config = get_config(reload=True)
         weighted_config.sample_weight = {
-            'threshold': 1.0,  # speedup threshold
-            'positive': 2.0,   # weight for speedup > threshold
-            'negative': 1.0    # weight for speedup <= threshold
+            'threshold': 1.0,               # speedup threshold
+            'positive': 2.0,                # weight for speedup > threshold
+            'negative': 1.0                 # weight for speedup <= threshold
         }
         monkeypatch.setattr('spark_rapids_tools.tools.qualx.config.get_config', lambda: weighted_config)
 
         # Train model with custom weights
         weighted_model = train(features, feature_cols, label_col, n_trials=5)
 
-        # Make predictions with both models
-        default_results = predict(default_model, features, feature_cols, label_col)
+        # Make predictions with weighted model
         weighted_results = predict(weighted_model, features, feature_cols, label_col)
 
-        # Compare predictions
         # The weighted model should generally predict higher values for positive samples
         positive_mask = features[label_col] > 1.0
         positive_diff = weighted_results.loc[positive_mask, 'y_pred'] - default_results.loc[positive_mask, 'y_pred']
