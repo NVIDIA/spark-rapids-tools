@@ -38,14 +38,11 @@ To train an XGBoost model on a specific dataset, follow these steps below. Refer
 Training requires the following environment variables to be set:
 ```bash
 export SPARK_HOME=/path/to/spark
-export SPARK_RAPIDS_TOOLS_JAR=/path/to/rapids-4-spark-tools-0.1.0-SNAPSHOT.jar
 export QUALX_DATA_DIR=/path/to/qualx/datasets
-export QUALX_CACHE_DIR=/path/to/qualx/cache
 ```
 
 Notes:
 - `QUALX_DATA_DIR` should be a valid local path containing the training data.
-- `QUALX_CACHE_DIR` stores intermediate files generated during processing (e.g., profiling output). It will be created automatically if it does not exist.  The directory can be deleted to invalidate the cache.
 
 #### Data Collection
 
