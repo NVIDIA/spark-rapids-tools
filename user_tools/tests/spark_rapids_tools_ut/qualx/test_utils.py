@@ -165,7 +165,6 @@ class TestUtils(SparkRapidsToolsUT):
             'App Duration': 1
         })
         result = create_row_with_default_speedup(data)
-        print(result)
         expected_result = pd.Series({
             'appName': 'app1',
             'appId': 'id1',
@@ -177,7 +176,6 @@ class TestUtils(SparkRapidsToolsUT):
             'appDuration_pred': 1,
             'speedup': 1.0
         })
-        print(expected_result)
         pd.testing.assert_series_equal(result, expected_result)
 
     def test_write_csv_reports(self):
