@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.analysis
 
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
 /**
  * Base class for application analysis
@@ -28,4 +29,13 @@ abstract class AppAnalysisBase(app: AppBase) {
  // 1- caching layer
  // 2- initializations
  // 3- interface to pull information to generate views and reports
+
+ /**
+  * Determines if diagnostic views are enabled. Diagnostic views are enabled in case of Profiler
+  * and only when explicitly enabled for the ApplicationInfo object.
+  */
+ protected val isDiagnosticViewsEnabled: Boolean = app match {
+   case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
+   case _ => false
+ }
 }

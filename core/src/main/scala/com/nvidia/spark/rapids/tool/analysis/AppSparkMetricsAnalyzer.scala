@@ -310,14 +310,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
    */
   def aggregateDiagnosticMetricsByStage(index: Int, analyzer: Option[AppSQLPlanAnalyzer] = None):
       Seq[StageDiagnosticResult] = {
-    // We only return the diagnostic metrics if the diagnostic views are enabled.
-    // This is done only in case of Profiler and that too when explicitly enabled.
-    val isDiagnosticEnabled = app match {
-      case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
-      case _ => false
-    }
-
-    if (!isDiagnosticEnabled) {
+    if (!isDiagnosticViewsEnabled) {
       return Seq.empty
     }
 

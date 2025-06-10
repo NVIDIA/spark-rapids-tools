@@ -26,7 +26,6 @@ import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnostic
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
-import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
@@ -45,12 +44,6 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  */
 class AppSQLPlanAnalyzer(app: AppBase)
     extends AppAnalysisBase(app) {
-  // Diagnostic views are enabled in case of Profiler and only when explicitly
-  // enabled in the ApplicationInfo object.
-  private val enableDiagnosticViews: Boolean = app match {
-    case appInfo: ApplicationInfo => appInfo.isDiagnosticViewsEnabled
-    case _ => false
-  }
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -351,7 +344,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds)
 
-        if (enableDiagnosticViews && isIODiagnosticMetricName(metric.name)) {
+        if (isDiagnosticViewsEnabled && isIODiagnosticMetricName(metric.name)) {
           updateIODiagnosticMetricsMap(sqlAccumProfileResult)
         }
 
@@ -468,7 +461,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
               median = stat.med,
               max = stat.max,
               total = stat.total)
-            if (enableDiagnosticViews && isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
+            if (isDiagnosticViewsEnabled && isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
               updateStageDiagnosticMetrics(accumProfileResults)
             }
             Some(accumProfileResults)
