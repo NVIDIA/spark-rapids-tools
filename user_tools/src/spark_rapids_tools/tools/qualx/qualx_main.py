@@ -520,7 +520,6 @@ def train(
     """
     # load config from command line argument, or use default
     get_config(config)
-
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))

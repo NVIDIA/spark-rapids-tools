@@ -164,11 +164,10 @@ class ToolContext(YAMLPropertiesContainer):
         self.set_ctxt('useLocalToolsJar', True)
         self.set_ctxt('toolsJarFileName', FSUtil.get_resource_name(matched_files[0]))
 
-    def load_prepackaged_resources(self):
+    def load_tools_jar_resources(self):
         """
-        Checks for the tools jar and adds it to context
-        Checks if the packaging includes the CSP dependencies. If so, it moves the dependencies
-        into the tmp folder. This allows the tool to pick the resources from cache folder.
+        Checks for the tools jar and identifies it from the tools-resources directory.
+        This method handles only the tools jar identification part without loading other prepackaged resources.
         """
         for tools_related_files in self.tools_resource_path:
             # This function uses a regex based comparison to identify the tools jar file
@@ -178,6 +177,14 @@ class ToolContext(YAMLPropertiesContainer):
             if os.path.exists(tools_related_files):
                 FSUtil.copy_resource(tools_related_files, self.get_cache_folder())
                 self._identify_tools_wheel_jar(FSUtil.get_all_files(tools_related_files))
+
+    def load_prepackaged_resources(self):
+        """
+        Checks for the tools jar and adds it to context
+        Checks if the packaging includes the CSP dependencies. If so, it moves the dependencies
+        into the tmp folder. This allows the tool to pick the resources from cache folder.
+        """
+        self.load_tools_jar_resources()
 
         if not self.are_resources_prepackaged():
             self.logger.info('No prepackaged resources found.')
