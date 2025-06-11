@@ -838,7 +838,7 @@ class AutoTuner(
   def recommendKryoSerializerSetting(): Unit = {
     getPropertyValue("spark.serializer")
       .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
-      // Logic: 
+      // Logic:
       // - Trim whitespace, filter out empty entries and remove duplicates.
       // - Finally, append the GPU Kryo registrator to the existing set of registrators
       // Note:
