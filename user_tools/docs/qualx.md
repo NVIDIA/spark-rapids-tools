@@ -41,6 +41,11 @@ export SPARK_HOME=/path/to/spark
 export QUALX_DATA_DIR=/path/to/qualx/datasets
 ```
 
+In case the user wants to use a custom tools jar file, the following environment variable should be set:
+```bash
+export SPARK_RAPIDS_TOOLS_JAR=/path/to/tools.jar
+```
+
 Notes:
 - `QUALX_DATA_DIR` should be a valid local path containing the training data.
 
