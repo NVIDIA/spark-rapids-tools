@@ -54,15 +54,16 @@ class Train(QualXTool):
         """
         try:
             train(
-                dataset=self.dataset,
-                model=self.model,
                 output_dir=self.output_folder,
-                n_trials=self.n_trials,
-                base_model=self.base_model,
-                features_csv_dir=self.features_csv_dir,
+                dataset=self.wrapper_options['dataset'],
+                model=self.wrapper_options['model'],
+                n_trials=self.wrapper_options['n_trials'],
+                base_model=self.wrapper_options['base_model'],
+                features_csv_dir=self.wrapper_options['features_csv_dir'],
+                config=self.wrapper_options['config'],
             )
             self.logger.info('Training completed successfully.')
-            self.logger.info('Trained XGBoost model is saved at: %s', self.model)
+            self.logger.info('Trained XGBoost model is saved at: %s', self.wrapper_options['model'])
             self.logger.info('Training results are generated at: %s', self.output_folder)
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Training failed with error: %s', e)

@@ -65,10 +65,12 @@ class Prediction(QualXTool):
                 custom_model_file = estimation_model_args['customModelFile']
             else:
                 custom_model_file = None
+            config = self.wrapper_options.get('config')
             df = predict(platform=self.platform_type.map_to_java_arg(),
                          qual=self.qual_output,
                          output_info=output_info,
-                         model=custom_model_file)
+                         model=custom_model_file,
+                         config=config)
             if not df.empty:
                 print_summary(df)
                 print_speedup_summary(df)
