@@ -42,7 +42,8 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * TODO: this class should extend the trait SparkSQLPlanInfoVisitor[T]
  * @param app the Application info objects that contains the SQL plans to be processed
  */
-class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
+class AppSQLPlanAnalyzer(app: AppBase)
+    extends AppAnalysisBase(app) {
   // A map between (SQL ID, Node ID) and the set of stage IDs
   // TODO: The Qualification should use this map instead of building a new set for each exec.
   private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
@@ -57,7 +58,6 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   var allSQLMetrics: ArrayBuffer[SQLMetricInfoCase] = ArrayBuffer[SQLMetricInfoCase]()
   // A map between stage ID and a set of node names
   val stageToNodeNames: HashMap[Long, Seq[String]] = HashMap.empty[Long, Seq[String]]
-
   // A mapping from stage ID to diagnostic metrics results.
   // Each stage ID maps to another HashMap, where:
   //   - The key is the diagnostic metric name (String).
@@ -340,15 +340,15 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         val med = Math.max(taskInfo.med, driverInfo.med)
         val total = Math.max(taskInfo.total, driverInfo.total)
 
-        val sqlAccumProileResult = SQLAccumProfileResults(metric.sqlID,
+        val sqlAccumProfileResult = SQLAccumProfileResults(metric.sqlID,
           metric.nodeID, metric.nodeName, metric.accumulatorId, metric.name,
           min, med, max, total, metric.metricType, metric.stageIds)
 
-        if (isIODiagnosticMetricName(metric.name)) {
-          updateIODiagnosticMetricsMap(sqlAccumProileResult)
+        if (isDiagnosticViewsEnabled && isIODiagnosticMetricName(metric.name)) {
+          updateIODiagnosticMetricsMap(sqlAccumProfileResult)
         }
 
-        Some(sqlAccumProileResult)
+        Some(sqlAccumProfileResult)
       } else {
         None
       }
@@ -461,7 +461,7 @@ class AppSQLPlanAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
               median = stat.med,
               max = stat.max,
               total = stat.total)
-            if (isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
+            if (isDiagnosticViewsEnabled && isDiagnosticMetrics(accumInfo.infoRef.name.value)) {
               updateStageDiagnosticMetrics(accumProfileResults)
             }
             Some(accumProfileResults)
