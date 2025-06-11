@@ -314,4 +314,154 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("Test Kryo Serializer does not add GPU registrator again if already present") {
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+        "spark.kryo.registrator" ->
+          "org.apache.SomeRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator"
+      )
+    val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.kryoserializer.buffer.max=512m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.kryoserializer.buffer.max' increasing the max buffer to prevent out-of-memory errors.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test that AutoTuner parses existing Kryo Registrator correctly
+  // i.e. it removes duplicates, empty entries, and adds GpuKryoRegistrator
+  test("Test AutoTuner parses existing Kryo Registrator correctly") {
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+        "spark.kryo.registrator" ->
+          "org.apache.SomeRegistrator,, org.apache.OtherRegistrator,org.apache.SomeRegistrator"
+      )
+    val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.OtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
+          |--conf spark.kryoserializer.buffer.max=512m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.kryo.registrator' GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
+          |- 'spark.kryoserializer.buffer.max' increasing the max buffer to prevent out-of-memory errors.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
 }

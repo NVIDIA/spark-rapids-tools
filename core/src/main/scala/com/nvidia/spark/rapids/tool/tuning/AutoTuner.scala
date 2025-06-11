@@ -413,12 +413,15 @@ class AutoTuner(
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
-      if (recomRecord.getOriginalValue.isEmpty) {
-        // add missing comment if any
-        appendMissingComment(key)
-      } else {
-        // add updated comment if any
-        appendUpdatedComment(key)
+      recomRecord.getOriginalValue match {
+        case None =>
+          // add missing comment if any
+          appendMissingComment(key)
+        case Some(originalValue) if originalValue != recomRecord.getTuneValue() =>
+          // add updated comment if any
+          appendUpdatedComment(key)
+        case _ =>
+          // do not add any comment if the tuned value is the same as the original value
       }
       // add the persistent comment if any.
       appendPersistentComment(key)
@@ -835,12 +838,22 @@ class AutoTuner(
   def recommendKryoSerializerSetting(): Unit = {
     getPropertyValue("spark.serializer")
       .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
-      val defaultRegistrator = "com.nvidia.spark.rapids.GpuKryoRegistrator"
-      val regToUse = getPropertyValue("spark.kryo.registrator")
-        .filter(_.nonEmpty)
-        .map(reg => s"$reg,$defaultRegistrator")
-        .getOrElse(defaultRegistrator)
-      appendRecommendation("spark.kryo.registrator", regToUse)
+      // Logic:
+      // - Trim whitespace, filter out empty entries and remove duplicates.
+      // - Finally, append the GPU Kryo registrator to the existing set of registrators
+      // Note:
+      //  - ListSet preserves the original order of registrators
+      // Example:
+      //  property: "spark.kryo.registrator=reg1, reg2,, reg1"
+      //  existingRegistrators: ListSet("reg1", "reg2")
+      //  recommendation: "spark.kryo.registrator=reg1,reg2,GpuKryoRegistrator"
+      val existingRegistrators = getPropertyValue("spark.kryo.registrator")
+        .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
+        .getOrElse(Array.empty)
+        .to[scala.collection.immutable.ListSet]
+      appendRecommendation("spark.kryo.registrator",
+        (existingRegistrators + autoTunerConfigsProvider.GPU_KRYO_SERIALIZER_CLASS).mkString(",")
+      )
       // set the kryo serializer buffer size to prevent OOMs
       val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
       val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
@@ -1516,6 +1529,7 @@ trait AutoTunerConfigsProvider extends Logging {
   val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
   val AQE_MIN_INITIAL_PARTITION_NUM = 200
   val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
+  val GPU_KRYO_SERIALIZER_CLASS = "com.nvidia.spark.rapids.GpuKryoRegistrator"
   // Desired Kryo serializer buffer size to prevent OOMs. Spark sets the default to 64MB.
   val KRYO_SERIALIZER_BUFFER_MAX_MB = 512L
   // Set of spark properties to be filtered out from the combined Spark properties.
