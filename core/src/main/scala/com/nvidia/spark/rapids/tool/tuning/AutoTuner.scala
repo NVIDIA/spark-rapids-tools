@@ -838,10 +838,11 @@ class AutoTuner(
   def recommendKryoSerializerSetting(): Unit = {
     getPropertyValue("spark.serializer")
       .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
+      // Logic: 
+      // - Trim whitespace, filter out empty entries and remove duplicates.
+      // - Finally, append the GPU Kryo registrator to the existing set of registrators
       // Note:
       //  - ListSet preserves the original order of registrators
-      //  - It trims whitespace, filters out empty entries and removes duplicates
-      //  - Finally, it appends the GPU Kryo registrator to the existing set of registrators
       // Example:
       //  property: "spark.kryo.registrator=reg1, reg2,, reg1"
       //  existingRegistrators: ListSet("reg1", "reg2")
