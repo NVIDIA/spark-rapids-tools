@@ -491,7 +491,7 @@ def train(
     dataset: str,
     model: Optional[str] = 'xgb_model.json',
     output_dir: Optional[str] = 'train',
-    n_trials: Optional[int] = 200,
+    n_trials: Optional[int] = None,
     base_model: Optional[str] = None,
     features_csv_dir: Optional[str] = None,
     config: Optional[str] = None,
@@ -519,7 +519,11 @@ def train(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config)
+    cfg = get_config(config)
+    model_type = cfg.model_type
+    model_config = cfg.__dict__.get(model_type, {})
+    trials = n_trials if n_trials else model_config.get('n_trials', 200)
+
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
     profile_datasets = sorted(list(profile_df['appName'].unique()))
@@ -575,7 +579,7 @@ def train(
             feature_cols = xgb_base_model.feature_names   # align features to base model
         else:
             raise ValueError(f'Existing model not found for fine-tuning: {base_model}')
-    xgb_model = train_model(features, feature_cols, label_col, n_trials=n_trials, base_model=xgb_base_model)
+    xgb_model = train_model(features, feature_cols, label_col, n_trials=trials, base_model=xgb_base_model)
 
     # save model and params
     ensure_directory(model, parent=True)
@@ -618,7 +622,7 @@ def predict(
     output_info: dict,
     *,
     model: Optional[str] = None,
-    qual_tool_filter: Optional[str] = 'stage',
+    qual_tool_filter: Optional[str] = None,
     config: Optional[str] = None,
 ) -> pd.DataFrame:
     """Predict GPU speedup given CPU logs.
@@ -634,14 +638,18 @@ def predict(
     model:
         Name of a pre-trained model or path to a model on disk to use for prediction.
     qual_tool_filter:
-        Filter to apply to the qualification tool output, default: 'stage'
+        Filter to apply to the qualification tool output: 'stage' (default), 'sqlId', or 'none'.
     config:
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config)
+    cfg = get_config(config)
+    model_type = cfg.model_type
+    model_config = cfg.__dict__.get(model_type, {})
+    qual_filter = qual_tool_filter if qual_tool_filter else model_config.get('qual_tool_filter', 'stage')
 
     node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
+
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
@@ -666,7 +674,7 @@ def predict(
     profile_df = load_profiles(
         datasets=datasets,
         node_level_supp=node_level_supp,
-        qual_tool_filter=qual_tool_filter,
+        qual_tool_filter=qual_filter,
         qual_tool_output=qual_tool_output,
         remove_failed_sql=False,
     )
@@ -776,7 +784,7 @@ def _predict_cli(
     eventlogs: Optional[str] = None,
     qual_output: Optional[str] = None,
     model: Optional[str] = None,
-    qual_tool_filter: Optional[str] = 'stage',
+    qual_tool_filter: Optional[str] = None,
     config: Optional[str] = None,
 ) -> None:
     """Predict GPU speedup given CPU logs.
@@ -802,13 +810,16 @@ def _predict_cli(
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
     qual_tool_filter: str
-        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages, based on qual tool
-        output.  A sqlID or stage is fully supported if all execs are respectively fully supported.
+        Set to either 'stage' (default), 'sqlId', or 'none', where 'stage' applies model to supported stages,
+        'sqlId' applies model to supported sqlIDs, and 'none' applies model to all sqlIDs and stages.
     config:
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config)
+    cfg = get_config(config)
+    model_type = cfg.model_type
+    model_config = cfg.__dict__.get(model_type, {})
+    qual_filter = qual_tool_filter if qual_tool_filter else model_config.get('qual_tool_filter', 'stage')
 
     # Note this function is for internal usage only. `spark_rapids predict` cmd is the public interface.
     assert eventlogs or qual_output, 'Please specify either --eventlogs or --qual_output.'
@@ -838,7 +849,7 @@ def _predict_cli(
         output_info=output_info,
         qual=qual,
         model=model,
-        qual_tool_filter=qual_tool_filter,
+        qual_tool_filter=qual_filter,
     )
 
 

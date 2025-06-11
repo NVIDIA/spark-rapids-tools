@@ -81,6 +81,15 @@ class QualxConfig(BaseConfig):
             'qual_tool_filter': 'stage'
         }])
 
+    sample_weight: Optional[dict] = Field(
+        default={},
+        description='OPTIONAL: Sample weight configuration.',
+        examples=[{
+            'threshold': 1.0,
+            'positive': 1.0,
+            'negative': 1.0
+        }])
+
     alignment_dir: Optional[str] = Field(
         default=None,
         description='OPTIONAL: Path to alignment directory.',

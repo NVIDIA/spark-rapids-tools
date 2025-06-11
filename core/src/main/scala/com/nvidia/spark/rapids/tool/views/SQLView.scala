@@ -140,6 +140,10 @@ object ProfSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with ProfAppInd
   }
 }
 
+// Diagnostic metrics are controlled by means of a variable in the
+// App object. The underlying data is only updated when the
+// toggle is enabled. This view will return an empty sequence unless
+// enabled by the user
 object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
     with ProfAppIndexMapperTrait {
   override def getLabel: String = "IO Diagnostic Metrics"
