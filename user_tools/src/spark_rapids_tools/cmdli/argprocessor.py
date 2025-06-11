@@ -691,7 +691,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     qual_output: str = None
-    prof_output: str = None
+    config: Optional[str] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
@@ -703,8 +703,8 @@ class PredictUserArgModel(AbsToolUserArgModel):
         return {
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
-            'prof_output': self.prof_output,
             'output_folder': self.output_folder,
+            'config': self.config,
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
@@ -721,6 +721,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
     n_trials: Optional[int] = None
     base_model: Optional[str] = None
     features_csv_dir: Optional[str] = None
+    config: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -732,6 +733,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'n_trials': self.n_trials,
             'base_model': self.base_model,
             'features_csv_dir': self.features_csv_dir,
+            'config': self.config,
             'platformOpts': {},
         }
 
