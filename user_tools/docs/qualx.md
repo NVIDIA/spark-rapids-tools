@@ -41,13 +41,21 @@ export SPARK_HOME=/path/to/spark
 export QUALX_DATA_DIR=/path/to/qualx/datasets
 ```
 
-In case the user wants to use a custom tools jar file, the following environment variable should be set:
-```bash
-export SPARK_RAPIDS_TOOLS_JAR=/path/to/tools.jar
-```
+Since training internally uses the Profiling and Qualification tools, it requires the core tools jar as a dependency.
+By default, QualX automatically locates and uses the bundled core tools jar from the package resources.
 
 Notes:
 - `QUALX_DATA_DIR` should be a valid local path containing the training data.
+
+##### Advanced Environment Setup
+
+For advanced users or specific deployment scenarios, user can override the embedded core tools jar that is pre-packaged
+with user_tools.  To do this, user can set the following environment variable:
+```bash
+export SPARK_RAPIDS_TOOLS_JAR=/path/to/custom/tools.jar
+```
+
+- For users building from source or needing custom jar builds, refer to the [user-tools README](../README.md#building-from-source) for build instructions.
 
 #### Data Collection
 

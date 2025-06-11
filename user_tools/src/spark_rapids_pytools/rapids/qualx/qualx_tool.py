@@ -52,7 +52,7 @@ class QualXTool(RapidsTool):
         Process environment variables required for QualX tool execution.
 
         This method ensures that SPARK_RAPIDS_TOOLS_JAR environment variable is set.
-        Priority order:
+        Precedence order:
         1. Existing SPARK_RAPIDS_TOOLS_JAR environment variable (highest priority)
         2. Tools jar from local wheel package resources (fallback)
 
@@ -74,8 +74,6 @@ class QualXTool(RapidsTool):
 
         if self.ctxt.use_local_tools_jar():
             jar_path = self.ctxt.get_rapids_jar_url()
-            self.logger.info('Successfully identified tools jar from resources: %s', jar_path)
-
             os.environ['SPARK_RAPIDS_TOOLS_JAR'] = jar_path
             self.logger.info('Set SPARK_RAPIDS_TOOLS_JAR environment variable to: %s', jar_path)
         else:
