@@ -323,7 +323,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" ->
           "org.apache.SomeRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator"
@@ -399,7 +398,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" ->
           "org.apache.SomeRegistrator,, org.apache.OtherRegistrator,org.apache.SomeRegistrator"
