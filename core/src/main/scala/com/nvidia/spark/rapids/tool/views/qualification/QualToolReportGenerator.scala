@@ -154,6 +154,7 @@ class QualToolSummaryTable(
         formatStr(ToolUtils.formatComplexTypes(r.nestedComplexTypes)),
         formatStr(ToolUtils.formatPotentialProblems(r.potentialProblems)),
         r.longestSqlDuration,
+        r.sqlStageDurationsSum,
         r.endDurationEstimated,
         r.totalCoreSec).mkString(delim))
     }
