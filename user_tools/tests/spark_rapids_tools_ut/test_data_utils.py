@@ -73,7 +73,7 @@ class TestDataUtils(unittest.TestCase):
             self.assertTrue(result.success)
             self.assertTrue(result.fallen_back)
             # check that the load-error has the correct cause for exception.
-            self.assertIsInstance(result.load_error.__cause__, FileNotFoundError)
+            self.assertIsInstance(result.get_fail_cause(), FileNotFoundError)
             pd.testing.assert_frame_equal(result.df, default_df_cb())
 
     def test_load_pd_df_with_mapping_and_kwargs(self):

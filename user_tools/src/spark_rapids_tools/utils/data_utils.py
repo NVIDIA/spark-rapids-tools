@@ -46,6 +46,10 @@ class LoadDFResult(object):
     def df_to_dict(self) -> List[dict[str, str]]:
         return DataUtils.convert_df_to_dict(self.df)
 
+    def get_fail_cause(self) -> Optional[Exception]:
+        if self.load_error:
+            return self.load_error.__cause__
+        return None
 
 class DataUtils:
     """
@@ -73,14 +77,21 @@ class DataUtils:
         :param filepath_or_buffer: A file path or a file-like object containing the CSV data.
                              Can be a string path, path-like object, or file-like object.
         :param map_columns: Optional dictionary to rename columns (keys: old names, values: new names).
-        :param read_csv_kwargs: Additional arguments to pass to pandas.read_csv().
-                            for example, in order to use selected_columns, then we should use
+        :param read_csv_kwargs: Additional arguments to pass to pandas.read_csv(). See the full list
+               of arguments in the API reference https://pandas.pydata.org/docs/reference/api/pandas.read_csv.html.
 
         :return:
             pd.DataFrame: The loaded DataFrame, or the default DataFrame if reading fails and default is provided.
-
         :raises:
             Exception: If reading fails and no default is provided, the original exception is re-raised.
+
+        Examples:
+        >>> # load dataframe with semicolon separator
+        >>> df_1 = DataUtils.read_dataframe('data.csv', map_columns={'old_name': 'new_name'})
+        >>> # load dataframe with semicolon separator
+        >>> df_2 = DataUtils.read_dataframe('data.csv', map_columns={'old_name': 'new_name'}, sep=';')
+        >>> # load dataframe with selected columns
+        >>> df_3 = DataUtils.read_dataframe('data.csv', usecols=['col1', 'col2'])
         """
         try:
             df = pd.read_csv(filepath_or_buffer, **read_csv_kwargs)
@@ -88,8 +99,7 @@ class DataUtils:
                 df = df.rename(columns=map_columns)
             return df
         except Exception as e:
-            # Should we do anything here
-            raise RuntimeError(f"Failed to read dataframe from {filepath_or_buffer}") from e
+            raise RuntimeError(f'Failed to read dataframe from {filepath_or_buffer} — {e}') from e
 
 
     @staticmethod
