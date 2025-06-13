@@ -20,19 +20,19 @@ qualTableDefinitions:
     scope: global
     columns:
       - name: Event Log
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Status
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: App ID
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Description
-        dataType: string
+        dataType: String
         description: >-
           TBA
   - label: qualCoreCSVSummary
@@ -42,59 +42,64 @@ qualTableDefinitions:
     scope: global
     columns:
       - name: App Name
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: App ID
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Attempt ID
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: App Duration
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Executor CPU Time Percent
-        dataType: string
+        dataType: float
         description: >-
           TBA
       - name: SQL Ids with Failures
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Unsupported Read File Formats and Types
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Unsupported Write Data Format
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Complex Types
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Nested Complex Types
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Potential Problems
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Longest SQL Duration
-        dataType: string
+        dataType: Long
         description: >-
           TBA
+      - name: SQL Stage Durations Sum
+        dataType: Long
+        description: >-
+          The total wallClockDuration of all the stages in the app. The wallClockDuration is calculated as
+          (submissionTime - completionTime) of the given stage
       - name: App Duration Estimated
-        dataType: boolean
+        dataType: Boolean
         description: >-
           TBA
       - name: Total Core Seconds
-        dataType: long
+        dataType: Long
         description: >-
           TBA
   # the following table seems to be useless
@@ -108,19 +113,19 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: SQL ID
-        dataType: string
-        description: >-
-          TBA
-      - name: SQL Description
         dataType: Long
         description: >-
           TBA
+      - name: SQL Description
+        dataType: String
+        description: >-
+          TBA
       - name: SQL DF Duration
-        dataType: string
+        dataType: Long
         description: >-
           TBA
       - name: GPU Opportunity
-        dataType: string
+        dataType: Long
         description: >-
           TBA
   - label: execCSVReport
@@ -134,47 +139,47 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Exec Name
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Expression Name
-        dataType: Long
+        dataType: String
         description: >-
           TBA
       - name: Exec Duration
-        dataType: string
+        dataType: Long
         description: >-
           TBA
       - name: SQL Node Id
-        dataType: string
+        dataType: Long
         description: >-
           TBA
       - name: Exec Is Supported
-        dataType: Long
+        dataType: Boolean
         description: >-
           TBA
       - name: Exec Stages
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Exec Children
-        dataType: Long
+        dataType: String
         description: >-
           TBA
       - name: Exec Children Node Ids
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Exec Should Remove
-        dataType: string
+        dataType: Boolean
         description: >-
           TBA
       - name: Exec Should Ignore
-        dataType: string
+        dataType: Boolean
         description: >-
           TBA
       - name: Action
-        dataType: string
+        dataType: String
         description: >-
           TBA
   - label: unsupportedOpsCSVReport
@@ -188,7 +193,7 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Stage ID
-        dataType: string
+        dataType: Long
         description: >-
           TBA
       - name: ExecId
@@ -196,19 +201,19 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Unsupported Type
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Unsupported Operator
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Details
-        dataType: Long
+        dataType: String
         description: >-
           TBA
       - name: Stage Duration
-        dataType: string
+        dataType: Long
         description: >-
           STAGE_WALLCLOCK_DUR_STR
       - name: App Duration
@@ -216,7 +221,7 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Action
-        dataType: string
+        dataType: String
         description: >-
           TBA
   - label: operatorsStatsCSVReport
@@ -230,23 +235,23 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Operator Type
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Operator Name
-        dataType: Long
+        dataType: String
         description: >-
           TBA
       - name: Count
-        dataType: string
+        dataType: Long
         description: >-
           TBA
       - name: Supported
-        dataType: boolean
+        dataType: Boolean
         description: >-
           TBA
       - name: Stages
-        dataType: string
+        dataType: String
         description: >-
           TBA
   - label: stagesCSVReport
@@ -260,7 +265,7 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Stage Task Duration
-        dataType: string
+        dataType: Long
         description: >-
           Calculated as the total of all the task durations for that stage
       - name: Unsupported Task Duration
@@ -268,7 +273,7 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: Stage Estimated
-        dataType: boolean
+        dataType: Boolean
         description: >-
           TBA
   - label: clusterInfoJSONReport
@@ -306,11 +311,11 @@ qualTableDefinitions:
     scope: per-app
     columns:
       - name: Property Name
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Property Value
-        dataType: string
+        dataType: String
         description: >-
           TBA
   # the following table is enabled only when ml-functions argument is added to the arguments.
@@ -324,7 +329,7 @@ qualTableDefinitions:
         description: >-
           TBA
       - name: ML Functions
-        dataType: string
+        dataType: String
         description: >-
           TBA
       - name: Stage WallClock Duration (ms)
