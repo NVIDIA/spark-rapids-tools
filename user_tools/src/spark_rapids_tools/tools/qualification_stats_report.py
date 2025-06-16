@@ -12,17 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implementation of the Qualification Stats Report."""
+"""
+Implementation of the Qualification Stats Report.
+
+This module provides functionality to generate detailed statistics reports from qualification
+tool output files. It processes qualification data to produce operator-level statistics,
+including duration metrics and support status for RAPIDS Accelerator.
+
+The main components include:
+- SparkQualificationStats: Core class for processing qualification data
+- CSV file reading and preprocessing capabilities
+- Statistics aggregation and report generation
+"""
 
 
 from dataclasses import dataclass, field
 from logging import Logger
+from typing import Optional
 
 import pandas as pd
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 
 
 @dataclass
@@ -59,6 +72,7 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
     output_columns: dict = field(default=None, init=False)
     qual_output: str = field(default=None, init=True)
     ctxt: ToolContext = field(default=None, init=True)
+    qual_handler: Optional[QualCoreHandler] = field(default=None, init=True)
 
     def __post_init__(self) -> None:
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
@@ -66,6 +80,38 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
 
     def _read_csv_files(self) -> None:
         self.logger.info('Reading CSV files...')
+
+        if self.qual_handler:
+            try:
+                self.logger.info('Using QualCoreHandler to read data...')
+
+                self.unsupported_operators_df = self.qual_handler.get_table_by_label('unsupportedOpsCSVReport')
+                if not self.unsupported_operators_df.empty:
+                    self.unsupported_operators_df = (self.unsupported_operators_df
+                                                     .astype({'Unsupported Operator': str}))
+                    self.unsupported_operators_df = (self.unsupported_operators_df
+                                                     .dropna(subset=['Unsupported Operator']))
+
+                self.stages_df = self.qual_handler.get_table_by_label('stagesCSVReport')
+
+                execs_dtype = {
+                    'Exec Name': str,
+                    'Exec Stages': str,
+                    'Exec Children': str,
+                    'Exec Children Node Ids': str
+                }
+                self.execs_df = self.qual_handler.get_table_by_label('execCSVReport',
+                                                                     read_csv_kwargs={'dtype': execs_dtype})
+                if not self.execs_df.empty:
+                    self.execs_df = self.execs_df.dropna(subset=['Exec Stages', 'Exec Name'])
+
+                self.logger.info('Reading data using QualCoreHandler completed.')
+                return
+
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.warning('Error using QualCoreHandler: %s, falling back to file-based approach', e)
+                self.qual_handler = None
+
         if self.qual_output is None:
             qual_output_dir = self.ctxt.get_rapids_output_folder()
         else:

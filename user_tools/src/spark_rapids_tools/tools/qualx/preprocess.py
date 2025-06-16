@@ -472,6 +472,36 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     return node_level_supp
 
 
+def load_qtool_execs_new(exec_info: pd.DataFrame) -> Optional[pd.DataFrame]:
+    """
+    Load supported stage info from combined exec DataFrame in a form that can be merged with profiler data
+    to aggregate features and durations only over supported stages.
+    TODO: consolidate with qual_tools_execs once new qtool
+          output is completely supported
+    """
+    node_level_supp = None
+
+    def _is_ignore_no_perf(action: str) -> bool:
+        return action == 'IgnoreNoPerf'
+
+    if exec_info is not None and not exec_info.empty:
+        node_level_supp = exec_info.copy()
+        node_level_supp['Exec Is Supported'] = (
+            node_level_supp['Exec Is Supported']
+            | node_level_supp['Action'].apply(_is_ignore_no_perf)
+            | node_level_supp['Exec Name']
+            .astype(str)
+            .apply(lambda x: x.startswith('WholeStageCodegen'))
+        )
+        node_level_supp = (
+            node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
+            .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
+            .agg('all')
+            .reset_index(level=[0, 1, 2])
+        )
+    return node_level_supp
+
+
 def load_qual_csv(
     qual_dirs: List[str], csv_filename: str, cols: Optional[List[str]] = None
 ) -> Optional[pd.DataFrame]:

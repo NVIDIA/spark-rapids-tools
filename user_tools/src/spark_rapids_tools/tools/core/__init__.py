@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Core modules for qualification tool functionality.
+
+This package contains the core modules for qualification tool functionality, including:
+- QualCoreTableLoader: Loads and manages table definitions from YAML configuration files
+- QualOutputFileReader: Reads and parses qualification tool output files
+- QualCoreHandler: Handles qualification tool output data and provides methods for accessing it
+"""
+
 from .qual_table_definitions import QualCoreColumnDef, QualCoreTableDef
 from .qual_table_loader import QualCoreTableLoader
 from .qual_output_reader import QualOutputFileReader

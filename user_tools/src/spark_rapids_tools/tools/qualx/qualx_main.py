@@ -28,6 +28,7 @@ import xgboost as xgb
 import fire
 
 from spark_rapids_tools import CspPath
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
     get_config,
@@ -37,6 +38,7 @@ from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
     load_qtool_execs,
+    load_qtool_execs_new,
     load_qual_csv,
     PREPROCESSED_FILE
 )
@@ -152,40 +154,71 @@ def _get_model(platform: str,
     return xgb_model
 
 
-def _get_qual_data(qual: Optional[str]) -> Tuple[
+def _get_qual_data(qual: Optional[str], qual_handler: Optional[QualCoreHandler] = None) -> Tuple[
     Optional[pd.DataFrame],
     Optional[pd.DataFrame],
     List[str]
 ]:
+    # Keep the logic for loading qual data without qual handler
+    # to be able to keep previous usage without breaking
+    # the non-qual handler usage.
+    # TODO: Remove this to use just the qual handler once we
+    # have fully migrated to the qual handler.
+    node_level_supp = None
+    qualtool_output = None
+    qual_metrics = []
     if not qual:
         return None, None, []
 
-    # load qual tool execs
-    qual_list = find_paths(
-        qual, RegexPattern.rapids_qual.match, return_directories=True
-    )
-    # load metrics directory from all qualification paths.
-    # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
-    qual_metrics = [
-        path
-        for q in qual_list
-        for path in find_paths(q, RegexPattern.qual_tool_metrics.match, return_directories=True)
-    ]
-    qual_execs = [
-        os.path.join(
-            q,
-            'rapids_4_spark_qualification_output_execs.csv',
-        )
-        for q in qual_list
-    ]
-    node_level_supp = load_qtool_execs(qual_execs)
+    if qual_handler:
+        try:
+            # Get node level support from combined exec DataFrame
+            exec_table = qual_handler.get_table_by_label('execCSVReport')
+            node_level_supp = load_qtool_execs_new(exec_table)
 
-    # load qual tool per-app predictions
-    qualtool_output = load_qual_csv(
-        qual_list,
-        'rapids_4_spark_qualification_output.csv',
-        ['App Name', 'App ID', 'App Duration'],
-    )
+            # Get qualification summary from qualCoreCSVSummary
+            qualtool_output = qual_handler.get_table_by_label('qualCoreCSVSummary')
+            if qualtool_output is not None:
+                # Extract only the required columns
+                cols = ['App Name', 'App ID', 'App Duration']
+                available_cols = [col for col in cols if col in qualtool_output.columns]
+                if available_cols:
+                    qualtool_output = qualtool_output[available_cols]
+
+            # Get qual_metrics paths using the new method
+            qual_metrics = qual_handler.get_raw_metrics_paths()
+
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning('Error using QualCoreHandler: %s, falling back to file-based approach', e)
+            qual_handler = None
+
+    if not qual_handler:
+        # fallback to file-based approach
+        qual_list = find_paths(
+            qual, RegexPattern.rapids_qual.match, return_directories=True
+        )
+        # load metrics directory from all qualification paths.
+        # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
+        qual_metrics = [
+            path
+            for q in qual_list
+            for path in find_paths(q, RegexPattern.qual_tool_metrics.match, return_directories=True)
+        ]
+        qual_execs = [
+            os.path.join(
+                q,
+                'rapids_4_spark_qualification_output_execs.csv',
+            )
+            for q in qual_list
+        ]
+        node_level_supp = load_qtool_execs(qual_execs)
+
+        # load qual tool per-app predictions
+        qualtool_output = load_qual_csv(
+            qual_list,
+            'rapids_4_spark_qualification_output.csv',
+            ['App Name', 'App ID', 'App Duration'],
+        )
 
     return node_level_supp, qualtool_output, qual_metrics
 
@@ -621,6 +654,7 @@ def predict(
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = 'stage',
     config: Optional[str] = None,
+    qual_handler: Optional[QualCoreHandler] = None,
 ) -> pd.DataFrame:
     """Predict GPU speedup given CPU logs.
 
@@ -638,11 +672,13 @@ def predict(
         Filter to apply to the qualification tool output, default: 'stage'
     config:
         Path to a qualx-conf.yaml file to use for configuration.
+    qual_handler:
+        Optional QualCoreHandler instance for reading qualification data.
     """
     # load config from command line argument, or use default
     get_config(config)
 
-    node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
+    node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual, qual_handler)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)

@@ -14,7 +14,7 @@
 
 toolOutput:
   completeOutput: true
-  subFolder: rapids_4_spark_qualification_output
+  subFolder:
   metricsSubFolder: raw_metrics
   textFormat:
     summaryLog:

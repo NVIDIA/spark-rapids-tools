@@ -146,6 +146,31 @@ remove_web_dependencies() {
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
   rm "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
+  # remove core folder containing qualOutputTable.yaml
+  rm -rf "${res_dir:?}"/core
+}
+
+# Function to copy qualOutputTable.yaml from core module to resources/core folder
+copy_qual_output_table_yaml() {
+  local res_dir="$1"
+  local yaml_source="$CORE_DIR/src/main/resources/configs/qualOutputTable.yaml"
+  local core_res_dir="$res_dir/core"
+  local yaml_dest="$core_res_dir/qualOutputTable.yaml"
+
+  if [ -f "$yaml_source" ]; then
+    echo "Copying qualOutputTable.yaml from core module to resources/core"
+    # Create core directory if it doesn't exist
+    mkdir -p "$core_res_dir"
+    cp "$yaml_source" "$yaml_dest"
+    if [ $? -ne 0 ]; then
+      echo "Failed to copy qualOutputTable.yaml"
+      exit 1
+    fi
+    echo "Successfully copied qualOutputTable.yaml to $yaml_dest"
+  else
+    echo "Warning: qualOutputTable.yaml not found at $yaml_source"
+    exit 1
+  fi
 }
 
 # Pre-build setup
@@ -181,6 +206,8 @@ build() {
     # This will just copy the tools jar built from source into the tools-resources folder
     download_web_dependencies "$RESOURCE_DIR" "False"
   fi
+  # Copy qualOutputTable.yaml from core module
+  copy_qual_output_table_yaml "$RESOURCE_DIR"
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel

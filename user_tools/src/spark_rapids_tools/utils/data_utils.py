@@ -16,6 +16,7 @@
 core tools."""
 
 import os
+import json
 from dataclasses import dataclass
 from typing import Optional, List, Callable, Any, Union, IO
 
@@ -50,6 +51,7 @@ class LoadDFResult(object):
         if self.load_error:
             return self.load_error.__cause__
         return None
+
 
 class DataUtils:
     """
@@ -93,6 +95,7 @@ class DataUtils:
         >>> # load dataframe with selected columns
         >>> df_3 = DataUtils.read_dataframe('data.csv', usecols=['col1', 'col2'])
         """
+        # TODO: add support for JSON files as part of read_dataframe and merge load_pd_df and load_pd_df_from_json
         try:
             df = pd.read_csv(filepath_or_buffer, **read_csv_kwargs)
             if map_columns:
@@ -100,7 +103,6 @@ class DataUtils:
             return df
         except Exception as e:
             raise RuntimeError(f'Failed to read dataframe from {filepath_or_buffer} — {e}') from e
-
 
     @staticmethod
     def load_pd_df(f_path: Union[str, CspPathT],
@@ -129,6 +131,51 @@ class DataUtils:
             else:
                 with f_path.open_input_stream() as fis:
                     loaded_df = DataUtils.read_dataframe(fis, map_columns=map_columns, **read_csv_kwargs)
+            success = loaded_df is not None
+        except Exception as e:  # pylint: disable=broad-except
+            load_error = e
+            loaded_df = None
+        if loaded_df is None and default_cb:
+            loaded_df = default_cb()
+            fallen_back = True
+            success = True
+        return LoadDFResult(
+            f_path=actual_path,
+            df=loaded_df,
+            success=success,
+            fallen_back=fallen_back,
+            load_error=load_error)
+
+    @staticmethod
+    def load_pd_df_from_json(f_path: Union[str, CspPathT],
+                             default_cb: Optional[Callable[[], pd.DataFrame]] = None,
+                             map_columns: Optional[dict] = None) -> LoadDFResult:
+        """
+        Load a pandas DataFrame from a JSON file using json_normalize.
+
+        :param f_path: the file path to load
+        :param default_cb: an optional function to construct a default DataFrame in case of the
+               file is not found, or error
+        :param map_columns: optional dictionary to map column names
+        :return: a LoadDFResult object holding information about the DF loading task
+        """
+        fallen_back = False
+        load_error = None
+        loaded_df = None
+        success = False
+        actual_path = str(f_path)
+        try:
+            if isinstance(f_path, str):
+                with open(f_path, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+                loaded_df = pd.json_normalize(json_data) if json_data else pd.DataFrame()
+            else:
+                with f_path.open_input_stream() as fis:
+                    json_data = json.load(fis)
+                loaded_df = pd.json_normalize(json_data) if json_data else pd.DataFrame()
+            # Apply column mapping if provided
+            if loaded_df is not None and not loaded_df.empty and map_columns:
+                loaded_df = loaded_df.rename(columns=map_columns)
             success = loaded_df is not None
         except Exception as e:  # pylint: disable=broad-except
             load_error = e

@@ -12,6 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Qualification table definitions and data structures.
+
+This module provides data classes for defining the structure of qualification tool output tables.
+It includes definitions for table schemas, column specifications, and metadata used by the
+qualification reporting system.
+
+The main components include:
+- QualCoreColumnDef: Represents individual column definitions with name, type, and description
+- QualCoreTableDef: Represents complete table definitions including columns, scope, and format
+- Methods for accessing and querying column information within tables
+
+These definitions are typically loaded from YAML configuration files and used throughout
+the qualification reporting pipeline to ensure consistent table structure and formatting.
+"""
+
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -38,7 +54,12 @@ class QualCoreTableDef:
     file_format: Optional[str] = None  # Optional field, defaults to CSV if not specified
 
     def __str__(self) -> str:
-        return f"QualCoreTableDef(label={self.label}, file_name={self.file_name}, scope={self.scope}, columns={len(self.columns)})"
+        return (
+            f'QualCoreTableDef(label={self.label}, '
+            f'file_name={self.file_name}, '
+            f'scope={self.scope}, '
+            f'columns={len(self.columns)})'
+        )
 
     def get_column_by_name(self, name: str) -> Optional[QualCoreColumnDef]:
         """Get a column definition by name."""
