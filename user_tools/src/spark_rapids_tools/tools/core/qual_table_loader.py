@@ -18,8 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import yaml
-
+from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
 from spark_rapids_pytools.common.utilities import Utils
 from .qual_table_definitions import QualCoreTableDef, QualCoreColumnDef
 
@@ -41,20 +40,14 @@ class QualCoreTableLoader:
         if self._table_definitions is not None:
             return self._table_definitions
 
-        if not self.yaml_file_path.exists():
-            raise FileNotFoundError(f'YAML file not found: {self.yaml_file_path}')
+        yaml_container = YAMLPropertiesContainer(prop_arg=self.yaml_file_path)
+        qual_table_definitions = yaml_container.get_value('qualTableDefinitions')
 
-        try:
-            with open(self.yaml_file_path, 'r', encoding='utf-8') as file:
-                yaml_content = yaml.safe_load(file)
-        except yaml.YAMLError as e:
-            raise yaml.YAMLError(f'Error parsing YAML file {self.yaml_file_path}: {e}')
-
-        if not isinstance(yaml_content, dict) or 'qualTableDefinitions' not in yaml_content:
+        if qual_table_definitions is None:
             raise ValueError('YAML file must contain \'qualTableDefinitions\' key')
 
         table_definitions = []
-        for table_data in yaml_content['qualTableDefinitions']:
+        for table_data in qual_table_definitions:
             table_def = self._create_table_definition(table_data)
             table_definitions.append(table_def)
 
