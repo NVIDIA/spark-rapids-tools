@@ -64,17 +64,7 @@ class QualCoreHandler:
                            label: str,
                            file_format: str = 'csv',
                            read_csv_kwargs: Optional[dict] = None) -> pd.DataFrame:
-        """
-        Get a qualification table by its label.
-
-        Args:
-            label: The table label from the YAML configuration
-            file_format: File format to read ('csv' or 'json')
-            read_csv_kwargs: Optional dictionary of arguments to pass to pandas read_csv
-
-        Returns:
-            DataFrame containing the table data
-        """
+        """Get a qualification table by its label."""
         try:
             return self.qual_output_reader.read_table_by_label(label, file_format, read_csv_kwargs)
         except Exception as e:  # pylint: disable=broad-except
@@ -82,12 +72,7 @@ class QualCoreHandler:
             return pd.DataFrame()
 
     def get_global_tables(self) -> List[pd.DataFrame]:
-        """
-        Get all global scope tables.
-
-        Returns:
-            List of DataFrames for all global scope tables
-        """
+        """Get all global scope tables."""
         global_tables = self.qual_core_tbl_mgr.get_tables_by_scope('global')
         results = []
 
@@ -105,12 +90,7 @@ class QualCoreHandler:
         return results
 
     def get_per_app_tables(self) -> List[pd.DataFrame]:
-        """
-        Get all per-app scope tables (combined across all applications).
-
-        Returns:
-            List of DataFrames for all per-app scope tables
-        """
+        """Get all per-app scope tables (combined across all applications)."""
         per_app_tables = self.qual_core_tbl_mgr.get_tables_by_scope('per-app')
         results = []
 
@@ -128,12 +108,7 @@ class QualCoreHandler:
         return results
 
     def get_table_definitions(self) -> List[Any]:
-        """
-        Get all table definitions from the YAML configuration.
-
-        Returns:
-            List of QualCoreTableDef objects
-        """
+        """Get all table definitions from the YAML configuration."""
         try:
             return self.qual_core_tbl_mgr.load_table_definitions()
         except Exception as e:  # pylint: disable=broad-except
@@ -141,15 +116,10 @@ class QualCoreHandler:
             return []
 
     def get_raw_metrics_paths(self) -> List[str]:
-        """
-        Get paths to raw_metrics directories.
+        """Get paths to raw_metrics directories.
         This is used in qualx to read raw_metrics by first getting the path to the
         raw_metrics directory and then read the files.
-        TODO: Find usages and update to read files using QualCoreHandler
-
-        Returns:
-            List of paths to raw_metrics directories
-        """
+        TODO: Find usages and update to read files using QualCoreHandler"""
         try:
             qual_core_path = FSUtil.build_path(self.result_path, 'qual_core_output')
             if not Path(qual_core_path).exists():
@@ -167,22 +137,11 @@ class QualCoreHandler:
     def get_raw_metric_per_app_dict(self,
                                     file_name: str,
                                     read_csv_kwargs: Optional[dict] = None) -> Dict[str, pd.DataFrame]:
-        """
-        Read a specific raw metric file from each application's directory and return as a dictionary
+        """Read a specific raw metric file from each application's directory and return as a dictionary
         of application IDs and DataFrames containing the corresponding application's metrics data.
-
         TODO: Remove this method once we have fully migrated to the qual handler.
         This method mimics the behavior of _read_qualification_metric_file by reading the specified
-        file from each application's directory under raw_metrics.
-
-        Args:
-            file_name: Name of the metric file to read from each application's folder
-            read_csv_kwargs: Optional dictionary of arguments to pass to pandas read_csv
-
-        Returns:
-            Dictionary where keys are application IDs and values are DataFrames containing
-            the corresponding application's metrics data
-        """
+        file from each application's directory under raw_metrics."""
         try:
             metrics = self.qual_output_reader.read_raw_metric_per_app_files(file_name, read_csv_kwargs)
             # Log apps with missing metrics files

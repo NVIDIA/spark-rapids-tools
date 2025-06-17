@@ -147,19 +147,19 @@ remove_web_dependencies() {
   # remove compressed file in case archive-mode was enabled
   rm "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
   # remove core folder containing qualOutputTable.yaml
-  rm -rf "${res_dir:?}"/core
+  rm -rf "${res_dir:?}"/core/generated_files
 }
 
-# Function to copy qualOutputTable.yaml from core module to resources/core folder
+# Function to copy qualOutputTable.yaml from core module to resources/core/generated_files folder
 copy_qual_output_table_yaml() {
   local res_dir="$1"
   local yaml_source="$CORE_DIR/src/main/resources/configs/qualOutputTable.yaml"
-  local core_res_dir="$res_dir/core"
+  local core_res_dir="$res_dir/core/generated_files"
   local yaml_dest="$core_res_dir/qualOutputTable.yaml"
 
   if [ -f "$yaml_source" ]; then
-    echo "Copying qualOutputTable.yaml from core module to resources/core"
-    # Create core directory if it doesn't exist
+    echo "Copying qualOutputTable.yaml from core module to resources/core/generated_files"
+    # Create core/generated_files directory if it doesn't exist
     mkdir -p "$core_res_dir"
     cp "$yaml_source" "$yaml_dest"
     if [ $? -ne 0 ]; then

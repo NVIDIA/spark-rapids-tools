@@ -45,17 +45,7 @@ class QualOutputFileReader:
                             label: str,
                             file_format: str = 'csv',
                             read_csv_kwargs: Optional[dict] = None) -> pd.DataFrame:
-        """
-        Read qualification tool output files by table label.
-
-        Args:
-            label: The table label from the YAML configuration
-            file_format: File format to read ('csv' or 'json')
-            read_csv_kwargs: Optional dictionary of arguments to pass to pandas read_csv
-
-        Returns:
-            DataFrame containing the file contents, or empty DataFrame if file not found
-        """
+        """Read qualification tool output files by table label."""
         if self.output_directory is None:
             raise ValueError('Output directory not set. Call update_output_directory() first.')
 
@@ -144,17 +134,7 @@ class QualOutputFileReader:
     def read_raw_metric_per_app_files(self,
                                       file_name: str,
                                       read_csv_kwargs: Optional[dict] = None) -> Dict[str, pd.DataFrame]:
-        """
-        Read a specific raw metric file from each application's raw_metrics directory.
-
-        Args:
-            file_name: Name of the metric file to read from each application's raw_metrics folder
-            read_csv_kwargs: Optional dictionary of arguments to pass to pandas read_csv
-
-        Returns:
-            Dictionary where keys are application IDs and values are DataFrames containing
-            the corresponding application's metrics data
-        """
+        """Read a specific raw metric file from each application's raw_metrics directory."""
         metrics = {}
         try:
             qual_core_path = FSUtil.build_path(self.output_directory, 'qual_core_output')
@@ -189,16 +169,11 @@ class QualOutputFileReader:
         return metrics
 
     def _get_cluster_info_json_to_csv_mapping(self) -> dict:
-        """
-        Get the mapping from JSON column names (after json_normalize) to CSV column names
+        """Get the mapping from JSON column names (after json_normalize) to CSV column names
         for cluster information files.
         This is a temporary mapping that will be removed once the underlying cluster inference
         code is updated to use the newer JSON column names. All expected column names
-        have been added to the mapping.
-
-        Returns:
-            Dictionary mapping JSON columns to CSV columns
-        """
+        have been added to the mapping."""
         return {
             'appId': 'App ID',
             'appName': 'App Name',

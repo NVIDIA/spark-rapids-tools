@@ -33,21 +33,11 @@ class QualCoreTableLoader:
     def __post_init__(self):
         """Initialize the loader with proper yaml_file_path and convert to Path object."""
         if self.yaml_file_path is None:
-            self.yaml_file_path = Utils.resource_path('core/qualOutputTable.yaml')
+            self.yaml_file_path = Utils.resource_path('core/generated_files/qualOutputTable.yaml')
         self.yaml_file_path = Path(self.yaml_file_path)
 
     def load_table_definitions(self) -> List[QualCoreTableDef]:
-        """
-        Load table definitions from the YAML file.
-
-        Returns:
-            List of QualCoreTableDef objects
-
-        Raises:
-            FileNotFoundError: If the YAML file is not found
-            yaml.YAMLError: If the YAML file is malformed
-            ValueError: If the YAML structure is invalid
-        """
+        """Load table definitions from the YAML file."""
         if self._table_definitions is not None:
             return self._table_definitions
 
@@ -106,15 +96,7 @@ class QualCoreTableLoader:
         )
 
     def get_table_by_label(self, label: str) -> Optional[QualCoreTableDef]:
-        """
-        Get a table definition by its label.
-
-        Args:
-            label: The label of the table to find
-
-        Returns:
-            QualCoreTableDef if found, None otherwise
-        """
+        """Get a table definition by its label."""
         tables = self.load_table_definitions()
         for table in tables:
             if table.label == label:
@@ -122,15 +104,7 @@ class QualCoreTableLoader:
         return None
 
     def get_table_by_filename(self, filename: str) -> Optional[QualCoreTableDef]:
-        """
-        Get a table definition by its filename.
-
-        Args:
-            filename: The filename of the table to find
-
-        Returns:
-            QualCoreTableDef if found, None otherwise
-        """
+        """Get a table definition by its filename."""
         tables = self.load_table_definitions()
         for table in tables:
             if table.file_name == filename:
@@ -138,15 +112,7 @@ class QualCoreTableLoader:
         return None
 
     def get_tables_by_scope(self, scope: str) -> List[QualCoreTableDef]:
-        """
-        Get all table definitions for a specific scope.
-
-        Args:
-            scope: The scope to filter by (e.g., 'global', 'per-app')
-
-        Returns:
-            List of QualCoreTableDef objects matching the scope
-        """
+        """Get all table definitions for a specific scope."""
         tables = self.load_table_definitions()
         return [table for table in tables if table.scope == scope]
 
