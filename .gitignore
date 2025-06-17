@@ -53,7 +53,7 @@ csp-resources*
 tools-resources/
 
 # generated files resources directory in user_tools
-user_tools/src/spark_rapids_pytools/resources/core/generated_files/
+core/generated_files/
 
 # precommit files
 *-E
