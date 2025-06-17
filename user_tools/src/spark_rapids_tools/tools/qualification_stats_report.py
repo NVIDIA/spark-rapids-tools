@@ -12,18 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Implementation of the Qualification Stats Report.
-
-This module provides functionality to generate detailed statistics reports from qualification
-tool output files. It processes qualification data to produce operator-level statistics,
-including duration metrics and support status for RAPIDS Accelerator.
-
-The main components include:
-- SparkQualificationStats: Core class for processing qualification data
-- CSV file reading and preprocessing capabilities
-- Statistics aggregation and report generation
-"""
+"""Implementation of the Qualification Stats Report."""
 
 
 from dataclasses import dataclass, field

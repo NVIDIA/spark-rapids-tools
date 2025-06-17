@@ -12,25 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Qualification table loader for parsing and managing table definitions.
+"""Qualification Output Related Table Loader"""
 
-The loader reads from qualOutputTable.yaml configuration files that define the structure
-of qualification tool output tables, including column names, data types, scopes (global
-or per-app), and file formats (CSV or JSON).
-
-The main components include:
-- QualCoreTableLoader: Primary class for loading and managing table definitions
-- YAML parsing and validation for table configuration files
-- Methods for querying tables by label, filename, or scope
-- Caching mechanisms for efficient repeated access to table definitions
-
-Example usage:
-    loader = QualCoreTableLoader()
-    table_def = loader.get_table_by_label('clusterInfoJSONReport')
-    global_tables = loader.get_tables_by_scope('global')
-"""
-
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -40,32 +24,17 @@ from spark_rapids_pytools.common.utilities import Utils
 from .qual_table_definitions import QualCoreTableDef, QualCoreColumnDef
 
 
+@dataclass
 class QualCoreTableLoader:
-    """
-    Loads and manages qualification table definitions from YAML configuration files.
+    """Loads and manages qualification table definitions from YAML configuration files."""
+    yaml_file_path: Optional[str] = None
+    _table_definitions: Optional[List[QualCoreTableDef]] = None
 
-    This class provides a centralized way to access table definitions for qualification
-    tool output, including column schemas, data types, and metadata. It supports caching
-    for efficient repeated access and provides various query methods.
-
-    Attributes:
-        yaml_file_path (Path): Path to the qualOutputTable.yaml configuration file
-        _table_definitions (Optional[List[QualCoreTableDef]]): Cached table definitions
-    """
-
-    def __init__(self, yaml_file_path: Optional[str] = None):
-        """
-        Initialize the loader with the YAML file path.
-
-        Args:
-            yaml_file_path: Path to the qualOutputTable.yaml file. If None,
-                          will look for it in the resources/core directory.
-        """
-        if yaml_file_path is None:
-            yaml_file_path = Utils.resource_path('core/qualOutputTable.yaml')
-
-        self.yaml_file_path = Path(yaml_file_path)
-        self._table_definitions: Optional[List[QualCoreTableDef]] = None
+    def __post_init__(self):
+        """Initialize the loader with proper yaml_file_path and convert to Path object."""
+        if self.yaml_file_path is None:
+            self.yaml_file_path = Utils.resource_path('core/qualOutputTable.yaml')
+        self.yaml_file_path = Path(self.yaml_file_path)
 
     def load_table_definitions(self) -> List[QualCoreTableDef]:
         """

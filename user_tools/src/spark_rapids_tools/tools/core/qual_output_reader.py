@@ -12,13 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-QualOutputFileReader class for reading qualification tool output files.
+"""Qualification Output Related File Reader"""
 
-This class provides a clean interface for reading qualification output files
-from the new per-app structure using QualCoreTableLoader.
-"""
-
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union, Dict
 
@@ -30,22 +26,11 @@ from spark_rapids_tools.tools.core import QualCoreTableLoader
 from spark_rapids_tools.utils.data_utils import DataUtils
 
 
+@dataclass
 class QualOutputFileReader:
-    """
-    Reader class for qualification tool output files.
-    This class handles reading from the new qualification output structure:
-    - Global files: output_dir/qual_core_output/<filename>
-    - Per-app files: output_dir/qual_core_output/qual_metrics/application_<id>/<filename>
-    """
-    def __init__(self, output_directory: Union[str, CspPathT] = None):
-        """
-        Initialize the reader with the qualification output directory.
-
-        Args:
-            output_directory: Path to the qualification tool output directory (str or CspPathT)
-        """
-        self.output_directory = output_directory
-        self.table_loader = QualCoreTableLoader()
+    """Reader for qualification tool output files with global and per-app file support."""
+    output_directory: Optional[Union[str, CspPathT]] = None
+    table_loader: QualCoreTableLoader = field(default_factory=QualCoreTableLoader)
 
     def update_output_directory(self, output_directory: Union[str, CspPathT]):
         """
