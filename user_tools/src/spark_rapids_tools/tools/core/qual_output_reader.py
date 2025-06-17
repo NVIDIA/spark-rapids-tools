@@ -207,6 +207,9 @@ class QualOutputFileReader:
         """
         Get the mapping from JSON column names (after json_normalize) to CSV column names
         for cluster information files.
+        This is a temporary mapping that will be removed once the underlying cluster inference
+        code is updated to use the newer JSON column names. All expected column names
+        have been added to the mapping.
 
         Returns:
             Dictionary mapping JSON columns to CSV columns
