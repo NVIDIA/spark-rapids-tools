@@ -463,7 +463,7 @@ class RapidsJarTool(RapidsTool):
         """
         Process the arguments passed from the CLI if any and return a list of strings representing
         the arguments to be passed to the final command running the job. This needs processing
-        because we need to verify the arguments and handle hiphens
+        because we need to verify the arguments and handle hyphens
         :return: list of the rapids arguments added by the user
         """
         arguments_list = []

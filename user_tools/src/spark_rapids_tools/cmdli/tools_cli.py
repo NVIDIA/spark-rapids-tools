@@ -211,7 +211,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                    qual_output: str = None,
                    output_folder: str = None,
                    custom_model_file: str = None,
-                   platform: str = 'onprem') -> None:
+                   platform: str = 'onprem',
+                   config: str = None) -> None:
         """The Prediction cmd takes existing qualification tool output and runs the
         estimation model in the qualification tools for GPU speedups.
 
@@ -223,6 +224,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 or remote cloud storage url.
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
                          and "databricks-azure", "emr", default to "onprem".
+        :param config: Path to a qualx-conf.yaml file to use for configuration.
         """
         # Since prediction is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -241,7 +243,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                             platform=platform,
                                                             qual_output=qual_output,
                                                             output_folder=output_folder,
-                                                            estimation_model_args=estimation_model_args)
+                                                            estimation_model_args=estimation_model_args,
+                                                            config=config)
 
         if predict_args:
             tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
@@ -255,9 +258,10 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               dataset: str = None,
               model: str = None,
               output_folder: str = None,
-              n_trials: int = 200,
+              n_trials: int = None,
               base_model: str = None,
-              features_csv_dir: str = None):
+              features_csv_dir: str = None,
+              config: str = None):
         """The Train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -269,6 +273,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param features_csv_dir: Path to a folder containing one or more features.csv files.  These files are
                                  produced during prediction, and must be manually edited to provide a label column
                                  (Duration_speedup) and value.
+        :param config: Path to YAML config file containing the required training parameters.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -281,15 +286,11 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                           output_folder=output_folder,
                                                           n_trials=n_trials,
                                                           base_model=base_model,
-                                                          features_csv_dir=features_csv_dir)
+                                                          features_csv_dir=features_csv_dir,
+                                                          config=config)
 
         tool_obj = Train(platform_type=train_args['runtimePlatform'],
-                         dataset=dataset,
-                         model=model,
                          output_folder=output_folder,
-                         n_trials=n_trials,
-                         base_model=base_model,
-                         features_csv_dir=features_csv_dir,
                          wrapper_options=train_args)
         tool_obj.launch()
 

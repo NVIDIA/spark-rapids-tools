@@ -20,6 +20,7 @@ Arguments:
 - qual_output: Path to a directory containing qualification tool output.
 - output_folder: Path to store the output.
 - custom_model_file: (OPTIONAL) Path to a custom-trained model.json file.
+- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
 
 Output files:
 - prediction.csv: per-application speedup predictions.
@@ -38,14 +39,24 @@ To train an XGBoost model on a specific dataset, follow these steps below. Refer
 Training requires the following environment variables to be set:
 ```bash
 export SPARK_HOME=/path/to/spark
-export SPARK_RAPIDS_TOOLS_JAR=/path/to/rapids-4-spark-tools-0.1.0-SNAPSHOT.jar
 export QUALX_DATA_DIR=/path/to/qualx/datasets
-export QUALX_CACHE_DIR=/path/to/qualx/cache
 ```
+
+Since training internally uses the Profiling and Qualification tools, it requires the core tools jar as a dependency.
+By default, QualX automatically locates and uses the bundled core tools jar from the package resources.
 
 Notes:
 - `QUALX_DATA_DIR` should be a valid local path containing the training data.
-- `QUALX_CACHE_DIR` stores intermediate files generated during processing (e.g., profiling output). It will be created automatically if it does not exist.  The directory can be deleted to invalidate the cache.
+
+##### Advanced Environment Setup
+
+For advanced users or specific deployment scenarios, user can override the embedded core tools jar that is pre-packaged
+with user_tools.  To do this, user can set the following environment variable:
+```bash
+export SPARK_RAPIDS_TOOLS_JAR=/path/to/custom/tools.jar
+```
+
+- For users building from source or needing custom jar builds, refer to the [user-tools README](../README.md#building-from-source) for build instructions.
 
 #### Data Collection
 
@@ -124,6 +135,7 @@ Arguments:
 - n_trials: (OPTIONAL) Number of trials for hyperparameter search, default: 200.
 - base_model: (OPTIONAL) Path to pre-trained model to serve as a base for fine-tuning/continued-training.
 - features_csv_dir: (OPTIONAL) Path to a directory containing one or more features.csv files to augment the training dataset.
+- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
 
 Continuing the example from above, we would use:
 ```bash
