@@ -526,7 +526,7 @@ class Qualification(RapidsJarTool):
         output_files_raw = self.__update_files_info_with_paths(files_info, output_folder)
         return JSONPropertiesContainer(output_files_raw, file_load=False)
 
-    def _build_prediction_output_files_info(self) -> dict:
+    def __build_prediction_output_files_info(self) -> dict:
         """
         Build the full output path for the predictions output files
         """
@@ -561,7 +561,7 @@ class Qualification(RapidsJarTool):
         # Execute the prediction model
         model_name = self.ctxt.platform.get_prediction_model_name()
         qual_output_dir = self.ctxt.get_local('outputFolder')
-        output_info = self._build_prediction_output_files_info()
+        output_info = self.__build_prediction_output_files_info()
         try:
             predictions_df = predict(platform=model_name, qual=qual_output_dir,
                                      output_info=output_info,
