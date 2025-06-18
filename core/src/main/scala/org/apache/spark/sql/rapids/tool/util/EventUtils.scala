@@ -95,6 +95,17 @@ object EventUtils extends Logging {
   )
 
   /**
+   * Maps tool names (simple class name) to the accepted line prefixes for each tool.
+   * This gets initialized once to avoid reconstructing the list for each single eventlog.
+   */
+  private lazy val acceptedLinesToolMap: Map[String, List[String]] = {
+    val toolNames = Seq(
+      "ApplicationInfo", "RunningQualificationApp", "QualificationAppInfo", "FilterAppInfo"
+    )
+    toolNames.map(toolName => toolName -> EventLogReaderConf.getAcceptedLines(toolName)).toMap
+  }
+
+  /**
    * Legacy spark versions (i.e., 2.3.x) used to have different metric names. We need to call this
    * method before consuming the metric's name to make sure that all names are consistent.
    * Failing to do so may result in listing metrics that cannot be processed by consumer modules
@@ -240,6 +251,21 @@ object EventUtils extends Logging {
             handleEventJsonParseEx(k)
         }
         None
+    }
+  }
+
+  /**
+   * Find the accepted line prefixes for a given tool name.
+   * @param toolName the simple classname of the appBase class
+   * @return a list of accepted line prefixes.
+   * @throws [[IllegalArgumentException]] if the tool name is unknown.
+   */
+  def getAcceptedLinePrefix(toolName: String): List[String] = {
+    acceptedLinesToolMap.get(toolName) match {
+      case Some(acceptedLines) => acceptedLines
+      case None =>
+        throw new IllegalArgumentException(s"Unknown tool name $toolName. " +
+          s"Accepted tool names: ${acceptedLinesToolMap.keys.mkString(", ")}")
     }
   }
 }

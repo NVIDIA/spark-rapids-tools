@@ -47,7 +47,8 @@ abstract class AppBase(
     val platform: Option[Platform] = None) extends Logging
   with ClusterTagPropHandler
   with AccumToStageRetriever
-  with Identifiable[String] {
+  with Identifiable[String]
+  with EventLongParserTrait {
 
   /**
    * The event log path is used as the unique identifier for the application.
@@ -361,7 +362,7 @@ abstract class AppBase(
           val runtimeGetFromJsonMethod = EventUtils.getEventFromJsonMethod
           reader.listEventLogFiles.foreach { file =>
             Utils.tryWithResource(openEventLogInternal(file.getPath, fs)) { in =>
-              UTF8Source.fromInputStream(in).getLines().find { line =>
+              UTF8Source.fromInputStream(in).getLines().filter(acceptLine).find { line =>
                 // Using find as foreach with conditional to exit early if we are done.
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
@@ -375,7 +376,12 @@ abstract class AppBase(
         } else {
           logError(s"Error getting reader for ${eventLogPath.getName}")
         }
-        logInfo(s"Total number of events parsed: $totalNumEvents for ${eventLogPath.toString}")
+        val totalLines = getTotalParsedLines
+        val processedLines = getProcessedLinesCount
+        val ratio = 100.0 * (totalLines - processedLines) / totalLines
+        logInfo(
+          s"Events stats of ${eventLogPath.toString} (Total/Parsed/Skipped/Process-Percentage): " +
+            f"($totalLines%d/$processedLines%d/$getSkippedLinesCount%d/$ratio%2.2f)")
       case None => logInfo("Streaming events to application")
     }
   }
