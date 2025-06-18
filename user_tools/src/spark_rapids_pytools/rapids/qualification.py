@@ -196,7 +196,7 @@ class Qualification(RapidsJarTool):
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
 
-    def _remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
+    def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
         # for backward compatibility, filter out non-existing columns
         existing_cols_subset = Utilities.get_valid_df_columns(cols_subset, all_rows)
@@ -210,7 +210,7 @@ class Qualification(RapidsJarTool):
         # Drop columns with only NA values for a cleaner final output.
         return subset_data.dropna(axis=1, how='all')
 
-    def _group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
+    def __group_apps_by_name(self, all_apps) -> (pd.DataFrame, str):
         """
         For TCO, group apps by name, cluster id, cluster name and recalculate metrics
         """
@@ -292,7 +292,7 @@ class Qualification(RapidsJarTool):
             summary_log_file.write(Utils.gen_multiline_str(log_report))
         return report_content
 
-    def _generate_cluster_shape_report(self) -> Optional[str]:
+    def __generate_cluster_shape_report(self) -> Optional[str]:
         if bool(self.ctxt.platform.ctxt['notes']):
             return Utils.gen_multiline_str(self.ctxt.platform.ctxt['notes'].get('clusterShape'))
         return None
@@ -325,7 +325,7 @@ class Qualification(RapidsJarTool):
         unsupported_ops_obj = UnsupportedOpsStageDuration(
             self.ctxt.get_value('local', 'output', 'unsupportedOperators'))
         all_apps = unsupported_ops_obj.prepare_apps_with_unsupported_stages(processed_apps, unsupported_ops_df)
-        apps_pruned_df = self._remap_columns_and_prune(all_apps)
+        apps_pruned_df = self.__remap_columns_and_prune(all_apps)
 
         # Apply additional heuristics to skip apps not suitable for GPU acceleration
         heuristics_ob = AdditionalHeuristics(
@@ -338,9 +338,9 @@ class Qualification(RapidsJarTool):
         apps_pruned_df = heuristics_ob.apply_heuristics(apps_pruned_df)
 
         # Group the applications and recalculate metrics
-        apps_grouped_df, group_notes = self._group_apps_by_name(apps_pruned_df)
+        apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
 
-        apps_with_runtime_df = self._assign_spark_runtime_to_apps(apps_grouped_df, qual_handler)
+        apps_with_runtime_df = self.__assign_spark_runtime_to_apps(apps_grouped_df, qual_handler)
 
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
         speedup_category_ob = SpeedupCategory(speedup_category_confs)
@@ -351,7 +351,7 @@ class Qualification(RapidsJarTool):
         # Fill the missing values in 'Not Recommended Reason' with N/A
         df_final_result['Not Recommended Reason'] = df_final_result['Not Recommended Reason'].fillna('N/A')
 
-        reshaped_notes = self._generate_cluster_shape_report()
+        reshaped_notes = self.__generate_cluster_shape_report()
         report_comments = [group_notes] if group_notes else []
         if reshaped_notes:
             report_comments.append(reshaped_notes)
@@ -379,7 +379,7 @@ class Qualification(RapidsJarTool):
                                     comments=report_comments)
 
     def _process_output(self) -> None:
-        output_files_info = self._build_output_files_info()
+        output_files_info = self.__build_output_files_info()
 
         def create_stdout_table_pprinter(total_apps: pd.DataFrame,
                                          tools_processed_apps: pd.DataFrame) -> TopCandidates:
@@ -517,7 +517,7 @@ class Qualification(RapidsJarTool):
         gpu_clusters_per_app = self._infer_cluster_per_app(gpu_cluster_df, ClusterType.GPU)
         self.ctxt.set_ctxt('gpuClusterInfoPerApp', gpu_clusters_per_app)
 
-    def _build_output_files_info(self) -> JSONPropertiesContainer:
+    def __build_output_files_info(self) -> JSONPropertiesContainer:
         """
         Build the full output path for the output files.
         """
@@ -637,7 +637,7 @@ class Qualification(RapidsJarTool):
         else:
             self.logger.warning('No applications to write to the metadata report.')
 
-    def _assign_spark_runtime_to_apps(self,
+    def __assign_spark_runtime_to_apps(self,
                                       tools_processed_apps: pd.DataFrame,
                                       qual_handler: QualCoreHandler) -> pd.DataFrame:
         """
