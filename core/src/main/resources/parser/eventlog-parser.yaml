@@ -1,0 +1,124 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Defines the constants and configuration to define how the eventlog is parsed by the core-tools.
+# It includes properties both globally and for individual tools.
+# In the future, we need to move hard-coded constants from the scala-code to this yaml-file.
+
+# list of event definitions
+eventsTable:
+  # List defined in JsonProtocol.SPARK_LISTENER_EVENT_FORMATTED_CLASS_NAMES
+  stageSubmitted: SparkListenerStageSubmitted
+  stageCompleted: SparkListenerStageCompleted
+  taskStart: SparkListenerTaskStart
+  taskGettingResult: SparkListenerTaskGettingResult
+  taskEnd: SparkListenerTaskEnd
+  jobStart: SparkListenerJobStart
+  jobEnd: SparkListenerJobEnd
+  environmentUpdate: SparkListenerEnvironmentUpdate
+  blockManagerAdded: SparkListenerBlockManagerAdded
+  blockManagerRemoved: SparkListenerBlockManagerRemoved
+  unpersistRDD: SparkListenerUnpersistRDD
+  applicationStart: SparkListenerApplicationStart
+  applicationEnd: SparkListenerApplicationEnd
+  executorAdded: SparkListenerExecutorAdded
+  executorRemoved: SparkListenerExecutorRemoved
+  logStart: SparkListenerLogStart
+  metricsUpdate: SparkListenerExecutorMetricsUpdate
+  stageExecutorMetrics: SparkListenerStageExecutorMetrics
+  blockUpdate: SparkListenerBlockUpdated
+  resourceProfileAdded: SparkListenerResourceProfileAdded
+  # List of SQL events
+  sqlExecutionStart: org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
+  sqlExecutionEnd: org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd
+  sqlDriverAccumUpdate: org.apache.spark.sql.execution.ui.SparkListenerDriverAccumUpdates
+  sqlAQEUpdates: org.apache.spark.sql.execution.ui.SparkListenerSQLAdaptiveExecutionUpdate
+  sqlAQEMetricUpdates: org.apache.spark.sql.execution.ui.SparkListenerSQLAdaptiveSQLMetricUpdates
+  # List of Streaming events
+  streamingQueryStart: org.apache.spark.sql.streaming.StreamingQueryListener$QueryStartedEvent
+  streamingQueryEnd: org.apache.spark.sql.streaming.StreamingQueryListener$QueryTerminatedEvent
+  # List of RAPIDS events
+  rapidsBuildInfo: com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
+# List of events that can be supported by each tool
+toolsConfig:
+  - className: FilterAppInfo
+    # filterAppInfo only processes 2 events used to extract metadata to filter eventlogs.
+    supportedEvents:
+      - applicationStart
+      - environmentUpdate
+  - className: QualificationAppInfo
+    supportedEvents:
+      - taskEnd
+      # currently we do not use the taskStart event. It is kept here for future use.
+      # - taskStart
+      # currently we do not use the taskGettingResult event. It is kept here for future use.
+      # - taskGettingResult
+      - sqlDriverAccumUpdate
+      - stageSubmitted
+      - stageCompleted
+      - sqlExecutionStart
+      - sqlExecutionEnd
+      - sqlAQEUpdates
+      - sqlAQEMetricUpdates
+      # currently we do not use the metricsUpdate event. It is kept here for future use.
+      # - metricsUpdate
+      - blockManagerAdded
+      - blockManagerRemoved
+      - jobStart
+      - jobEnd
+      - stageExecutorMetrics
+      - executorAdded
+      - executorRemoved
+      - applicationStart
+      - blockUpdate
+      - resourceProfileAdded
+      - environmentUpdate
+      - applicationEnd
+      - logStart
+      - streamingQueryStart
+      - streamingQueryEnd
+  - className: RunningQualificationApp
+    # Accepts all the events. It does not define any supportedEvents entry
+  - className: ApplicationInfo
+    supportedEvents:
+      - taskEnd
+      # currently we do not use the taskStart event. It is kept here for future use.
+      # - taskStart
+      # currently we do not use the taskGettingResult event. It is kept here for future use.
+      # - taskGettingResult
+      - sqlDriverAccumUpdate
+      - stageSubmitted
+      - stageCompleted
+      - sqlExecutionStart
+      - sqlExecutionEnd
+      - sqlAQEUpdates
+      - sqlAQEMetricUpdates
+      # currently we do not use the metricsUpdate event. It is kept here for future use.
+      # - metricsUpdate
+      - blockManagerAdded
+      - blockManagerRemoved
+      - jobStart
+      - jobEnd
+      - stageExecutorMetrics
+      - executorAdded
+      - executorRemoved
+      - applicationStart
+      - blockUpdate
+      - resourceProfileAdded
+      - environmentUpdate
+      - applicationEnd
+      - logStart
+      - streamingQueryStart
+      - streamingQueryEnd
+      - rapidsBuildInfo
