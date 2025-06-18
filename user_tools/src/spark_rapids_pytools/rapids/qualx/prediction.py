@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.qualx.qualx_tool import QualXTool
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualx.util import print_summary, print_speedup_summary
 
@@ -31,10 +32,19 @@ class Prediction(QualXTool):
     ----------
     qual_output: str
         Path to a directory containing qualification tool output.
+    qual_handler: QualCoreHandler
+        Handler for reading qualification core tool results.
     """
     qual_output: str = None
+    qual_handler: QualCoreHandler = None
 
     name = 'prediction'
+
+    def __post_init__(self):
+        """Initialize the QualCoreHandler from qual_output."""
+        super().__post_init__()
+        if self.qual_output is not None:
+            self.qual_handler = QualCoreHandler(result_path=self.qual_output)
 
     def __prepare_prediction_output_info(self) -> dict:
         """
@@ -68,7 +78,8 @@ class Prediction(QualXTool):
             df = predict(platform=self.platform_type.map_to_java_arg(),
                          qual=self.qual_output,
                          output_info=output_info,
-                         model=custom_model_file)
+                         model=custom_model_file,
+                         qual_handlers=[self.qual_handler])
             if not df.empty:
                 print_summary(df)
                 print_speedup_summary(df)

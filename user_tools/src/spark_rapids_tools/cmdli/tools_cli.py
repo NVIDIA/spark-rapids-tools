@@ -23,7 +23,7 @@ from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.qualx.prediction import Prediction
 from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualificationAsLocalV2
+from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
 from spark_rapids_pytools.rapids.qualx.train import Train
 from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 
@@ -125,10 +125,10 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          tools_config_path=tools_config_file,
                                                          submission_mode=submission_mode)
         if qual_args:
-            tool_obj = QualificationAsLocalV2(platform_type=qual_args['runtimePlatform'],
-                                              output_folder=qual_args['outputFolder'],
-                                              wrapper_options=qual_args,
-                                              rapids_options=rapids_options)
+            tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
+                                            output_folder=qual_args['outputFolder'],
+                                            wrapper_options=qual_args,
+                                            rapids_options=rapids_options)
             tool_obj.launch()
         return None
 

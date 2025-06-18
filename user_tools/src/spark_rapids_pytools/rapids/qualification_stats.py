@@ -86,7 +86,7 @@ class SparkQualStats(RapidsTool):
                                              return_directories=True)
                 if qual_output_dir:
                     self.qual_output = qual_output_dir[0]
-            result = SparkQualificationStats(ctxt=self.ctxt, qual_output=self.qual_output)
+            result = SparkQualificationStats(ctxt=self.ctxt)
             result.report_qualification_stats()
             self.logger.info('Qualification Stats tool completed successfully')
         except Exception as e:  # pylint: disable=broad-except
