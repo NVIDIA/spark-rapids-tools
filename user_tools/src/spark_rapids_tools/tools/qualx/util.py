@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
 
 
@@ -370,13 +371,14 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str) -> N
     run_commands(cmds)
 
 
-def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str) -> None:
+def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str) -> List[QualCoreHandler]:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
     platform_base = platform.split('_')[0]  # remove any platform variants when invoking qualification
     cmds = []
+    output_dirs = []
 
     eventlog_files = []
     for eventlog in eventlogs:
@@ -389,6 +391,7 @@ def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str)
             continue
         suffix = random_string(6)
         output = f'{output_dir}/qual_{ts}_{suffix}'
+        output_dirs.append(output)
         cmd = (
             # f'spark_rapids_user_tools {platform} qualification --csv
             # --per-sql --eventlogs {log} --local_folder {output}'
@@ -398,6 +401,19 @@ def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str)
         )
         cmds.append(cmd)
     run_commands(cmds)
+
+    qual_handlers = []
+    for output_path in output_dirs:
+        try:
+            handler = QualCoreHandler(result_path=output_path)
+            qual_handlers.append(handler)
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning('Failed to create QualCoreHandler for %s: %s', output_path, e)
+
+    if not qual_handlers:
+        logger.warning('No valid qualification handlers were created from eventlogs')
+
+    return qual_handlers
 
 
 def run_commands(commands: List[str], workers: int = 8) -> None:

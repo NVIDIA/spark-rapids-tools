@@ -52,6 +52,9 @@ target/
 csp-resources*
 tools-resources/
 
+# generated files resources directory in user_tools
+core/generated_files/
+
 # precommit files
 *-E
 

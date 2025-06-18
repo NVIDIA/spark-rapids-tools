@@ -232,6 +232,8 @@ class ToolContext(YAMLPropertiesContainer):
         return flag
 
     def get_rapids_output_folder(self) -> str:
+        # TODO: Remove the subfolder entry from here as it is not relevant
+        #       in the new output folder structure for Qualification
         root_dir = self.get_local('outputFolder')
         rapids_subfolder = self.get_value_silent('toolOutput', 'subFolder')
         if rapids_subfolder is None:
