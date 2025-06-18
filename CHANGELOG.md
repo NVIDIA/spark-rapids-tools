@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v25.04.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.3)
+Generated on 2025-06-18
+### User Tools
+
+- QualX to use the pre-packaged tools_jar as part of whl ([#1722](https://github.com/NVIDIA/spark-rapids-tools/pull/1722))
+- Use qual_tool_filter config to enable/disable stage-filtering in Qualx ([#1726](https://github.com/NVIDIA/spark-rapids-tools/pull/1726))
+- [FEA] Add option to enable diagnostic views generation in Profiler tools ([#1624](https://github.com/NVIDIA/spark-rapids-tools/pull/1624))
+- Qualx sample weights ([#1720](https://github.com/NVIDIA/spark-rapids-tools/pull/1720))
+
+### Core
+
+- QualX to use the pre-packaged tools_jar as part of whl ([#1722](https://github.com/NVIDIA/spark-rapids-tools/pull/1722))
+- Fix duplicate GpuKryoRegistrator entries and improve AutoTuner update comment logic ([#1723](https://github.com/NVIDIA/spark-rapids-tools/pull/1723))
+- [FEA] Add option to enable diagnostic views generation in Profiler tools ([#1624](https://github.com/NVIDIA/spark-rapids-tools/pull/1624))
+
+### Miscellaneous
+
+- Remove unused data_validation directory tree ([#1731](https://github.com/NVIDIA/spark-rapids-tools/pull/1731))
+
+
+<br/>
+
 ## Release [v25.04.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.2)
 Generated on 2025-06-05
 ### User Tools
