@@ -38,7 +38,7 @@ case class ToolsMetric(name: String, description: String, value: AtomicLong = ne
   }
 
   def dec(delta: Long): Long = {
-    value.decrementAndGet()
+    value.addAndGet(-delta)
   }
 
   def getValue: Long = {
