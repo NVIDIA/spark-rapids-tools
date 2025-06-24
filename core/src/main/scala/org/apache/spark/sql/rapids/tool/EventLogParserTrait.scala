@@ -22,7 +22,7 @@ import org.apache.spark.sql.rapids.tool.util.{EventUtils, ToolsMetric}
  * Trait defining common methods, fields and metrics to process eventlog lines.
  * Metrics counts number help us understand the overhead and the work done by the parser.
  */
-trait EventLongParserTrait {
+trait EventLogParserTrait {
   lazy private val linePrefixes =
     EventUtils.getAcceptedLinePrefix(this.getClass.getSimpleName)
   // Map between name and toolsMetrics.
@@ -42,12 +42,9 @@ trait EventLongParserTrait {
    * @return true if the line starts with one of the accepted prefixes.
    */
   def acceptLine(line: String): Boolean = {
-    val result = linePrefixes.isEmpty || linePrefixes.find(line.startsWith(_)).isDefined
+    val result = linePrefixes.isEmpty || linePrefixes.exists(line.startsWith)
     if (!result) {
-      // scalastyle:off println
-      // println(s"Line does not start with any of the accepted prefixes: $line")
       parserMetrics("skippedLines").inc()
-      // scalastyle:on println
     } else {
       parserMetrics("parsedLines").inc()
     }

@@ -48,7 +48,7 @@ abstract class AppBase(
   with ClusterTagPropHandler
   with AccumToStageRetriever
   with Identifiable[String]
-  with EventLongParserTrait {
+  with EventLogParserTrait {
 
   /**
    * The event log path is used as the unique identifier for the application.
