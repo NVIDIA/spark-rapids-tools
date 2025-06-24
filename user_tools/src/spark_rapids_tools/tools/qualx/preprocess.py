@@ -443,9 +443,9 @@ def impute(full_tbl: pd.DataFrame, expected_features: set) -> pd.DataFrame:
     return full_tbl
 
 
-def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
+def load_qtool_execs(exec_info: pd.DataFrame) -> Optional[pd.DataFrame]:
     """
-    Load supported stage info from qtool output in a form that can be merged with profiler data
+    Load supported stage info from combined exec DataFrame in a form that can be merged with profiler data
     to aggregate features and durations only over supported stages.
     """
     node_level_supp = None
@@ -453,8 +453,7 @@ def load_qtool_execs(qtool_execs: List[str]) -> Optional[pd.DataFrame]:
     def _is_ignore_no_perf(action: str) -> bool:
         return action == 'IgnoreNoPerf'
 
-    if qtool_execs:
-        exec_info = pd.concat([pd.read_csv(f) for f in qtool_execs])
+    if exec_info is not None and not exec_info.empty:
         node_level_supp = exec_info.copy()
         node_level_supp['Exec Is Supported'] = (
             node_level_supp['Exec Is Supported']

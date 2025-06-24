@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,8 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
-from spark_rapids_tools.tools.qualx.util import find_paths, RegexPattern
 
 
 @dataclass
@@ -81,12 +81,10 @@ class SparkQualStats(RapidsTool):
         """
         try:
             self.logger.info('Running Qualification Stats tool')
-            if self.qual_output is not None:
-                qual_output_dir = find_paths(self.qual_output, RegexPattern.rapids_qual.match,
-                                             return_directories=True)
-                if qual_output_dir:
-                    self.qual_output = qual_output_dir[0]
-            result = SparkQualificationStats(ctxt=self.ctxt, qual_output=self.qual_output)
+            qual_handler = QualCoreHandler(result_path=self.qual_output)
+            if not qual_handler:
+                raise ValueError('No qualification handlers available for stats report')
+            result = SparkQualificationStats(ctxt=self.ctxt, qual_handler=qual_handler)
             result.report_qualification_stats()
             self.logger.info('Qualification Stats tool completed successfully')
         except Exception as e:  # pylint: disable=broad-except

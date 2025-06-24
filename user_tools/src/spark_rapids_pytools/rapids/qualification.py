@@ -30,9 +30,9 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
-from spark_rapids_tools.storagelib import CspFs
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
@@ -301,16 +301,19 @@ class Qualification(RapidsJarTool):
                                       processed_apps: pd.DataFrame,
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_info: JSONPropertiesContainer) -> QualificationSummary:
-        # TODO: This method does a lot of critical but unrelated work. Refactor this into smaller steps/methods
-        #  to improve readability and maintainability.
+                                      output_files_info: JSONPropertiesContainer,
+                                      qual_handler: QualCoreHandler) -> QualificationSummary:
+        """
+        Build global report summary using QualCoreHandler implementation.
+        Uses qual_handler to read data instead of direct file access.
+        """
         if processed_apps.empty:
             # No need to run saving estimator or process the data frames.
             return QualificationSummary(total_apps=total_apps, tools_processed_apps=processed_apps)
 
         # Generate the statistics report
         try:
-            stats_report = SparkQualificationStats(ctxt=self.ctxt)
+            stats_report = SparkQualificationStats(ctxt=self.ctxt, qual_handler=qual_handler)
             stats_report.report_qualification_stats()
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Failed to generate the statistics report: %s', e)
@@ -337,10 +340,8 @@ class Qualification(RapidsJarTool):
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
 
-        # Assign the runtime type (Spark/Photon etc.) and speedup categories (Small/Medium/Large) to each application.
-        # Note: Based on the assigned runtime, the speedup category conditions vary.
-        # Refer qualification-conf.yaml for exact speedUp category conditions/runtime type.
-        apps_with_runtime_df = self._assign_spark_runtime_to_apps(apps_grouped_df)
+        apps_with_runtime_df = self.__assign_spark_runtime_to_apps(apps_grouped_df, qual_handler)
+
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
         speedup_category_ob = SpeedupCategory(speedup_category_confs)
         # Adds the Speedup Category Column to the DataFrame.
@@ -364,8 +365,8 @@ class Qualification(RapidsJarTool):
         # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
         recommender = ClusterConfigRecommender(self.ctxt)
         df_final_result = recommender.add_cluster_and_tuning_recommendations(df_final_result)
-        df_final_result = pd.merge(df_final_result, total_apps[['Event Log', 'AppID']],
-                                   left_on='App ID', right_on='AppID')
+        df_final_result = pd.merge(df_final_result, total_apps[['Event Log', 'App ID']],
+                                   left_on='App ID', right_on='App ID')
 
         # Write the app metadata
         app_metadata_info = output_files_info.get_value('appMetadata')
@@ -396,12 +397,19 @@ class Qualification(RapidsJarTool):
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
 
-        df = self._read_qualification_output_file('summaryReport')
+        rapids_output_folder_path = self.ctxt.get_rapids_output_folder()
+        qual_handler = QualCoreHandler(result_path=rapids_output_folder_path)
+        if qual_handler.is_empty_result():
+            self.logger.warning('No qualification core output found')
+            return
+        # 1. Read summary report using QualCoreHandler
+        df = qual_handler.get_table_by_label('qualCoreCSVSummary')
         # 1. Operations related to XGboost modelling
         if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
                 df = self.__update_apps_with_prediction_info(df,
-                                                             self.ctxt.get_ctxt('estimationModelArgs'))
+                                                             self.ctxt.get_ctxt('estimationModelArgs'),
+                                                             qual_handler)
             except Exception as e:  # pylint: disable=broad-except
                 # If an error occurs while updating the apps with prediction info (speedups and durations),
                 # raise an error and stop the execution as the tool cannot continue without this information.
@@ -412,7 +420,7 @@ class Qualification(RapidsJarTool):
 
         # 2. Operations related to cluster information
         try:
-            cluster_info_df = self._read_qualification_output_file('clusterInformation')
+            cluster_info_df = qual_handler.get_table_by_label('clusterInfoJSONReport', 'json')
             # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
@@ -423,11 +431,15 @@ class Qualification(RapidsJarTool):
                               'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to reading qualification output (unsupported operators and apps status)
-        unsupported_ops_df = self._read_qualification_output_file('unsupportedOperatorsReport')
-        apps_status_df = self._read_qualification_output_file('appsStatusReport')
+        unsupported_ops_df = qual_handler.get_table_by_label('unsupportedOpsCSVReport')
+        apps_status_df = qual_handler.get_table_by_label('qualCoreCSVStatus')
 
         # 4. Operations related to output
-        report_gen = self.__build_global_report_summary(df, apps_status_df, unsupported_ops_df, output_files_info)
+        report_gen = self.__build_global_report_summary(df,
+                                                        apps_status_df,
+                                                        unsupported_ops_df,
+                                                        output_files_info,
+                                                        qual_handler)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_output_files_info=output_files_info.props,
                                                     csp_report_provider=self._generate_platform_report_sections,
@@ -540,7 +552,8 @@ class Qualification(RapidsJarTool):
 
     def __update_apps_with_prediction_info(self,
                                            all_apps: pd.DataFrame,
-                                           estimation_model_args: dict) -> pd.DataFrame:
+                                           estimation_model_args: dict,
+                                           qual_handler: QualCoreHandler) -> pd.DataFrame:
         """
         Executes the prediction model, merges prediction data into the apps df, and applies transformations
         based on the prediction model's output and specified mappings.
@@ -552,7 +565,8 @@ class Qualification(RapidsJarTool):
         try:
             predictions_df = predict(platform=model_name, qual=qual_output_dir,
                                      output_info=output_info,
-                                     model=estimation_model_args['customModelFile'])
+                                     model=estimation_model_args['customModelFile'],
+                                     qual_handlers=[qual_handler])
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(
@@ -623,65 +637,22 @@ class Qualification(RapidsJarTool):
         else:
             self.logger.warning('No applications to write to the metadata report.')
 
-    def _read_qualification_output_file(self, report_name_key: str, file_format_key: str = 'csv') -> pd.DataFrame:
+    def __assign_spark_runtime_to_apps(self,
+                                      tools_processed_apps: pd.DataFrame,
+                                      qual_handler: QualCoreHandler) -> pd.DataFrame:
         """
-        Helper method to read a report file from the Scala qualification tool output folder
-        :param report_name_key: Key in the config file to get the report name
-        :param file_format_key: Key in the config file to get the file format, default is 'csv'
-        """
-        # extract the file name of report from the YAML config (e.g., toolOutput -> csv -> summaryReport -> fileName)
-        report_file_name = self.ctxt.get_value('toolOutput', file_format_key, report_name_key, 'fileName')
-        report_file_path = FSUtil.build_path(self.ctxt.get_rapids_output_folder(), report_file_name)
-        if not FSUtil.resource_exists(report_file_path):
-            self.logger.warning('Unable to read the report file \'%s\'. File does not exist.', report_file_path)
-            return pd.DataFrame()
-        return pd.read_csv(report_file_path)
-
-    def _read_qualification_metric_file(self, file_name: str) -> Dict[str, pd.DataFrame]:
-        """
-        Helper method to read metric files from the qualification tool's output metric folder.
-        Returns a dictionary of DataFrames, where each key is an application ID, and each
-        DataFrame contains the corresponding application's metrics data.
-        Example:
-            {
-                'appId1': pd.DataFrame(...),
-                'appId2': pd.DataFrame(...),
-            }
-       :param file_name: Name of the metric file to read from each application's folder
-       """
-        metrics = {}
-        root_metric_dir = self.ctxt.get_metrics_output_folder()
-        apps_with_missing_metrics = []
-        for metric_dir in CspFs.list_all_dirs(root_metric_dir):
-            app_id_str = metric_dir.base_name()
-            report_file_path = metric_dir.create_sub_path(file_name)
-            try:
-                metrics[app_id_str] = pd.read_csv(str(report_file_path))
-            except Exception:  # pylint: disable=broad-except
-                # Some apps may not have the given metrics file, we should ensure
-                # that the dictionary contains entries for all apps to avoid KeyErrors
-                # and maintain consistency in processing.
-                metrics[app_id_str] = pd.DataFrame()
-                apps_with_missing_metrics.append(app_id_str)
-
-        # Log apps with missing metrics files
-        if apps_with_missing_metrics:
-            self.logger.warning('Unable to read metrics file \'%s\' for apps: %s', file_name,
-                                ', '.join(apps_with_missing_metrics))
-        return metrics
-
-    def _assign_spark_runtime_to_apps(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
-        """
+        Uses QualCoreHandler to read application information files.
         Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
         applications into speedup categories (Small/Medium/Large).
         """
-        app_info_dict = self._read_qualification_metric_file('application_information.csv')
+        app_info_dict = qual_handler.get_raw_metric_per_app_dict('application_information.csv')
         # Rename columns from each DataFrame in the app_info_dict and merge them with the tools_processed_apps
         merged_dfs = []
         for df in app_info_dict.values():
-            merged_dfs.append(
-                df[['appId', 'sparkRuntime']].rename(columns={'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})
-            )
+            if not df.empty and 'appId' in df.columns and 'sparkRuntime' in df.columns:
+                merged_dfs.append(
+                    df[['appId', 'sparkRuntime']].rename(columns={'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})
+                )
         spark_runtime_df = pd.concat(merged_dfs, ignore_index=True)
         return tools_processed_apps.merge(spark_runtime_df, on='App ID', how='left')
 
