@@ -20,11 +20,16 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Data class to hold information about some statistics related to the core-tools runTime.
- * @param name name of the metric/
+ * @param name name of the metric.
  * @param description any comments to define what the metric is going to be used for.
  * @param value AtomicLong represent the initial value of the metric.
+ * @param onlyPositives flag to enforce return of 0 if the value is negative.
  */
-case class ToolsMetric(name: String, description: String, value: AtomicLong = new AtomicLong(0)) {
+case class ToolsMetric(
+    name: String,
+    description: String,
+    value: AtomicLong = new AtomicLong(0),
+    onlyPositives: Boolean = true) {
   def inc(): Long = {
     value.incrementAndGet()
   }
@@ -41,7 +46,29 @@ case class ToolsMetric(name: String, description: String, value: AtomicLong = ne
     value.addAndGet(-delta)
   }
 
+  /**
+   * Public method to retrieve the value of the counter.
+   * It checks if the onlyPositives flag is enabled to enforce return of 0 if the value is negative.
+   * @return the value of the counter if onlyPositives is enabled and the value is GTE 0.
+   *         Otherwise, it returns 0.
+   */
   def getValue: Long = {
-    value.get()
+    val actualCounter = value.get()
+    processReturnValue(actualCounter)
+  }
+
+  /**
+   * Public method to retrieve the value of the counter and reset it to newValue.
+   * It checks if the onlyPositives flag is enabled to enforce return of 0 if the value is negative.
+   * @return the value of the counter if onlyPositives is enabled and the value is GTE 0.
+   *         Otherwise, it returns 0.
+   */
+  def getValueAndReset(newValue: Option[Long] = None): Long = {
+    val actualCounter = value.getAndSet(newValue.getOrElse(0L))
+    processReturnValue(actualCounter)
+  }
+
+  private def processReturnValue(actualCounter: Long): Long = {
+    if (onlyPositives && actualCounter < 0) 0 else actualCounter
   }
 }
