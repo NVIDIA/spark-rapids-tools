@@ -45,7 +45,7 @@ class EventLogReaderConf(
     toolsConfig.asScala.find(_.className == toolName)
       .map(_.supportedEvents).getOrElse(new java.util.ArrayList[String]())
       .asScala
-      .map(eventsTable.get(_)).toList
+      .map(eventsTable.get(_)).filter(_ != null).toList
   }
 }
 

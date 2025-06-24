@@ -378,7 +378,7 @@ abstract class AppBase(
         }
         val totalLines = getTotalParsedLines
         val processedLines = getProcessedLinesCount
-        val ratio = 100.0 * (totalLines - processedLines) / totalLines
+        val ratio = 100.0 * processedLines / totalLines
         logInfo(
           s"Events stats of ${eventLogPath.toString} (Total/Parsed/Skipped/Process-Percentage): " +
             f"($totalLines%d/$processedLines%d/$getSkippedLinesCount%d/$ratio%2.2f)")

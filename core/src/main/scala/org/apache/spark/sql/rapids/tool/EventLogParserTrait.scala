@@ -38,7 +38,7 @@ trait EventLogParserTrait {
 
   /**
    * Check if the line starts with one of the accepted prefixes
-   * @param line the line extracted from the evntlog.
+   * @param line the line extracted from the eventlog.
    * @return true if the line starts with one of the accepted prefixes.
    */
   def acceptLine(line: String): Boolean = {
