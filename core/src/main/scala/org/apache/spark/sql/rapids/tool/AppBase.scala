@@ -704,9 +704,11 @@ object AppBase {
       case skippedEx: AppEventlogProcessException =>
         ("skipped", skippedEx.getMessage)
       case _: com.fasterxml.jackson.core.JsonParseException =>
-        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing JSON: ${path.eventLog.toString}")
-      case _: IllegalArgumentException =>
-        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing file: ${path.eventLog.toString}")
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing JSON: " +
+          s"${path.eventLog.toString}. ${e.getMessage}")
+      case e: IllegalArgumentException =>
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing file: " +
+          s"${path.eventLog.toString}. ${e.getMessage}")
       case ue: Exception =>
         // catch all exceptions and skip that file
         (StringUtils.UNKNOWN_EXTRACT, s"Got unexpected exception processing file:" +

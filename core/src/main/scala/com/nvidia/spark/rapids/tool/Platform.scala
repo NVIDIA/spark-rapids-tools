@@ -19,7 +19,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -62,10 +62,23 @@ case class DynamicAllocationInfo(enabled: Boolean, max: String, min: String, ini
  *                 cases where a given instance type can have multiple GPU counts
  *                 (e.g. n1-standard-16 with 1, 2, or 4 GPUs).
  */
-case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None) {
+case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None)
+  extends Ordered[NodeInstanceMapKey] {
   override def toString: String = gpuCount match {
     case Some(count) => s"NodeInstanceMapKey(instanceType='$instanceType', gpuCount=$count)"
     case None => s"NodeInstanceMapKey(instanceType='$instanceType')"
+  }
+
+  /**
+   * Defines the ordering by `instanceType` lexicographically then by `gpuCount` numerically
+   */
+  override def compare(that: NodeInstanceMapKey): Int = {
+    val instanceCmp = this.instanceType.compareTo(that.instanceType)
+    if (instanceCmp != 0) {
+      instanceCmp
+    } else {
+      gpuCount.getOrElse(0) - that.gpuCount.getOrElse(0)
+    }
   }
 }
 
@@ -216,8 +229,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
 
+  require(targetCluster.isEmpty || targetCluster.exists(_.getWorkerInfo.isEmpty) ||
+    targetCluster.exists(_.getWorkerInfo.isCspInfo == isPlatformCSP),
+    s"Target cluster worker info does not match platform expectations. " +
+      s"Ensure it is defined consistently with the platform."
+  )
+
   /**
-   * Fraction of the system’s total memory that is available for executor use.
+   * Fraction of the system's total memory that is available for executor use.
    * This value should be set based on the platform to account for memory
    * reserved by the resource managers (e.g., YARN).
    */
@@ -225,31 +244,50 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   val sparkVersionLabel: String = "Spark version"
 
-  // It's not deal to use vars here but to minimize changes and
+  /**
+  * Returns the recommended instance info based on the provided WorkerInfo for CSPs.
+  * See [[OnPremPlatform.getRecommendedInstanceInfoFromTargetWorker]] for OnPrem.
+  *
+  * Behavior:
+  * - If a specific instance type is provided and found in the platform's instance map,
+  *   returns the corresponding InstanceInfo.
+  * - If the specified instance type is not found, throws a MatchingInstanceTypeNotFoundException.
+  * - If no instance type is specified or workerInfo is absent, falls back to the platform's
+  *   default recommended instance type.
+  */
+  protected def getRecommendedInstanceInfoFromTargetWorker(
+      workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
+    workerInfoOpt.flatMap(_.getNodeInstanceMapKey) match {
+      case Some(nodeInstanceMapKey) =>
+        getInstanceMapByName.get(nodeInstanceMapKey).orElse {
+          val errorMsg =
+            s"""
+               |Could not find matching instance type in resources map.
+               |Requested: $nodeInstanceMapKey
+               |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
+               |
+               |Next Steps:
+               |Update the target cluster YAML with a valid instance type and GPU count, or skip
+               |it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
+               |""".stripMargin.trim
+          throw new MatchingInstanceTypeNotFoundException(errorMsg)
+        }
+      case None =>
+        val defaultInstanceInfo =
+          defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
+        logInfo("Instance type is not provided in the target cluster, " +
+          s"using default instance type: $defaultInstanceInfo")
+        defaultInstanceInfo
+    }
+  }
+
+  // It's not ideal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
   // in future we can refactor.
   var clusterInfoFromEventLog: Option[SourceClusterInfo] = None
   // instance information for the gpu node type we will use to run with
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = {
-    targetCluster.flatMap(_.getWorkerInfo.getNodeInstanceMapKey) match {
-      case Some(nodeInstanceMapKey) =>
-        getInstanceMapByName.get(nodeInstanceMapKey).orElse {
-          // scalastyle:off line.size.limit
-          throw new MatchingInstanceTypeNotFoundException(
-            s"""
-               |Could not find matching instance type in resources map.
-               |Requested: $nodeInstanceMapKey
-               |Supported: ${getInstanceMapByName.keys.mkString(", ")}
-               |
-               |Next Steps:
-               |Update the target cluster YAML with a valid instance type and GPU count, or skip it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
-               |""".stripMargin.trim
-          )
-          // scalastyle:on line.size.limit
-        }
-      case None =>
-        defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
-    }
+    getRecommendedInstanceInfoFromTargetWorker(targetCluster.map(_.getWorkerInfo))
   }
 
   // overall final recommended cluster configuration
@@ -809,10 +847,6 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
-  // TODO: Add support for providing target cluster properties for OnPrem
-  require(targetCluster.isEmpty,
-    "OnPrem platform does not support target cluster properties yet. " +
-      "Use `--worker-info` option instead.")
 
   override val platformName: String = PlatformNames.ONPREM
   override def defaultGpuDevice: GpuDevice = L4Gpu
@@ -828,6 +862,30 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
    * See `getMemoryPerNodeMb()` in [[com.nvidia.spark.rapids.tool.ClusterConfigurationStrategy]]
    */
   def fractionOfSystemMemoryForExecutors: Double = 1.0
+
+  /**
+   * Returns the recommended instance info based on the provided WorkerInfo for OnPrem.
+   *
+   * Behavior:
+   * - Create an InstanceInfo with the specified CPU cores, memory, and GPU.
+   * - If the workerInfo or the gpu info is absent, skips creating recommended instance type.
+   */
+  override def getRecommendedInstanceInfoFromTargetWorker(
+      workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
+    workerInfoOpt.flatMap { workerInfo =>
+      workerInfo.getGpu.device.map { gpuDevice =>
+        InstanceInfo.createDefaultInstance(
+          cores = workerInfo.cpuCores,
+          memoryMB = workerInfo.memoryGB * 1024L,
+          numGpus = workerInfo.getGpu.count,
+          gpuDevice = gpuDevice)
+      }
+    }.orElse {
+      logInfo("No worker info or gpu info provided in the target cluster. " +
+        "Skipping recommended instance info creation.")
+      None
+    }
+  }
 }
 
 object Platform {

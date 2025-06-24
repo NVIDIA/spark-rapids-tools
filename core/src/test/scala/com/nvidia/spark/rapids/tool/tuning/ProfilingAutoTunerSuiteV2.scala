@@ -18,9 +18,10 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{NodeInstanceMapKey, PlatformFactory, PlatformInstanceTypes, PlatformNames, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{GpuTypes, NodeInstanceMapKey, PlatformFactory, PlatformInstanceTypes, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 
+import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.annotation.Since
 import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
 
@@ -37,6 +38,14 @@ import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
  */
 @Since("25.04.2")
 class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
+
+  lazy val sparkSession: SparkSession = {
+    SparkSession
+      .builder()
+      .master("local[*]")
+      .appName("Rapids Spark Profiling Tool Unit Tests")
+      .getOrCreate()
+  }
 
   // Test that the properties from the custom target cluster props will be enforced.
   test("AutoTuner enforces properties from custom target cluster props") {
@@ -463,5 +472,322 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // This test uses target cluster properties with user-enforced Spark properties.
+  // The platform is mocked as Kubernetes on OnPrem
+  // to enable memory overhead calculation.
+  // AutoTuner is expected to:
+  // - Include the enforced Spark properties in the final configuration.
+  test("Target cluster properties for OnPrem with enforced spark properties") {
+    // 1. Mock source cluster info for OnPrem
+    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("50g"))
+    val sourceClusterInfoOpt =
+      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    // 2. Mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"
+      )
+    // 3. Define enforced properties for the target cluster
+    val enforcedSparkProperties = Map(
+      "spark.sql.shuffle.partitions" -> "101",
+      "spark.sql.files.maxPartitionBytes" -> "101m",
+      "spark.task.resource.gpu.amount" -> "0.25"
+    )
+    // sparkProperties:
+    //   enforced:
+    //    spark.sql.shuffle.partitions: 101
+    //    spark.sql.files.maxPartitionBytes: 101m
+    //    spark.task.resource.gpu.amount: 0.25
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = enforcedSparkProperties
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+      sourceClusterInfoOpt, Some(targetClusterInfo))
+    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+      sparkMaster = Some(Kubernetes))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.memory=16g
+          |--conf spark.executor.memoryOverhead=9g
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=3789m
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=101m
+          |--conf spark.sql.shuffle.partitions=101
+          |--conf spark.task.resource.gpu.amount=0.25
+          |
+          |Comments:
+          |- 'spark.executor.memory' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.files.maxPartitionBytes")}
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // This test uses target cluster properties with a worker node having 16 cores, 64g memory,
+  // 1 L4 GPU, and user-enforced Spark properties. The platform is mocked as Kubernetes on OnPrem
+  // to enable memory overhead calculation.
+  // AutoTuner is expected to:
+  // - Recommend 32g executor memory,
+  // - Calculate overhead using the max pinned pool size (4g),
+  // - Include the enforced Spark properties in the final configuration.
+  test("Target cluster properties for OnPrem with workerInfo and enforced spark properties") {
+    // 1. Mock source cluster info for OnPrem
+    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
+    val sourceClusterInfoOpt =
+      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    // 2. Mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "2",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"
+      )
+    // 3. Define enforced properties for the target cluster
+    val enforcedSparkProperties = Map(
+      "spark.sql.shuffle.partitions" -> "400",
+      "spark.sql.files.maxPartitionBytes" -> "101m",
+      "spark.task.resource.gpu.amount" -> "0.25",
+      "spark.rapids.sql.concurrentGpuTasks" -> "1"  // For L4, default recommendation would be 3
+    )
+    // workerInfo:
+    //   cpuCores: 16
+    //   memoryGB: 64
+    //   gpu:
+    //     count: 1
+    //     name: l4
+    // sparkProperties:
+    //   enforced:
+    //    spark.sql.shuffle.partitions: 400
+    //    spark.sql.files.maxPartitionBytes: 101m
+    //    spark.task.resource.gpu.amount: 0.25
+    //    spark.rapids.sql.concurrentGpuTasks: 2
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16), memoryGB = Some(64),
+      gpuCount = Some(1), gpuDevice = Some(GpuTypes.L4),
+      enforcedSparkProperties = enforcedSparkProperties
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+      sourceClusterInfoOpt, Some(targetClusterInfo))
+    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+      sparkMaster = Some(Kubernetes))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=11468m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=1
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=101m
+          |--conf spark.sql.shuffle.partitions=400
+          |--conf spark.task.resource.gpu.amount=0.25
+          |
+          |Comments:
+          |- 'spark.executor.memory' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.rapids.sql.concurrentGpuTasks")}
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.files.maxPartitionBytes")}
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // This test uses custom target cluster properties with 40g worker memory and 2 GPUs.
+  // Now, each executor can use up to 20g (including memory and overhead).
+  // The user enforces spark.executor.memory to 18g. This leaves insufficient room for overhead.
+  // AutoTuner is expected to warn about the insufficient executor memory configuration.
+  test("Target cluster properties for OnPrem with total executor memory " +
+    "exceeding available worker memory") {
+    // 1. Mock source cluster info for OnPrem
+    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
+    val sourceClusterInfoOpt =
+      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    // 2. Mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"
+      )
+    // 3. Define enforced properties for the target cluster
+    val enforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "18g",   // Requesting more memory than available in the node
+      "spark.sql.shuffle.partitions" -> "400"
+    )
+    // workerInfo:
+    //   cpuCores: 16
+    //   memoryGB: 40
+    //   gpu:
+    //     count: 2
+    //     name: l4
+    // sparkProperties:
+    //   enforced:
+    //    spark.executor.cores: 8
+    //    spark.executor.memory: 18g
+    //    spark.sql.shuffle.partitions: 400
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16), memoryGB = Some(40),
+      gpuCount = Some(2), gpuDevice = Some(GpuTypes.L4),
+      enforcedSparkProperties = enforcedSparkProperties
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+      sourceClusterInfoOpt, Some(targetClusterInfo))
+    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+      sparkMaster = Some(Kubernetes))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=8
+          |--conf spark.executor.memory=[FILL_IN_VALUE]
+          |--conf spark.executor.memoryOverhead=[FILL_IN_VALUE]
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.sql.shuffle.partitions=400
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.memory")}
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}
+          |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memoryOverhead")}
+          |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+          |- ${ProfilingAutoTunerConfigsProvider.notEnoughMemComment(24371)}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // This test verifies that an error is thrown when the target cluster YAML file
+  // contains both instance type (for CSP) and resource properties (for OnPrem).
+  test("Should fail when target cluster contains both CSP instanceType and OnPrem resources") {
+    TrampolineUtil.withTempDir { tempDir =>
+      // workerInfo:
+      //   instanceType: g2-standard-8
+      //   cpuCores: 16
+      //   memoryGB: 64
+      //   gpu:
+      //     count: 1
+      //     name: l4
+      intercept[IllegalArgumentException] {
+        ToolTestUtils.createTargetClusterInfoFile(
+          tempDir.getAbsolutePath,
+          instanceType = Some("g2-standard-8"),
+          cpuCores = Some(16), memoryGB = Some(64),
+          gpuCount = Some(1), gpuDevice = Some(GpuTypes.L4))
+      }
+    }
+  }
+
+  // This test verifies that an error is thrown when the target cluster YAML file
+  // contains resource properties (for OnPrem) except GPU.
+  test("Should fail when target cluster contains OnPrem resources except GPU") {
+    TrampolineUtil.withTempDir { tempDir =>
+      // workerInfo:
+      //   cpuCores: 16
+      //   memoryGB: 64
+      intercept[IllegalArgumentException] {
+        ToolTestUtils.createTargetClusterInfoFile(
+          tempDir.getAbsolutePath,
+          cpuCores = Some(16), memoryGB = Some(64))
+      }
+    }
   }
 }
