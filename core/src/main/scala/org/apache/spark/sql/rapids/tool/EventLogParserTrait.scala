@@ -52,7 +52,7 @@ trait EventLogParserTrait {
   }
 
   // Define getters for metrics used to gather statistics
-  def getTotalParsedLines: Long = parserMetrics.values.map(_.getValue).sum
+  def getTotalLines: Long = parserMetrics.values.map(_.getValue).sum
   def getProcessedLinesCount: Long = parserMetrics("parsedLines").getValue
   def getSkippedLinesCount: Long = parserMetrics("skippedLines").getValue
 }

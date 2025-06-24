@@ -257,9 +257,10 @@ object EventUtils extends Logging {
   /**
    * Find the accepted line prefixes for a given tool name.
    * @param toolName the simple classname of the appBase class
-   * @return a list of accepted line prefixes.
-   * @throws [[IllegalArgumentException]] if the tool name is unknown.
+   * @return a list of accepted line prefixes. Throws illegalArgumentException if the tool name is
+   *         unknown.
    */
+  @throws[IllegalArgumentException]
   def getAcceptedLinePrefix(toolName: String): List[String] = {
     acceptedLinesToolMap.get(toolName) match {
       case Some(acceptedLines) => acceptedLines

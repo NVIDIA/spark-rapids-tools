@@ -376,12 +376,12 @@ abstract class AppBase(
         } else {
           logError(s"Error getting reader for ${eventLogPath.getName}")
         }
-        val totalLines = getTotalParsedLines
+        val totalLines = getTotalLines
         val processedLines = getProcessedLinesCount
         val ratio = 100.0 * processedLines / totalLines
         logInfo(
           s"Events stats of ${eventLogPath.toString} (Total/Parsed/Skipped/Process-Percentage): " +
-            f"($totalLines%d/$processedLines%d/$getSkippedLinesCount%d/$ratio%2.2f)")
+            f"($totalLines%d/$processedLines%d/${getSkippedLinesCount}%d/$ratio%2.2f)")
       case None => logInfo("Streaming events to application")
     }
   }
