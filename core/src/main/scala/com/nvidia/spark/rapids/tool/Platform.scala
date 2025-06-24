@@ -275,8 +275,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       case None =>
         val defaultInstanceInfo =
           defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
-        logInfo("Instance type is not provided in the target cluster, " +
-          s"using default instance type: $defaultInstanceInfo")
+        logInfo("Instance type is not provided in the target cluster. " +
+          "Using default instance type: $defaultInstanceInfo")
         defaultInstanceInfo
     }
   }
@@ -881,7 +881,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
           gpuDevice = gpuDevice)
       }
     }.orElse {
-      logInfo("No worker info or gpu info provided in the target cluster. " +
+      logInfo("Worker info or Gpu info is not provided in the target cluster. " +
         "Skipping recommended instance info creation.")
       None
     }
