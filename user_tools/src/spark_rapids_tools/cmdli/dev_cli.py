@@ -69,7 +69,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         :param output_folder: Path to store the output.
         :param qual_output: path to the directory, which contains the qualification tool output.
                             E.g. user should specify the parent directory $WORK_DIR where
-                            $WORK_DIR/rapids_4_spark_qualification_output exists.
+                            $WORK_DIR/qual_core_output exists.
         """
         ToolLogging.enable_debug_mode()
         init_environment('stats')

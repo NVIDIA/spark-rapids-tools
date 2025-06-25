@@ -74,6 +74,8 @@ class SparkQualStats(RapidsTool):
         FSUtil.make_dirs(self.output_folder, exist_ok=False)
         self.ctxt.set_local('outputFolder', self.output_folder)
         self.logger.info('Local output folder is set as: %s', self.output_folder)
+        # Add QualCoreHandler to the context
+        self.ctxt.set_ctxt('qualHandler', QualCoreHandler(result_path=self.qual_output))
 
     def _run_rapids_tool(self) -> None:
         """
@@ -81,10 +83,7 @@ class SparkQualStats(RapidsTool):
         """
         try:
             self.logger.info('Running Qualification Stats tool')
-            qual_handler = QualCoreHandler(result_path=self.qual_output)
-            if not qual_handler:
-                raise ValueError('No qualification handlers available for stats report')
-            result = SparkQualificationStats(ctxt=self.ctxt, qual_handler=qual_handler)
+            result = SparkQualificationStats(ctxt=self.ctxt)
             result.report_qualification_stats()
             self.logger.info('Qualification Stats tool completed successfully')
         except Exception as e:  # pylint: disable=broad-except

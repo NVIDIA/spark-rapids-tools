@@ -151,7 +151,7 @@ local:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
       configRecommendations:
-        name: 'rapids_4_spark_qualification_output/tuning'
+        name: 'qual_core_output/tuning'
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -168,7 +168,7 @@ local:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
       appsStatusReport:
-        name: 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output_status.csv'
+        name: 'qual_core_output/status.csv'
         outputComment: "Application status report"
     costColumns:
       - 'Savings Based Recommendation'
