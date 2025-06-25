@@ -35,11 +35,15 @@ class EventLogReaderConf(
     // while the majority are using the fully qualified class names.
     @BeanProperty var eventsTable: util.LinkedHashMap[String, String],
     // A list of tools configuration and their supported events
-    @BeanProperty var toolsConfig: util.List[EventToolsConf]) {
+    @BeanProperty var toolsConfig: util.List[EventToolsConf]) extends ValidatableProperties {
   def this() = this(
     new util.LinkedHashMap[String, String](),
     new java.util.ArrayList[EventToolsConf]()
   )
+
+  override def validate(): Unit = {
+    // TODO: Add any validation logic if needed
+  }
 
   def getSupportedEvents(toolName: String): List[String] = {
     toolsConfig.asScala.find(_.className == toolName)
