@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -67,7 +67,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
-  private def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
+   def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
     accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
   }

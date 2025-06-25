@@ -451,7 +451,9 @@ object SQLPlanParser extends Logging {
       sqlDesc: String,
       checker: PluginTypeChecker,
       app: AppBase): PlanInfo = {
-    val toolsGraph = ToolsPlanGraph.createGraphWithStageClusters(planInfo, app)
+    // Use the tools graph cached in the SQLPlan model.
+    val toolsGraph = app.sqlManager.applyToPlanModel(sqlID)(_.getToolsPlanGraph)
+      .getOrElse(ToolsPlanGraph.createGraphWithStageClusters(planInfo, app))
 
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(toolsGraph.sparkGraph)
