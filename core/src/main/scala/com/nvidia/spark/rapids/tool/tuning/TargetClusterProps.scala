@@ -38,9 +38,8 @@ class WorkerInfo (
 
   /** Returns true if all resource fields are unset or empty. */
   def isEmpty: Boolean = {
-    (instanceType == null || instanceType.isEmpty) ||
-    (cpuCores == 0 || memoryGB == 0L) ||
-    gpu.isEmpty
+    (instanceType == null || instanceType.isEmpty) &&
+      (cpuCores == 0 && memoryGB == 0L) && gpu.isEmpty
   }
 
   /** Returns true if this represents a CSP Info (instance type is set). */
@@ -115,6 +114,7 @@ class TargetClusterProps (
 
   def this() = this(new WorkerInfo(), new SparkProperties())
 
+  // Validating only the worker info for now.
   override def validate(): Unit = {
     workerInfo.validate()
   }
