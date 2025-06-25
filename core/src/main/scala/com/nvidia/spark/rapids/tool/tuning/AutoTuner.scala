@@ -41,12 +41,26 @@ import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, Val
 class GpuWorkerProps(
     @BeanProperty var memory: String,
     @BeanProperty var count: Int,
-    @BeanProperty var name: String) extends ValidatableProperties {
+    private var name: String) extends ValidatableProperties {
 
   var device: Option[GpuDevice] = None
 
   def this() = {
     this("0m", 0, "")
+  }
+
+  /**
+   * Define custom getter for GPU name.
+   */
+  def getName: String = name
+
+  /**
+   * Define custom setter for GPU name to ensure it is always in lower case.
+   *
+   * @see [[com.nvidia.spark.rapids.tool.GpuTypes]]
+   */
+  def setName(newName: String): Unit = {
+    this.name = newName.toLowerCase
   }
 
   override def validate(): Unit = {

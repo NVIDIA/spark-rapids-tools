@@ -246,7 +246,7 @@ class ClusterPropertyBasedStrategy(
   }
 
   def getSourceGpuDevice: Option[GpuDevice] = {
-    GpuDevice.createInstance(clusterProperties.getGpu.name)
+    GpuDevice.createInstance(clusterProperties.getGpu.getName)
   }
 
   final def getSourceNumGpus: Option[Int] = {
