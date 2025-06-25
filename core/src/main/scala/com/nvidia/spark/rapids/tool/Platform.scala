@@ -276,7 +276,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
         val defaultInstanceInfo =
           defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
         logInfo("Instance type is not provided in the target cluster. " +
-          "Using default instance type: $defaultInstanceInfo")
+          s"Using default instance type: $defaultInstanceInfo")
         defaultInstanceInfo
     }
   }
