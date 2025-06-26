@@ -31,7 +31,7 @@ import org.yaml.snakeyaml.constructor.ConstructorException
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, ValidatableProperties, WebCrawlerUtil}
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -41,10 +41,38 @@ import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, Web
 class GpuWorkerProps(
     @BeanProperty var memory: String,
     @BeanProperty var count: Int,
-    @BeanProperty var name: String) {
+    private var name: String) extends ValidatableProperties {
+
+  var device: Option[GpuDevice] = None
+
   def this() = {
-    this("0m", 0, "None")
+    this("0m", 0, "")
   }
+
+  /**
+   * Define custom getter for GPU name.
+   */
+  def getName: String = name
+
+  /**
+   * Define custom setter for GPU name to ensure it is always in lower case.
+   *
+   * @see [[com.nvidia.spark.rapids.tool.GpuTypes]]
+   */
+  def setName(newName: String): Unit = {
+    this.name = newName.toLowerCase
+  }
+
+  override def validate(): Unit = {
+    if (getName != null && getName.nonEmpty) {
+      device = GpuDevice.createInstance(getName).orElse {
+        val supportedGpus = GpuDevice.deviceMap.keys.mkString(", ")
+        throw new IllegalArgumentException(
+          s"Unsupported GPU type provided: $getName. Supported GPU types: $supportedGpus")
+      }
+    }
+  }
+
   def isMissingInfo: Boolean = {
     memory == null || memory.isEmpty || name == null || name.isEmpty ||
        count == 0 || memory.startsWith("0") || name == "None"
@@ -178,11 +206,17 @@ class SystemClusterProps(
 class ClusterProperties(
     @BeanProperty var system: SystemClusterProps,
     @BeanProperty var gpu: GpuWorkerProps,
-    @BeanProperty var softwareProperties: util.LinkedHashMap[String, String]) {
+    @BeanProperty var softwareProperties: util.LinkedHashMap[String, String])
+  extends ValidatableProperties {
 
   def this() = {
     this(new SystemClusterProps(), new GpuWorkerProps(), new util.LinkedHashMap[String, String]())
   }
+
+  override def validate(): Unit = {
+    gpu.validate()
+  }
+
   def isEmpty: Boolean = {
     system.isEmpty && gpu.isEmpty
   }
