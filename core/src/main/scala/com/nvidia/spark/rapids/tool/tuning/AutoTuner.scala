@@ -64,11 +64,11 @@ class GpuWorkerProps(
   }
 
   override def validate(): Unit = {
-    if (name != null && name.nonEmpty) {
+    if (getName != null && getName.nonEmpty) {
       device = GpuDevice.createInstance(getName).orElse {
         val supportedGpus = GpuDevice.deviceMap.keys.mkString(", ")
         throw new IllegalArgumentException(
-          s"Unsupported GPU type provided: ${getName}. Supported GPU types: $supportedGpus")
+          s"Unsupported GPU type provided: $getName. Supported GPU types: $supportedGpus")
       }
     }
   }

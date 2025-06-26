@@ -152,6 +152,7 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
  *
  * TODO:
  * Migrate all tests in this suite to use the new target cluster properties format.
+ * https://github.com/NVIDIA/spark-rapids-tools/issues/1748
  */
 class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
@@ -3553,4 +3554,14 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  // IMPORTANT NOTE:
+  // 1. This test suite is deprecated as it uses the legacy worker info properties format,
+  //    which is overloaded to be used for both source and target cluster properties.
+  // 2. All new Profiling AutoTuner test cases should be added to ProfilingAutoTunerSuiteV2
+  //    instead of this suite.
+  //
+  // TODO:
+  // Migrate all tests in this suite to use the new target cluster properties format.
+  // https://github.com/NVIDIA/spark-rapids-tools/issues/1748
 }
