@@ -113,7 +113,7 @@ def _setup_env(context) -> None:
     script = os.path.join(os.environ['E2E_TEST_SCRIPTS_DIR'], script_file_name)
     try:
         warning_msg = "Setting up the virtual environment for the tests. This may take a while."
-        if os.environ.get('BUILD_JAR') == 'true':
+        if os.environ.get('E2E_TEST_BUILD_JAR') == 'true':
             warning_msg = f'Building JAR and {warning_msg}'
         logger.warning(warning_msg)
         result = E2ETestUtils.run_sys_cmd([script])
