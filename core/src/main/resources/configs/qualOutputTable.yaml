@@ -15,80 +15,80 @@
 qualTableDefinitions:
   - label: qualCoreCSVStatus
     description: >-
-      TBA
+      Status of each event log passed to the qualification tool
     fileName: status.csv
     scope: global
     columns:
       - name: Event Log
         dataType: String
         description: >-
-          TBA
+          Event Log Path(local/remote)
       - name: Status
         dataType: String
         description: >-
-          TBA
+          Status whether the event log processed successfully or not
       - name: App ID
         dataType: String
         description: >-
-          TBA
+          ID of the app associated with the event log
       - name: Description
         dataType: String
         description: >-
-          TBA
+          Total processing time of the event log
   - label: qualCoreCSVSummary
     description: >-
-      TBA
+      Summary of each event log processed by the qualification tool
     fileName: apps_summary.csv
     scope: global
     columns:
       - name: App Name
         dataType: String
         description: >-
-          TBA
+          Name of application associated with the event log
       - name: App ID
         dataType: String
         description: >-
-          TBA
+          ID of the app associated with the event log
       - name: Attempt ID
         dataType: String
         description: >-
-          TBA
+          Attempt ID of the app associated with the event log
       - name: App Duration
         dataType: String
         description: >-
-          TBA
+          Total runtime of the app
       - name: Executor CPU Time Percent
         dataType: float
         description: >-
-          TBA
+          Total CPU time consumed by executors in percentage
       - name: SQL Ids with Failures
         dataType: String
         description: >-
-          TBA
+          SQL Ids with failures
       - name: Unsupported Read File Formats and Types
         dataType: String
         description: >-
-          TBA
+          Formats and types of files that are not supported for reading
       - name: Unsupported Write Data Format
         dataType: String
         description: >-
-          TBA
+          Format of the data that is not supported for writing
       - name: Complex Types
         dataType: String
         description: >-
-          TBA
+          Types of data types that are not supported for writing
       - name: Nested Complex Types
         dataType: String
         description: >-
-          TBA
+          Types of data types that are not supported for writing
       - name: Potential Problems
         dataType: String
         description: >-
-          TBA
+          Potential problems with the app
       - name: Longest SQL Duration
         dataType: Long
         description: >-
-          TBA
+          The longest SQL duration in the app
       - name: SQL Stage Durations Sum
         dataType: Long
         description: >-
@@ -97,173 +97,174 @@ qualTableDefinitions:
       - name: App Duration Estimated
         dataType: Boolean
         description: >-
-          TBA
+          Whether the app duration is estimated or not(true/false)
       - name: Total Core Seconds
         dataType: Long
         description: >-
-          TBA
+          The total core seconds of the app
   # the following table seems to be useless
   - label: perSqlCSVReport
-    description:
+    description: >-
+      Report containing the details of each SQL in the app
     fileName: persql.csv
     scope: per-app
     columns:
       - name: Root SQL ID
         dataType: Long
         description: >-
-          TBA
+          The root SQL ID for each triggered SQL
       - name: SQL ID
         dataType: Long
         description: >-
-          TBA
+          The SQL ID for each triggered SQL(root SQL ID is the parent SQL ID)
       - name: SQL Description
         dataType: String
         description: >-
-          TBA
+          The description of the SQL
       - name: SQL DF Duration
         dataType: Long
         description: >-
-          TBA
+          The duration of the SQL
       - name: GPU Opportunity
         dataType: Long
         description: >-
-          TBA
+          The expected duration of the SQL on GPU
   - label: execCSVReport
     description: >-
-        TBA
+        Report containing the details of each executor in the SQL
     fileName: execs.csv
     scope: per-app
     columns:
       - name: SQL ID
         dataType: Long
         description: >-
-          TBA
+          The associated SQL ID for the executor
       - name: Exec Name
         dataType: String
         description: >-
-          TBA
+          The name of the executor
       - name: Expression Name
         dataType: String
         description: >-
-          TBA
+          The name of the expression in the executor
       - name: Exec Duration
         dataType: Long
         description: >-
-          TBA
+          The duration of the executor
       - name: SQL Node Id
         dataType: Long
         description: >-
-          TBA
+          The Node ID of the associated SQL with the exec
       - name: Exec Is Supported
         dataType: Boolean
         description: >-
-          TBA
+          Whether the executor is supported or not(true/false)
       - name: Exec Stages
         dataType: String
         description: >-
-          TBA
+          The stages of the executor
       - name: Exec Children
         dataType: String
         description: >-
-          TBA
+          The children of the executor
       - name: Exec Children Node Ids
         dataType: String
         description: >-
-          TBA
+          The Node IDs of the children of the executor
       - name: Exec Should Remove
         dataType: Boolean
         description: >-
-          TBA
+          Whether the executor should be removed or not(true/false)
       - name: Exec Should Ignore
         dataType: Boolean
         description: >-
-          TBA
+          Whether the executor should be ignored or not(true/false)
       - name: Action
         dataType: String
         description: >-
-          TBA
+          The action to be taken for the executor
   - label: unsupportedOpsCSVReport
     description: >-
-      TBA
+      Report containing the details of each unsupported operator in the SQL
     fileName: unsupported_operators.csv
     scope: per-app
     columns:
       - name: SQL ID
         dataType: Long
         description: >-
-          TBA
+          The associated SQL ID for the unsupported operator
       - name: Stage ID
         dataType: Long
         description: >-
-          TBA
+          The associated stage ID for the unsupported operator
       - name: ExecId
         dataType: Long
         description: >-
-          TBA
+          The associated executor ID for the unsupported operator
       - name: Unsupported Type
         dataType: String
         description: >-
-          TBA
+          The type of the unsupported operator
       - name: Unsupported Operator
         dataType: String
         description: >-
-          TBA
+          The details of the unsupported operator
       - name: Details
         dataType: String
         description: >-
-          TBA
+          The details of the unsupported operator
       - name: Stage Duration
         dataType: Long
         description: >-
-          STAGE_WALLCLOCK_DUR_STR
+          The duration of the stage
       - name: App Duration
         dataType: Long
         description: >-
-          TBA
+          The duration of the app
       - name: Action
         dataType: String
         description: >-
-          TBA
+          The action to be taken for the unsupported operator
   - label: operatorsStatsCSVReport
     description: >-
-      TBA
+      Report containing the details of each operator in the SQL
     fileName: operators_stats.csv
     scope: per-app
     columns:
       - name: SQL ID
         dataType: Long
         description: >-
-          TBA
+          The associated SQL ID for the operator
       - name: Operator Type
         dataType: String
         description: >-
-          TBA
+          The type of the operator
       - name: Operator Name
         dataType: String
         description: >-
-          TBA
+          The name of the operator
       - name: Count
         dataType: Long
         description: >-
-          TBA
+          The total count of the operator
       - name: Supported
         dataType: Boolean
         description: >-
-          TBA
+          Whether the operator is supported or not(true/false)
       - name: Stages
         dataType: String
         description: >-
-          TBA
+          Colon separated list of the stages of the operator
   - label: stagesCSVReport
     description: >-
-      TBA
+      Report containing the details of each stage in the SQL
     fileName: stages.csv
     scope: per-app
     columns:
       - name: Stage ID
         dataType: Long
         description: >-
-          TBA
+          The associated stage ID for the stage
       - name: Stage Task Duration
         dataType: Long
         description: >-
@@ -271,14 +272,14 @@ qualTableDefinitions:
       - name: Unsupported Task Duration
         dataType: Long
         description: >-
-          TBA
+          Part of the stage task duration that is not supported
       - name: Stage Estimated
         dataType: Boolean
         description: >-
-          TBA
+          Whether the stage runtime is estimated or not(true/false)
   - label: clusterInfoJSONReport
     description: >-
-      TBA
+      Report containing the details of the cluster
     fileName: cluster_information.json
     fileFormat: JSON
     scope: per-app
@@ -286,71 +287,73 @@ qualTableDefinitions:
       - name: appName
         dataType: String
         description: >-
-          TBA
+          The name of the app for the associated event log
       - name: appId
         dataType: String
         description: >-
-          TBA
+          The ID of the app for the associated event log
       - name: eventLogPath
         dataType: String
         description: >-
-          TBA
+          The path of the event log for the associated app
       - name: sourceClusterInfo
         dataType: Dict
         description: >-
-          TBA
+          The source cluster information for the associated app(dictionary containing the cluster information)
       - name: recommendedClusterInfo
         dataType: Dict
         description: >-
-          TBA
+          The recommended cluster information for the associated app(dictionary containing the cluster information)
   # the following table is databricks specific table
   - label: clusterTagsCSVReport
     description: >-
-      TBA
+      Report containing the details of the cluster tags
     fileName: clusters_tags.csv
     scope: per-app
     columns:
       - name: Property Name
         dataType: String
         description: >-
-          TBA
+          The name of the property
       - name: Property Value
         dataType: String
         description: >-
-          TBA
+          The value of the property
   # the following table is enabled only when ml-functions argument is added to the arguments.
   - label: mlFunctionsCSVReport
-    description:
+    description: >-
+      Report containing the details of the ML functions
     fileName: ml_functions.csv
     scope: per-app
     columns:
       - name: Stage ID
         dataType: Long
         description: >-
-          TBA
+          The stage IDs of the ML functions
       - name: ML Functions
         dataType: String
         description: >-
-          TBA
+          The ML functions in the stage
       - name: Stage WallClock Duration (ms)
         dataType: Long
         description: >-
           Calculated as (submissionTime - completionTime) of the given stage
   # the following table is enabled only when ml-functions argument is added to the arguments.
   - label: mlFunctionsDurationsCSVReport
-    description:
+    description: >-
+      Report containing the details of the ML functions durations
     fileName: ml_functions_durations.csv
     scope: per-app
     columns:
       - name: Stage Ids
         dataType: String
         description: >-
-          TBA
+          The stage IDs of the ML functions
       - name: ML Function Name
         dataType: String
         description: >-
-          TBA
+          The ML functions name in the stage
       - name: Total Duration
         dataType: Long
         description: >-
-          TBA
+          The total duration of the ML functions

@@ -23,7 +23,6 @@ import pandas as pd
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 
 
 @dataclass
@@ -59,7 +58,6 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
     execs_df: pd.DataFrame = field(default=None, init=False)
     output_columns: dict = field(default=None, init=False)
     ctxt: ToolContext = field(default=None, init=True)
-    qual_handler: QualCoreHandler = field(default=None, init=True)
 
     def __post_init__(self) -> None:
         self.logger = ToolLogging.get_and_setup_logger('rapids.tools.qualification.stats')
@@ -68,16 +66,20 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
     def _read_csv_files(self) -> None:
         self.logger.info('Reading CSV files...')
 
+        qual_handler = self.ctxt.get_ctxt('qualHandler')
+        if qual_handler is None:
+            raise ValueError('QualCoreHandler not found in context')
+
         self.logger.info('Using QualCoreHandler to read data...')
 
-        self.unsupported_operators_df = self.qual_handler.get_table_by_label('unsupportedOpsCSVReport')
+        self.unsupported_operators_df = qual_handler.get_table_by_label('unsupportedOpsCSVReport')
         if not self.unsupported_operators_df.empty:
             self.unsupported_operators_df = (self.unsupported_operators_df
                                              .astype({'Unsupported Operator': str}))
             self.unsupported_operators_df = (self.unsupported_operators_df
                                              .dropna(subset=['Unsupported Operator']))
 
-        self.stages_df = self.qual_handler.get_table_by_label('stagesCSVReport')
+        self.stages_df = qual_handler.get_table_by_label('stagesCSVReport')
 
         execs_dtype = {
             'Exec Name': str,
@@ -85,8 +87,8 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
             'Exec Children': str,
             'Exec Children Node Ids': str
         }
-        self.execs_df = self.qual_handler.get_table_by_label('execCSVReport',
-                                                             read_csv_kwargs={'dtype': execs_dtype})
+        self.execs_df = qual_handler.get_table_by_label('execCSVReport',
+                                                        read_csv_kwargs={'dtype': execs_dtype})
         if not self.execs_df.empty:
             self.execs_df = self.execs_df.dropna(subset=['Exec Stages', 'Exec Name'])
 

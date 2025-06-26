@@ -301,8 +301,7 @@ class Qualification(RapidsJarTool):
                                       processed_apps: pd.DataFrame,
                                       total_apps: pd.DataFrame,
                                       unsupported_ops_df: pd.DataFrame,
-                                      output_files_info: JSONPropertiesContainer,
-                                      qual_handler: QualCoreHandler) -> QualificationSummary:
+                                      output_files_info: JSONPropertiesContainer) -> QualificationSummary:
         """
         Build global report summary using QualCoreHandler implementation.
         Uses qual_handler to read data instead of direct file access.
@@ -313,7 +312,7 @@ class Qualification(RapidsJarTool):
 
         # Generate the statistics report
         try:
-            stats_report = SparkQualificationStats(ctxt=self.ctxt, qual_handler=qual_handler)
+            stats_report = SparkQualificationStats(ctxt=self.ctxt)
             stats_report.report_qualification_stats()
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('Failed to generate the statistics report: %s', e)
@@ -340,7 +339,7 @@ class Qualification(RapidsJarTool):
         # Group the applications and recalculate metrics
         apps_grouped_df, group_notes = self.__group_apps_by_name(apps_pruned_df)
 
-        apps_with_runtime_df = self.__assign_spark_runtime_to_apps(apps_grouped_df, qual_handler)
+        apps_with_runtime_df = self.__assign_spark_runtime_to_apps(apps_grouped_df)
 
         speedup_category_confs = self.ctxt.get_value('local', 'output', 'speedupCategories')
         speedup_category_ob = SpeedupCategory(speedup_category_confs)
@@ -379,6 +378,10 @@ class Qualification(RapidsJarTool):
                                     comments=report_comments)
 
     def _process_output(self) -> None:
+        if not self._evaluate_rapids_jar_tool_output_exist():
+            return
+
+        qual_handler = self._init_qual_handler()
         output_files_info = self.__build_output_files_info()
 
         def create_stdout_table_pprinter(total_apps: pd.DataFrame,
@@ -394,22 +397,13 @@ class Qualification(RapidsJarTool):
             })
             return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps)
 
-        if not self._evaluate_rapids_jar_tool_output_exist():
-            return
-
-        rapids_output_folder_path = self.ctxt.get_rapids_output_folder()
-        qual_handler = QualCoreHandler(result_path=rapids_output_folder_path)
-        if qual_handler.is_empty_result():
-            self.logger.warning('No qualification core output found')
-            return
         # 1. Read summary report using QualCoreHandler
         df = qual_handler.get_table_by_label('qualCoreCSVSummary')
         # 1. Operations related to XGboost modelling
         if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
                 df = self.__update_apps_with_prediction_info(df,
-                                                             self.ctxt.get_ctxt('estimationModelArgs'),
-                                                             qual_handler)
+                                                             self.ctxt.get_ctxt('estimationModelArgs'))
             except Exception as e:  # pylint: disable=broad-except
                 # If an error occurs while updating the apps with prediction info (speedups and durations),
                 # raise an error and stop the execution as the tool cannot continue without this information.
@@ -438,8 +432,7 @@ class Qualification(RapidsJarTool):
         report_gen = self.__build_global_report_summary(df,
                                                         apps_status_df,
                                                         unsupported_ops_df,
-                                                        output_files_info,
-                                                        qual_handler)
+                                                        output_files_info)
         summary_report = report_gen.generate_report(app_name=self.pretty_name(),
                                                     wrapper_output_files_info=output_files_info.props,
                                                     csp_report_provider=self._generate_platform_report_sections,
@@ -552,8 +545,7 @@ class Qualification(RapidsJarTool):
 
     def __update_apps_with_prediction_info(self,
                                            all_apps: pd.DataFrame,
-                                           estimation_model_args: dict,
-                                           qual_handler: QualCoreHandler) -> pd.DataFrame:
+                                           estimation_model_args: dict) -> pd.DataFrame:
         """
         Executes the prediction model, merges prediction data into the apps df, and applies transformations
         based on the prediction model's output and specified mappings.
@@ -562,6 +554,7 @@ class Qualification(RapidsJarTool):
         model_name = self.ctxt.platform.get_prediction_model_name()
         qual_output_dir = self.ctxt.get_local('outputFolder')
         output_info = self.__build_prediction_output_files_info()
+        qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
             predictions_df = predict(platform=model_name, qual=qual_output_dir,
                                      output_info=output_info,
@@ -638,13 +631,13 @@ class Qualification(RapidsJarTool):
             self.logger.warning('No applications to write to the metadata report.')
 
     def __assign_spark_runtime_to_apps(self,
-                                      tools_processed_apps: pd.DataFrame,
-                                      qual_handler: QualCoreHandler) -> pd.DataFrame:
+                                       tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
         """
         Uses QualCoreHandler to read application information files.
         Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
         applications into speedup categories (Small/Medium/Large).
         """
+        qual_handler = self.ctxt.get_ctxt('qualHandler')
         app_info_dict = qual_handler.get_raw_metric_per_app_dict('application_information.csv')
         # Rename columns from each DataFrame in the app_info_dict and merge them with the tools_processed_apps
         merged_dfs = []
@@ -655,6 +648,17 @@ class Qualification(RapidsJarTool):
                 )
         spark_runtime_df = pd.concat(merged_dfs, ignore_index=True)
         return tools_processed_apps.merge(spark_runtime_df, on='App ID', how='left')
+
+    def _init_qual_handler(self) -> QualCoreHandler:
+        """
+        Initialize the QualCoreHandler and store it in the context.
+        This method should be called after the tool execution is complete and output is available.
+        """
+        rapids_output_folder_path = self.ctxt.get_rapids_output_folder()
+        qual_handler = QualCoreHandler(result_path=rapids_output_folder_path)
+        self.ctxt.set_ctxt('qualHandler', qual_handler)
+        self.logger.info('QualCoreHandler initialized and stored in context')
+        return qual_handler
 
 
 @dataclass
