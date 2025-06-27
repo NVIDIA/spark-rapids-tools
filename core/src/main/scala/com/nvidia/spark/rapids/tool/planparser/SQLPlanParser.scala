@@ -461,7 +461,7 @@ object SQLPlanParser extends Logging {
     // vs allNodes
     val execInfos = toolsGraph.nodes.flatMap { node =>
       parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes,
-        nodeIdToStagesFunc = toolsGraph.getNodeStageClusters)
+        nodeIdToStagesFunc = toolsGraph.getNodeStageLogicalAssignment)
     }
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }

@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.{breakOut, mutable}
+import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
@@ -26,6 +26,7 @@ import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnostic
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper}
 import org.apache.spark.sql.rapids.tool.store.{DataSourceRecord, SQLPlanModel}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and
@@ -42,13 +43,6 @@ import org.apache.spark.sql.rapids.tool.store.{DataSourceRecord, SQLPlanModel}
  */
 class AppSQLPlanAnalyzer(app: AppBase)
     extends AppAnalysisBase(app) {
-  // A nested HashMap to map between ((Long: sqlID, Long: nodeId) -> Set[Int]: StageIds).
-  // 1st level has sqlId as keys
-  // 2nd level is a map between nodeId and a set of stage IDs
-  // This structure is to improve the performance when the analyzer needs to find the stages for a
-  // given node without the need to go through all the keys.
-  private val sqlPlanNodeIdToStageIds: mutable.SortedMap[Long, mutable.SortedMap[Long, Set[Int]]] =
-    mutable.SortedMap[Long, mutable.SortedMap[Long, Set[Int]]]()
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
   // A list of UnsupportedSQLPlan that contains the SQL ID, node ID, node name.
   // TODO: for now, unsupportedSQLPlan is kept here for now to match the legacy Profiler's
@@ -107,61 +101,22 @@ class AppSQLPlanAnalyzer(app: AppBase)
   }
 
   /**
-   * Appends the provided stage IDs to the node ID map for the given SQL ID and node ID.
-   * @param sqlId the id of the sqlPlan.
-   * @param nodeId the id of the node
-   * @param stageIds the set of stage IDs
+   * helper to get teh tools planGraph object by SqlId
+   * @param sqlId the SQLPlan ids
+   * @return optional ToolsPlanGraph if the plan exists.
    */
-  private def appendToNodeStageMap(sqlId: Long, nodeId: Long, stageIds: Set[Int]): Unit = {
-    sqlPlanNodeIdToStageIds.get(sqlId) match {
-      case Some(stageMap) => stageMap(nodeId) = stageIds
-      case None => sqlPlanNodeIdToStageIds(sqlId) = mutable.SortedMap(nodeId -> stageIds)
+  private def getToolsPlanGraphById(sqlId: Long): Option[ToolsPlanGraph] = {
+    app.sqlManager.applyToPlanModel(sqlId) { planModel =>
+      planModel.getToolsPlanGraph
     }
   }
-
-  /**
-   * Connects Operators to Stages using AccumulatorIDs.
-   * TODO: This function can be improved further by using the ToolsPlanGraph to cash the mapping
-   *      without logical entries.
-   */
-  private def buildNodeToStageMap(): Unit = {
-    app.sqlManager.sqlPlans.values.foreach { sqlPlan =>
-      val toolPlanGraph = sqlPlan.getToolsPlanGraph
-      toolPlanGraph.allNodes.foreach { node =>
-        appendToNodeStageMap(sqlPlan.id, node.id, toolPlanGraph.getNodeStagesByAccum(node))
-      }
-    }
-  }
-
-  /**
-   * Function to build a stage to node map through accumulable. This is used to generate fast
-   * lookup tables for SQL stages and nodes.
-   * @param src the original map between node and stage.
-   * @return a map between stage and nodes (stageID, map(sqlId, NodeIDs))
-   */
-  private def constructStageToNodeMap(
-    src: mutable.SortedMap[Long, mutable.SortedMap[Long, Set[Int]]]): mutable.SortedMap[
-    Int, mutable.SortedMap[Long, Set[Long]]] = {
-    val res = mutable.SortedMap[Int, mutable.SortedMap[Long, Set[Long]]]()
-    for ((sqlId, nodeMap) <- src) {
-      for ((nodeId, stages) <- nodeMap) {
-        for (stage <- stages) {
-          res.get(stage) match {
-            case None => res(stage) = mutable.SortedMap(sqlId -> Set(nodeId))
-            case Some(v) =>
-              v.get(sqlId) match {
-                case None => res(stage) = v + (sqlId -> Set(nodeId))
-                case Some(existing) => res(stage) = v + (sqlId -> (existing + nodeId))}
-          }
-        }
-      }
-    }
-    res
-  }
-
   // Return the stages for a given node.
   private def getNodeStages(sqlId: Long, nodeId: Long): Option[Set[Int]] = {
-    sqlPlanNodeIdToStageIds.get(sqlId).flatMap(_.get(nodeId))
+    getToolsPlanGraphById(sqlId).map(_.getNodeStageRawAssignment(nodeId))
+  }
+  // Return the nodes that belong to a specific stage.
+  private def getStageNodes(sqlId: Long, stageId: Int): Option[collection.Set[Long]] = {
+    getToolsPlanGraphById(sqlId).map(_.getStageNodesByRawAssignment(stageId))
   }
 
   /**
@@ -263,8 +218,9 @@ class AppSQLPlanAnalyzer(app: AppBase)
       visitor.potentialProblems ++= app.findPotentialIssues(node.desc)
     }
     // Then process SQL plan metric type
+    val stages =
+      getNodeStages(visitor.sqlPIGEntry.id, node.id).getOrElse(ToolsPlanGraph.EMPTY_CLUSTERS)
     for (metric <- node.metrics) {
-      val stages = getNodeStages(visitor.sqlPIGEntry.id, node.id).getOrElse(Set())
       val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.id, metric.name,
         metric.accumulatorId, metric.metricType, node.id, node.name, node.desc, stages)
       allSQLMetrics += allMetric
@@ -275,8 +231,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
    * Function to process SQL Plan Metrics after all events are processed
    */
   def processSQLPlanMetrics(): Unit = {
-    // First step is to build node-to-stage mapping through accumulables.
-    buildNodeToStageMap()
+    // Iterate on all the SqlPlans
     for (sqlPIGEntry <- app.sqlManager.sqlPlans.values) {
       // store all dataSources of the given SQL in a variable so that we won't have to iterate
       // through the entire list
@@ -307,8 +262,6 @@ class AppSQLPlanAnalyzer(app: AppBase)
     val jobsWithSQL = app.jobIdToInfo.filter { case (_, j) =>
       j.sqlID.nonEmpty
     }
-    // Build a map between stage and nodes to speedup the retrieval of nodes.
-    val stageToNodeMap = constructStageToNodeMap(sqlPlanNodeIdToStageIds)
     jobsWithSQL.flatMap { case (jobId, j) =>
       // for each stage in a given job:
       // 1. get the stage model
@@ -317,13 +270,12 @@ class AppSQLPlanAnalyzer(app: AppBase)
       app.stageManager.getStagesByIds(j.stageIds).map { stageModel =>
         // Get all node Ids in the stage and convert them to names.
         // Create an empty sequence if the stage has no matching nodes.
-        val nodeNames = stageToNodeMap.get(stageModel.getId).flatMap(_.get(j.sqlID.get)) match {
+        val nodeNames = getStageNodes(j.sqlID.get, stageModel.getId) match {
           case Some(nIds) =>
-            app.sqlManager.applyToPlanModel(j.sqlID.get) { planModel =>
-              val nodesInStage = planModel.getToolsPlanGraph.allNodes.filter { n =>
-                nIds.contains(n.id)
-              }
-              nodesInStage.map(n => s"${n.name}(${n.id.toString})")
+            getToolsPlanGraphById(j.sqlID.get).map { g =>
+              g.allNodes
+                .filter(n => nIds.contains(n.id))
+                .map(n => s"${n.name}(${n.id.toString})")
             }.getOrElse(Seq.empty)
           case None =>
             Seq.empty
