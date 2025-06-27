@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
  * SQLPlanModel is a class to store the information of a SQL Plan including all its versions.
@@ -124,5 +125,13 @@ class SQLPlanModel(val id: Long) {
    */
   def getPrimarySQLPlanInfo: Option[SparkPlanInfo] = {
     planVersions.find(_.version == 0).map(_.planInfo)
+  }
+
+  /**
+   * Get the ToolsPlanGraph from the most recent version of the plan.
+   * @return ToolsPlanGraph of the last version of the plan.
+   */
+  def getToolsPlanGraph: ToolsPlanGraph = {
+    plan.getToolsPlanGraph
   }
 }

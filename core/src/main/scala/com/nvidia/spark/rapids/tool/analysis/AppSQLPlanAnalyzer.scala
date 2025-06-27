@@ -23,10 +23,9 @@ import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper, SqlPlanInfoGraphBuffer, SqlPlanInfoGraphEntry}
-import org.apache.spark.sql.rapids.tool.store.DataSourceRecord
+import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper}
+import org.apache.spark.sql.rapids.tool.store.{DataSourceRecord, SQLPlanModel}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
@@ -44,10 +43,6 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  */
 class AppSQLPlanAnalyzer(app: AppBase)
     extends AppAnalysisBase(app) {
-  // A map between (SQL ID, Node ID) and the set of stage IDs
-  // TODO: The Qualification should use this map instead of building a new set for each exec.
-  private val sqlPlanNodeIdToStageIds: HashMap[(Long, Long), Set[Int]] =
-    HashMap.empty[(Long, Long), Set[Int]]
   var wholeStage: ArrayBuffer[WholeStageCodeGenResults] = ArrayBuffer[WholeStageCodeGenResults]()
   // A list of UnsupportedSQLPlan that contains the SQL ID, node ID, node name.
   // TODO: for now, unsupportedSQLPlan is kept here for now to match the legacy Profiler's
@@ -106,24 +101,22 @@ class AppSQLPlanAnalyzer(app: AppBase)
   }
 
   /**
-   * Connects Operators to Stages using AccumulatorIDs.
-   * TODO: This function can be fused in the visitNode function to avoid the extra iteration.
-   *
-   * @param cb function that creates a SparkPlanGraph. This can be used as a cacheHolder for the
-   *           object created to be used later.
+   * helper to get teh tools planGraph object by SqlId
+   * @param sqlId the SQLPlan ids
+   * @return optional ToolsPlanGraph if the plan exists.
    */
-  private def connectOperatorToStage(cb: (Long, SparkPlanInfo) => SparkPlanGraph): Unit = {
-    for ((sqlId, planInfo) <- app.sqlPlans) {
-      val planGraph: SparkPlanGraph = cb.apply(sqlId, planInfo)
-      // Maps stages to operators by checking for non-zero intersection
-      // between nodeMetrics and stageAccumulateIDs
-      val nodeIdToStage = planGraph.allNodes.map { node =>
-        val nodeAccums = node.metrics.map(_.accumulatorId)
-        val mappedStages = app.getStageIDsFromAccumIds(nodeAccums)
-        ((sqlId, node.id), mappedStages)
-      }.toMap
-      sqlPlanNodeIdToStageIds ++= nodeIdToStage
+  private def getToolsPlanGraphById(sqlId: Long): Option[ToolsPlanGraph] = {
+    app.sqlManager.applyToPlanModel(sqlId) { planModel =>
+      planModel.getToolsPlanGraph
     }
+  }
+  // Return the stages for a given node.
+  private def getNodeStages(sqlId: Long, nodeId: Long): Option[Set[Int]] = {
+    getToolsPlanGraphById(sqlId).map(_.getNodeStageRawAssignment(nodeId))
+  }
+  // Return the nodes that belong to a specific stage.
+  private def getStageNodes(sqlId: Long, stageId: Int): Option[collection.Set[Long]] = {
+    getToolsPlanGraphById(sqlId).map(_.getStageNodesByRawAssignment(stageId))
   }
 
   /**
@@ -148,7 +141,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
   // sqlIsDsOrRDD is initialized to False, and it is set only once to True when a node is detected
   // as RDD or DS.
   protected case class SQLPlanVisitorContext(
-      sqlPIGEntry: SqlPlanInfoGraphEntry,
+      sqlPIGEntry: SQLPlanModel,
       sqlDataSources: ArrayBuffer[DataSourceRecord] = ArrayBuffer[DataSourceRecord](),
       potentialProblems: LinkedHashSet[String] = LinkedHashSet[String](),
       var sqlIsDsOrRDD: Boolean = false)
@@ -192,12 +185,12 @@ class AppSQLPlanAnalyzer(app: AppBase)
         val ch = cluster.nodes
         ch.foreach { c =>
           wholeStage += WholeStageCodeGenResults(
-            visitor.sqlPIGEntry.sqlID, node.id, node.name, c.name, c.id)
+            visitor.sqlPIGEntry.id, node.id, node.name, c.name, c.id)
         }
       case _ =>
     }
     // get V2 dataSources for that node
-    val nodeV2Reads = app.checkGraphNodeForReads(visitor.sqlPIGEntry.sqlID, node)
+    val nodeV2Reads = app.checkGraphNodeForReads(visitor.sqlPIGEntry.id, node)
     if (nodeV2Reads.isDefined) {
       visitor.sqlDataSources += nodeV2Reads.get
     }
@@ -205,15 +198,15 @@ class AppSQLPlanAnalyzer(app: AppBase)
     val nodeIsDsOrRDD = RDDCheckHelper.isDatasetOrRDDPlan(node.name, node.desc).isRDD
     if (nodeIsDsOrRDD) {
       // we want to report every node that is an RDD
-      val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.sqlID, node.id, node.name, node.desc,
+      val thisPlan = UnsupportedSQLPlan(visitor.sqlPIGEntry.id, node.id, node.name, node.desc,
         "Contains Dataset or RDD")
       unsupportedSQLPlan += thisPlan
       // If one node is RDD, the Sql should be set too
       if (!visitor.sqlIsDsOrRDD) { // We need to set the flag only once for the given sqlID
         visitor.sqlIsDsOrRDD = true
-        app.sqlIdToInfo.get(visitor.sqlPIGEntry.sqlID).foreach { sql =>
+        app.sqlIdToInfo.get(visitor.sqlPIGEntry.id).foreach { sql =>
           sql.setDsOrRdd(visitor.sqlIsDsOrRDD)
-          app.sqlIDToDataSetOrRDDCase += visitor.sqlPIGEntry.sqlID
+          app.sqlIDToDataSetOrRDDCase += visitor.sqlPIGEntry.id
           // Clear the potential problems since it is an RDD to free memory
           visitor.potentialProblems.clear()
         }
@@ -225,33 +218,12 @@ class AppSQLPlanAnalyzer(app: AppBase)
       visitor.potentialProblems ++= app.findPotentialIssues(node.desc)
     }
     // Then process SQL plan metric type
+    val stages =
+      getNodeStages(visitor.sqlPIGEntry.id, node.id).getOrElse(ToolsPlanGraph.EMPTY_CLUSTERS)
     for (metric <- node.metrics) {
-      val stages =
-        sqlPlanNodeIdToStageIds.getOrElse((visitor.sqlPIGEntry.sqlID, node.id), Set.empty)
-      val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.sqlID, metric.name,
+      val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.id, metric.name,
         metric.accumulatorId, metric.metricType, node.id, node.name, node.desc, stages)
-
       allSQLMetrics += allMetric
-      if (app.sqlPlanMetricsAdaptive.nonEmpty) {
-        val adaptive = app.sqlPlanMetricsAdaptive.filter { adaptiveMetric =>
-          adaptiveMetric.sqlID == visitor.sqlPIGEntry.sqlID &&
-            adaptiveMetric.accumulatorId == metric.accumulatorId
-        }
-        adaptive.foreach { adaptiveMetric =>
-          val allMetric = SQLMetricInfoCase(visitor.sqlPIGEntry.sqlID, adaptiveMetric.name,
-            adaptiveMetric.accumulatorId, adaptiveMetric.metricType, node.id,
-            node.name, node.desc, stages)
-          // could make this more efficient but seems ok for now
-          val exists = allSQLMetrics.filter { a =>
-            ((a.accumulatorId == adaptiveMetric.accumulatorId)
-              && (a.sqlID == visitor.sqlPIGEntry.sqlID)
-              && (a.nodeID == node.id && adaptiveMetric.metricType == a.metricType))
-          }
-          if (exists.isEmpty) {
-            allSQLMetrics += allMetric
-          }
-        }
-      }
     }
   }
 
@@ -259,20 +231,14 @@ class AppSQLPlanAnalyzer(app: AppBase)
    * Function to process SQL Plan Metrics after all events are processed
    */
   def processSQLPlanMetrics(): Unit = {
-    // Define a buffer to cache the SQLPlanInfoGraphs
-    val sqlPlanInfoBuffer = SqlPlanInfoGraphBuffer()
-    // Define a function used to fill in the buffer while executing "connectOperatorToStage"
-    val createGraphFunc = (sqlId: Long, planInfo: SparkPlanInfo) => {
-      sqlPlanInfoBuffer.addSqlPlanInfoGraph(sqlId, planInfo).sparkPlanGraph
-    }
-    connectOperatorToStage(createGraphFunc)
-    for (sqlPIGEntry <- sqlPlanInfoBuffer.sqlPlanInfoGraphs) {
+    // Iterate on all the SqlPlans
+    for (sqlPIGEntry <- app.sqlManager.sqlPlans.values) {
       // store all dataSources of the given SQL in a variable so that we won't have to iterate
       // through the entire list
       // get V1 dataSources for that SQLId
       val visitorContext = SQLPlanVisitorContext(sqlPIGEntry,
         app.checkMetadataForReadSchema(sqlPIGEntry))
-      for (node <- sqlPIGEntry.sparkPlanGraph.allNodes) {
+      for (node <- sqlPIGEntry.getToolsPlanGraph.allNodes) {
         visitNode(visitorContext, node)
       }
       if (visitorContext.sqlDataSources.nonEmpty) {
@@ -287,7 +253,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
       // Finally, update the potential problems in the app object
       // Note that the implementation depends on teh type of the AppBase
       if (visitorContext.potentialProblems.nonEmpty) {
-        updateAppPotentialProblems(sqlPIGEntry.sqlID, visitorContext.potentialProblems)
+        updateAppPotentialProblems(sqlPIGEntry.id, visitorContext.potentialProblems)
       }
     }
   }
@@ -297,22 +263,31 @@ class AppSQLPlanAnalyzer(app: AppBase)
       j.sqlID.nonEmpty
     }
     jobsWithSQL.flatMap { case (jobId, j) =>
-      val stages = j.stageIds
-      val stagesInJob = app.stageManager.getStagesByIds(stages)
-      stagesInJob.map { sModel =>
-        val nodeIds = sqlPlanNodeIdToStageIds.filter { case (_, v) =>
-          v.contains(sModel.stageInfo.stageId)
-        }.keys.toSeq
-        val nodeNames = app.sqlManager.applyToPlanInfo(j.sqlID.get) { planInfo =>
-          val nodes = ToolsPlanGraph(planInfo).allNodes
-          val validNodes = nodes.filter { n =>
-            nodeIds.contains((j.sqlID.get, n.id))
-          }
-          validNodes.map(n => s"${n.name}(${n.id.toString})")
-        }.getOrElse(Seq.empty)
-        stageToNodeNames(sModel.stageInfo.stageId) = nodeNames
-        SQLStageInfoProfileResult(j.sqlID.get, jobId, sModel.stageInfo.stageId,
-          sModel.stageInfo.attemptNumber(), sModel.duration, nodeNames)
+      // for each stage in a given job:
+      // 1. get the stage model
+      // 2. get all nodes in that stage
+      // 3. build the names of the nodes
+      app.stageManager.getStagesByIds(j.stageIds).map { stageModel =>
+        // Get all node Ids in the stage and convert them to names.
+        // Create an empty sequence if the stage has no matching nodes.
+        val nodeNames = getStageNodes(j.sqlID.get, stageModel.getId) match {
+          case Some(nIds) =>
+            getToolsPlanGraphById(j.sqlID.get).map { g =>
+              g.allNodes
+                .filter(n => nIds.contains(n.id))
+                .map(n => s"${n.name}(${n.id.toString})")
+            }.getOrElse(Seq.empty)
+          case None =>
+            Seq.empty
+        }
+        // Only update stageToNodeNames if:
+        // 1. diagnostics is enabled. This will save memory heap for large eventlogs.
+        // 2. it's not already set to avoid overwriting.
+        if (isDiagnosticViewsEnabled && !stageToNodeNames.contains(stageModel.getId)) {
+          stageToNodeNames(stageModel.getId) = nodeNames
+        }
+        SQLStageInfoProfileResult(j.sqlID.get, jobId, stageModel.getId,
+          stageModel.getAttemptId, stageModel.duration, nodeNames)
       }
     }(breakOut)
   }

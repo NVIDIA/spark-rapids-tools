@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
+import org.apache.spark.sql.rapids.tool.store.SQLPlanModel
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 // A class used to handle the DL writeOps such as:
@@ -189,7 +189,7 @@ object DeltaLakeHelper {
    * @param node the node to check
    * @return true if the node is a Delta meta-data operation
    */
-  def isDeltaOpNode(sqlPIGEntry: SqlPlanInfoGraphEntry,
+  def isDeltaOpNode(sqlPIGEntry: SQLPlanModel,
       sqlDesc: String,
       node: SparkPlanGraphNode): Boolean = {
     node match {
@@ -208,10 +208,10 @@ object DeltaLakeHelper {
             // differences in data between runs
             // Execute MergeIntoCommandEdge (1)
             //   +- MergeIntoCommandEdge (2)
-            sqlPIGEntry.sparkPlanGraph.allNodes.size < 2
+            sqlPIGEntry.getToolsPlanGraph.allNodes.size < 2
           case "LocalTableScan" =>
             sqlDesc.contains("stats_parsed.numRecords") ||
-              sqlPIGEntry.sparkPlanGraph.allNodes.size == 1
+              sqlPIGEntry.getToolsPlanGraph.allNodes.size == 1
           case s if ReadParser.isScanNode(s) =>
             // RAPIDS plugin checks that a node is Delta Scan by looking at the type of the exec
             // "RDDScanExec" and checking for some string patterns in the Relation/schema

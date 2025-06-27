@@ -100,6 +100,14 @@ class StageModel private(sInfo: StageInfo) {
   def getDuration: Long = {
     duration.getOrElse(0L)
   }
+
+  def getId: Int = {
+    stageInfo.stageId
+  }
+
+  def getAttemptId: Int = {
+    stageInfo.attemptNumber()
+  }
 }
 
 object StageModel {

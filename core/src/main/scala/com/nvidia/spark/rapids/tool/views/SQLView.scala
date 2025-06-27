@@ -95,7 +95,7 @@ object ProfSQLPlanAlignedView extends AppSQLPlanNonDeltaOpsViewTrait with ProfAp
     // Create a SQLClassifier object and attach it to the AppInfo
     val sqlPlanTypeAnalysis = new SQLPlanClassifier(app.asInstanceOf[ApplicationInfo])
     // Walk through the SQLPlans to identify the delta-op SQIds
-    sqlPlanTypeAnalysis.walkPlans(app.sqlPlans)
+    sqlPlanTypeAnalysis.walkPlans(app.sqlManager.sqlPlans.values)
     app.sqlPlans.filterKeys(!sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(_)).
       map { case (sqlID, _) =>
         SQLCleanAndAlignIdsProfileResult(sqlID)
