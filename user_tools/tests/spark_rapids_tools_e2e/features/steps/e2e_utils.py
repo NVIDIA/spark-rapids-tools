@@ -83,7 +83,6 @@ class E2ETestUtils:
             '--platform', platform,
             '--eventlogs', ','.join(event_logs),
             '-o', output_dir,
-            '--tools_jar', cls.get_tools_jar_file(),
             '--verbose',
             '--filter_apps', filter_apps
         ]

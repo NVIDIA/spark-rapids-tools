@@ -21,7 +21,6 @@ import shutil
 import tempfile
 from glob import glob
 
-from spark_rapids_tools.utils import Utilities
 from steps.e2e_utils import E2ETestUtils
 
 """ Define behave hooks for the tests. These hooks are automatically called by behave. """
@@ -87,19 +86,14 @@ def _set_environment_variables(context) -> None:
     """
     Set environment variables needed for the virtual environment setup.
     """
-    tools_version = Utilities.get_base_release()
-    scala_version = context.config.userdata.get('scala_version')
     venv_name = context.config.userdata.get('venv_name')
-    jar_filename = f'rapids-4-spark-tools_{scala_version}-{tools_version}-SNAPSHOT.jar'
-    build_jar_value = context.config.userdata.get('build_jar')
-    build_jar = build_jar_value.lower() in ['true', '1', 'yes']
+    build_wheel_value = context.config.userdata.get('build_wheel')
+    build_wheel = build_wheel_value.lower() in ['true', '1', 'yes']
 
     os.environ['E2E_TEST_TOOLS_DIR'] = E2ETestUtils.get_tools_root_path()
     os.environ['E2E_TEST_SCRIPTS_DIR'] = os.path.join(E2ETestUtils.get_e2e_tests_resource_path(), 'scripts')
-    os.environ['E2E_TEST_TOOLS_JAR_PATH'] = os.path.join(os.environ['E2E_TEST_TOOLS_DIR'],
-                                                         f'core/target/{jar_filename}')
     os.environ['E2E_TEST_VENV_DIR'] = os.path.join(context.temp_dir, venv_name)
-    os.environ['E2E_TEST_BUILD_JAR'] = 'true' if build_jar else 'false'
+    os.environ['E2E_TEST_BUILD_WHEEL'] = 'true' if build_wheel else 'false'
     os.environ['E2E_TEST_SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
     os.environ['E2E_TEST_HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
     os.environ['E2E_TEST_TMP_DIR'] = context.config.userdata.get('e2e_tests_tmp_dir')
@@ -107,14 +101,14 @@ def _set_environment_variables(context) -> None:
 
 def _setup_env(context) -> None:
     """
-    Build the JAR and set up the virtual environment for the tests.
+    Build the wheel and set up the virtual environment for the tests.
     """
     script_file_name = context.config.userdata.get('setup_script_file')
     script = os.path.join(os.environ['E2E_TEST_SCRIPTS_DIR'], script_file_name)
     try:
         warning_msg = "Setting up the virtual environment for the tests. This may take a while."
-        if os.environ.get('E2E_TEST_BUILD_JAR') == 'true':
-            warning_msg = f'Building JAR and {warning_msg}'
+        if os.environ.get('E2E_TEST_BUILD_WHEEL') == 'true':
+            warning_msg = f'Building wheel and {warning_msg}'
         logger.warning(warning_msg)
         result = E2ETestUtils.run_sys_cmd([script])
         E2ETestUtils.assert_sys_cmd_return_code(result,
