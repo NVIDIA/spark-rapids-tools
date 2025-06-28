@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -46,6 +46,44 @@ class QualXTool(RapidsTool):
                                 platform_opts=self.wrapper_options.get('platformOpts'),
                                 prop_arg=self.config_path,
                                 name=self.name)
+
+    def process_qualx_env_vars(self):
+        """
+        Process environment variables required for QualX tool execution.
+
+        This method ensures that SPARK_RAPIDS_TOOLS_JAR environment variable is set.
+        Precedence order:
+        1. Existing SPARK_RAPIDS_TOOLS_JAR environment variable (highest priority)
+        2. Tools jar from local wheel package resources (fallback)
+
+        The environment variable is required by the run_profiler_tool function used during training.
+        """
+        # Priority 1: Check if environment variable is already set - this takes precedence
+        if 'SPARK_RAPIDS_TOOLS_JAR' in os.environ:
+            existing_jar = os.environ['SPARK_RAPIDS_TOOLS_JAR']
+            if os.path.exists(existing_jar):
+                self.logger.info('Using existing SPARK_RAPIDS_TOOLS_JAR environment variable (priority): %s',
+                                 existing_jar)
+                return
+            self.logger.warning('SPARK_RAPIDS_TOOLS_JAR points to non-existent file: %s.'
+                                'Will fallback to resource jar.', existing_jar)
+
+        # Priority 2: Fallback to identifying tools jar from local resources
+        self.logger.info('No valid SPARK_RAPIDS_TOOLS_JAR found. Loading from tools resources...')
+        self.ctxt.load_tools_jar_resources()
+
+        if self.ctxt.use_local_tools_jar():
+            jar_path = self.ctxt.get_rapids_jar_url()
+            os.environ['SPARK_RAPIDS_TOOLS_JAR'] = jar_path
+            self.logger.info('Set SPARK_RAPIDS_TOOLS_JAR environment variable to: %s', jar_path)
+        else:
+            self.logger.error('Failed to identify tools jar from resources. '
+                              'Please set SPARK_RAPIDS_TOOLS_JAR environment variable manually.')
+            raise RuntimeError('Unable to locate tools jar for QualX execution')
+
+    def _process_rapids_args(self):
+        """Process RAPIDS arguments and environment variables for QualX tool."""
+        self.process_qualx_env_vars()
 
     def _process_output_args(self):
         """

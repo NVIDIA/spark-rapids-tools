@@ -32,7 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
 # see https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for list of supported licenses
 dependencies = [
     # numpy-2.0.0 supports python [3.9, 3.13]. numpy2.1.0 drooped support for Python 3.9.

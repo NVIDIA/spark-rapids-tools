@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 package com.nvidia.spark.rapids.tool.analysis
 
-object QualSparkMetricsAnalyzer extends AppSparkMetricsAggTrait with QualAppIndexMapperTrait {
+object QualSparkMetricsAggregator extends AppSparkMetricsAggTrait with QualAppIndexMapperTrait {
   // This object is kept to provide the aggregation of the application data for the Qualification.
-  // In future, we might need to provide customized logic for the Qualification
+  // In the future, we might need to provide customized logic for the Qualification
   // (i.e., handle metrics; or filter; ..etc)
 }

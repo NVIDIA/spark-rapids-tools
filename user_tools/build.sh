@@ -17,6 +17,8 @@
 # Usage: ./build.sh [build_mode] [jar_url]
 # This script takes a build_mode ("fat" or "non-fat") and the jar url as parameter.
 # Build mode is a mandatory parameter while the jar url is optional.
+# Additional Maven arguments can be passed via the TOOLS_MAVEN_ARGS environment variable.
+# Example: TOOLS_MAVEN_ARGS="-Dbuildver=350 -Dhadoop.version=3.3.6" ./build.sh non-fat
 # If the build_mode is "fat" and jar_url is provided, it downloads the JAR from the URL and packages the CSP dependencies with the whl.
 # If the build_mode is "fat" and jar_url is not provided, it builds the JAR from source and packages the CSP dependencies with the whl.
 # If the build_mode is "non-fat" and jar_url is provided, it downloads the JAR from the URL and packages it with the wheel.
@@ -95,14 +97,27 @@ clean_up_downloaded_jar() {
 # Function to run mvn command to build the tools jar
 # This function skips the test cases and builds the jar file and only
 # picks the jar file without sources/javadoc/tests..
+# Maven arguments can be passed via TOOLS_MAVEN_ARGS environment variable
 build_jar_from_source() {
   # store teh current directory
   local curr_dir
   curr_dir=$(pwd)
   local jar_dir="$CORE_DIR"/target
   cd "$CORE_DIR" || exit
+
+  # Construct Maven command with optional arguments from environment
+  local mvn_cmd="mvn clean package -DskipTests"
+
+  # Add additional Maven arguments if provided via environment variable
+  if [ -n "$TOOLS_MAVEN_ARGS" ]; then
+    mvn_cmd="$mvn_cmd $TOOLS_MAVEN_ARGS"
+    echo "Using additional Maven arguments: $TOOLS_MAVEN_ARGS"
+  fi
+
+  echo "Running Maven command: $mvn_cmd"
+
   # build mvn
-  mvn clean package -DskipTests
+  eval "$mvn_cmd"
   if [ $? -ne 0 ]; then
     echo "Failed to build the tools jar"
     exit 1
@@ -145,7 +160,7 @@ remove_web_dependencies() {
   # remove folder recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
-  rm "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
+  rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
   # remove core folder containing qualOutputTable.yaml
   rm -rf "${res_dir:?}"/core/generated_files
 }
@@ -180,7 +195,8 @@ pre_build() {
   echo "rm previous build and dist directories"
   rm -rf build/ dist/
   echo "install build dependencies using pip"
-  pip install build -e .[qualx,test]
+  pip install build .[qualx,test]
+  # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
 }
 
 # Build process

@@ -40,7 +40,11 @@ class QualCoreTableLoader:
         if self._table_definitions is not None:
             return self._table_definitions
 
-        yaml_container = YAMLPropertiesContainer(prop_arg=self.yaml_file_path)
+        try:
+            yaml_container = YAMLPropertiesContainer(prop_arg=self.yaml_file_path)
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f'qualOutputTable.yaml not found at: {self.yaml_file_path}') from exc
+
         qual_table_definitions = yaml_container.get_value('qualTableDefinitions')
 
         if qual_table_definitions is None:

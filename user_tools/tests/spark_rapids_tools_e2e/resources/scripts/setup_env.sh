@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,11 +33,40 @@ if [ -z "$E2E_TEST_HADOOP_VERSION" ]; then
   err "Please set E2E_TEST_HADOOP_VERSION to the version of Hadoop used for building Tools JAR. Exiting script."
 fi
 
-build_jar() {
-  local jar_tools_dir="$E2E_TEST_TOOLS_DIR/core"
-  echo "Building Spark RAPIDS Tools JAR file"
-  pushd "$jar_tools_dir"
-  mvn package -DskipTests -Dbuildver="$E2E_TEST_SPARK_BUILD_VERSION" -Dhadoop.version="$E2E_TEST_HADOOP_VERSION"
+build_wheel() {
+  local python_tools_dir="$E2E_TEST_TOOLS_DIR/user_tools"
+  echo "Building Spark RAPIDS Tools wheel using build.sh in non-fat mode"
+  pushd "$python_tools_dir"
+
+  # Construct Maven arguments from environment variables
+  local maven_args=""
+
+  # Add buildver parameter if provided
+  if [ -n "$E2E_TEST_SPARK_BUILD_VERSION" ]; then
+    maven_args="$maven_args -Dbuildver=$E2E_TEST_SPARK_BUILD_VERSION"
+    echo "Using buildver: $E2E_TEST_SPARK_BUILD_VERSION"
+  fi
+
+  # Add hadoop.version parameter if provided
+  if [ -n "$E2E_TEST_HADOOP_VERSION" ]; then
+    maven_args="$maven_args -Dhadoop.version=$E2E_TEST_HADOOP_VERSION"
+    echo "Using hadoop.version: $E2E_TEST_HADOOP_VERSION"
+  fi
+
+  # Set TOOLS_MAVEN_ARGS environment variable for build.sh
+  if [ -n "$maven_args" ]; then
+    export TOOLS_MAVEN_ARGS="$maven_args"
+    echo "Maven arguments: $TOOLS_MAVEN_ARGS"
+  fi
+
+  echo "Running: ./build.sh non-fat"
+  ./build.sh non-fat
+
+  if [ $? -ne 0 ]; then
+    echo "Failed to build the wheel file"
+    exit 1
+  fi
+
   popd
 }
 
@@ -51,16 +80,33 @@ install_python_package() {
   python -m venv "$E2E_TEST_VENV_DIR"
   source "$E2E_TEST_VENV_DIR"/bin/activate
 
-  echo "Installing Spark RAPIDS Tools Python package"
+  echo "Installing Spark RAPIDS Tools Python package from wheel"
   pushd "$python_tools_dir"
   pip install --upgrade pip setuptools wheel
+
+  # Find and install the wheel file
+  local wheel_file=$(find dist/ -name "*.whl" -type f | head -n 1)
+  if [ -z "$wheel_file" ]; then
+    echo "No wheel file found in dist/ directory"
+    exit 1
+  fi
+
+  echo "Installing wheel: $wheel_file"
+  pip install "$wheel_file"
   pip install .
   popd
 }
 
-# Check if the Tools JAR file exists or if the user wants to build it
-if [ ! -f "$E2E_TEST_TOOLS_JAR_PATH" ] || [ "$E2E_TEST_BUILD_JAR" = "true" ]; then
-  build_jar
+# Check if we need to build the wheel file
+python_tools_dir="$E2E_TEST_TOOLS_DIR/user_tools"
+wheel_exists=false
+if [ -d "$python_tools_dir/dist" ] && [ -n "$(find "$python_tools_dir/dist" -name "*.whl" -type f 2>/dev/null)" ]; then
+  wheel_exists=true
+fi
+
+# Build the wheel file using build.sh in non-fat mode if needed
+if [ "$E2E_TEST_BUILD_WHEEL" = "true" ] || [ "$wheel_exists" = false ]; then
+  build_wheel
 fi
 
 install_python_package
