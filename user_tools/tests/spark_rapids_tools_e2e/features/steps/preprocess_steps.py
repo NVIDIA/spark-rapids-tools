@@ -35,6 +35,15 @@ def set_spark_home_env(context):
     assert 'SPARK_HOME' in os.environ
 
 
+@given('SPARK_RAPIDS_TOOLS_JAR environment variable is set')
+def set_tools_jar_env(context):
+    """Set the SPARK_RAPIDS_TOOLS_JAR environment variable using tools jar file."""
+    tools_jar = E2ETestUtils.get_tools_jar_file()
+    os.environ['SPARK_RAPIDS_TOOLS_JAR'] = tools_jar
+    assert 'SPARK_RAPIDS_TOOLS_JAR' in os.environ
+    assert os.path.exists(os.environ['SPARK_RAPIDS_TOOLS_JAR'])
+
+
 @given('QUALX_DATA_DIR environment variable is set')
 def set_qualx_data_dir_env(context):
     """Set the QUALX_DATA_DIR environment variable using test resources directory."""
