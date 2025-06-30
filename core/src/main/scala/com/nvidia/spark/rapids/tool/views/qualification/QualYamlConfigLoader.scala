@@ -65,6 +65,6 @@ object QualYamlConfigLoader {
     // scalastyle:off println
     println(config)
     // scalastyle:on println
-    config.generateMarkdown("qualOutputTable.md")
+    config.generateMarkdown("core/docs/qual_core_output.md")
   }
 }
