@@ -32,16 +32,16 @@ qual_core_output
       |   ├── stages.csv
       |   ├── unsupported_operators.csv
 ```
-* *raw_metrics*: contains the raw Spark metrics report in CSV formats
-* *qual_metrics*: contains the qualification metrics report in CSV formats
-* *tuning*: contains per-app AutoTuner recommendations.
+- **raw_metrics**: contains the raw Spark metrics report in CSV formats
+- **qual_metrics**: contains the qualification metrics report in CSV formats
+- **tuning**: contains per-app AutoTuner recommendations.
 
 ## Backward compatibility note (prior to 25.06 release)
 
 With 25.06 release, the output structure of the qual core has changed:
 
 
-| element | legacy | 25.06+ |
+| Element | Legacy | 25.06+ |
 | --- | --- | --- |
 | root dir | `rapids_4_spark_qualification_output` | `qual_core_output` |
 | apps summary | `rapids_4_spark_qualification_output.csv` | `apps_summary.csv` |
@@ -52,6 +52,8 @@ With 25.06 release, the output structure of the qual core has changed:
 | stages report | `rapids_4_spark_qualification_output_stages.csv` | per-app qual_metrics `stages.csv` |
 | cluster CSV report | `rapids_4_spark_qualification_output_cluster_information.csv` | Removed |
 | cluster Json report | `rapids_4_spark_qualification_output_cluster_information.json` | per-app qual_metrics `cluster_information.json` |
+
+**Note**: In addition to the above changes in file names, the column 'App ID' has been removed from the per-app CSV reports.
 
 ## Qualification Table definitions
 

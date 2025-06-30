@@ -42,10 +42,6 @@
 #        ├── persql.csv
 #        ├── stages.csv
 #        ├── unsupported_operators.csv
-#
-# Backward compatibility note (prior to 25.06 release):
-# - root output directory i
-
 
 qualTableDefinitions:
   - label: qualCoreCSVStatus

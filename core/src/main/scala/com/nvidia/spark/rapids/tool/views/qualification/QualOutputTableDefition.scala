@@ -103,9 +103,9 @@ case class QualTableYaml(qualTableDefinitions: Seq[QualOutputTableDefinition]) {
         "      |   ├── stages.csv\n" +
         "      |   ├── unsupported_operators.csv\n```")
     val directoryList =
-      """* *raw_metrics*: contains the raw Spark metrics report in CSV formats
-         |* *qual_metrics*: contains the qualification metrics report in CSV formats
-         |* *tuning*: contains per-app AutoTuner recommendations.
+      """- **raw_metrics**: contains the raw Spark metrics report in CSV formats
+         |- **qual_metrics**: contains the qualification metrics report in CSV formats
+         |- **tuning**: contains per-app AutoTuner recommendations.
          |""".stripMargin
     addLine(directoryList)
     // backward compatibility table
@@ -132,6 +132,9 @@ case class QualTableYaml(qualTableDefinitions: Seq[QualOutputTableDefinition]) {
     addLine("| cluster Json report " +
       "| `rapids_4_spark_qualification_output_cluster_information.json` " +
       "| per-app qual_metrics `cluster_information.json` |")
+    addLine(
+      "\n**Note**: In addition to the above changes in file names, the column 'App ID' has been" +
+      " removed from the per-app CSV reports.")
     val tableDefSec =
       """
         |## Qualification Table definitions
