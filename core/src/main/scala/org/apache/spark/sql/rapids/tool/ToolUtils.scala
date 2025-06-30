@@ -16,7 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.Platform
@@ -27,9 +26,8 @@ import org.apache.maven.artifact.versioning.ComparableVersion
 
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
-import org.apache.spark.sql.rapids.tool.util.{SparkRuntime, ToolsPlanGraph}
+import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.util.SparkRuntime
 
 object ToolUtils extends Logging {
   // List of recommended file-encodings on the GPUs.
@@ -469,33 +467,6 @@ class InvalidMemoryUnitFormatException(message: String)
 
 class MatchingInstanceTypeNotFoundException(message: String)
   extends Exception(message)
-
-// Class used a container to hold the information of the Tuple<sqlID, PlanInfo, SparkGraph>
-// to simplify arguments of methods and caching.
-case class SqlPlanInfoGraphEntry(
-    sqlID: Long,
-    planInfo: SparkPlanInfo,
-    sparkPlanGraph: SparkPlanGraph
-)
-
-// A class used to cache the SQLPlanInfoGraphs
-class SqlPlanInfoGraphBuffer {
-  // A set to hold the SqlPlanInfoGraphEntry. LinkedHashSet to maintain the order of insertion.
-  val sqlPlanInfoGraphs = mutable.LinkedHashSet[SqlPlanInfoGraphEntry]()
-  def addSqlPlanInfoGraph(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
-    val newEntry = SqlPlanInfoGraphBuffer.createEntry(sqlID, planInfo)
-    sqlPlanInfoGraphs += newEntry
-    newEntry
-  }
-}
-
-object SqlPlanInfoGraphBuffer {
-  def apply(): SqlPlanInfoGraphBuffer = new SqlPlanInfoGraphBuffer()
-  def createEntry(sqlID: Long, planInfo: SparkPlanInfo): SqlPlanInfoGraphEntry = {
-    val planGraph = ToolsPlanGraph(planInfo)
-    SqlPlanInfoGraphEntry(sqlID, planInfo, planGraph)
-  }
-}
 
 // Case class to represent a failed AppInfo creation
 case class FailureApp(

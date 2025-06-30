@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,17 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""CSP init file."""
 
-from .csp import CspBase
-from .dataproc import Dataproc as _  # noqa: F401
-
-
-def new_csp(csp_type, args):
-    """Create new CSP instance by CSP type."""
-
-    for cls in CspBase.__subclasses__():
-        if cls.is_csp(csp_type):
-            return cls(args)
-
-    raise Exception(f'unknown CSP type: {csp_type}')
+# This yaml file is a configuration file for a tool that uses Spark as dependency
+# and uses the environment variable SPARK_HOME to locate the jars.
+# Minimal file content.
+api_version: '1.2'
+runtime:
+  dependencies:
+    - name: my-spark-from-cp
+      uri: !ENV ${SPARK_HOME}/jars/*
+      dependency_type:
+        dep_type: classpath

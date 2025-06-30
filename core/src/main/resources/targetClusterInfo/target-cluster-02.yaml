@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the spark_rapids_validation package."""
-from spark_rapids_validation_tool.build import get_version
-
-VERSION = '23.02.0'
-__version__ = get_version(VERSION)
+# Defines the example target cluster information to be used by the Profiling Tool.
+# Usage: `<JAVA CMD> --platform dataproc --target-cluster-info <path to this file>`
+workerInfo:
+  instanceType: g2-standard-24
+sparkProperties:
+  enforced:
+    spark.executor.instances: 10
+    spark.sql.shuffle.partitions: 400
+    spark.sql.files.maxPartitionBytes: 100m
+    spark.task.resource.gpu.amount: 0.25
+    spark.rapids.sql.concurrentGpuTasks: 2

@@ -40,7 +40,6 @@ object ProfileMain extends Logging {
    * Entry point for tests
    */
   def mainInternal(appArgs: ProfileArgs, enablePB: Boolean = false): (Int, Int) = {
-
     // Parsing args
     val eventlogPaths = appArgs.eventlog.getOrElse(List.empty[String])
     val driverLog = appArgs.driverlog.getOrElse("")

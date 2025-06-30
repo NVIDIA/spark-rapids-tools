@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,50 +52,5 @@ class EventsProcessor(app: ApplicationInfo) extends EventProcessorBase[Applicati
       app.isGPUModeEnabledForJob(event)
     )
     app.jobIdToInfo.put(event.jobId, thisJob)
-  }
-
-  override def doSparkListenerResourceProfileAddedReflect(
-      app: ApplicationInfo,
-      event: SparkListenerEvent): Boolean = {
-    val rpAddedClass = "org.apache.spark.scheduler.SparkListenerResourceProfileAdded"
-    if (event.getClass.getName.equals(rpAddedClass)) {
-      try {
-        event match {
-          case _: SparkListenerResourceProfileAdded =>
-            doSparkListenerResourceProfileAdded(app,
-              event.asInstanceOf[SparkListenerResourceProfileAdded])
-            true
-          case _ => false
-        }
-      } catch {
-        case _: ClassNotFoundException =>
-          logWarning("Error trying to parse SparkListenerResourceProfileAdded, Spark" +
-            " version likely older than 3.1.X, unable to parse it properly.")
-          false
-      }
-    } else {
-      false
-    }
-  }
-
-  override def doSparkListenerEnvironmentUpdate(
-      app: ApplicationInfo,
-      event: SparkListenerEnvironmentUpdate): Unit = {
-    logDebug("Processing event: " + event.getClass)
-    super.doSparkListenerEnvironmentUpdate(app, event)
-
-    logDebug(s"App's GPU Mode = ${app.gpuMode}")
-  }
-
-  override def doSparkListenerTaskGettingResult(
-      app: ApplicationInfo,
-      event: SparkListenerTaskGettingResult): Unit = {
-    logDebug("Processing event: " + event.getClass)
-  }
-
-  // To process all other unknown events
-  override def doOtherEvent(app: ApplicationInfo, event: SparkListenerEvent): Unit = {
-    logDebug("Skipping unhandled event: " + event.getClass)
-    // not used
   }
 }

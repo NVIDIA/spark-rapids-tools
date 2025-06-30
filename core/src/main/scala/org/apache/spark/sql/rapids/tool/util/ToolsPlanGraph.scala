@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,78 @@ import org.apache.spark.sql.rapids.tool.store.AccumNameRef
 import org.apache.spark.sql.rapids.tool.util.plangraph.PlanGraphTransformer
 import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphReflectionAPIHelper}
 
+class NodeStageMapper {
+  // A map between SQLNode Id and the clusterIds that the node belongs to.
+  // This map keeps track of the logical binding between nodes and stages.
+  // For example, for qualification this map will be the source of exec-to-stage assignment.
+  private val logicalNTS: mutable.LongMap[Set[Int]] = mutable.LongMap[Set[Int]]()
+  // A map between SQLNode Id and the stages. This map keeps track of node-to-stage assignment based
+  // on accumulable IDs without applying any heuristics or logic.
+  private val rawNTS: mutable.LongMap[Set[Int]] = mutable.LongMap[Set[Int]]()
+  // It is possible to represent the clusters as map [clusterId, Set[SQLNodeIds]].
+  // While this is more memory efficient, it is more time-consuming to find the clusters a
+  // node belongs to since we have to iterate through all the keys.
+  private val rawSTN: mutable.Map[Int, mutable.Set[Long]] =
+    mutable.HashMap[Int, mutable.Set[Long]]()
+
+  // used to insert the map between stage-to-node
+  private def updateSTNMap(m: mutable.Map[Int, mutable.Set[Long]],
+      allKeys: collection.Set[Int], nId: Long): Unit = {
+    allKeys.foreach { stageId =>
+      val existingNodes = m.getOrElseUpdate(stageId, mutable.Set())
+      existingNodes.add(nId)
+    }
+  }
+
+  // Used to add a map node-to-stage based on the accumulableIds
+  def addRawNTS(nId: Long, stageIDs: Set[Int]): Boolean = {
+    if (stageIDs.isEmpty || rawNTS.contains(nId)) {
+      // Do not add node twice because the raw mapping between node and stages should be constant.
+      // Do not add empty stageIds.
+      return false
+    }
+    rawNTS.update(nId, stageIDs)
+    updateSTNMap(rawSTN, stageIDs, nId)
+    true
+  }
+
+  // Used to add a map node-to-stage based on the heuristics and logic and it might not necessarily
+  // match what the entries in the raw map.
+  def addLogicalNTS(nId: Long, stageIds: Set[Int]): Boolean = {
+    if (stageIds.isEmpty) {
+      return false
+    }
+    val existingStages = logicalNTS.getOrElse(nId, Set())
+    logicalNTS.put(nId, existingStages ++ stageIds)
+    true
+  }
+
+  // Get the stage-to-node based on accumulableIds.
+  def getRawSTN(stageId: Int): collection.Set[Long] = {
+    rawSTN.getOrElse(stageId, ToolsPlanGraph.EMPTY_NODES)
+  }
+
+  // Get the node-to-stage based on accumulableIds.
+  def getRawNTS(nId: Long): Set[Int] = {
+    rawNTS.getOrElse(nId, ToolsPlanGraph.EMPTY_CLUSTERS)
+  }
+
+  // Get the node-to-stage based on the heuristic and logical assignments.
+  def getLogicalNTS(nId: Long): Set[Int] = {
+    logicalNTS.getOrElse(nId, ToolsPlanGraph.EMPTY_CLUSTERS)
+  }
+
+  // Check if the node has been already added to the logical map.
+  def hasLogicKey(nId: Long): Boolean = {
+    logicalNTS.contains(nId)
+  }
+
+  // Return both raw and logical mapping for a given node.. It combined both entries.
+  def getAllNTSAssignment(nId: Long): Set[Int] = {
+    getRawNTS(nId) ++ getLogicalNTS(nId)
+  }
+}
+
 /**
  * A wrapper of the original SparkPlanGraph with additional information about the
  * node-to-stage mapping.
@@ -47,12 +119,9 @@ import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphRef
  */
 class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
     accumToStageRetriever: AccumToStageRetriever) {
-  // A map between SQLNode Id and the clusterIds that the node belongs to.
-  // Here, a clusterId means a stageId.
-  // Note: It is possible to represent the clusters as map [clusterId, Set[SQLNodeIds]].
-  //       While this is more memory efficient, it is more time-consuming to find the clusters a
-  //       node belongs to since we have to iterate through all the keys.
-  private val nodeToStageCluster: mutable.Map[Long, Set[Int]] = mutable.HashMap[Long, Set[Int]]()
+  // Container that manages the details of updating the node-to-stage mapping.
+  private val nodeStageMapper = new NodeStageMapper()
+
   // shortcut to the nodes
   def nodes: collection.Seq[SparkPlanGraphNode] = sparkGraph.nodes
   // shortcut to the edges
@@ -67,9 +136,11 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
-  private def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
+   private def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
     val nodeAccums = node.metrics.map(_.accumulatorId)
-    accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
+    val stageIds = accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
+     nodeStageMapper.addRawNTS(node.id, stageIds)
+     stageIds
   }
 
   /**
@@ -79,12 +150,8 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
-  def getAllNodeStages(node: SparkPlanGraphNode): Set[Int] = {
-    val stageIdsByAccum = getNodeStagesByAccum(node)
-    nodeToStageCluster.get(node.id) match {
-      case Some(stageId) => stageIdsByAccum ++ stageId
-      case _ => stageIdsByAccum
-    }
+  private def getAllNodeStages(node: SparkPlanGraphNode): Set[Int] = {
+    nodeStageMapper.getAllNTSAssignment(node.id)
   }
 
   /**
@@ -186,9 +253,14 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    */
   private def removeNodeFromOrphans(node: SparkPlanGraphNode,
       orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
-      clusters: Set[Int]): Unit = {
-    nodeToStageCluster.put(node.id, clusters)
-    orphanNodes -= node
+      clusters: Set[Int]): Boolean = {
+    if (nodeStageMapper.addLogicalNTS(node.id, clusters)) {
+      orphanNodes -= node
+      true
+    } else {
+      false
+    }
+
   }
 
   /**
@@ -204,23 +276,24 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
     wNode: SparkPlanGraphCluster,
     orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode],
     clusters: Set[Int]): Boolean = {
-    if (nodeToStageCluster.contains(wNode.id) && clusters.subsetOf(nodeToStageCluster(wNode.id))) {
+    var result = false
+    if (nodeStageMapper.hasLogicKey(wNode.id)
+        && clusters.subsetOf(nodeStageMapper.getLogicalNTS(wNode.id))) {
       // Nothing to do since the node is assigned to the same cluster before.
-      false
     } else {
       val newClusterIds =
-        clusters ++ nodeToStageCluster.getOrElse(wNode.id, ToolsPlanGraph.EMPTY_CLUSTERS)
+        clusters ++ nodeStageMapper.getLogicalNTS(wNode.id)
       // Remove the wNode from orphanNodes if it exists
-      removeNodeFromOrphans(wNode, orphanNodes, newClusterIds)
+      result = removeNodeFromOrphans(wNode, orphanNodes, newClusterIds)
       // Assign the children to the same clusters if any of them is not assigned already.
       wNode.nodes.foreach { childNode =>
-        if (!nodeToStageCluster.contains(childNode.id)) {
+        if (!nodeStageMapper.hasLogicKey(childNode.id)) {
           // Assign the child node to the same stage of wNode and remove it from orphans
-          removeNodeFromOrphans(childNode, orphanNodes, newClusterIds)
+          result = removeNodeFromOrphans(childNode, orphanNodes, newClusterIds) || result
         }
       }
-      true
     }
+    result
   }
 
   /**
@@ -256,7 +329,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
     //      In the process, WholeStageCodeGens propagate their assignment to the child nodes if
     //      they are orphans.
     allNodes.foreach { node =>
-      if (!nodeToStageCluster.contains(node.id)) {
+      if (!nodeStageMapper.hasLogicKey(node.id)) {
         // Get clusterIDs based on AccumIds
         val clusterIds = populateNodeClusters(node)
         if (clusterIds.nonEmpty) {
@@ -284,9 +357,9 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
             case wNode: SparkPlanGraphCluster =>
               // WholeStageCodeGen is a corner case because it is not connected by edges.
               // The only way to set the clusterID is to get it from the children if any.
-              wNode.nodes.find { childNode => nodeToStageCluster.contains(childNode.id) } match {
+              wNode.nodes.find { childNode => nodeStageMapper.hasLogicKey(childNode.id) } match {
                 case Some(childNode) =>
-                  val clusterIDs = nodeToStageCluster(childNode.id)
+                  val clusterIDs = nodeStageMapper.getLogicalNTS(childNode.id)
                   commitNodeToStageCluster(wNode, orphanNodes, clusterIDs)
                 case _ => // do nothing if we could not find a child node with a clusterId
                   false
@@ -300,10 +373,10 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
               if ((nodeCase & 1) > 0) {
                 // Assign cluster based on incoming edges.
                 val inEdgesWithIds =
-                  edges.filter(e => e.toId == currNode.id && nodeToStageCluster.contains(e.fromId))
+                  edges.filter(e => e.toId == currNode.id && nodeStageMapper.hasLogicKey(e.fromId))
                 if (inEdgesWithIds.nonEmpty) {
                   // For simplicity, assign the node based on the first incoming adjacent node.
-                  clusterIDs = nodeToStageCluster(inEdgesWithIds.head.fromId)
+                  clusterIDs = nodeStageMapper.getLogicalNTS(inEdgesWithIds.head.fromId)
                 }
               }
               if (clusterIDs.isEmpty && (nodeCase & 2) > 0) {
@@ -316,10 +389,10 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
                 //              considering the incoming node (exchange in that case). This corner
                 //              case is handled later as a last-ditch effort.
                 val outEdgesWithIds =
-                  edges.filter(e => e.fromId == currNode.id && nodeToStageCluster.contains(e.toId))
+                  edges.filter(e => e.fromId == currNode.id && nodeStageMapper.hasLogicKey(e.toId))
                 if (outEdgesWithIds.nonEmpty) {
                   // For simplicity, assign the node based on the first outgoing adjacent node.
-                  clusterIDs = nodeToStageCluster(outEdgesWithIds.head.toId)
+                  clusterIDs = nodeStageMapper.getLogicalNTS(outEdgesWithIds.head.toId)
                 }
               }
               if (clusterIDs.nonEmpty) {
@@ -346,7 +419,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
           orphanNode =>
             // Get adjacent nodes to the shuffleRead that have cluster assignment.
             val inEdgesWithIds =
-              edges.filter(e => e.toId == orphanNode.id && nodeToStageCluster.contains(e.fromId))
+              edges.filter(e => e.toId == orphanNode.id && nodeStageMapper.hasLogicKey(e.fromId))
             if (inEdgesWithIds.nonEmpty) {
               // At this point, we need to get all the possible stageIDs that can be assigned to the
               // adjacent nodes because and not only the logical ones.
@@ -376,12 +449,40 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @param node the node to get the stages for
    * @return a set of stageIds or empty if None
    */
-  def getNodeStageClusters(node: SparkPlanGraphNode): Set[Int] = {
-    nodeToStageCluster.getOrElse(node.id, ToolsPlanGraph.EMPTY_CLUSTERS)
+  def getNodeStageLogicalAssignment(node: SparkPlanGraphNode): Set[Int] = {
+    getNodeStageLogicalAssignment(node.id)
+  }
+  /**
+   * Get the stage clusters that the node belongs to.
+   * Use this method if this logical representation of the node-to-stage relationship.
+   * For example, an "Exchange" node returns only a single stageID which is the stage that writes
+   * the data.
+   * @param nodeId the nodeId to get the stages for
+   * @return a set of stageIds or empty if None
+   */
+  def getNodeStageLogicalAssignment(nodeId: Long): Set[Int] = {
+    nodeStageMapper.getLogicalNTS(nodeId)
   }
 
-  def getNodeStageClusters(nodeId: Long): Set[Int] = {
-    nodeToStageCluster.getOrElse(nodeId, ToolsPlanGraph.EMPTY_CLUSTERS)
+  /**
+   * Get the stage clusters that the node belongs to based on the accumulableIds. This method is
+   * used when the caller needs the raw representation of node-to-stage without any heuristics.
+   * @param nodeId the id of the SQLNode
+   * @return a set of stageIds or empty if None
+   */
+  def getNodeStageRawAssignment(nodeId: Long): Set[Int] = {
+    nodeStageMapper.getRawNTS(nodeId)
+  }
+
+  /**
+   * Get the nodes that belong to a specific stageId. This method uses the raw assignment based on
+   * accumulableIds and does not apply any heuristics or logic to bind between nodes and stages.
+   * This method is used to speed-up retrieval of stages O(1).
+   * @param stageId the if of the stage
+   * @return a set of nodeIds or empty if None
+   */
+  def getStageNodesByRawAssignment(stageId: Int): collection.Set[Long] = {
+    nodeStageMapper.getRawSTN(stageId)
   }
 } // end of class ToolsPlanGraph
 
@@ -393,8 +494,9 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
  * Build a SparkPlanGraph from the root of a SparkPlan tree.
  */
 object ToolsPlanGraph {
+  val EMPTY_NODES: Set[Long] = Set.empty
   // Empty cluster set used to represent a node that is not assigned to any cluster.
-  private val EMPTY_CLUSTERS: Set[Int] = Set.empty
+  val EMPTY_CLUSTERS: Set[Int] = Set.empty
   // Captures the API loaded at runtime if any.
   var api: GraphReflectionAPI = _
 

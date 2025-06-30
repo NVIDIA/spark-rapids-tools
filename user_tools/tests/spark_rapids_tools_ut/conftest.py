@@ -48,7 +48,7 @@ csps = ['dataproc', 'dataproc_gke', 'emr', 'databricks_aws', 'databricks_azure']
 all_csps = csps + ['onprem']
 autotuner_prop_path = 'worker_info.yaml'
 # valid tools config files
-valid_tools_conf_files = ['tools_config_00.yaml']
+valid_tools_conf_files = ['tools_config_00.yaml', 'tools_config_03.yaml']
 valid_distributed_mode_tools_conf_files = ['tools_config_01.yaml', 'tools_config_02.yaml']
 # invalid tools config files
 invalid_tools_conf_files = [

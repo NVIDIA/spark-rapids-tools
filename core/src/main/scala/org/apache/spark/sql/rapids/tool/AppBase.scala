@@ -37,7 +37,7 @@ import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModel, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
@@ -47,7 +47,8 @@ abstract class AppBase(
     val platform: Option[Platform] = None) extends Logging
   with ClusterTagPropHandler
   with AccumToStageRetriever
-  with Identifiable[String] {
+  with Identifiable[String]
+  with EventLogParserTrait {
 
   /**
    * The event log path is used as the unique identifier for the application.
@@ -361,7 +362,7 @@ abstract class AppBase(
           val runtimeGetFromJsonMethod = EventUtils.getEventFromJsonMethod
           reader.listEventLogFiles.foreach { file =>
             Utils.tryWithResource(openEventLogInternal(file.getPath, fs)) { in =>
-              UTF8Source.fromInputStream(in).getLines().find { line =>
+              UTF8Source.fromInputStream(in).getLines().filter(acceptLine).find { line =>
                 // Using find as foreach with conditional to exit early if we are done.
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
@@ -375,7 +376,12 @@ abstract class AppBase(
         } else {
           logError(s"Error getting reader for ${eventLogPath.getName}")
         }
-        logInfo(s"Total number of events parsed: $totalNumEvents for ${eventLogPath.toString}")
+        val totalLines = getTotalLines
+        val processedLines = getProcessedLinesCount
+        val ratio = 100.0 * processedLines / totalLines
+        logInfo(
+          s"Events stats of ${eventLogPath.toString} (Total/Parsed/Skipped/Process-Percentage): " +
+            f"($totalLines%d/$processedLines%d/${getSkippedLinesCount}%d/$ratio%2.2f)")
       case None => logInfo("Streaming events to application")
     }
   }
@@ -436,10 +442,10 @@ abstract class AppBase(
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   def checkMetadataForReadSchema(
-      sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceRecord] = {
+      sqlPlanInfoGraph: SQLPlanModel): ArrayBuffer[DataSourceRecord] = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
-    val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
+    val allNodes = sqlPlanInfoGraph.getToolsPlanGraph.allNodes
     val results = ArrayBuffer[DataSourceRecord]()
 
     allMetaWithSchema.foreach { plan =>
@@ -456,8 +462,8 @@ abstract class AppBase(
       // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
       if (scanNode.nonEmpty) {
         results += DataSourceRecord(
-          sqlPlanInfoGraph.sqlID,
-          sqlManager.getPlanById(sqlPlanInfoGraph.sqlID).get.plan.version,
+          sqlPlanInfoGraph.id,
+          sqlPlanInfoGraph.plan.version,
           scanNode.head.id,
           ReadParser.extractTagFromV1ReadMeta("Format", meta),
           ReadParser.extractTagFromV1ReadMeta("Location", meta),
@@ -477,8 +483,8 @@ abstract class AppBase(
         val hiveScanNode = sqlGraph.allNodes.head
         val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
         results += DataSourceRecord(
-          sqlPlanInfoGraph.sqlID,
-          sqlManager.getPlanById(sqlPlanInfoGraph.sqlID).get.plan.version,
+          sqlPlanInfoGraph.id,
+          sqlPlanInfoGraph.plan.version,
           hiveScanNode.id,
           scanHiveMeta.format,
           scanHiveMeta.location,
@@ -550,6 +556,15 @@ abstract class AppBase(
     calculateAppDuration()
     validateSparkRuntime()
     buildClusterInfo()
+    buildPlanGraphs()
+  }
+
+  /**
+   * Build the plan graphs for all the SQL Plans if any.
+   * @note This should only be called once.
+   */
+  protected def buildPlanGraphs(): Unit = {
+    sqlManager.buildPlanGraph(this)
   }
 
   /**
@@ -704,9 +719,11 @@ object AppBase {
       case skippedEx: AppEventlogProcessException =>
         ("skipped", skippedEx.getMessage)
       case _: com.fasterxml.jackson.core.JsonParseException =>
-        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing JSON: ${path.eventLog.toString}")
-      case _: IllegalArgumentException =>
-        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing file: ${path.eventLog.toString}")
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing JSON: " +
+          s"${path.eventLog.toString}. ${e.getMessage}")
+      case e: IllegalArgumentException =>
+        (StringUtils.UNKNOWN_EXTRACT, s"Error parsing file: " +
+          s"${path.eventLog.toString}. ${e.getMessage}")
       case ue: Exception =>
         // catch all exceptions and skip that file
         (StringUtils.UNKNOWN_EXTRACT, s"Got unexpected exception processing file:" +

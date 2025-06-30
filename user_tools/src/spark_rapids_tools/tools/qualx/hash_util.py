@@ -36,8 +36,17 @@ def get_hash_config() -> HashConfig:
     return _hash_config
 
 
+# Nodes to remove from the plan (using exact match):
+# - that are only present in either CPU or GPU plans, e.g. GpuColumnarExchange.
+# - that have simpleStrings that may be confused with other nodes, e.g. Sort (vs. SortMergeJoin).
 remove_nodes_exact = get_hash_config().remove_nodes_exact
+
+# Nodes to remove from the plan (using prefix match):
 remove_nodes_prefix = get_hash_config().remove_nodes_prefix
+
+# Nodes to rename (using prefix match):
+# - with variable suffixes, e.g. Scan parquet LOCATION -> Scan parquet.
+# - that are similar but have different names, e.g. BucketUnion -> Union.
 rename_nodes = get_hash_config().rename_nodes
 
 
@@ -157,6 +166,12 @@ def normalize_plan(plan):
 
     def normalize_path(node):
         """Normalize an entire sub-path in the plan.
+
+        This transforms a sub-path into a more canonical form, e.g.
+        - GpuTopN/GpuTopN/X -> TakeOrderedAndProject/X
+        - Project/Filter/X -> Project/X
+        - UnionWithLocalData/Union/X -> Union/X
+        - X/SubqueryAdaptiveBroadcast -> X
 
         This requires normalize_node to have already been called.
         """

@@ -288,6 +288,8 @@ class RunningQualificationApp(
   // don't aggregate at app level, just sql level
   private def aggregatePerSQLStats(sqlID: Long): Option[EstimatedPerSQLSummaryInfo] = {
     val sqlDesc = sqlIdToInfo.get(sqlID).map(_.description)
+    // build the plan graphs to guarantee that the SQL plans were already created
+    buildPlanGraphsInternal()
     val origPlanInfo = sqlPlans.get(sqlID).map { plan =>
       SQLPlanParser.parseSQLPlan(appId, plan, sqlID, sqlDesc.getOrElse(""), pluginTypeChecker, this)
     }
@@ -324,12 +326,46 @@ class RunningQualificationApp(
       .map(s => s.getOpName).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
   }
 
+  override def buildPlanGraphs(): Unit = {
+    // Do nothing because the events are not parsed yet by the time
+    // this function is called.
+  }
+
+  /**
+   * Whether the plan graphs have already been built.
+   */
+  private var _graphBuilt = false
+
+  /**
+   * Build the plan graphs for all the SQL Plans if any.
+   * It is possible that this method gets called multiple times. For example, aggregateStats
+   * is called by different methods in teh same object and we want to make sure that it does not
+   * create the graphs multiple times.
+   */
+  def buildPlanGraphsInternal(): Unit = {
+    this.synchronized {
+      if (!_graphBuilt) {
+        sqlManager.buildPlanGraph(this)
+        _graphBuilt = true
+      }
+    }
+  }
+
+  override def cleanupSQL(sqlID: Long): Unit = {
+    super.cleanupSQL(sqlID)
+    // reset the graph built flag because the sqlIds were removed.
+    this.synchronized {
+      _graphBuilt = false
+    }
+  }
   /**
    * Aggregate and process the application after reading the events.
    * @return Option of QualificationSummaryInfo, Some if we were able to process the application
    *         otherwise None.
    */
   override def aggregateStats(): Option[QualificationSummaryInfo] = {
+    // build the plan graphs to guarantee that the SQL plans were already created
+    buildPlanGraphsInternal()
     // make sure that the APPSQLAppAnalyzer has processed the running application
     AppSQLPlanAnalyzer(this)
     super.aggregateStats()
