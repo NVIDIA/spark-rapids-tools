@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,25 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-sparkConf:
-  spark.executor.memory: 4g
-  spark.executor.cores: 3
-  spark.executor.instances: 5
-  spark.dynamicAllocation.enabled: false
-toolConf:
-  cluster: data-validation-test2
-  region: us-central1
-  check: valid_metadata
-  format: hive
-  table1: your-table1-name
-  table1_partition:
-  table2: your-table2-name
-  table2_partition:
-  pk:
-  exclude_column:
-  include_column: all
-  filter:
-  output_path:
-  output_format:
-  precision: 4
-  debug: False
+# Defines the example target cluster information to be used by the Profiling Tool.
+# Usage: `<JAVA CMD> --platform onprem --target-cluster-info <path to this file>`
+workerInfo:
+  cpuCores: 8
+  memoryGB: 40
+  gpu:
+    count: 1
+    name: l4
+sparkProperties:
+  enforced:
+    spark.memory.offHeap.size: 18g
+    spark.memory.offHeap.enabled: true
+    spark.sql.shuffle.partitions: 400
+    spark.sql.files.maxPartitionBytes: 101m
+    spark.rapids.sql.concurrentGpuTasks: 2

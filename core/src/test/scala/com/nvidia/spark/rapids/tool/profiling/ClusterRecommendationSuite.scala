@@ -19,17 +19,18 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 
 import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.tuning.{ProfilingAutoTunerConfigsProvider, ProfilingAutoTunerSuiteBase}
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
-import org.scalatest.FunSuite
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.RecommendedClusterInfo
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 
-class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenPropertyChecks {
+class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
+  with TableDrivenPropertyChecks {
   lazy val sparkSession: SparkSession = {
     SparkSession
       .builder()
@@ -38,7 +39,28 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
       .getOrCreate()
   }
 
-  private val logDir = ToolTestUtils.getTestResourcePath("spark-events-profiling")
+
+  /**
+   * Helper method to assert that the recommended cluster info matches the expected
+   */
+  def assertRecommendedClusterInfo(
+      actualClusterInfoFilePath: String,
+      expectedClusterInfo: RecommendedClusterInfo): Unit = {
+    val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualClusterInfoFilePath)
+      .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
+        throw new TestFailedException(
+          s"Failed to load recommended cluster info from $actualClusterInfoFilePath", 0)
+      }
+
+    val clusterInfoMatches = recommendedClusterInfo == expectedClusterInfo
+    assert(clusterInfoMatches,
+      s"""
+         |Actual cluster info does not match the expected cluster info.
+         |Actual: $recommendedClusterInfo
+         |Expected: $expectedClusterInfo
+         |""".stripMargin)
+  }
+
 
   val validClusterRecommendationScenarios: TableFor4[
       String, String, Option[Int], RecommendedClusterInfo] = Table(
@@ -142,7 +164,7 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = instanceType,
+            instanceType = Some(instanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -154,27 +176,14 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
             tempDir.getAbsolutePath,
             "--csv",
             "--auto-tuner",
-            s"$logDir/nds_q66_gpu.zstd"))
+            s"$profilingLogDir/nds_q66_gpu.zstd"))
 
           val (exit, _) = ProfileMain.mainInternal(appArgs)
           assert(exit == 0)
           val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
           val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-          val actualFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
-
-          val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualFilePath)
-            .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
-              throw new TestFailedException(
-                s"Failed to load recommended cluster info from $actualFilePath", 0)
-            }
-
-          val clusterInfoMatches = recommendedClusterInfo == expectedClusterInfo
-          assert(clusterInfoMatches,
-            s"""
-               |Actual cluster info does not match the expected cluster info.
-               |Actual: $recommendedClusterInfo
-               |Expected: $expectedClusterInfo
-               |""".stripMargin)
+          val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+          assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
         }
       }
   }
@@ -200,27 +209,14 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
         tempDir.getAbsolutePath,
         "--csv",
         "--auto-tuner",
-        s"$logDir/nds_q66_gpu.zstd"))
+        s"$profilingLogDir/nds_q66_gpu.zstd"))
 
       val (exit, _) = ProfileMain.mainInternal(appArgs)
       assert(exit == 0)
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
       val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-      val actualFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
-
-      val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualFilePath)
-        .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
-          throw new TestFailedException(
-            s"Failed to load recommended cluster info from $actualFilePath", 0)
-        }
-
-      val clusterInfoMatches = recommendedClusterInfo == expectedClusterInfo
-      assert(clusterInfoMatches,
-        s"""
-           |Actual cluster info does not match the expected cluster info.
-           |Actual: $recommendedClusterInfo
-           |Expected: $expectedClusterInfo
-           |""".stripMargin)
+      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
     }
   }
 
@@ -243,7 +239,7 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = instanceType,
+            instanceType = Some(instanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -255,7 +251,7 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
             tempDir.getAbsolutePath,
             "--csv",
             "--auto-tuner",
-            s"$logDir/nds_q66_gpu.zstd"))
+            s"$profilingLogDir/nds_q66_gpu.zstd"))
 
           val (exit, _) = ProfileMain.mainInternal(appArgs)
           assert(exit == 0)
@@ -265,5 +261,240 @@ class ClusterRecommendationSuite extends FunSuite with Logging with TableDrivenP
             s"${tempDir.getAbsolutePath}/${Profiler.SUBDIR}/profiling_status.csv")
         }
       }
+  }
+
+
+  /**
+   * Test to validate the cluster shape recommendation with enforced spark properties.
+   *
+   * Target Cluster YAML file:
+   * {{{
+   * workerInfo:
+   *  instanceType: g2-standard-8
+   * sparkProperties:
+   *  enforced:
+   *    spark.executor.cores: 8
+   *    spark.executor.memory: 12g
+   *    spark.memory.offHeap.enabled: true
+   *    spark.memory.offHeap.size: 2g
+   *    spark.sql.shuffle.partitions: 400
+   * }}}
+   */
+  test(s"test valid cluster shape recommendation with enforced spark properties on dataproc") {
+    val expectedClusterInfo = RecommendedClusterInfo(
+      vendor = PlatformNames.DATAPROC,
+      coresPerExecutor = 8,
+      numWorkerNodes = 2,
+      numGpusPerNode = 1,
+      numExecutors = 2,
+      gpuDevice = GpuTypes.L4,
+      dynamicAllocationEnabled = false,
+      dynamicAllocationMaxExecutors = "N/A",
+      dynamicAllocationMinExecutors = "N/A",
+      dynamicAllocationInitialExecutors = "N/A",
+      workerNodeType = Some("g2-standard-8")
+    )
+    val expectedEnforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "12g",
+      "spark.memory.offHeap.enabled" -> "true",
+      "spark.memory.offHeap.size" -> "2g",
+      "spark.sql.shuffle.partitions" -> "400"
+    )
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        instanceType = expectedClusterInfo.workerNodeType,
+        enforcedSparkProperties = expectedEnforcedSparkProperties)
+
+      val appArgs = new ProfileArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--csv",
+        "--auto-tuner",
+        s"$profilingLogDir/gpu_oom_eventlog.zstd"))
+
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/app-20250305192829-0000")
+      val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
+      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+
+      // 1. Verify the recommended cluster info
+      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+
+      // 2. Verify the enforced spark properties
+      val logFile = getOutputFilePath(tempDir, "profile.log")
+      val profileLogContent = FSUtils.readFileContentAsUTF8(logFile)
+      val actualResults = extractAutoTunerResults(profileLogContent)
+
+      val testAppJarVer = "25.02.0"
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |Spark Properties:
+            |--conf spark.dataproc.enhanced.execution.enabled=false
+            |--conf spark.dataproc.enhanced.optimizer.enabled=false
+            |--conf spark.executor.cores=8
+            |--conf spark.executor.instances=2
+            |--conf spark.executor.memory=12g
+            |--conf spark.memory.offHeap.enabled=true
+            |--conf spark.memory.offHeap.size=2g
+            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+            |--conf spark.rapids.sql.concurrentGpuTasks=3
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.files.maxPartitionBytes=1851m
+            |--conf spark.sql.shuffle.partitions=400
+            |--conf spark.task.resource.gpu.amount=0.001
+            |
+            |Comments:
+            |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
+            |- 'spark.executor.instances' was not set.
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.memory")}
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.memory.offHeap.enabled")}
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.memory.offHeap.size")}
+            |- 'spark.rapids.memory.pinnedPool.size' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+            |- 'spark.rapids.sql.enabled' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+            |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin.trim
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, actualResults)
+    }
+  }
+
+  /**
+   * Test to validate the cluster shape recommendation with enforced spark properties.
+   * This tests that if the user has enforced `spark.executor.instances`, this will
+   * affect the recommended cluster shape.
+   *
+   * Target Cluster YAML file:
+   * {{{
+   * workerInfo:
+   *  instanceType: g2-standard-8
+   * sparkProperties:
+   *  enforced:
+   *    spark.executor.cores: 8
+   *    spark.executor.instances: 4
+   *    spark.executor.memory: 12g
+   * }}}
+   */
+  test(s"test valid cluster shape recommendation with enforced spark properties on dataproc " +
+    s"affecting the cluster shape") {
+    val expectedClusterInfo = RecommendedClusterInfo(
+      vendor = PlatformNames.DATAPROC,
+      coresPerExecutor = 8,
+      numWorkerNodes = 4,
+      numGpusPerNode = 1,
+      numExecutors = 4,
+      gpuDevice = GpuTypes.L4,
+      dynamicAllocationEnabled = false,
+      dynamicAllocationMaxExecutors = "N/A",
+      dynamicAllocationMinExecutors = "N/A",
+      dynamicAllocationInitialExecutors = "N/A",
+      workerNodeType = Some("g2-standard-8")
+    )
+    val expectedEnforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "12g"
+    )
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        instanceType = expectedClusterInfo.workerNodeType,
+        enforcedSparkProperties = expectedEnforcedSparkProperties)
+
+      val appArgs = new ProfileArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--csv",
+        "--auto-tuner",
+        s"$profilingLogDir/gpu_oom_eventlog.zstd"))
+
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/app-20250305192829-0000")
+      val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
+      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+
+      // 1. Verify the recommended cluster info
+      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+
+      // 2. Verify the enforced spark properties
+      val logFile = getOutputFilePath(tempDir, "profile.log")
+      val profileLogContent = FSUtils.readFileContentAsUTF8(logFile)
+      val actualResults = extractAutoTunerResults(profileLogContent)
+
+      val testAppJarVer = "25.02.0"
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |Spark Properties:
+            |--conf spark.dataproc.enhanced.execution.enabled=false
+            |--conf spark.dataproc.enhanced.optimizer.enabled=false
+            |--conf spark.executor.cores=8
+            |--conf spark.executor.instances=4
+            |--conf spark.executor.memory=12g
+            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+            |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+            |--conf spark.rapids.sql.concurrentGpuTasks=3
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.files.maxPartitionBytes=1851m
+            |--conf spark.sql.shuffle.partitions=400
+            |--conf spark.task.resource.gpu.amount=0.001
+            |
+            |Comments:
+            |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+            |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.instances")}
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.memory")}
+            |- 'spark.rapids.memory.pinnedPool.size' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+            |- 'spark.rapids.sql.enabled' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+            |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin.trim
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, actualResults)
+    }
   }
 }

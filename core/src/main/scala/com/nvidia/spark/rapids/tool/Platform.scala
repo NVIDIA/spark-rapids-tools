@@ -16,9 +16,10 @@
 package com.nvidia.spark.rapids.tool
 
 import scala.annotation.tailrec
+import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -61,10 +62,23 @@ case class DynamicAllocationInfo(enabled: Boolean, max: String, min: String, ini
  *                 cases where a given instance type can have multiple GPU counts
  *                 (e.g. n1-standard-16 with 1, 2, or 4 GPUs).
  */
-case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None) {
+case class NodeInstanceMapKey(instanceType: String, gpuCount: Option[Int] = None)
+  extends Ordered[NodeInstanceMapKey] {
   override def toString: String = gpuCount match {
     case Some(count) => s"NodeInstanceMapKey(instanceType='$instanceType', gpuCount=$count)"
     case None => s"NodeInstanceMapKey(instanceType='$instanceType')"
+  }
+
+  /**
+   * Defines the ordering by `instanceType` lexicographically then by `gpuCount` numerically
+   */
+  override def compare(that: NodeInstanceMapKey): Int = {
+    val instanceCmp = this.instanceType.compareTo(that.instanceType)
+    if (instanceCmp != 0) {
+      instanceCmp
+    } else {
+      gpuCount.getOrElse(0) - that.gpuCount.getOrElse(0)
+    }
   }
 }
 
@@ -208,15 +222,21 @@ object PlatformInstanceTypes {
  */
 abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties],
-    targetCluster: Option[TargetClusterProps]) extends Logging {
+    val targetCluster: Option[TargetClusterProps]) extends Logging {
   val platformName: String
   def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = None
   def defaultRecommendedCoresPerExec: Int = 16
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
 
+  require(targetCluster.isEmpty || targetCluster.exists(_.getWorkerInfo.isEmpty) ||
+    targetCluster.exists(_.getWorkerInfo.isCspInfo == isPlatformCSP),
+    s"Target cluster worker info does not match platform expectations. " +
+      s"Ensure it is defined consistently with the platform."
+  )
+
   /**
-   * Fraction of the system’s total memory that is available for executor use.
+   * Fraction of the system's total memory that is available for executor use.
    * This value should be set based on the platform to account for memory
    * reserved by the resource managers (e.g., YARN).
    */
@@ -224,31 +244,50 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   val sparkVersionLabel: String = "Spark version"
 
-  // It's not deal to use vars here but to minimize changes and
+  /**
+  * Returns the recommended instance info based on the provided WorkerInfo for CSPs.
+  * See [[OnPremPlatform.getRecommendedInstanceInfoFromTargetWorker]] for OnPrem.
+  *
+  * Behavior:
+  * - If a specific instance type is provided and found in the platform's instance map,
+  *   returns the corresponding InstanceInfo.
+  * - If the specified instance type is not found, throws a MatchingInstanceTypeNotFoundException.
+  * - If no instance type is specified or workerInfo is absent, falls back to the platform's
+  *   default recommended instance type.
+  */
+  protected def getRecommendedInstanceInfoFromTargetWorker(
+      workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
+    workerInfoOpt.flatMap(_.getNodeInstanceMapKey) match {
+      case Some(nodeInstanceMapKey) =>
+        getInstanceMapByName.get(nodeInstanceMapKey).orElse {
+          val errorMsg =
+            s"""
+               |Could not find matching instance type in resources map.
+               |Requested: $nodeInstanceMapKey
+               |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
+               |
+               |Next Steps:
+               |Update the target cluster YAML with a valid instance type and GPU count, or skip
+               |it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
+               |""".stripMargin.trim
+          throw new MatchingInstanceTypeNotFoundException(errorMsg)
+        }
+      case None =>
+        val defaultInstanceInfo =
+          defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
+        logInfo("Instance type is not provided in the target cluster. " +
+          s"Using default instance type: $defaultInstanceInfo")
+        defaultInstanceInfo
+    }
+  }
+
+  // It's not ideal to use vars here but to minimize changes and
   // keep backwards compatibility we put them here for now and hopefully
   // in future we can refactor.
   var clusterInfoFromEventLog: Option[SourceClusterInfo] = None
   // instance information for the gpu node type we will use to run with
   var recommendedNodeInstanceInfo: Option[InstanceInfo] = {
-    targetCluster.map(_.getWorkerInfo.getNodeInstanceMapKey) match {
-      case Some(nodeInstanceMapKey) =>
-        getInstanceMapByName.get(nodeInstanceMapKey).orElse {
-          // scalastyle:off line.size.limit
-          throw new MatchingInstanceTypeNotFoundException(
-            s"""
-               |Could not find matching instance type in resources map.
-               |Requested: $nodeInstanceMapKey
-               |Supported: ${getInstanceMapByName.keys.mkString(", ")}
-               |
-               |Next Steps:
-               |Update the target cluster YAML with a valid instance type and GPU count, or skip it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
-               |""".stripMargin.trim
-          )
-          // scalastyle:on line.size.limit
-        }
-      case None =>
-        defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
-    }
+    getRecommendedInstanceInfoFromTargetWorker(targetCluster.map(_.getWorkerInfo))
   }
 
   // overall final recommended cluster configuration
@@ -340,15 +379,21 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * These have the highest priority.
    */
   val recommendationsToExclude: Set[String] = Set.empty
+
   /**
-   * Recommendations to be included in the final list of recommendations.
-   * These properties should be specific to the platform and not general Spark properties.
+   * Platform-specific recommendations that should be included in the final list of recommendations.
    * For example: we used to set "spark.databricks.optimizer.dynamicFilePruning" to false for the
    *              Databricks platform.
-   *
-   * Represented as a tuple of (propertyKey, propertyValue).
    */
-  val recommendationsToInclude: Seq[(String, String)] = Seq.empty
+  val platformSpecificRecommendations: Map[String, String] = Map.empty
+
+  /**
+   * User-enforced recommendations that should be included in the final list of recommendations.
+   */
+  lazy val userEnforcedRecommendations: Map[String, String] = {
+    targetCluster.map(_.getSparkProperties.enforcedPropertiesMap).getOrElse(Map.empty)
+  }
+
   /**
    * Dynamically calculates the recommendation for a specific Spark property by invoking
    * the appropriate function based on `sparkProperty`.
@@ -369,7 +414,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def isValidRecommendation(property: String): Boolean = {
     !recommendationsToExclude.contains(property) ||
-      recommendationsToInclude.map(_._1).contains(property)
+      platformSpecificRecommendations.contains(property) ||
+      userEnforcedRecommendations.contains(property)
   }
 
   /**
@@ -402,48 +448,48 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   def getRetainedSystemProps: Set[String] = Set.empty
 
-  def getExecutorHeapMemoryMB(sparkProperties: Map[String, String]): Long = {
-    val executorMemoryFromConf = sparkProperties.get("spark.executor.memory")
+  def getExecutorHeapMemoryMB(sparkPropertiesFn: String => Option[String]): Long = {
+    val executorMemoryFromConf = sparkPropertiesFn("spark.executor.memory")
     if (executorMemoryFromConf.isDefined) {
       StringUtils.convertToMB(executorMemoryFromConf.getOrElse("0"), Some(ByteUnit.BYTE))
     } else {
       // TODO: Potentially enhance this to handle if no config then check the executor
       //  added or resource profile added events for the heap size
-      val sparkMaster = SparkMaster(sparkProperties.get("spark.master"))
+      val sparkMaster = SparkMaster(sparkPropertiesFn("spark.master"))
       sparkMaster.map(_.defaultExecutorMemoryMB).getOrElse(0L)
     }
   }
 
-  def getSparkOffHeapMemoryMB(sparkProperties: Map[String, String]): Option[Long] = {
+  def getSparkOffHeapMemoryMB(sparkPropertiesFn: String => Option[String]): Option[Long] = {
     // Return if offHeap is not enabled
-    if (!sparkProperties.getOrElse("spark.memory.offHeap.enabled", "false").toBoolean) {
+    if (!sparkPropertiesFn("spark.memory.offHeap.enabled").getOrElse("false").toBoolean) {
       return None
     }
 
-    sparkProperties.get("spark.memory.offHeap.size").map { size =>
+    sparkPropertiesFn("spark.memory.offHeap.size").map { size =>
       StringUtils.convertToMB(size, Some(ByteUnit.BYTE))
     }
   }
 
-  def getPySparkMemoryMB(sparkProperties: Map[String, String]): Option[Long] = {
+  def getPySparkMemoryMB(sparkPropertiesFn: String => Option[String]): Option[Long] = {
     // Avoiding explicitly checking if it is PySpark app, if the user has set
     // the memory for PySpark, we will use that.
-    sparkProperties.get("spark.executor.pyspark.memory").map {
+    sparkPropertiesFn("spark.executor.pyspark.memory").map {
       size => StringUtils.convertToMB(size, Some(ByteUnit.MiB))
     }
   }
 
-  def getExecutorOverheadMemoryMB(sparkProperties: Map[String, String]): Long = {
-    val executorMemoryOverheadFromConf = sparkProperties.get("spark.executor.memoryOverhead")
-    val execMemOverheadFactorFromConf = sparkProperties.get("spark.executor.memoryOverheadFactor")
-    val execHeapMemoryMB = getExecutorHeapMemoryMB(sparkProperties)
+  def getExecutorOverheadMemoryMB(sparkPropertiesFn: String => Option[String]): Long = {
+    val executorMemoryOverheadFromConf = sparkPropertiesFn("spark.executor.memoryOverhead")
+    val execMemOverheadFactorFromConf = sparkPropertiesFn("spark.executor.memoryOverheadFactor")
+    val execHeapMemoryMB = getExecutorHeapMemoryMB(sparkPropertiesFn)
     if (executorMemoryOverheadFromConf.isDefined) {
       StringUtils.convertToMB(executorMemoryOverheadFromConf.get, Some(ByteUnit.MiB))
     } else if (execHeapMemoryMB > 0) {
       if (execMemOverheadFactorFromConf.isDefined) {
         (execHeapMemoryMB * execMemOverheadFactorFromConf.get.toDouble).toLong
       } else {
-        val sparkMasterConf = sparkProperties.get("spark.master")
+        val sparkMasterConf = sparkPropertiesFn("spark.master")
         sparkMasterConf match {
           case None => 0L
           case Some(sparkMaster) =>
@@ -451,7 +497,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               // default is 10%
               (execHeapMemoryMB * 0.1).toLong
             } else if (sparkMaster.contains("k8s")) {
-              val k8sOverheadFactor = sparkProperties.get("spark.kubernetes.memoryOverheadFactor")
+              val k8sOverheadFactor = sparkPropertiesFn("spark.kubernetes.memoryOverheadFactor")
               if (k8sOverheadFactor.isDefined) {
                 (execHeapMemoryMB * k8sOverheadFactor.get.toDouble).toLong
               } else {
@@ -480,7 +526,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
       sparkProperties: Map[String, String],
       systemProperties: Map[String, String]): SourceClusterInfo = {
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties.get)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -532,19 +578,22 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * cluster properties (either provided explicitly by the user or
    * inferred from the event log).
    *
-   * @param sparkProperties A map of Spark properties (combined from application and
+   * @param sourceSparkProperties A map of Spark properties (combined from application and
    *                        cluster properties)
    * @return Optional `RecommendedClusterInfo` containing the GPU cluster configuration
    *         recommendation.
    */
   def createRecommendedGpuClusterInfo(
-      sparkProperties: Map[String, String],
+      recommendations: mutable.LinkedHashMap[String, TuningEntryTrait],
+      sourceSparkProperties: Map[String, String],
       recommendedClusterSizingStrategy: ClusterSizingStrategy): Unit = {
     // Get the appropriate cluster configuration strategy (either
     // 'ClusterPropertyBasedStrategy' based on cluster properties or
     // 'EventLogBasedStrategy' based on the event log).
     val configurationStrategyOpt = ClusterConfigurationStrategy.getStrategy(
-      platform = this, sparkProperties = sparkProperties,
+      platform = this,
+      recommendations = recommendations,
+      sourceSparkProperties = sourceSparkProperties,
       recommendedClusterSizingStrategy = recommendedClusterSizingStrategy)
 
     configurationStrategyOpt match {
@@ -572,7 +621,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                 recommendedNodeInstance.numGpus).toInt
             }
 
-            val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
+            val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sourceSparkProperties)
             recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
             recommendedClusterInfo = Some(RecommendedClusterInfo(
               vendor = vendor,
@@ -600,6 +649,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           "Could not determine number of executors. " +
           "Cluster properties are missing and event log does not contain cluster information.")
     }
+  }
+
+  /**
+   * Get the user-enforced Spark property for the given property key.
+   */
+  final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
+    userEnforcedRecommendations.get(propertyKey)
   }
 }
 
@@ -642,7 +698,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     val clusterId = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_ID_KEY)
     val driverHost = sparkProperties.get("spark.driver.host")
     val clusterName = sparkProperties.get(DatabricksParseHelper.PROP_TAG_CLUSTER_NAME_KEY)
-    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties.get)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs, numWorkerNodes,
       executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -710,7 +766,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
   // scalastyle:on line.size.limit
   override def fractionOfSystemMemoryForExecutors: Double = 0.8
 
-  override val recommendationsToInclude: Seq[(String, String)] = Seq(
+  override val platformSpecificRecommendations: Map[String, String] = Map(
     // Keep disabled. This property does not work well with GPU clusters.
     "spark.dataproc.enhanced.optimizer.enabled" -> "false",
     // Keep disabled. This property does not work well with GPU clusters.
@@ -774,7 +830,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
       systemProperties: Map[String, String]): SourceClusterInfo = {
     val clusterId = systemProperties.get("EMR_CLUSTER_ID")
     val driverHost = sparkProperties.get("spark.driver.host")
-    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties)
+    val executorHeapMem = getExecutorHeapMemoryMB(sparkProperties.get)
     val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sparkProperties)
     SourceClusterInfo(platformName, coresPerExecutor, numExecsPerNode, numExecs,
       numWorkerNodes, executorHeapMem, dynamicAllocSettings.enabled, dynamicAllocSettings.max,
@@ -791,10 +847,6 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
-  // TODO: Add support for providing target cluster properties for OnPrem
-  require(targetCluster.isEmpty,
-    "OnPrem platform does not support target cluster properties yet. " +
-      "Use `--worker-info` option instead.")
 
   override val platformName: String = PlatformNames.ONPREM
   override def defaultGpuDevice: GpuDevice = L4Gpu
@@ -810,6 +862,30 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
    * See `getMemoryPerNodeMb()` in [[com.nvidia.spark.rapids.tool.ClusterConfigurationStrategy]]
    */
   def fractionOfSystemMemoryForExecutors: Double = 1.0
+
+  /**
+   * Returns the recommended instance info based on the provided WorkerInfo for OnPrem.
+   *
+   * Behavior:
+   * - Create an InstanceInfo with the specified CPU cores, memory, and GPU.
+   * - If the workerInfo or the gpu info is absent, skips creating recommended instance type.
+   */
+  override def getRecommendedInstanceInfoFromTargetWorker(
+      workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
+    workerInfoOpt.flatMap { workerInfo =>
+      workerInfo.getGpu.device.map { gpuDevice =>
+        InstanceInfo.createDefaultInstance(
+          cores = workerInfo.cpuCores,
+          memoryMB = workerInfo.memoryGB * 1024L,
+          numGpus = workerInfo.getGpu.count,
+          gpuDevice = gpuDevice)
+      }
+    }.orElse {
+      logInfo("Worker info or Gpu info is not provided in the target cluster. " +
+        "Skipping recommended instance info creation.")
+      None
+    }
+  }
 }
 
 object Platform {

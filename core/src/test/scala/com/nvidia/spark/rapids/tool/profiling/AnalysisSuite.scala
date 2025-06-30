@@ -235,10 +235,11 @@ class AnalysisSuite extends FunSuite {
       platformName = PlatformNames.DATABRICKS_AWS)
   }
 
-  test("test stage-level diagnostic metrics") {
+  test("test stage-level diagnostic metrics with diagnostic views enabled") {
     val expectFile = "rapids_join_eventlog_stagediagnosticmetrics_expectation.csv"
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
-    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val logsWithArgs = Array("--enable-diagnostic-views") ++ logs
+    val apps = ToolTestUtils.processProfileApps(logsWithArgs, sparkSession)
     assert(apps.size == logs.size)
 
     // This step is to compute stage to node names and diagnostic metrics mappings,
@@ -255,10 +256,24 @@ class AnalysisSuite extends FunSuite {
     compareMetrics(actualDf, expectFile)
   }
 
-  test("test IO diagnostic metrics") {
-    val expectFile = "rapids_join_eventlog_iodiagnosticmetrics_expectation.csv"
+  test("test stage-level diagnostic metrics with diagnostic views disabled") {
     val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    assert(apps.size == logs.size)
+
+    val collect = new CollectInformation(apps)
+    collect.getSQLToStage
+    collect.getStageLevelMetrics
+
+    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps)
+    assert(diagnosticResults.stageDiagnostics.isEmpty)
+  }
+
+  test("test IO diagnostic metrics with diagnostic views enabled") {
+    val expectFile = "rapids_join_eventlog_iodiagnosticmetrics_expectation.csv"
+    val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
+    val logsWithArgs = Array("--enable-diagnostic-views") ++ logs
+    val apps = ToolTestUtils.processProfileApps(logsWithArgs, sparkSession)
     assert(apps.size == logs.size)
 
     val collect = new CollectInformation(apps)
@@ -269,6 +284,17 @@ class AnalysisSuite extends FunSuite {
     import sparkSession.implicits._
     val actualDf = createTestIODiagnosticResult(diagnosticResults).toDF
     compareMetrics(actualDf, expectFile)
+  }
+
+  test("test IO diagnostic metrics with diagnostic views disabled") {
+    val logs = Array(s"$logDir/rapids_join_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    assert(apps.size == logs.size)
+
+    val collect = new CollectInformation(apps)
+    collect.getSQLPlanMetrics
+    val diagnosticResults = collect.getIODiagnosticMetrics
+    assert(diagnosticResults.isEmpty)
   }
 
   private def testSqlMetricsAggregation(logs: Array[String], expectFileSQL: String,

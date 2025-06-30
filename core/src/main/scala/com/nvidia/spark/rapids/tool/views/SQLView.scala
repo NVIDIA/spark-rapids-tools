@@ -95,7 +95,7 @@ object ProfSQLPlanAlignedView extends AppSQLPlanNonDeltaOpsViewTrait with ProfAp
     // Create a SQLClassifier object and attach it to the AppInfo
     val sqlPlanTypeAnalysis = new SQLPlanClassifier(app.asInstanceOf[ApplicationInfo])
     // Walk through the SQLPlans to identify the delta-op SQIds
-    sqlPlanTypeAnalysis.walkPlans(app.sqlPlans)
+    sqlPlanTypeAnalysis.walkPlans(app.sqlManager.sqlPlans.values)
     app.sqlPlans.filterKeys(!sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(_)).
       map { case (sqlID, _) =>
         SQLCleanAndAlignIdsProfileResult(sqlID)
@@ -140,6 +140,10 @@ object ProfSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with ProfAppInd
   }
 }
 
+// Diagnostic metrics are controlled by means of a variable in the
+// App object. The underlying data is only updated when the
+// toggle is enabled. This view will return an empty sequence unless
+// enabled by the user
 object ProfIODiagnosticMetricsView extends ViewableTrait[IODiagnosticResult]
     with ProfAppIndexMapperTrait {
   override def getLabel: String = "IO Diagnostic Metrics"

@@ -20,6 +20,7 @@ Arguments:
 - qual_output: Path to a directory containing qualification tool output.
 - output_folder: Path to store the output.
 - custom_model_file: (OPTIONAL) Path to a custom-trained model.json file.
+- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
 
 Output files:
 - prediction.csv: per-application speedup predictions.
@@ -134,6 +135,7 @@ Arguments:
 - n_trials: (OPTIONAL) Number of trials for hyperparameter search, default: 200.
 - base_model: (OPTIONAL) Path to pre-trained model to serve as a base for fine-tuning/continued-training.
 - features_csv_dir: (OPTIONAL) Path to a directory containing one or more features.csv files to augment the training dataset.
+- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
 
 Continuing the example from above, we would use:
 ```bash

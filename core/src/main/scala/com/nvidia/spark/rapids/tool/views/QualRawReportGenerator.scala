@@ -100,14 +100,10 @@ object QualRawReportGenerator extends Logging {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      constructLabelsMaps(QualSparkMetricsAggregator.
-        getAggRawMetrics(
+      constructLabelsMaps(QualSparkMetricsAggregator
+        .getAggRawMetrics(
           app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
-          if (label == STAGE_DIAGNOSTICS_LABEL) {
-            pWriter.writeCSVTable(label, metrics)
-          } else {
-            pWriter.writeTable(label, metrics, AGG_DESCRIPTION.get(label))
-          }
+          pWriter.writeTable(label, metrics, AGG_DESCRIPTION.get(label))
       }
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
