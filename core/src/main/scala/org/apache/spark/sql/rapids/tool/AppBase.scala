@@ -37,7 +37,7 @@ import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
+import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModel, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
@@ -442,10 +442,10 @@ abstract class AppBase(
 
   // The ReadSchema metadata is only in the eventlog for DataSource V1 readers
   def checkMetadataForReadSchema(
-      sqlPlanInfoGraph: SqlPlanInfoGraphEntry): ArrayBuffer[DataSourceRecord] = {
+      sqlPlanInfoGraph: SQLPlanModel): ArrayBuffer[DataSourceRecord] = {
     // check if planInfo has ReadSchema
     val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
-    val allNodes = sqlPlanInfoGraph.sparkPlanGraph.allNodes
+    val allNodes = sqlPlanInfoGraph.getToolsPlanGraph.allNodes
     val results = ArrayBuffer[DataSourceRecord]()
 
     allMetaWithSchema.foreach { plan =>
@@ -462,8 +462,8 @@ abstract class AppBase(
       // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
       if (scanNode.nonEmpty) {
         results += DataSourceRecord(
-          sqlPlanInfoGraph.sqlID,
-          sqlManager.getPlanById(sqlPlanInfoGraph.sqlID).get.plan.version,
+          sqlPlanInfoGraph.id,
+          sqlPlanInfoGraph.plan.version,
           scanNode.head.id,
           ReadParser.extractTagFromV1ReadMeta("Format", meta),
           ReadParser.extractTagFromV1ReadMeta("Location", meta),
@@ -483,8 +483,8 @@ abstract class AppBase(
         val hiveScanNode = sqlGraph.allNodes.head
         val scanHiveMeta = HiveParseHelper.parseReadNode(hiveScanNode)
         results += DataSourceRecord(
-          sqlPlanInfoGraph.sqlID,
-          sqlManager.getPlanById(sqlPlanInfoGraph.sqlID).get.plan.version,
+          sqlPlanInfoGraph.id,
+          sqlPlanInfoGraph.plan.version,
           hiveScanNode.id,
           scanHiveMeta.format,
           scanHiveMeta.location,
@@ -556,6 +556,15 @@ abstract class AppBase(
     calculateAppDuration()
     validateSparkRuntime()
     buildClusterInfo()
+    buildPlanGraphs()
+  }
+
+  /**
+   * Build the plan graphs for all the SQL Plans if any.
+   * @note This should only be called once.
+   */
+  protected def buildPlanGraphs(): Unit = {
+    sqlManager.buildPlanGraph(this)
   }
 
   /**

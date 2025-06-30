@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import com.nvidia.spark.rapids.tool.analysis.{AppAnalysisBase, SparkSQLPlanInfoV
 import com.nvidia.spark.rapids.tool.planparser.DeltaLakeHelper
 
 import org.apache.spark.sql.execution.ui
-import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.store.SQLPlanModel
 
 
 /**
@@ -32,7 +32,7 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
  * @param deltaOpsNode the list of nodes that are classified as Delta metadata
  */
 case class SQLPlanClassifierCtxt(
-    sqlPIGEntry: SqlPlanInfoGraphEntry,
+    sqlPIGEntry: SQLPlanModel,
     deltaOpsNode: mutable.ArrayBuffer[Long] = mutable.ArrayBuffer.empty)
   extends SQLPlanInfoContext(sqlPIGEntry)
 
@@ -54,7 +54,7 @@ class SQLPlanClassifier(app: ApplicationInfo)
   override def visitNode(sqlPlanCtxt: SQLPlanClassifierCtxt, node: ui.SparkPlanGraphNode): Unit = {
     // Check if the node is a delta metadata operation
     val isDeltaLog = DeltaLakeHelper.isDeltaOpNode(sqlPlanCtxt.sqlPIGEntry,
-      app.sqlManager.getPhysicalPlanById(sqlPlanCtxt.getSQLPIGEntry.sqlID).get, node)
+      app.sqlManager.getPhysicalPlanById(sqlPlanCtxt.getSQLPIGEntry.id).get, node)
     if (isDeltaLog) {
       // if it is a Delta operation, add it to the list of Delta operations nodes
       sqlPlanCtxt.deltaOpsNode += node.id
@@ -62,7 +62,7 @@ class SQLPlanClassifier(app: ApplicationInfo)
   }
 
   override def createPlanCtxtFromPIGEntry(
-      sqlPIGEntry: SqlPlanInfoGraphEntry): SQLPlanClassifierCtxt = {
+      sqlPIGEntry: SQLPlanModel): SQLPlanClassifierCtxt = {
     SQLPlanClassifierCtxt(sqlPIGEntry)
   }
 
@@ -72,7 +72,7 @@ class SQLPlanClassifier(app: ApplicationInfo)
       // If at least one nodes is defined as Delta operations, then the entire SQLPlan is a Delta
       // operation
       // Note that we do not keep the nodes in a global variable because we do not that for now
-      sqlCategories("deltaOp") += planCtxt.getSQLPIGEntry.sqlID
+      sqlCategories("deltaOp") += planCtxt.getSQLPIGEntry.id
     }
   }
 }
