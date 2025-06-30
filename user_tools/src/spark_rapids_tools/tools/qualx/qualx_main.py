@@ -38,7 +38,6 @@ from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
     load_qtool_execs,
-    load_qual_csv,
     PREPROCESSED_FILE
 )
 from spark_rapids_tools.tools.qualx.model import (
