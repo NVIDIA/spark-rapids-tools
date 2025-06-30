@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,10 +26,12 @@ EXCLUDE_PATTERNS=(
     "core/src/main/resources/*"
     "core/src/test/resources/*"
     "user_tools/src/spark_rapids_pytools/resources/*"
+    "core/docs/*"
     "user_tools/docs/*"
     "user_tools/tests/spark_rapids_tools_ut/resources/*"
     "*.csv"
     "*.zstd"
+    "*.gitkeep"
     )
 
 # Create the grep exclude options (--exclude=*csv --exclude=core/src/test/resources/*)

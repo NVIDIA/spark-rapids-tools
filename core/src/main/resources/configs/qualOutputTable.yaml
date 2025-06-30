@@ -12,83 +12,135 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This file is used to define the output files of the qualification tool.
+# Note that all the output files in this list should be considered internal-use only.
+#
+# The output files are defined in the following format:
+# - label: the unique identification of the report.
+#   description: Includes a brief description of what the report contains and how it is consumed
+#                if necessary.
+#   fileName: the file name of the report (include the extension)
+#   scope: the scope of the report (global or per-app)
+#   columns: the columns of the report in the following format:
+#     - name: the name of the column
+#       dataType: the data type of the column
+#       description: the description of the column
+#
+# The directory structure of the generated output files is as follows:
+#
+# qual_core_output
+# ├── apps_summary.csv
+# ├── status.csv
+# ├── runtime.properties
+# ├── tuning (per-app tuning subfolder)
+# ├── raw_metrics (per-app raw metrics sub-folder)
+# └── qual_metrics (per-app qualification sub-folder)
+#    ├── app-001-0001
+#        ├── cluster_information.json
+#        ├── execs.csv
+#        ├── operators_stats.csv
+#        ├── persql.csv
+#        ├── stages.csv
+#        ├── unsupported_operators.csv
+
 qualTableDefinitions:
   - label: qualCoreCSVStatus
     description: >-
-      Status of each event log passed to the qualification tool
+      Status of each eventlog passed to the qualification tool.
+      The status is either success, failure, skipped, or unknown (failure).
+      Some rows in that file might not contain App ID depending on the status of the parser.
     fileName: status.csv
     scope: global
     columns:
       - name: Event Log
         dataType: String
         description: >-
-          Event Log Path(local/remote)
+          Path to the eventlog file
       - name: Status
         dataType: String
         description: >-
-          Status whether the event log processed successfully or not
+          Results of the processing of the eventlog. It can be:
+          success the tool successfully processed the entire events
+          failure an exception was thrown by the tool
+          skipped the eventlog is not supported by the tool (i.e., streaming and GPU eventlogs)
+          unknown an unexpected kind of failure happened
       - name: App ID
         dataType: String
         description: >-
-          ID of the app associated with the event log
+          ID of the app associated with the eventlog.
+          If the eventlog failed to be processed, this value is empty.
       - name: Description
         dataType: String
         description: >-
-          Total processing time of the event log
+          Contains the details of the failure reason for a given eventlog.
+          If the eventlog succeeded, this value contains the total processing time of that file.
   - label: qualCoreCSVSummary
     description: >-
-      Summary of each event log processed by the qualification tool
+      Summary of each eventlog successfully processed by the tool.
     fileName: apps_summary.csv
     scope: global
     columns:
       - name: App Name
         dataType: String
         description: >-
-          Name of application associated with the event log
+          Name of application associated with the eventlog.
       - name: App ID
         dataType: String
         description: >-
-          ID of the app associated with the event log
+          ID of the app associated with the eventlog
       - name: Attempt ID
         dataType: String
         description: >-
-          Attempt ID of the app associated with the event log
+          Attempt ID of the app associated with the eventlog.
+          For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID.
       - name: App Duration
-        dataType: String
+        dataType: Long
         description: >-
-          Total runtime of the app
+          Wall-Clock time in milliseconds measured since the application starts until it's completed.
+          If an app isn't completed an estimated completion time would be computed. The estimated completion
+          is based on the last event being processed by the tool.
       - name: Executor CPU Time Percent
         dataType: float
         description: >-
-          Total CPU time consumed by executors in percentage
+          This is an estimate at how much time the tasks spent doing processing on the CPU versus
+          waiting on IO. This isn’t always a good indicator because sometimes the IO that’s encrypted
+          and the CPU has to do work to decrypt it, so the environment you are running on needs to
+          be taken into account.
       - name: SQL Ids with Failures
         dataType: String
         description: >-
-          SQL Ids with failures
+          A list SQL Ids of comma separated query Ids with failed jobs.
       - name: Unsupported Read File Formats and Types
         dataType: String
         description: >-
-          Formats and types of files that are not supported for reading
+          A list of semi-colon separated file formats and types.
+          Each item reports the file formats along with types that may not be fully supported.
       - name: Unsupported Write Data Format
         dataType: String
         description: >-
-          Format of the data that is not supported for writing
+          A list of semi-colon separated strings. Format of the data that is not supported for writing.
       - name: Complex Types
         dataType: String
         description: >-
-          Types of data types that are not supported for writing
+          A list of semi-colon separated strings. It reports the types of data complex types that
+          are not supported for reading (array, struct, or maps).
       - name: Nested Complex Types
         dataType: String
         description: >-
-          Types of data types that are not supported for writing
+          A list of semi-colon separated strings.
+          Nested complex types are complex types that contain other complex types (i.e, array<struct<string,string>>).
+          It can read all the schemas for DataSource V1.
+          The Data Source V2 truncates the schema, so if you see “...”, then the full schema isn’t available. For
+          such schemas we read until '...' and report if there are any complex types and nested complex types in that.
       - name: Potential Problems
         dataType: String
         description: >-
-          Potential problems with the app
+          A list of semi-colon separated strings. Some UDFs and nested complex types.
+          Keep in mind that the tool is only able to detect certain issues.
       - name: Longest SQL Duration
         dataType: Long
         description: >-
-          The longest SQL duration in the app
+          The maximum amount of time spent in a single task of SQL Dataframe operations.
       - name: SQL Stage Durations Sum
         dataType: Long
         description: >-
@@ -97,11 +149,15 @@ qualTableDefinitions:
       - name: App Duration Estimated
         dataType: Boolean
         description: >-
-          Whether the app duration is estimated or not(true/false)
+          Whether the app duration is estimated or not(true/false).
+          If we had to estimate it, the value will be 'True' and it means the eventlog was missing
+          the application finished event, so we will use the last job or sql execution time we find
+          as the end time used to calculate the duration.
       - name: Total Core Seconds
         dataType: Long
         description: >-
-          The total core seconds of the app
+          Sums the execution time for all executors multiplied by the number of cores in each executor
+          to get total core seconds for the application.
   # the following table seems to be useless
   - label: perSqlCSVReport
     description: >-
@@ -174,7 +230,8 @@ qualTableDefinitions:
       - name: Exec Should Remove
         dataType: Boolean
         description: >-
-          Whether the executor should be removed or not(true/false)
+          Whether the executor should be removed or not(true/false).
+          The value is 'True' when the Exec is removed from the GPU migrated plan.
       - name: Exec Should Ignore
         dataType: Boolean
         description: >-
@@ -182,7 +239,11 @@ qualTableDefinitions:
       - name: Action
         dataType: String
         description: >-
-          The action to be taken for the executor
+          The action to be taken for Exec. It can be one of the following:
+          NONE if the Exec is supported,
+          IgnoreNoPerf if the Exec is removed from the migrated plan,
+          IgnorePerf if the Exec has an impact on performance but it is not likely to be handled by the RAPIDS plugin, or
+          Triage if the Exec has an impact on performance and it is likely to be handled by the RAPIDS plugin.
   - label: unsupportedOpsCSVReport
     description: >-
       Report containing the details of each unsupported operator in the SQL
@@ -204,7 +265,7 @@ qualTableDefinitions:
       - name: Unsupported Type
         dataType: String
         description: >-
-          The type of the unsupported operator
+          The type of the unsupported operator (i.e., Exec or Expression)
       - name: Unsupported Operator
         dataType: String
         description: >-
@@ -216,7 +277,8 @@ qualTableDefinitions:
       - name: Stage Duration
         dataType: Long
         description: >-
-          The duration of the stage
+          The duration of the stage in milliseconds.
+          It is calculated as the difference between submission and completion times
       - name: App Duration
         dataType: Long
         description: >-
@@ -224,7 +286,10 @@ qualTableDefinitions:
       - name: Action
         dataType: String
         description: >-
-          The action to be taken for the unsupported operator
+          The action to be taken for the unsupported operator. It can be one of the following:
+          IgnoreNoPerf if the Exec is removed from the migrated plan,
+          IgnorePerf if the Exec has an impact on performance but it is not likely to be handled by the RAPIDS plugin, or
+          Triage if the Exec has an impact on performance and it is likely to be handled by the RAPIDS plugin.
   - label: operatorsStatsCSVReport
     description: >-
       Report containing the details of each operator in the SQL
@@ -238,7 +303,7 @@ qualTableDefinitions:
       - name: Operator Type
         dataType: String
         description: >-
-          The type of the operator
+          The type of the operator (expression or exec)
       - name: Operator Name
         dataType: String
         description: >-
@@ -246,7 +311,7 @@ qualTableDefinitions:
       - name: Count
         dataType: Long
         description: >-
-          The total count of the operator
+          The total count of the operator in the given SQL ID. Note that this count is scoped by (un/-supported) flag.
       - name: Supported
         dataType: Boolean
         description: >-
@@ -287,23 +352,24 @@ qualTableDefinitions:
       - name: appName
         dataType: String
         description: >-
-          The name of the app for the associated event log
+          The name of the app for the associated eventlog
       - name: appId
         dataType: String
         description: >-
-          The ID of the app for the associated event log
+          The ID of the app for the associated eventlog
       - name: eventLogPath
         dataType: String
         description: >-
-          The path of the event log for the associated app
+          The path of the eventlog for the associated app
       - name: sourceClusterInfo
         dataType: Dict
         description: >-
-          The source cluster information for the associated app(dictionary containing the cluster information)
+          The source cluster information for the associated app (dictionary containing the cluster information)
       - name: recommendedClusterInfo
         dataType: Dict
         description: >-
-          The recommended cluster information for the associated app(dictionary containing the cluster information)
+          The recommended cluster information for the associated app (dictionary containing the cluster information).
+          This field is only enabled when the AutoTuner argument is added to the tool's argument
   # the following table is databricks specific table
   - label: clusterTagsCSVReport
     description: >-
