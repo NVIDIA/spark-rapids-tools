@@ -14,7 +14,7 @@
 
 """ Main module for QualX related commands """
 
-from typing import Callable, List, Optional, Set, Tuple, Union
+from typing import Callable, List, Optional, Set, Tuple, Union, Dict
 import glob
 import json
 import os
@@ -44,7 +44,7 @@ from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     compute_shapley_values,
 )
-from spark_rapids_tools.tools.qualx.model import train as train_model, predict as predict_model
+from spark_rapids_tools.tools.qualx.model import train as train_model, calibrate as calibrate_model, predict as predict_model
 from spark_rapids_tools.tools.qualx.util import (
     compute_accuracy,
     ensure_directory,
@@ -151,6 +151,47 @@ def _get_model(platform: str,
     xgb_model = xgb.Booster()
     xgb_model.load_model(model_path)
     return xgb_model
+
+
+def _get_calib_params(platform: str,
+                      model: Optional[str] = None,
+                      variant: Optional[str] = None) -> Dict[str, float]:
+    """
+    Load calibration params for the model, to be used similar to `_get_model()`.
+    Corresponding to model path `/path/to/{model_name}.json`, load calib params
+    from `/path/to/{model_name}_calib.cfg`
+
+    The "model" argument has a precedence over the other input options. If it is defined, this function checks
+    if it is a valid path to an XGBoost model or a string literal matching a pre-trained model name.
+    If "model" is not defined, then the pre-trained model matching "platform" will be used.
+
+    Parameters
+    ----------
+    platform: str
+        Name of the platform used to define the path of the pre-trained model.
+        The platform should match a JSON file in the "resources" directory.
+    model: str
+        Either a path to a model file or the name of a pre-trained model.
+        If the input is a string literal that cannot be a file path, then it is assumed that the file
+        is located under the resources directory.
+    variant: str
+        Value of the `sparkRuntime` column from the `application_information.csv` file from the profiler tool.
+        If set, will be used to load a pre-trained model matching the platform and variant.
+
+    Returns
+    -------
+    Calibration parameters dict
+    """
+    model_path = _get_model_path(platform, model, variant)
+    calib_path = model_path.parent / Path(model_path.stem + '_calib.cfg')
+    calib_params = {'c1': 1.0, 'c2': 1.0, 'c3': 0.0}
+    if calib_path.exists():
+        logger.debug('Loading calib params from: %s', calib_path)
+        with open(calib_path, 'r', encoding='utf-8') as f:
+            calib_params = json.load(f)
+    else:
+        logger.debug('Calib params file not found: %s', calib_path)
+    return calib_params
 
 
 def _get_qual_data(qual_handler: QualCoreHandler) -> Tuple[
@@ -304,6 +345,7 @@ def _predict(
     *,
     split_fn: Callable[[pd.DataFrame], pd.DataFrame] = None,
     qual_tool_filter: Optional[str] = 'stage',
+    calib_params: Optional[Dict[str, float]] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     label = get_label()
     results = pd.DataFrame(
@@ -339,7 +381,7 @@ def _predict(
         features, feature_cols, label_col = extract_model_features(input_df, {'default': split_fn})
         # note: dataset name is already stored in the 'appName' field
         try:
-            results = predict_model(xgb_model, features, feature_cols, label_col)
+            results = predict_model(xgb_model, features, feature_cols, label_col, calib_params)
 
             # compute per-app speedups
             summary = _compute_summary(results)
@@ -550,6 +592,7 @@ def train(
     model_type = cfg.model_type
     model_config = cfg.__dict__.get(model_type, {})
     trials = n_trials if n_trials else model_config.get('n_trials', 200)
+    calib = cfg.calib
 
     datasets, profile_df = load_datasets(dataset)
     dataset_list = sorted(list(datasets.keys()))
@@ -616,6 +659,13 @@ def train(
     base_model_cfg = Path(model).with_suffix('.cfg')
     with open(base_model_cfg, 'w', encoding='utf-8') as f:
         f.write(cfg)
+
+    # calibrate model
+    if calib:
+        calib_params = calibrate_model(features, feature_cols, label_col, xgb_model)
+        calib_path = Path(model).parent / Path(Path(model).stem + '_calib.cfg')
+        with open(calib_path, 'w', encoding='utf-8') as f:
+            json.dump(calib_params, f)
 
     ensure_directory(output_dir)
 
@@ -729,15 +779,17 @@ def predict(
         prediction_groups = {}
         for variant in variants:
             xgb_model = _get_model(platform, None, variant)  # variants only supported for pre-trained platform models
+            calib_params = _get_calib_params(platform, None, variant)
             variant_profile_df = profile_df.loc[
                 (profile_df['sparkRuntime'] == variant) | (profile_df['sparkRuntime'] == 'SPARK_RAPIDS')
             ]
-            prediction_groups[xgb_model] = variant_profile_df
+            prediction_groups[xgb_model] = (variant_profile_df, calib_params)
     else:
         # single platform
         xgb_model = _get_model(platform, model)
+        calib_params = _get_calib_params(platform, model)
         prediction_groups = {
-            xgb_model: profile_df
+            xgb_model: (profile_df, calib_params)
         }
 
     filter_str = (
@@ -750,11 +802,11 @@ def predict(
     try:
         features_list = []
         predictions_list = []
-        for xgb_model, prof_df in prediction_groups.items():
+        for xgb_model, (prof_df, calib_params) in prediction_groups.items():
             features, feature_cols, label_col = extract_model_features(prof_df)
             features_index = features.index
             features_list.append(features)
-            predictions = predict_model(xgb_model, features, feature_cols, label_col)
+            predictions = predict_model(xgb_model, features, feature_cols, label_col, calib_params)
             predictions.index = features_index
             predictions_list.append(predictions)
         features = pd.concat(features_list)
@@ -943,6 +995,7 @@ def evaluate(
     ensure_directory(output_dir)
 
     xgb_model = _get_model(platform, model)
+    calib_params = _get_calib_params(platform, model)
 
     cache_dir = get_cache_dir()
 
@@ -997,6 +1050,7 @@ def evaluate(
         profile_df,
         split_fn=split_fn,
         qual_tool_filter=qual_tool_filter,
+        calib_params=calib_params
     )
 
     # app level ground truth
@@ -1033,6 +1087,7 @@ def evaluate(
         filtered_profile_df,
         split_fn=split_fn,
         qual_tool_filter=qual_tool_filter,
+        calib_params=calib_params
     )
 
     # merge results and join w/ qual_preds

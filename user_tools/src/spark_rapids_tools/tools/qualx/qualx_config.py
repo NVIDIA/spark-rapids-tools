@@ -90,6 +90,11 @@ class QualxConfig(BaseConfig):
             'negative': 1.0
         }])
 
+    calib: Optional[bool] = Field(
+        default=False,
+        description='Flag to perform model calibration',
+        examples=[True, False])
+
     alignment_dir: Optional[str] = Field(
         default=None,
         description='OPTIONAL: Path to alignment directory.',
