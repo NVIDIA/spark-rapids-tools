@@ -110,7 +110,7 @@ case class QualTableYaml(qualTableDefinitions: Seq[QualOutputTableDefinition]) {
     addLine(directoryList)
     // backward compatibility table
     addHeader("## Backward compatibility note (prior to 25.06 release)")
-    addLine("With 25.06 release, the output structure of the qual core has changed:\n")
+    addLine("With 25.06 release, the output structure of the qual core has changed:")
     // generate table to show the mapping between old and new output
     addColumnHeader("| Element | Legacy | 25.06+ |", "| --- | --- | --- |")
     addLine("| root dir | `rapids_4_spark_qualification_output` | `qual_core_output` |")
@@ -158,7 +158,9 @@ case class QualTableYaml(qualTableDefinitions: Seq[QualOutputTableDefinition]) {
     qualTableDefinitions.foreach { definition =>
       addHeader(s"\n### ${definition.label}")
       addLine(s"* _Scope_: ${definition.scope}")
-      addLine(s"* _Description_: ${definition.description.getOrElse("N/A")}\n")
+      addLine(s"* _File name_: ${definition.fileName}")
+      addLine(s"* _Format_: ${definition.fileFormat}")
+      addLine(s"* _Description_: ${definition.description.getOrElse("N/A")}")
       // table to list the columns
       addColumnHeader("| Column Name | Description |", "| --- | --- |")
       definition.columns.foreach { col =>
