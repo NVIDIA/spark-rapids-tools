@@ -952,11 +952,10 @@ def evaluate(
     quals = os.listdir(qual_dir)
     qual_handlers = []
     for ds_name, ds_meta in datasets.items():
-        if ds_name not in quals:
-            # run qual tool if needed
-            eventlogs = ds_meta['eventlogs']
-            eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
-            qual_handlers.extend(run_qualification_tool(platform, eventlogs, f'{qual_dir}/{ds_name}'))
+        eventlogs = ds_meta['eventlogs']
+        eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
+        skip_run = ds_name in quals
+        qual_handlers.extend(run_qualification_tool(platform, eventlogs, f'{qual_dir}/{ds_name}', skip_run=skip_run))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 

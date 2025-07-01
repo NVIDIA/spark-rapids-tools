@@ -371,7 +371,8 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str) -> N
     run_commands(cmds)
 
 
-def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str) -> List[QualCoreHandler]:
+def run_qualification_tool(platform: str, eventlogs: List[str],
+                           output_dir: str, skip_run: bool = False) -> List[QualCoreHandler]:
     ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
@@ -380,27 +381,32 @@ def run_qualification_tool(platform: str, eventlogs: List[str], output_dir: str)
     cmds = []
     output_dirs = []
 
-    eventlog_files = []
-    for eventlog in eventlogs:
-        eventlog_files.extend(find_eventlogs(eventlog))
+    if skip_run:
+        output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
+                                 return_directories=True)
+    else:
+        eventlog_files = []
+        for eventlog in eventlogs:
+            eventlog_files.extend(find_eventlogs(eventlog))
 
-    # construct commands for each eventlog file
-    for log in eventlog_files:
-        # skip gpu logs, assuming /gpu appearing in path can be used to distinguish
-        if '/gpu' in str(log).lower():
-            continue
-        suffix = random_string(6)
-        output = f'{output_dir}/qual_{ts}_{suffix}'
-        output_dirs.append(output)
-        cmd = (
-            # f'spark_rapids_user_tools {platform} qualification --csv
-            # --per-sql --eventlogs {log} --local_folder {output}'
-            'java -Xmx32g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
-            'com.nvidia.spark.rapids.tool.qualification.QualificationMain '
-            f'--platform {platform_base} --per-sql -o {output} {log}'
-        )
-        cmds.append(cmd)
-    run_commands(cmds)
+        # construct commands for each eventlog file
+        for log in eventlog_files:
+            # skip gpu logs, assuming /gpu appearing in path can be used to distinguish
+            if '/gpu' in str(log).lower():
+                continue
+            suffix = random_string(6)
+            output = f'{output_dir}/qual_{ts}_{suffix}'
+            output_dirs.append(output)
+            cmd = (
+                # f'spark_rapids_user_tools {platform} qualification --csv
+                # --per-sql --eventlogs {log} --local_folder {output}'
+                'java -Xmx32g -cp '
+                '$SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
+                'com.nvidia.spark.rapids.tool.qualification.QualificationMain '
+                f'--platform {platform_base} --per-sql -o {output} {log}'
+            )
+            cmds.append(cmd)
+        run_commands(cmds)
 
     qual_handlers = []
     for output_path in output_dirs:
