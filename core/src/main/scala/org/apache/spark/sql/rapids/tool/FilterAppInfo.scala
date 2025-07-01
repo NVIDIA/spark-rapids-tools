@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,10 @@ class FilterAppInfo(
   // We are currently processing 2 events. This is used as counter to send true when both the
   // event are processed so that we can stop processing further events.
   var eventsToProcess: Int = 2
+
+  override def buildPlanGraphs(): Unit = {
+    // Do nothing because the filter application does not need to build plans anyway.
+  }
 
   override def processEvent(event: SparkListenerEvent): Boolean = {
     if (event.isInstanceOf[SparkListenerApplicationStart]) {

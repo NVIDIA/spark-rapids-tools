@@ -16,15 +16,53 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
 import java.util
+
 import scala.beans.BeanProperty
 
-class WorkerInfo(
-  @BeanProperty var instanceType: String,
-  @BeanProperty var gpu: GpuWorkerProps) {
+import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
 
-  def this() = this("", new GpuWorkerProps())
+import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
+
+/**
+ * Base class to hold the worker information for the target cluster
+ * See subclasses below for concrete implementations.
+ */
+class WorkerInfo (
+  @BeanProperty var instanceType: String,
+  @BeanProperty var cpuCores: Int,
+  @BeanProperty var memoryGB: Long,
+  @BeanProperty var gpu: GpuWorkerProps) extends ValidatableProperties {
+
+  def this() = this("", 0, 0L, new GpuWorkerProps())
+
+  /** Returns true if all resource fields are unset or empty. */
+  def isEmpty: Boolean = {
+    (instanceType == null || instanceType.isEmpty) &&
+      (cpuCores == 0 && memoryGB == 0L) && gpu.isEmpty
+  }
+
+  /** Returns true if this represents a CSP Info (instance type is set). */
+  def isCspInfo: Boolean = {
+    instanceType != null && instanceType.nonEmpty
+  }
+
+  /** Returns true if this represents an OnPrem Info (CPU or memory is set). */
+  def isOnpremInfo: Boolean = {
+    cpuCores > 0 || memoryGB > 0
+  }
+
+  override def validate(): Unit = {
+    if (!isEmpty && isCspInfo && isOnpremInfo) {
+      throw new IllegalArgumentException(
+        "Both instance type and OnPrem resource values are provided. Please specify either one")
+    }
+    if (isOnpremInfo && gpu.isEmpty) {
+      throw new IllegalArgumentException("GPU information is required for OnPrem " +
+        "target cluster configuration.")
+    }
+    gpu.validate()
+  }
 
   /**
    * Helper method to get the NodeInstanceMapKey for this worker. This
@@ -63,13 +101,25 @@ class SparkProperties(
   }
 }
 
-class TargetClusterProps(
+/**
+ * Class to hold the properties for the target cluster.
+ * This class will instantiate from the `--target-cluster-info` YAML file
+ * using SnakeYAML.
+ *
+ * @see [[org.apache.spark.sql.rapids.tool.util.PropertiesLoader]]
+ */
+class TargetClusterProps (
   @BeanProperty var workerInfo: WorkerInfo,
-  @BeanProperty var sparkProperties: SparkProperties) {
+  @BeanProperty var sparkProperties: SparkProperties) extends ValidatableProperties {
 
   def this() = this(new WorkerInfo(), new SparkProperties())
 
+  // Validating only the worker info for now.
+  override def validate(): Unit = {
+    workerInfo.validate()
+  }
+
   override def toString: String = {
-    s"${getClass.getSimpleName}(workerInfo=$workerInfo, sparkProperties=$sparkProperties)"
+    s"${getClass.getSimpleName}(workerInfo=$getWorkerInfo, sparkProperties=$getSparkProperties)"
   }
 }

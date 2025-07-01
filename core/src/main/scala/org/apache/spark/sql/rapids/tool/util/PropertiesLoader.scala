@@ -30,18 +30,29 @@ import org.apache.spark.internal.Logging
 
 
 /**
+ * To be used by any Property classes for validating the property fields.
+ */
+trait ValidatableProperties {
+  def validate(): Unit
+  validate()
+}
+
+/**
  * Helper class to load YAML properties files into a specific type.
  *
- * @tparam T The type of configuration to load
+ * @tparam T The type of configuration to load. Must be a subclass of [[ValidatableProperties]].
  */
-class PropertiesLoader[T](implicit classTag: ClassTag[T]) extends Logging {
+class PropertiesLoader[T <: ValidatableProperties](implicit classTag: ClassTag[T]) extends Logging {
   def loadFromContent(content: String): Option[T] = {
     val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)
     val constructor = new Constructor(classTag.runtimeClass.asInstanceOf[Class[T]],
       new LoaderOptions())
     val yamlObjNested = new Yaml(constructor, representer)
-    Option(yamlObjNested.load(content).asInstanceOf[T])
+    val propertiesObj = yamlObjNested.load(content).asInstanceOf[T]
+    // After loading from YAML, perform validation of arguments
+    propertiesObj.validate()
+    Option(propertiesObj)
   }
 
   def loadFromFile(filePath: String): Option[T] = {
@@ -66,5 +77,7 @@ class PropertiesLoader[T](implicit classTag: ClassTag[T]) extends Logging {
 }
 
 object PropertiesLoader {
-  def apply[T](implicit classTag: ClassTag[T]): PropertiesLoader[T] = new PropertiesLoader[T]
+  def apply[T <: ValidatableProperties](implicit classTag: ClassTag[T]): PropertiesLoader[T] = {
+    new PropertiesLoader[T]
+  }
 }

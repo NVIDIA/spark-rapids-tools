@@ -152,6 +152,7 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
  *
  * TODO:
  * Migrate all tests in this suite to use the new target cluster properties format.
+ * https://github.com/NVIDIA/spark-rapids-tools/issues/1748
  */
 class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
@@ -766,67 +767,16 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
   }
 
   test("Load cluster properties with unknown GPU device") {
-    // with unknown gpu device, this test should default to A100
+    // with unknown gpu device, this test should raise IllegalArgumentException
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "16",
       "spark.executor.memory" -> "32768m",
-      "spark.executor.memoryOverhead" -> "8396m",
-      "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
-      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
-      "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.001")
+      "spark.executor.memoryOverhead" -> "8396m")
     val sparkProps = defaultDataprocProps.++(customProps)
-    val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
-      Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
-    val autoTuner = buildAutoTunerForTests(dataprocWorkerInfo,
-      getGpuAppMockInfoProvider, platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memoryOverhead=15564m
-          |--conf spark.locality.wait=0
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- GPU device is missing. Setting default to $T4Gpu.
-          |- GPU memory is missing. Setting default to ${T4Gpu.getMemory}.
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
-          |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
+    intercept[IllegalArgumentException] {
+      buildGpuWorkerInfoAsString(Some(sparkProps), Some(32),
+        Some("122880MiB"), Some(4), Some(2), Some("0MiB"), Some("GPU-X"))
+    }
   }
 
   // This test should ignore executor memory specified in the properties as
@@ -3604,4 +3554,14 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  // IMPORTANT NOTE:
+  // 1. This test suite is deprecated as it uses the legacy worker info properties format,
+  //    which is overloaded to be used for both source and target cluster properties.
+  // 2. All new Profiling AutoTuner test cases should be added to ProfilingAutoTunerSuiteV2
+  //    instead of this suite.
+  //
+  // TODO:
+  // Migrate all tests in this suite to use the new target cluster properties format.
+  // https://github.com/NVIDIA/spark-rapids-tools/issues/1748
 }

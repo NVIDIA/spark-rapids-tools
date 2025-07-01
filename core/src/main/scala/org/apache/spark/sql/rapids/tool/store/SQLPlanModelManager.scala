@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.{breakOut, immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.AccumToStageRetriever
 
 // This SparkPlanInfoTruncated is used to trim and serialize
 // SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
@@ -137,6 +138,17 @@ class SQLPlanModelManager {
   }
 
   /**
+   * Apply a function to the SQLPlanModel of the given executionId if it exists.
+   * @param id executionId of the SqlPlan
+   * @param f function to be applied
+   * @tparam A Type of the result of the function
+   * @return Some(result) if the plan exists, None otherwise
+   */
+  def applyToPlanModel[A](id: Long)(f: SQLPlanModel => A): Option[A] = {
+    getPlanById(id).map(f)
+  }
+
+  /**
    * Shortcuts to make the new implementation compatible with previous code that was expecting a
    * Map[Long, String]
    * @return map between executionId and the physical description of the last version.
@@ -196,5 +208,18 @@ class SQLPlanModelManager {
    */
   def getWriteFormats(): Set[String] = {
     sqlPlans.values.flatMap(_.plan.getWriteDataFormats)(breakOut)
+  }
+
+  /**
+   * Builds the SparkPlanGraph for all the plans in the SQLPlanModelManager.
+   * The graph will be built using the accumToStageRetriever to get the stageId of the accumulators
+   * in the plan and it will only process the most recent version of the given plan.
+   * @note This should be called only once to avoid recreating the SparkPlanGraph.
+   * @param accumStageMapper The AccumToStageRetriever used to find the stage for each accumulator
+   */
+  def buildPlanGraph(accumStageMapper: AccumToStageRetriever): Unit = {
+    sqlPlans.values.foreach { planModel =>
+      planModel.plan.buildSparkGraph(accumStageMapper)
+    }
   }
 }

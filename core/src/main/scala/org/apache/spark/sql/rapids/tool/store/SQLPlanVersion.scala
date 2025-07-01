@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, Re
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
-import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 
@@ -48,16 +48,51 @@ class SQLPlanVersion(
 
   // Used to cache the Spark graph for that plan to avoid creating a plan.
   // This graph can be used and then cleaned up at the end of the execution.
-  // This has to be accessed through the getPlanGraph() which synchronizes on this object to avoid
-  // races between threads.
-  private var sparkGraph: Option[SparkPlanGraph] = None
+  // This has to be accessed through the getToolsPlanGraph() which synchronizes on this object to
+  // avoid races between threads.
+  private var _sparkGraph: Option[ToolsPlanGraph] = None
 
-  private def getPlanGraph(): SparkPlanGraph = {
+  /**
+   * Builds the ToolsPlanGraph for this plan version.
+   * The graph is cached to avoid re-creating a sparkPlanGraph every time.
+   * @param accumStageMapper The AccumToStageRetriever used to find the stage for each accumulator.
+   * @return the ToolsPlanGraph.
+   */
+  def buildSparkGraph(accumStageMapper: AccumToStageRetriever): ToolsPlanGraph = {
     this.synchronized {
-      if (sparkGraph.isEmpty) {
-        sparkGraph = Some(ToolsPlanGraph(planInfo))
+      _sparkGraph = Some(ToolsPlanGraph.createGraphWithStageClusters(planInfo, accumStageMapper))
+      _sparkGraph.get
+    }
+  }
+
+  /**
+   * Returns the ToolsPlanGraph for this plan version. This method assumes that the graph has been
+   * built. Any call to this method should be placed after the graph has been built.
+   * @return the ToolsPlanGraph for this plan version.
+   */
+  def getToolsPlanGraph: ToolsPlanGraph = {
+    this.synchronized {
+      if (_sparkGraph.isEmpty) {
+        throw new IllegalStateException("Spark graph is not initialized yet.")
       }
-      sparkGraph.get
+      _sparkGraph.get
+    }
+  }
+
+  /**
+   * Returns a spark graph object.
+   * If the ToolsPlanGraph is initialized, it returns the wrapped spark-graph object.
+   * In some cases (i.e., getting ReadSchema for all plan versions), the tools-graph is not
+   * initialized yet. That's why we have to provide a fallback to create normal spark-graph without
+   * stage clusters.
+   * @return a SparkPlanGraph object.
+   */
+  private def getSparkPlanGraph: SparkPlanGraph = {
+    this.synchronized {
+      _sparkGraph match {
+        case Some(graph) => graph.sparkGraph
+        case None => ToolsPlanGraph(planInfo)
+      }
     }
   }
 
@@ -67,7 +102,7 @@ class SQLPlanVersion(
    * @return the list of write records for this plan if any.
    */
   private def initWriteOperationRecords(): Iterable[WriteOperationRecord] = {
-    getPlanGraph().allNodes
+    getToolsPlanGraph.allNodes
       // pick only nodes that are DataWritingCommandExec
       .filter(node => DataWritingCommandExecParser.isWritingCmdExec(node.name.stripSuffix("$")))
       .map { n =>
@@ -78,7 +113,7 @@ class SQLPlanVersion(
   }
 
   // Captures the write operations for this plan. This is lazy because we do not need
-  // to construct this until we need it.
+  // to build this until we need it.
   lazy val writeRecords: Iterable[WriteOperationRecord] = {
     initWriteOperationRecords()
   }
@@ -93,7 +128,7 @@ class SQLPlanVersion(
    */
   def cleanUpPlan(): Unit = {
     this.synchronized {
-      sparkGraph = None
+      _sparkGraph = None
     }
   }
 
@@ -111,17 +146,16 @@ class SQLPlanVersion(
    * the children that define a ReadSchema.
    * @return Sequence of SparkPlanInfo that have a ReadSchema attached to it.
    */
-  def getPlansWithSchema: Seq[SparkPlanInfo] = {
+  private def getPlansWithSchema: Seq[SparkPlanInfo] = {
     SQLPlanVersion.getPlansWithSchemaRecursive(planInfo)
   }
 
   /**
    * This is used to extract the metadata of ReadV1 nodes in Spark Plan Info
-   * @param planGraph planGraph Optional SparkPlanGraph to use. If not provided, it will be created.
+   * @param graph SparkPlanGraph to use.
    * @return all the read datasources V1 recursively that are read by this plan including.
    */
-  def getReadDSV1(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
-    val graph = planGraph.getOrElse(getPlanGraph())
+  private def getReadDSV1(graph: SparkPlanGraph): Iterable[DataSourceRecord] = {
     getPlansWithSchema.flatMap { plan =>
       val meta = plan.metadata
       // TODO: Improve the extraction of ReaSchema using RegEx (ReadSchema):\s(.*?)(\.\.\.|,\s|$)
@@ -152,11 +186,10 @@ class SQLPlanVersion(
 
   /**
    * Get all the DataSources that are read by this plan (V2).
-   * @param planGraph Optional SparkPlanGraph to use. If not provided, it will be created.
+   * @param graph SparkPlanGraph to use.
    * @return List of DataSourceRecord for all the V2 DataSources read by this plan.
    */
-  def getReadDSV2(planGraph: Option[SparkPlanGraph] = None): Iterable[DataSourceRecord] = {
-    val graph = planGraph.getOrElse(getPlanGraph())
+  private def getReadDSV2(graph: SparkPlanGraph): Iterable[DataSourceRecord] = {
     graph.allNodes.filter(ReadParser.isDataSourceV2Node).map { node =>
       val res = ReadParser.parseReadNode(node)
       DataSourceRecord(
@@ -178,7 +211,7 @@ class SQLPlanVersion(
    * @return Iterable of DataSourceRecord
    */
   def getAllReadDS: Iterable[DataSourceRecord] = {
-    val planGraph = Option(getPlanGraph())
+    val planGraph = getSparkPlanGraph
     getReadDSV1(planGraph) ++ getReadDSV2(planGraph)
   }
 }

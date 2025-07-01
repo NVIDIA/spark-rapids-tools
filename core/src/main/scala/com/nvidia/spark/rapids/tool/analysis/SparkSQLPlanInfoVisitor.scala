@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,12 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.SqlPlanInfoGraphEntry
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.store.SQLPlanModel
 
 // Class defines the SQLPlan context by implementations that walk through the SQLPlanInfo
-class SQLPlanInfoContext(sqlPIGEntry: SqlPlanInfoGraphEntry) {
-  def getSQLPIGEntry: SqlPlanInfoGraphEntry = sqlPIGEntry
+class SQLPlanInfoContext(sqlPIGEntry: SQLPlanModel) {
+  def getSQLPIGEntry: SQLPlanModel = sqlPIGEntry
 }
 
 /**
@@ -34,25 +32,24 @@ trait SparkSQLPlanInfoVisitor[R <: SQLPlanInfoContext] {
   // Given a SparkPlanInfo and its SQLID, it builds the SparkPlanGraph and returns
   // a SqlPlanInfoGraphEntry that holds the SQLID, SparkPlanInfo and SparkPlanGraph to be passed
   // as argument to the visitor
-  protected def createSqlPIGEntry(sqlId: Long, info: SparkPlanInfo): SqlPlanInfoGraphEntry = {
-    val planGraph = ToolsPlanGraph(info)
-    SqlPlanInfoGraphEntry(sqlId, info, planGraph)
+  protected def createSqlPIGEntry(sqlPlan: SQLPlanModel): SQLPlanModel = {
+    sqlPlan
   }
   // Defines the logic to visit a single node
   protected def visitNode(sqlPlanCtxt: R, node: SparkPlanGraphNode): Unit
 
   // Given a SqlPlanInfoGraphEntry, it creates a context to be used by the visitor.
   // This is specific to the logic of the SQLPlan visitor
-  protected def createPlanCtxtFromPIGEntry(sqlPIGEntry: SqlPlanInfoGraphEntry): R
+  protected def createPlanCtxtFromPIGEntry(sqlPIGEntry: SQLPlanModel): R
 
   // For each SQLPlan, it creates a context object to be passed down to all the nodes.
-  private def createPlanCtxt(sqlId: Long, info: SparkPlanInfo): R = {
-    val sqlPIGEntry = createSqlPIGEntry(sqlId, info)
+  private def createPlanCtxt(sqlPlan: SQLPlanModel): R = {
+    val sqlPIGEntry = sqlPlan
     createPlanCtxtFromPIGEntry(sqlPIGEntry)
   }
 
   protected def walkPlan(planCtxt: R): Unit = {
-    planCtxt.getSQLPIGEntry.sparkPlanGraph.allNodes.foreach(visitNode(planCtxt, _))
+    planCtxt.getSQLPIGEntry.getToolsPlanGraph.allNodes.foreach(visitNode(planCtxt, _))
   }
 
   // After a SQLPlan is visited, this method is called to process any additional logic.
@@ -63,9 +60,9 @@ trait SparkSQLPlanInfoVisitor[R <: SQLPlanInfoContext] {
   }
 
   // Walks through all the SQLPlans in the given map
-  def walkPlans(plans: collection.immutable.Map[Long, SparkPlanInfo]): Unit = {
-    for ((sqlId, planInfo) <- plans) {
-      val planCtxt = createPlanCtxt(sqlId, planInfo)
+  def walkPlans(plans: Iterable[SQLPlanModel]): Unit = {
+    for (plan <- plans) {
+      val planCtxt = createPlanCtxt(plan)
       walkPlan(planCtxt)
       postWalkPlan(planCtxt)
     }
