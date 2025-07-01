@@ -14,14 +14,18 @@
 
 """ Model training and prediction functions for QualX """
 
-from typing import Callable, Mapping, Optional, List, Tuple, Union
+from typing import Callable, Mapping, Optional, List, Tuple, Union, Dict
 import json
+import math
 import shap
 import numpy as np
 import pandas as pd
 
 import xgboost as xgb
 from xgboost import Booster
+
+from sklearn.model_selection import train_test_split
+from scipy.optimize import least_squares
 
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
 from spark_rapids_tools.tools.qualx.preprocess import expected_raw_features
@@ -81,6 +85,7 @@ def train(
     label_col: str,
     n_trials: int = 200,
     base_model: Optional[Booster] = None,
+    hyperparams: Dict[str, any] = None,
 ) -> Booster:
     """Train model on preprocessed data."""
     if 'split' not in cpu_aug_tbl.columns:
@@ -150,6 +155,18 @@ def train(
         xgb_params['subsample'] = float(train_params['subsample'])
         n_estimators = cfg['learner']['gradient_booster']['gbtree_model_param']['num_trees']
         n_estimators = int(float(n_estimators) * 1.1)              # increase n_estimators
+    elif hyperparams:
+        base_params = {
+            'random_state': 0,
+            'objective': 'reg:squarederror',
+            'eval_metric': ['mae', 'mape'],  # applied to eval_set/test_data if provided
+            'booster': 'gbtree',
+        }
+        xgb_params = {**base_params, **hyperparams}
+        if 'n_estimators' in xgb_params:
+            n_estimators = xgb_params.pop('n_estimators')
+        else:
+            n_estimators = 100
     else:
         # use optuna hyper-parameter tuning
         best_params = tune_hyperparameters(x_tune, y_tune, n_trials, sample_weights)
@@ -179,11 +196,110 @@ def train(
     return xgb_model
 
 
+def calibrate(
+    cpu_aug_tbl: pd.DataFrame,
+    feature_cols: List[str],
+    label_col: str,
+    xgb_model: Booster,
+) -> Dict[str, float]:
+    """
+    Calibration involves first training a pre-calib xgb model on
+    a smaller random split of full training data (train+val)
+    that was used for training the main model that we want to calibrate.
+    This pre-calibrated model serves as an independent copy of the main model.
+    We refer to this split of the full training data as pre-calib holdout data.
+
+    The calibration parameters are fit using the pre-calib model predictions
+    on the remaining training data, that is referred to as calib holdout data.
+    """
+
+    # Create (stratified) random split of train data into precalib and calib data
+    cpu_aug_tbl = cpu_aug_tbl[cpu_aug_tbl['split'].isin(['train', 'val'])
+                              & cpu_aug_tbl[label_col].notna()].copy()
+    cpu_aug_tbl['label_quantile'] = pd.qcut(cpu_aug_tbl[label_col], q=10, duplicates='drop')
+    cpu_aug_tbl_precalib, cpu_aug_tbl_calib = train_test_split(
+        cpu_aug_tbl,
+        test_size=0.2,
+        random_state=0,
+        stratify=cpu_aug_tbl[['label_quantile']]
+    )
+
+    # Extract and use same hyperparams as main model we want to calibrate
+    hyperparams = {}
+    cfg = json.loads(xgb_model.save_config())
+    train_params = cfg['learner']['gradient_booster']['tree_train_param']
+    hyperparams['eta'] = float(train_params['eta'])
+    hyperparams['gamma'] = float(train_params['gamma'])
+    hyperparams['lambda'] = float(train_params['lambda'])
+    hyperparams['max_depth'] = int(train_params['max_depth'])
+    hyperparams['min_child_weight'] = int(train_params['min_child_weight'])
+    hyperparams['subsample'] = float(train_params['subsample'])
+    hyperparams['n_estimators'] = int(cfg['learner']['gradient_booster']['gbtree_model_param']['num_trees'])
+
+    # Train precalib model as an independent copy of main model
+    xgb_model_precalib = train(cpu_aug_tbl_precalib, feature_cols, label_col, hyperparams=hyperparams)
+
+    # Get predictions from precalib model on calib holdout samples
+    x = cpu_aug_tbl_calib[xgb_model_precalib.feature_names]
+    y_pred = xgb_model_precalib.predict(xgb.DMatrix(x))
+    if LOG_LABEL:
+        y_pred = np.exp(y_pred)
+
+    # Sample importance weighting to address label imbalance across the range.
+    # Divide the entire range of label into bins of roughly equal length
+    # such that each bin has a minimum number of samples.
+    # Samples in each bin get importance weight as the ratio of
+    # the largest count of samples in any bin to the count of samples in its bin.
+    max_num_bins = 10
+    min_samples_per_bin = 5
+    y = cpu_aug_tbl_calib[label_col]
+    y_min, y_max, y_avg = np.min(y), np.max(y), np.average(y)
+    calib_df = pd.DataFrame({'y': y, 'y_pred': y_pred})
+    for num_bins in range(max_num_bins, 1, -1):
+        bins = np.append(
+            np.linspace(y_min*0.99, y_avg, (num_bins+1)//2 + 1)[:-1],
+            np.exp(np.linspace(math.log(y_avg), math.log(y_max*1.01), math.ceil((num_bins+1)/2)))
+        )
+        np.exp(np.linspace(math.log(y_min*0.99), math.log(y_max*1.01), num_bins+1))
+        bin_labels = np.arange(0, num_bins)
+        calib_df['y_qz'] = pd.cut(calib_df['y'], bins, labels=bin_labels)
+        y_qz_hist_df = calib_df \
+            .groupby(['y_qz'], as_index=False) \
+            .agg(count=pd.NamedAgg('y_qz', 'size')) \
+            .sort_values('y_qz')
+        smallest_count_per_bin = np.min(y_qz_hist_df['count'])
+        print(y_qz_hist_df)
+        if smallest_count_per_bin >= min_samples_per_bin:
+            break
+
+    largest_count_per_bin = np.max(y_qz_hist_df['count'])
+    calib_df = calib_df.merge(y_qz_hist_df, on=['y_qz'])
+    calib_df['weight'] = largest_count_per_bin / calib_df['count']
+
+    # Fit calibration params y ~ c1*y_pred^c2 + c3
+    y_pred = calib_df['y_pred'].to_numpy()
+    y = calib_df['y'].to_numpy()
+    w = calib_df['weight'].to_numpy()
+    c_argmin = least_squares(
+                    lambda c: (y - (c[0]*np.pow(y_pred, c[1])+c[2])) * np.sqrt(w),
+                    np.array([1.0, 1.0, 0.0]),
+                    bounds=([0.3, 1.0, 0.0], [3.0, 2.5, 0.4])
+                ).x
+
+    calib_params = {
+        'c1': round(float(c_argmin[0]), 4),
+        'c2': round(float(c_argmin[1]), 4),
+        'c3': round(float(c_argmin[2]), 4)
+    }
+    return calib_params
+
+
 def predict(
     xgb_model: xgb.Booster,
     cpu_aug_tbl: pd.DataFrame,
     feature_cols: List[str],
     label_col: str,
+    calib_params: Dict[str, float] = None,
 ) -> pd.DataFrame:
     """Use model to predict on feature data."""
     model_features = xgb_model.feature_names
@@ -203,6 +319,14 @@ def predict(
 
     if LOG_LABEL:
         y_pred = np.exp(y_pred)
+
+    cfg = get_config()
+    calib = cfg.calib
+    if calib and calib_params:
+        c1 = calib_params['c1']
+        c2 = calib_params['c2']
+        c3 = calib_params['c3']
+        y_pred = c1 * np.pow(y_pred, c2) + c3
 
     preds = {'y_pred': y_pred}
     if y is not None:
