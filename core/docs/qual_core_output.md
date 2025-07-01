@@ -40,7 +40,6 @@ qual_core_output
 
 With 25.06 release, the output structure of the qual core has changed:
 
-
 | Element | Legacy | 25.06+ |
 | --- | --- | --- |
 | root dir | `rapids_4_spark_qualification_output` | `qual_core_output` |
@@ -75,8 +74,9 @@ The output files are defined in the following format:
 ### qualCoreCSVStatus
 
 * _Scope_: global
+* _File name_: status.csv
+* _Format_: CSV
 * _Description_: Status of each eventlog passed to the qualification tool. The status is either success, failure, skipped, or unknown (failure). Some rows in that file might not contain App ID depending on the status of the parser.
-
 
 | Column Name | Description |
 | --- | --- |
@@ -88,8 +88,9 @@ The output files are defined in the following format:
 ### qualCoreCSVSummary
 
 * _Scope_: global
+* _File name_: apps_summary.csv
+* _Format_: CSV
 * _Description_: Summary of each eventlog successfully processed by the tool.
-
 
 | Column Name | Description |
 | --- | --- |
@@ -112,8 +113,9 @@ The output files are defined in the following format:
 ### perSqlCSVReport
 
 * _Scope_: per-app
+* _File name_: persql.csv
+* _Format_: CSV
 * _Description_: Report containing the details of each SQL in the app
-
 
 | Column Name | Description |
 | --- | --- |
@@ -126,8 +128,9 @@ The output files are defined in the following format:
 ### execCSVReport
 
 * _Scope_: per-app
+* _File name_: execs.csv
+* _Format_: CSV
 * _Description_: Report containing the details of each executor in the SQL
-
 
 | Column Name | Description |
 | --- | --- |
@@ -147,8 +150,9 @@ The output files are defined in the following format:
 ### unsupportedOpsCSVReport
 
 * _Scope_: per-app
+* _File name_: unsupported_operators.csv
+* _Format_: CSV
 * _Description_: Report containing the details of each unsupported operator in the SQL
-
 
 | Column Name | Description |
 | --- | --- |
@@ -165,8 +169,9 @@ The output files are defined in the following format:
 ### operatorsStatsCSVReport
 
 * _Scope_: per-app
+* _File name_: operators_stats.csv
+* _Format_: CSV
 * _Description_: Report containing the details of each operator in the SQL
-
 
 | Column Name | Description |
 | --- | --- |
@@ -180,8 +185,9 @@ The output files are defined in the following format:
 ### stagesCSVReport
 
 * _Scope_: per-app
+* _File name_: stages.csv
+* _Format_: CSV
 * _Description_: Report containing the details of each stage in the SQL
-
 
 | Column Name | Description |
 | --- | --- |
@@ -193,8 +199,9 @@ The output files are defined in the following format:
 ### clusterInfoJSONReport
 
 * _Scope_: per-app
+* _File name_: cluster_information.json
+* _Format_: JSON
 * _Description_: Report containing the details of the cluster
-
 
 | Column Name | Description |
 | --- | --- |
@@ -207,8 +214,9 @@ The output files are defined in the following format:
 ### clusterTagsCSVReport
 
 * _Scope_: per-app
+* _File name_: clusters_tags.csv
+* _Format_: CSV
 * _Description_: Report containing the details of the cluster tags
-
 
 | Column Name | Description |
 | --- | --- |
@@ -218,8 +226,9 @@ The output files are defined in the following format:
 ### mlFunctionsCSVReport
 
 * _Scope_: per-app
+* _File name_: ml_functions.csv
+* _Format_: CSV
 * _Description_: Report containing the details of the ML functions
-
 
 | Column Name | Description |
 | --- | --- |
@@ -230,8 +239,9 @@ The output files are defined in the following format:
 ### mlFunctionsDurationsCSVReport
 
 * _Scope_: per-app
+* _File name_: ml_functions_durations.csv
+* _Format_: CSV
 * _Description_: Report containing the details of the ML functions durations
-
 
 | Column Name | Description |
 | --- | --- |
