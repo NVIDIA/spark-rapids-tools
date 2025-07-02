@@ -45,6 +45,13 @@ def step_set_platform(context, platform) -> None:
     context.platform = platform
 
 
+@given('target_cluster_info "{target_cluster_info}" is provided')
+def step_set_target_cluster_info(context, target_cluster_info) -> None:
+    target_cluster_info_path = os.path.join(E2ETestUtils.get_e2e_tests_resource_path(),
+                                            'target_cluster_files', target_cluster_info)
+    context.target_cluster_info = target_cluster_info_path
+
+
 @given('"{cli}" is not installed')
 def step_replace_cli_with_mock(context, cli) -> None:
     original_path = os.environ["PATH"]
@@ -147,10 +154,15 @@ def step_file_is_generated(context, file) -> None:
 @when('spark-rapids tool is executed with "{event_logs}" eventlogs')
 def step_execute_spark_rapids_tool(context, event_logs) -> None:
     event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
-    if hasattr(context, 'platform'):
-        cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir, context.platform)
-    else:
-        cmd = E2ETestUtils.create_spark_rapids_cmd(event_logs_list, context.temp_dir)
+    platform = getattr(context, 'platform', 'onprem')
+    target_cluster_info = getattr(context, 'target_cluster_info', None)
+
+    cmd = E2ETestUtils.create_spark_rapids_cmd(
+        event_logs=event_logs_list,
+        output_dir=context.temp_dir,
+        platform=platform,
+        target_cluster_info=target_cluster_info
+    )
     context.result = E2ETestUtils.run_sys_cmd(cmd)
 
 
@@ -184,13 +196,20 @@ def step_verify_stderr(context) -> None:
              E2ETestUtils.get_cmd_output_str(context.result))
 
 
-@then('stdout contains the following')
-def step_verify_stdout(context) -> None:
+@then('stdout does "{contain}" the following')
+def step_verify_stdout_containment(context, contain) -> None:
     expected_stdout_list = context.text.strip().split(";")
     for stdout_line in expected_stdout_list:
-        assert stdout_line in context.result.stdout, \
-            (f"Expected stdout line '{stdout_line}' not found\n" +
-             E2ETestUtils.get_cmd_output_str(context.result))
+        if contain == "contain":
+            assert stdout_line in context.result.stdout, \
+                (f"Expected stdout line '{stdout_line}' not found\n" +
+                 E2ETestUtils.get_cmd_output_str(context.result))
+        elif contain == "not contain":
+            assert stdout_line not in context.result.stdout, \
+                (f"Unexpected stdout line '{stdout_line}' found\n" +
+                 E2ETestUtils.get_cmd_output_str(context.result))
+        else:
+            raise ValueError(f"Invalid contain value: '{contain}'. Must be 'contain' or 'not contain'")
 
 
 @then('processed applications is "{expected_num_apps}"')

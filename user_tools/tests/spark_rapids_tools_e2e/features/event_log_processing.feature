@@ -59,3 +59,17 @@ Feature: Event Log Processing
       | onprem  	| RAPIDS_USER_TOOLS_SPILL_BYTES_THRESHOLD                   |   -1            |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.|
       | onprem  	| RAPIDS_USER_TOOLS_GPU_SPEEDUP_SPARK_LOWER_BOUND           |   20.0          |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.; GPU SpeedUp < Qualifying Threshold (More is qualified) |
       | onprem  	| RAPIDS_USER_TOOLS_UNSUPPORTED_OPERATORS_SPARK_UPPER_BOUND |   -1            |onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | qualification_summary.csv     | app-20231122005806-0064 | Skipping due to total data spill in stages exceeding -1.00 B.; GPU SpeedUp < Qualifying Threshold (More is qualified); Unsupported Operators Stage Duration Percent > Qualifying Threshold (Less is qualified) |
+
+  @test_id_ELP_0004
+  Scenario Outline: Check stdout contains speed up warning when target_cluster_info is provided
+    Given platform is "<platform>"
+    And target_cluster_info "<target_cluster_info>" is provided
+    When spark-rapids tool is executed with "<eventlog>" eventlogs
+    Then stdout does "<contain>" the following
+      """
+      <expected_stdout>
+      """
+    Examples:
+      | platform | target_cluster_info                              | eventlog                                                    | contain     | expected_stdout                                                                        |
+      | onprem   | target-cluster-worker-info-and-spark-props.yaml  | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | contain     | Speed up estimations may be inaccurate because custom worker information was provided. |
+      | onprem   | target-cluster-only-spark-props.yaml             | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | not contain | Speed up estimations may be inaccurate because custom worker information was provided. |
