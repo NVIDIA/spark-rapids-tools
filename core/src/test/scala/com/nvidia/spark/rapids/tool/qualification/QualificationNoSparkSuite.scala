@@ -835,7 +835,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
           .withContentVisitor {
             (_, f) =>
               val actualClusterInfo =
-                ToolTestUtils.loadSingleClusterSummaryFromJson(f).sourceClusterInfo
+                ToolTestUtils.loadClusterSummaryFromJson(f).sourceClusterInfo
               actualClusterInfo shouldBe expectedClusterInfo
           })
       .build()

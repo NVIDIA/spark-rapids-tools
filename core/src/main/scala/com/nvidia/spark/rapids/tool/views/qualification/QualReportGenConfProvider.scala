@@ -78,6 +78,15 @@ object QualReportGenConfProvider {
    * @return the path to the per-application report directory as the subdirectory concatenated to
    *         the parent.
    */
+  def getPerAppReportPath(outputPath: String): String = {
+    s"${getGlobalReportPath(outputPath)}/$PER_APP_SUBDIRECTORY"
+  }
+
+  /**
+   * Get the path to the tuning report directory.
+   * @param outputPath the parent directory where the output should be generated.
+   * @return the path to the tuning report directory as the subdirectory concatenated to the parent.
+   */
   def getTuningReportPath(outputPath: String): String = {
     s"${getGlobalReportPath(outputPath)}/$TUNING_SUBDIRECTORY"
   }

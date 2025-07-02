@@ -195,21 +195,11 @@ object ToolTestUtils extends Logging {
   }
 
   /**
-   * Load a JSON file containing an array of ClusterSummary objects.
-   * @param path The path to the JSON file.
-   * @return An array of ClusterSummary objects.
-   */
-  def loadClusterSummaryFromJson(path: String): Array[ClusterSummary] = {
-    val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-    mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
-  }
-
-  /**
    * Load a JSON file containing ClusterSummary objects.
-   * @param path The path to the JSON file.
+   * @param jsonFile The JSON file to load.
    * @return ClusterSummary object.
    */
-  def loadSingleClusterSummaryFromJson(jsonFile: File): ClusterSummary = {
+  def loadClusterSummaryFromJson(jsonFile: File): ClusterSummary = {
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
     mapper.readValue(jsonFile, classOf[ClusterSummary])
   }
