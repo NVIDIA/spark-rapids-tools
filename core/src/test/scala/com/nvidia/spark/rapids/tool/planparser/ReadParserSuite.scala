@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,12 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import scala.collection.mutable.ArrayBuffer
+
 import com.nvidia.spark.rapids.BaseTestSuite
 import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
+
+import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 
 // Tests the implementation of the ReadParser independently of end-2-end tests
 class ReadParserSuite extends BaseTestSuite {
@@ -128,6 +132,56 @@ class ReadParserSuite extends BaseTestSuite {
         case e: Exception =>
           fail(s"Failed for scenario: ${scenario.testDescription}", e)
       }
+    }
+  }
+
+  test("test different types in ReadSchema") {
+    // this tests parseReadSchema by passing different schemas as strings. Schemas
+    // with complex types, complex nested types, decimals and simple types
+    val testSchemas: ArrayBuffer[ArrayBuffer[String]] = ArrayBuffer(
+      ArrayBuffer(""),
+      ArrayBuffer("firstName:string,lastName:string", "", "address:string"),
+      ArrayBuffer("properties:map<string,string>"),
+      ArrayBuffer("name:array<string>"),
+      ArrayBuffer("name:string,booksInterested:array<struct<name:string,price:decimal(8,2)," +
+        "author:string,pages:int>>,authbook:array<map<name:string,author:string>>, " +
+        "pages:array<array<struct<name:string,pages:int>>>,name:string,subject:string"),
+      ArrayBuffer("name:struct<fn:string,mn:array<string>,ln:string>," +
+        "add:struct<cur:struct<st:string,city:string>," +
+        "previous:struct<st:map<string,string>,city:string>>," +
+        "next:struct<fn:string,ln:string>"),
+      ArrayBuffer("name:map<id:int,map<fn:string,ln:string>>, " +
+        "address:map<id:int,struct<st:string,city:string>>," +
+        "orders:map<id:int,order:array<map<oname:string,oid:int>>>," +
+        "status:map<name:string,active:string>")
+    )
+
+    var index = 0
+    val expectedResult = List(
+      ("", ""),
+      ("", ""),
+      ("map<string,string>", ""),
+      ("array<string>", ""),
+      ("array<struct<name:string,price:decimal(8,2),author:string,pages:int>>;" +
+        "array<map<name:string,author:string>>;array<array<struct<name:string,pages:int>>>",
+        "array<struct<name:string,price:decimal(8,2),author:string,pages:int>>;" +
+          "array<map<name:string,author:string>>;array<array<struct<name:string,pages:int>>>"),
+      ("struct<fn:string,mn:array<string>,ln:string>;" +
+        "struct<cur:struct<st:string,city:string>,previous:struct<st:map<string,string>," +
+        "city:string>>;struct<fn:string,ln:string>",
+        "struct<fn:string,mn:array<string>,ln:string>;" +
+          "struct<cur:struct<st:string,city:string>,previous:struct<st:map<string,string>," +
+          "city:string>>"),
+      ("map<id:int,map<fn:string,ln:string>>;map<id:int,struct<st:string,city:string>>;" +
+        "map<id:int,order:array<map<oname:string,oid:int>>>;map<name:string,active:string>",
+        "map<id:int,map<fn:string,ln:string>>;map<id:int,struct<st:string,city:string>>;" +
+          "map<id:int,order:array<map<oname:string,oid:int>>>"))
+
+    val result = testSchemas.map(x => AppBase.parseReadSchemaForNestedTypes(x))
+    result.foreach { actualResult =>
+      assert(ToolUtils.formatComplexTypes(actualResult._1).equals(expectedResult(index)._1))
+      assert(ToolUtils.formatComplexTypes(actualResult._2).equals(expectedResult(index)._2))
+      index += 1
     }
   }
 }

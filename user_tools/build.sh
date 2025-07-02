@@ -17,6 +17,8 @@
 # Usage: ./build.sh [build_mode] [jar_url]
 # This script takes a build_mode ("fat" or "non-fat") and the jar url as parameter.
 # Build mode is a mandatory parameter while the jar url is optional.
+# Additional Maven arguments can be passed via the TOOLS_MAVEN_ARGS environment variable.
+# Example: TOOLS_MAVEN_ARGS="-Dbuildver=350 -Dhadoop.version=3.3.6" ./build.sh non-fat
 # If the build_mode is "fat" and jar_url is provided, it downloads the JAR from the URL and packages the CSP dependencies with the whl.
 # If the build_mode is "fat" and jar_url is not provided, it builds the JAR from source and packages the CSP dependencies with the whl.
 # If the build_mode is "non-fat" and jar_url is provided, it downloads the JAR from the URL and packages it with the wheel.
@@ -90,14 +92,27 @@ clean_up_build_jars() {
 # Function to run mvn command to build the tools jar
 # This function skips the test cases and builds the jar file and only
 # picks the jar file without sources/javadoc/tests..
+# Maven arguments can be passed via TOOLS_MAVEN_ARGS environment variable
 build_jar_from_source() {
   # store teh current directory
   local curr_dir
   curr_dir=$(pwd)
   local jar_dir="$CORE_DIR"/target
   cd "$CORE_DIR" || exit
+
+  # Construct Maven command with optional arguments from environment
+  local mvn_cmd="mvn clean package -DskipTests"
+
+  # Add additional Maven arguments if provided via environment variable
+  if [ -n "$TOOLS_MAVEN_ARGS" ]; then
+    mvn_cmd="$mvn_cmd $TOOLS_MAVEN_ARGS"
+    echo "Using additional Maven arguments: $TOOLS_MAVEN_ARGS"
+  fi
+
+  echo "Running Maven command: $mvn_cmd"
+
   # build mvn
-  mvn clean package -DskipTests
+  eval "$mvn_cmd"
   if [ $? -ne 0 ]; then
     echo "Failed to build the tools jar"
     exit 1
@@ -140,7 +155,32 @@ remove_web_dependencies() {
   # remove folder recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
-  rm "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
+  rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
+  # remove core folder containing qualOutputTable.yaml
+  rm -rf "${res_dir:?}"/core/generated_files
+}
+
+# Function to copy qualOutputTable.yaml from core module to resources/core/generated_files folder
+copy_qual_output_table_yaml() {
+  local res_dir="$1"
+  local yaml_source="$CORE_DIR/src/main/resources/configs/qualOutputTable.yaml"
+  local core_res_dir="$res_dir/core/generated_files"
+  local yaml_dest="$core_res_dir/qualOutputTable.yaml"
+
+  if [ -f "$yaml_source" ]; then
+    echo "Copying qualOutputTable.yaml from core module to resources/core/generated_files"
+    # Create core/generated_files directory if it doesn't exist
+    mkdir -p "$core_res_dir"
+    cp "$yaml_source" "$yaml_dest"
+    if [ $? -ne 0 ]; then
+      echo "Failed to copy qualOutputTable.yaml"
+      exit 1
+    fi
+    echo "Successfully copied qualOutputTable.yaml to $yaml_dest"
+  else
+    echo "Warning: qualOutputTable.yaml not found at $yaml_source"
+    exit 1
+  fi
 }
 
 # Pre-build setup
@@ -150,7 +190,8 @@ pre_build() {
   echo "rm previous build and dist directories"
   rm -rf build/ dist/
   echo "install build dependencies using pip"
-  pip install build -e .[qualx,test]
+  pip install build .[qualx,test]
+  # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
 }
 
 # Build process
@@ -176,6 +217,8 @@ build() {
     # This will just copy the tools jar built from source into the tools-resources folder
     download_web_dependencies "$RESOURCE_DIR" "False"
   fi
+  # Copy qualOutputTable.yaml from core module
+  copy_qual_output_table_yaml "$RESOURCE_DIR"
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel

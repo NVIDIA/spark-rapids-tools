@@ -161,19 +161,14 @@ class TestPreprocess(SparkRapidsToolsUT):
             ['app2', 'sql1', 'node1', False, '', 'WholeStageCodegen3'],
             ['app2', 'sql1', 'node2', False, '', 'Exec4']
         ], columns=['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported', 'Action', 'Exec Name'])
+        # Call function
+        result = load_qtool_execs(test_data)
 
-        # Create temporary CSV file
-        with tempfile.NamedTemporaryFile(suffix='.csv', mode='w') as f:
-            test_data.to_csv(f.name, index=False)
-
-            # Call function
-            result = load_qtool_execs([f.name])
-
-            # Verify results
-            assert isinstance(result, pd.DataFrame)
-            assert list(result.columns) == ['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']
-            assert len(result) == 4
-            assert result['Exec Is Supported'].tolist() == [True, True, True, False]
+        # Verify results
+        assert isinstance(result, pd.DataFrame)
+        assert list(result.columns) == ['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']
+        assert len(result) == 4
+        assert result['Exec Is Supported'].tolist() == [True, True, True, False]
 
     def test_load_datasets(self):
         """Test load_datasets function"""

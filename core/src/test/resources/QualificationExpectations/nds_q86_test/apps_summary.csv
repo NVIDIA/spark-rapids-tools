@@ -1,0 +1,2 @@
+App Name,App ID,Attempt ID,App Duration,Executor CPU Time Percent,SQL Ids with Failures,Unsupported Read File Formats and Types,Unsupported Write Data Format,Complex Types,Nested Complex Types,Potential Problems,Longest SQL Duration,SQL Stage Durations Sum,App Duration Estimated,Total Core Seconds
+"TPC-DS Like Bench q86",app-20210319163812-1778,1,26171,35.39,"","","","","","",9565,9265,false,24270

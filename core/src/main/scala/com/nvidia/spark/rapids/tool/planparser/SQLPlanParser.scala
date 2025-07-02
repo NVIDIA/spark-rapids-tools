@@ -16,8 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import java.util.concurrent.ConcurrentHashMap
+
 import scala.collection.mutable
-import scala.collection.mutable.{ArrayBuffer, WeakHashMap}
+import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
@@ -51,11 +53,13 @@ object UnsupportedReasons extends Enumeration {
       UNSUPPORTED_IO_FORMAT = Value
 
   // Mutable map to cache custom reasons
-  private val customReasonsCache = WeakHashMap.empty[String, Value]
+  // this cache has to be concurrent to be threadSafe. Otherwise, multiple threads can cause
+  // assertion error as they would be accessing the same nextId of the enumType
+  private val customReasonsCache = new ConcurrentHashMap[String, Value]()
 
   // Method to get or create a custom reason
   def CUSTOM_REASON(reason: String): Value = {
-    customReasonsCache.getOrElseUpdate(reason, new Val(nextId, reason))
+    customReasonsCache.computeIfAbsent(reason, _ => new Val(nextId, reason))
   }
 
   def reportUnsupportedReason(unsupportedReason: UnsupportedReason): String = {
