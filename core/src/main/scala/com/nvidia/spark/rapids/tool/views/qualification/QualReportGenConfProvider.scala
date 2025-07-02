@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.views.qualification
 
+import java.nio.file.Paths
+
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
@@ -69,7 +71,7 @@ object QualReportGenConfProvider {
    * @return the path to the global report directory as the subdirectory concatenated to the parent.
    */
   def getGlobalReportPath(outputPath: String): String = {
-    s"$outputPath/$GLOBAL_SUBDIRECTORY"
+    Paths.get(outputPath, GLOBAL_SUBDIRECTORY).toString
   }
 
   /**
@@ -79,7 +81,7 @@ object QualReportGenConfProvider {
    *         the parent.
    */
   def getPerAppReportPath(outputPath: String): String = {
-    s"${getGlobalReportPath(outputPath)}/$PER_APP_SUBDIRECTORY"
+    Paths.get(getGlobalReportPath(outputPath), PER_APP_SUBDIRECTORY).toString
   }
 
   /**
@@ -88,6 +90,6 @@ object QualReportGenConfProvider {
    * @return the path to the tuning report directory as the subdirectory concatenated to the parent.
    */
   def getTuningReportPath(outputPath: String): String = {
-    s"${getGlobalReportPath(outputPath)}/$TUNING_SUBDIRECTORY"
+    Paths.get(getGlobalReportPath(outputPath), TUNING_SUBDIRECTORY).toString
   }
 }
