@@ -1,6 +1,21 @@
 
 <br/>
 
+## Release [v25.04.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.4)
+Generated on 2025-07-02
+### User Tools
+
+- Add more comments to qualx hash_util.py ([#1746](https://github.com/NVIDIA/spark-rapids-tools/pull/1746))
+
+### Core
+
+- Improve AppSqlPlanAnalyzer for large eventlogs ([#1747](https://github.com/NVIDIA/spark-rapids-tools/pull/1747))
+- Add support for target cluster worker info and spark overrides for OnPrem in Profiling Tool's AutoTuner ([#1743](https://github.com/NVIDIA/spark-rapids-tools/pull/1743))
+- Increase the throughput of scanning eventlogs in core-tools ([#1738](https://github.com/NVIDIA/spark-rapids-tools/pull/1738))
+
+
+<br/>
+
 ## Release [v25.04.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.3)
 Generated on 2025-06-18
 ### User Tools
