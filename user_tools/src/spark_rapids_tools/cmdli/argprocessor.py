@@ -353,6 +353,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_heap_size: Optional[int] = None
     jvm_threads: Optional[int] = None
     tools_config_path: Optional[str] = None
+    target_cluster_info: Optional[str] = None
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -396,6 +397,18 @@ class ToolUserArgModel(AbsToolUserArgModel):
                     f'Tools config file path {self.tools_config_path} could not be loaded. '
                     'It is expected to be a valid configuration YAML file.'
                     f'\n  Error:{ve}\n') from ve
+
+    def process_target_cluster_info(self, rapids_options: dict) -> None:
+        # only YAML files are accepted
+        if self.target_cluster_info is not None:
+            if not CspPath.is_file_path(self.target_cluster_info,
+                                        extensions=['yaml'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'target_cluster_info',
+                    f'Target cluster info file path {self.target_cluster_info} is not valid. '
+                    'It is expected to be a valid YAML file.\n  Error:')
+            rapids_options['target_cluster_info'] = self.target_cluster_info
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -524,10 +537,13 @@ class QualifyUserArgModel(ToolUserArgModel):
         # At this point, if the platform is still none, then we can set it to the default value
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
+        rapids_options = {}
         # process JVM arguments
         self.process_jvm_args()
         # process the tools config file
         self.load_tools_config()
+        # process target_cluster_info
+        self.process_target_cluster_info(rapids_options)
 
         # finally generate the final values
         wrapped_args = {
@@ -556,7 +572,8 @@ class QualifyUserArgModel(ToolUserArgModel):
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
-            'submissionMode': self.submission_mode
+            'submissionMode': self.submission_mode,
+            'rapidOptions': rapids_options,
         }
         return wrapped_args
 
@@ -641,10 +658,10 @@ class ProfileUserArgModel(ToolUserArgModel):
             self.p_args['toolArgs']['cluster'] = self.cluster
         if self.p_args['toolArgs']['driverlog'] is None:
             requires_event_logs = True
-            rapid_options = {}
+            rapids_options = {}
         else:
             requires_event_logs = False
-            rapid_options = {
+            rapids_options = {
                 'driverlog': self.p_args['toolArgs']['driverlog']
             }
 
@@ -652,6 +669,9 @@ class ProfileUserArgModel(ToolUserArgModel):
         self.process_jvm_args()
         # process the tools config file
         self.load_tools_config()
+        # process target_cluster_info
+        self.process_target_cluster_info(rapids_options)
+
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -675,7 +695,7 @@ class ProfileUserArgModel(ToolUserArgModel):
             },
             'eventlogs': self.eventlogs,
             'requiresEventlogs': requires_event_logs,
-            'rapidOptions': rapid_options,
+            'rapidOptions': rapids_options,
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
         }

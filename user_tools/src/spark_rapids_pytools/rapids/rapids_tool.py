@@ -517,6 +517,16 @@ class RapidsJarTool(RapidsTool):
                 else:
                     # this could be a boolean type flag that has no arguments
                     arguments_list.append(f'{k_arg}')
+
+        # If the target cluster info is provided and contains worker info,
+        # set the context to indicate that worker info is provided.
+        # This is used later to determine if the Speed up calculation should be skipped in
+        # Qualification Tool
+        target_cluster_info_file = self.rapids_options.get('target_cluster_info')
+        target_cluster_info = YAMLPropertiesContainer(target_cluster_info_file) if target_cluster_info_file else None
+        worker_info = target_cluster_info.get_value('workerInfo') if target_cluster_info else None
+        if worker_info:
+            self.ctxt.set_ctxt('targetWorkerInfoProvided', True)
         return arguments_list
 
     def _process_tool_args(self):
@@ -799,8 +809,12 @@ class RapidsJarTool(RapidsTool):
                                                 exec_files=exc_files)
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
             out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
+            # if the target worker info is provided, then add a note about speed up estimation.
+            if str(self.ctxt.get_ctxt('targetWorkerInfoProvided')).strip().lower() == 'true':
+                out_tree_list.append(f'{indentation}- Speed up estimations may be inaccurate because '
+                                     'custom worker information was provided.')
             return out_tree_list
-        return None
+        return []
 
     def _report_tool_full_location(self) -> str:
         if not self._rapids_jar_tool_has_output():
