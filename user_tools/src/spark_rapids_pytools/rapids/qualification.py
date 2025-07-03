@@ -515,7 +515,7 @@ class Qualification(RapidsJarTool):
         Build the full output path for the output files.
         """
         files_info = self.ctxt.get_value('local', 'output', 'files')
-        output_folder = self.ctxt.get_output_folder()
+        output_folder = self.ctxt.get_csp_output_path()
         output_files_raw = self.__update_files_info_with_paths(files_info, output_folder)
         return JSONPropertiesContainer(output_files_raw, file_load=False)
 
@@ -524,7 +524,7 @@ class Qualification(RapidsJarTool):
         Build the full output path for the predictions output files
         """
         predictions_info = self.ctxt.get_value('local', 'output', 'predictionModel')
-        output_dir = FSUtil.build_path(self.ctxt.get_output_folder(), predictions_info['outputDirectory'])
+        output_dir = FSUtil.build_path(self.ctxt.get_csp_output_path(), predictions_info['outputDirectory'])
         FSUtil.make_dirs(output_dir)
         return self.__update_files_info_with_paths(predictions_info['files'], output_dir)
 
@@ -552,7 +552,7 @@ class Qualification(RapidsJarTool):
         """
         # Execute the prediction model
         model_name = self.ctxt.platform.get_prediction_model_name()
-        qual_output_dir = self.ctxt.get_local('outputFolder')
+        qual_output_dir = self.ctxt.get_csp_output_path()
         output_info = self.__build_prediction_output_files_info()
         qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
