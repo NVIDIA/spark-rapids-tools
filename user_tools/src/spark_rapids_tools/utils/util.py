@@ -405,6 +405,8 @@ class Utilities:
         :param s: The string to convert.
         :return: The corresponding boolean value.
         """
+        if s is None:
+            return False
         return {
             'true': True,
             'false': False,
