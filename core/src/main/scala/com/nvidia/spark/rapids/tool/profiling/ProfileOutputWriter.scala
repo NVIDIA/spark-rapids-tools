@@ -76,17 +76,20 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
    *
    * @param headerText The header text used to generate the filename.
    * @param outRows The sequence of profile results to write.
-   * @param pretty If true, writes JSON sequence as an array with each JSON written in
-   *                pretty format.
-   *               If false, it will be written in JSON Lines (JSONL) format
-   *               ( each JSON object on a new line).
    */
-  def writeJson(headerText: String, outRows: Seq[AnyRef], pretty: Boolean = true): Unit = {
-    if (pretty) {
-      ProfileOutputWriter.writeJsonPretty(headerText, outRows, outputDir)
-    } else {
-      ProfileOutputWriter.writeJsonL(headerText, outRows, outputDir)
-    }
+  def writeJson(headerText: String, outRows: AnyRef): Unit = {
+    ProfileOutputWriter.writeJsonPretty(headerText, outRows, outputDir)
+  }
+
+  /**
+   * Write the given profile results as JSON Lines (JSONL) format to a file
+   * (i.e. each JSON object on a new line).
+   *
+   * @param headerText The header text used to generate the filename.
+   * @param outRows The sequence of profile results to write.
+   */
+  def writeJsonL(headerText: String, outRows: Seq[AnyRef]): Unit = {
+    ProfileOutputWriter.writeJsonL(headerText, outRows, outputDir)
   }
 
   def close(): Unit = {
@@ -175,8 +178,8 @@ object ProfileOutputWriter {
    * @param headerText The header text used to generate the filename.
    * @param outRows The sequence of profile results to write.
    */
-  private def writeJsonPretty(headerText: String, outRows: Seq[AnyRef], outputDir: String): Unit = {
-    if (outRows.nonEmpty) {
+  private def writeJsonPretty(headerText: String, outRows: AnyRef, outputDir: String): Unit = {
+    if (outRows != null && outRows.toString.nonEmpty) {
       val fileName = ProfileOutputWriter.sanitizeFileName(headerText)
       val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
       try {

@@ -187,6 +187,9 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       prefix = "no-",
       descrYes = "Generate a cluster information file. Enabled by default.",
       descrNo = "Do not generate the cluster information file.")
+  val targetClusterInfo: ScallopOption[String] =
+    opt[String](required = false,
+      descr = "File path containing the system information of the target cluster")
 
   validate(filterCriteria) {
     case crit if (crit.endsWith("-newest-filesystem") || crit.endsWith("-oldest-filesystem")
