@@ -132,6 +132,8 @@ class RapidsTool(object):
                     logging.exception('%s. Raised an error in phase [%s]\n',
                                       self.pretty_name(),
                                       phase_name)
+                    # clean up the run through the cleanup method
+                    self.cleanup_run()
                     sys.exit(1)
             return wrapper
         return decorator
@@ -152,11 +154,11 @@ class RapidsTool(object):
         try:
             output_folder_path = LocalPath(self.output_folder)
             self.output_folder = output_folder_path.no_scheme
+            self.ctxt.set_local_directories(self.output_folder)
         except Exception as ex:  # pylint: disable=broad-except
             self.logger.error('Failed in processing output arguments. Output_folder must be a local directory')
             raise ex
         self.logger.debug('Root directory of local storage is set as: %s', self.output_folder)
-        self.ctxt.set_local_workdir(self.output_folder)
         self.ctxt.load_prepackaged_resources()
 
     def _process_rapids_args(self):
@@ -213,6 +215,17 @@ class RapidsTool(object):
     def _process_output(self):
         pass
 
+    def cleanup_run(self) -> None:
+        try:
+            if self.ctxt and self.ctxt.do_cleanup_tmp_directory():
+                # delete the local tmp directory
+                local_tmp_dir = self.ctxt.get_local_tmp_folder()
+                FSUtil.remove_path(local_tmp_dir, fail_ok=True)
+        except Exception:  # pylint: disable=broad-except
+            # Ignore the exception here because this might be called toward the end/failure
+            # and we do want to avoid nested exceptions.
+            self.logger.debug('Failed to cleanup run')
+
     def _delete_local_dep_folder(self):
         # clean_up the local dependency folder
         local_dep_folder = self.ctxt.get_local_work_dir()
@@ -231,11 +244,10 @@ class RapidsTool(object):
         remote_output_folder = self.ctxt.get_remote('workDir')
         # for dataproc it is possible that the entire directory has been deleted when it is empty
         if self.ctxt.platform.storage.resource_exists(remote_output_folder):
-            local_folder = self.ctxt.get_local('outputFolder')
+            local_folder = self.ctxt.get_csp_output_path()
             self.ctxt.platform.storage.download_resource(remote_output_folder, local_folder)
 
     def _download_output(self):
-        self._delete_local_dep_folder()
         # clean up the remote dep folder first
         self._delete_remote_dep_folder()
         # download the output folder in to the local one with overriding
@@ -248,6 +260,7 @@ class RapidsTool(object):
                                    ruler='_',
                                    line_width=100))
         self._write_summary()
+        self.cleanup_run()
 
     def _write_summary(self):
         pass
@@ -778,7 +791,7 @@ class RapidsJarTool(RapidsTool):
             ex_patterns = tree_conf.get('excludedPatterns', {})
             exc_dirs = ex_patterns.get('directories')
             exc_files = ex_patterns.get('files')
-            out_folder_path = self.ctxt.get_local('outputFolder')
+            out_folder_path = self.ctxt.get_csp_output_path()
             out_tree_list = FSUtil.gen_dir_tree(out_folder_path,
                                                 depth_limit=level,
                                                 indent=indentation,
@@ -862,7 +875,7 @@ class RapidsJarTool(RapidsTool):
             res.update({'outputDirectory': self.ctxt.get_remote('workDir')})
         else:
             # the output folder has to be set any way
-            res.update({'outputDirectory': self.ctxt.get_output_folder()})
+            res.update({'outputDirectory': self.ctxt.get_csp_output_path()})
         return res
 
     def _process_local_job_submission_args(self):
@@ -989,7 +1002,7 @@ class RapidsJarTool(RapidsTool):
     def _archive_local_results(self):
         remote_work_dir = self.ctxt.get_remote('workDir')
         if remote_work_dir and self._rapids_jar_tool_has_output():
-            local_folder = self.ctxt.get_output_folder()
+            local_folder = self.ctxt.get_csp_output_path()
             # TODO make sure it worth issuing the command
             self.ctxt.platform.storage.upload_resource(local_folder, remote_work_dir)
 

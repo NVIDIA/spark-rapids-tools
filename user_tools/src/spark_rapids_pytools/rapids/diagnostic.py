@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ class Diagnostic(RapidsTool):
         super()._process_output_args()
 
         # Set remote output folder same as local output folder name
-        output_path = self.ctxt.get_output_folder()
+        output_path = self.ctxt.get_csp_output_path()
         folder_name = FSUtil.get_resource_name(output_path)
         self.ctxt.set_remote('outputFolder', folder_name)
 
@@ -119,7 +119,7 @@ class Diagnostic(RapidsTool):
     def _download_output(self):
         self.logger.info('Downloading results from remote nodes:')
 
-        output_path = self.ctxt.get_output_folder()
+        output_path = self.ctxt.get_csp_output_path()
         remote_output_folder = self.ctxt.get_remote('outputFolder')
         remote_output_result = f'/tmp/{remote_output_folder}*.tgz'
 
@@ -144,7 +144,7 @@ class Diagnostic(RapidsTool):
     def _process_output(self):
         self.logger.info('Processing the collected results.')
 
-        output_path = self.ctxt.get_output_folder()
+        output_path = self.ctxt.get_csp_output_path()
         region = self.exec_cluster.get_region()
         worker_count = self.exec_cluster.get_nodes_cnt(SparkNodeType.WORKER)
 
@@ -167,7 +167,7 @@ class Diagnostic(RapidsTool):
             f.write(f'Worker type: {worker_type}\n')
 
     def _archive_results(self):
-        output_path = self.ctxt.get_output_folder()
+        output_path = self.ctxt.get_csp_output_path()
         Utils.make_archive(output_path, 'tar', output_path)
         self.logger.info("Archive '%s.tar' is successfully created.", output_path)
 

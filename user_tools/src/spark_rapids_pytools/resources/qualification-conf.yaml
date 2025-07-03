@@ -378,4 +378,7 @@ local:
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output
-  cleanUp: true
+  # Whether or not the temp directories should be cleaned up. For example,
+  # the temporary folder for each run will be cleaned-up.
+  # Set that to false if we need to troubleshoot the workdir/dependencies.
+  cleanUp: !ENV ${RAPIDS_USER_TOOLS_CLEAN_UP:true}

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ class Profiling(RapidsJarTool):
             log_lines.append(f'{sec_comments}')
             recommendations_table.append(row)
         log_file_name = self.ctxt.get_value('local', 'output', 'fileName')
-        summary_file = FSUtil.build_path(self.ctxt.get_output_folder(), log_file_name)
+        summary_file = FSUtil.build_path(self.ctxt.get_csp_output_path(), log_file_name)
         self.logger.info('Writing recommendations into local file %s', summary_file)
         log_file_lines_str = Utils.gen_multiline_str(log_lines)
         with open(summary_file, 'w', encoding='utf-8') as wrapper_summary:
