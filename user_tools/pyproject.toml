@@ -34,7 +34,7 @@ classifiers = [
 license = "Apache-2.0"
 # see https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for list of supported licenses
 dependencies = [
-    # numpy-2.2.6 supports python [3.10, 3.13]. numpy2.3.0 drooped support for Python 3.10.
+    # numpy-2.2.6 supports python [3.10, 3.13]. numpy2.3.0 dropped support for Python 3.10.
     "numpy>=2.2.6",
     # For moustache templates
     "chevron==0.14.0",
