@@ -75,10 +75,10 @@ class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: 
    * Write the given profile results as JSON format to a file.
    *
    * @param headerText The header text used to generate the filename.
-   * @param outRows The sequence of profile results to write.
+   * @param results The profile results to write (array or serializable object).
    */
-  def writeJson(headerText: String, outRows: AnyRef): Unit = {
-    ProfileOutputWriter.writeJsonPretty(headerText, outRows, outputDir)
+  def writeJson(headerText: String, results: AnyRef): Unit = {
+    ProfileOutputWriter.writeJsonPretty(headerText, results, outputDir)
   }
 
   /**
@@ -174,16 +174,17 @@ object ProfileOutputWriter {
    *   "age":25,
    *   "city":"Los Angeles"
    *  }
- *   ]
+   * ]
    * @param headerText The header text used to generate the filename.
-   * @param outRows The sequence of profile results to write.
+   * @param results The profile results to write (array or serializable object).
+   * @param outputDir The directory where the JSON file will be written.
    */
-  private def writeJsonPretty(headerText: String, outRows: AnyRef, outputDir: String): Unit = {
-    if (outRows != null && outRows.toString.nonEmpty) {
+  private def writeJsonPretty(headerText: String, results: AnyRef, outputDir: String): Unit = {
+    if (results != null && results.toString.nonEmpty) {
       val fileName = ProfileOutputWriter.sanitizeFileName(headerText)
       val jsonWriter = new ToolTextFileWriter(outputDir, s"${fileName}.json", s"$headerText JSON:")
       try {
-        jsonWriter.write(Serialization.writePretty(outRows) + "\n")
+        jsonWriter.write(Serialization.writePretty(results) + "\n")
       } finally {
         jsonWriter.close()
       }
