@@ -520,11 +520,12 @@ class RapidsJarTool(RapidsTool):
 
         # If the target cluster info is provided and contains worker info,
         # set the context to indicate that worker info is provided.
-        # This is used later to determine if the Speed up calculation should be skipped in
-        # Qualification Tool
+        # This is used later to determine if the Speed up calculation should be skipped if
+        # running the Qualification Tool.
         target_cluster_info_file = self.rapids_options.get('target_cluster_info')
         target_cluster_info = YAMLPropertiesContainer(target_cluster_info_file) if target_cluster_info_file else None
-        worker_info = target_cluster_info.get_value('workerInfo') if target_cluster_info else None
+        # workerInfo may or may not be present in the target cluster info.
+        worker_info = target_cluster_info.get_value_silent('workerInfo') if target_cluster_info else None
         if worker_info:
             self.ctxt.set_ctxt('targetWorkerInfoProvided', True)
         return arguments_list
@@ -809,10 +810,11 @@ class RapidsJarTool(RapidsTool):
                                                 exec_files=exc_files)
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
             out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
-            # if the target worker info is provided, then add a note about speed up estimation.
-            if str(self.ctxt.get_ctxt('targetWorkerInfoProvided')).strip().lower() == 'true':
-                out_tree_list.append(f'{indentation}- Speed up estimations may be inaccurate because '
-                                     'custom worker information was provided.')
+            # if the target worker info is provided, then add a comment about speed up estimation being inaccurate.
+            target_worker_info_provided = self.ctxt.get_ctxt('targetWorkerInfoProvided')
+            inaccurate_speedup_comment = self.ctxt.get_value_silent('local', 'output', 'stdout', 'inaccurateSpeedupComment')
+            if target_worker_info_provided and inaccurate_speedup_comment:
+                out_tree_list.append(f'{indentation}- {inaccurate_speedup_comment}')
             return out_tree_list
         return []
 

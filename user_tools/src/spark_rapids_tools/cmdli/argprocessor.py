@@ -408,6 +408,8 @@ class ToolUserArgModel(AbsToolUserArgModel):
                     'target_cluster_info',
                     f'Target cluster info file path {self.target_cluster_info} is not valid. '
                     'It is expected to be a valid YAML file.\n  Error:')
+            # Using `_` instead of `-` as a later step appropriately converts the arguments for the JAR.
+            # See: `spark_rapids_pytools.rapids.rapids_tool.RapidsJarTool._process_tool_args_from_input`
             rapids_options['target_cluster_info'] = self.target_cluster_info
 
     def init_extra_arg_cases(self) -> list:

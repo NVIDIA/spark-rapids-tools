@@ -64,12 +64,13 @@ Feature: Event Log Processing
   Scenario Outline: Check stdout contains speed up warning when target_cluster_info is provided
     Given platform is "<platform>"
     And target_cluster_info "<target_cluster_info>" is provided
-    When spark-rapids tool is executed with "<eventlog>" eventlogs
+    When spark-rapids "<tool_name>" tool is executed with "<eventlog>" eventlogs
     Then stdout does "<contain>" the following
       """
       <expected_stdout>
       """
     Examples:
-      | platform | target_cluster_info                              | eventlog                                                    | contain     | expected_stdout                                                                        |
-      | onprem   | target-cluster-worker-info-and-spark-props.yaml  | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | contain     | Speed up estimations may be inaccurate because custom worker information was provided. |
-      | onprem   | target-cluster-only-spark-props.yaml             | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | not contain | Speed up estimations may be inaccurate because custom worker information was provided. |
+      | platform | target_cluster_info                             | tool_name      | eventlog                                                    | contain     | expected_stdout                                                                               |
+      | onprem   | target-cluster-worker-info-and-spark-props.yaml | qualification  | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | contain     | Speed up estimations may be inaccurate because custom target worker information was provided. |
+      | onprem   | target-cluster-only-spark-props.yaml            | qualification  | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | not contain | Speed up estimations may be inaccurate because custom target worker information was provided. |
+      | onprem   | target-cluster-worker-info-and-spark-props.yaml | profiling      | onprem/nds/power/eventlogs/cpu/app-20231122005806-0064.zstd | not contain | Speed up estimations may be inaccurate because custom target worker information was provided. |

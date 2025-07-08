@@ -126,6 +126,8 @@ sparkRapids:
 local:
   output:
     cleanUp: true
+    stdout:
+      inaccurateSpeedupComment: 'Speed up estimations may be inaccurate because custom target worker information was provided.'
     files:
       summary:
         name: qualification_summary.csv

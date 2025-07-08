@@ -151,13 +151,29 @@ def step_file_is_generated(context, file) -> None:
     context.generated_file_paths.update(file_paths)
 
 
-@when('spark-rapids tool is executed with "{event_logs}" eventlogs')
-def step_execute_spark_rapids_tool(context, event_logs) -> None:
+@when('spark-rapids "qualification" tool is executed with "{event_logs}" eventlogs')
+@when('spark-rapids tool is executed with "{event_logs}" eventlogs')  # For backward compatibility
+def step_execute_spark_rapids_qual_tool(context, event_logs) -> None:
     event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
     platform = getattr(context, 'platform', 'onprem')
     target_cluster_info = getattr(context, 'target_cluster_info', None)
 
-    cmd = E2ETestUtils.create_spark_rapids_cmd(
+    cmd = E2ETestUtils.create_spark_rapids_qual_cmd(
+        event_logs=event_logs_list,
+        output_dir=context.temp_dir,
+        platform=platform,
+        target_cluster_info=target_cluster_info
+    )
+    context.result = E2ETestUtils.run_sys_cmd(cmd)
+
+
+@when('spark-rapids "profiling" tool is executed with "{event_logs}" eventlogs')
+def step_execute_spark_rapids_profiling_tool(context, event_logs) -> None:
+    event_logs_list = E2ETestUtils.resolve_event_logs(event_logs.split(","))
+    platform = getattr(context, 'platform', 'onprem')
+    target_cluster_info = getattr(context, 'target_cluster_info', None)
+
+    cmd = E2ETestUtils.create_spark_rapids_profiling_cmd(
         event_logs=event_logs_list,
         output_dir=context.temp_dir,
         platform=platform,
