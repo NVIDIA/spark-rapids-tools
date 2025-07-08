@@ -103,8 +103,6 @@ def strip_ids(s):
 def path_match(node, expected_path: list[str]):
     """Check if a node matches a sub-path in a tree.
 
-    The expected path must be a sequence of nodes without any branches.
-
     Parameters
     ----------
     node: dict
@@ -116,37 +114,57 @@ def path_match(node, expected_path: list[str]):
         if node['nodeName'] == expected_path[0]:
             if len(expected_path) == 1:
                 return True
-        if len(node['children']) == 1:
-            return path_match(node['children'][0], expected_path[1:])
+            return any(path_match(child, expected_path[1:]) for child in node['children'])
     return False
 
 
 def normalize_plan(plan):
     """Normalize the sparkPlanInfo for comparing CPU and GPU plans.
 
-    The high-level algorithm is a two-step process:
-    1. Traverse the plan tree to normalize each node.
+    The high-level algorithm is a multi-step process:
+    1. Traverse the plan tree to normalize individual nodes.
       - Remove any nodes in the remove_nodes_exact list
       - Remove any nodes by prefix match to the remove_nodes_prefix list
       - Rename nodes to a "canonical" form using the rename_nodes dictionary
-    2. Traverse the plan tree again to normalize entire paths (sequences of nodes).
+      - Remove any SubqueryAdaptiveBroadcast children
+    2. Traverse the plan tree to normalize entire paths (sequences of nodes).
       - GpuTopN/GpuTopN/X -> TakeOrderedAndProject/X
       - Project/Filter/X -> Project/X
       - UnionWithLocalData/Union/X -> X
-      - X/SubqueryAdaptiveBroadcast -> X
+    3. Traverse the plan tree to normalize BroadcastHashJoin subtrees.
+    4. Traverse the plan tree to normalize SortMergeJoin/Project/BroadcastHashJoin subtrees.
 
     Notes:
     - The normalization should be applied to both CPU and GPU plans.
-    - This does not handle cases where the GPU plan has been significantly modified.
     - Eventlogs only contain physical plans, so use the earliest (least modified) physical plan.
     - The goal is to produce a "signature" of the plan and not a faithful re-creation of the logical plan.
     """
 
+    def remove_nodes(node, remove_list) -> List[dict]:
+        """Remove any nodes in the remove_list from a plan tree, while preserving children."""
+        children = []
+        for child in node['children']:
+            children.extend(remove_nodes(child, remove_list))
+
+        if node['nodeName'] in remove_list:
+            return children
+
+        node['children'] = children
+        return [node]
+
     def normalize_node(node):
-        """Normalize a single node in the plan by removing and/or renaming to canonical form."""
+        """Normalize a single node in the plan by removing and/or renaming to canonical form.
+
+        Notes:
+        - SubqueryAdaptiveBroadcast children (and their subtrees) are also removed.
+        """
         if isinstance(node, dict):
             if 'nodeName' in node:
                 node_name = node['nodeName']
+                # remove SubqueryAdaptiveBroadcast children
+                node['children'] = [
+                    child for child in node['children'] if child['nodeName'] != 'SubqueryAdaptiveBroadcast'
+                ]
                 if any(node_name == name for name in remove_nodes_exact):
                     # remove nodes in the remove_nodes_exact list
                     if len(node['children']) == 1:
@@ -171,7 +189,6 @@ def normalize_plan(plan):
         - GpuTopN/GpuTopN/X -> TakeOrderedAndProject/X
         - Project/Filter/X -> Project/X
         - UnionWithLocalData/Union/X -> Union/X
-        - X/SubqueryAdaptiveBroadcast -> X
 
         This requires normalize_node to have already been called.
         """
@@ -189,16 +206,48 @@ def normalize_plan(plan):
                 elif path_match(node, ['UnionWithLocalData', 'Union']):
                     # UnionWithLocalData/Union/X -> X
                     node = normalize_path(node['children'][0]['children'][0])
-                elif len(node['children']) == 1 and node['children'][0]['nodeName'] == 'SubqueryAdaptiveBroadcast':
-                    # X/SubqueryAdaptiveBroadcast -> X
-                    node['children'] = []
                 else:
                     # continue normalizing children
                     node['children'] = [normalize_path(child) for child in node['children']]
         return node
 
+    def normalize_broadcast_hash_join(node):
+        """Normalize a BroadcastHashJoin subtree."""
+        if isinstance(node, dict):
+            if node['nodeName'] == 'BroadcastHashJoin':
+                # remove any Project/BroadcastHashJoin/BroadcastExchange/SortMergeJoin nodes
+                remove_list = ['Project', 'BroadcastHashJoin', 'BroadcastExchange', 'SortMergeJoin']
+                children = []
+                for child in node['children']:
+                    children.extend(remove_nodes(child, remove_list))
+                node['children'] = children
+            else:
+                # continue normalizing children
+                children = [normalize_broadcast_hash_join(child) for child in node['children']]
+                node['children'] = children
+        return node
+
+    def normalize_sort_merge_join(node):
+        """Normalize a SortMergeJoin/Project/BroadcastHashJoin subtree."""
+        if isinstance(node, dict):
+            if path_match(node, ['SortMergeJoin', 'Project', 'BroadcastHashJoin']):
+                # remove Project/BroadcastHashJoin nodes
+                remove_list = ['Project', 'BroadcastHashJoin']
+                children = []
+                for child in node['children']:
+                    children.extend(remove_nodes(child, remove_list))
+                node['children'] = children
+                node['nodeName'] = 'BroadcastHashJoin'
+            else:
+                # continue normalizing children
+                node['children'] = [normalize_sort_merge_join(child) for child in node['children']]
+        return node
+
     normalized_plan = normalize_node(plan)
     normalized_plan = normalize_path(normalized_plan)
+    normalized_plan = normalize_broadcast_hash_join(normalized_plan)
+    normalized_plan = normalize_sort_merge_join(normalized_plan)
+
     return normalized_plan
 
 
@@ -236,8 +285,8 @@ def hash_plan(plan):
                     # remove any fields with parentheses (functions) or brackets (maps) to simplify hashing
                     fields = [field.strip() for field in fields if not re.search(r'\(|\[', field)]
                     # take a max of N fields (to try to avoid truncated fields)
-                    fields = fields[:n_fields]
                     fields = sorted(fields)
+                    fields = fields[:n_fields]
                 else:
                     fields = ''
 
