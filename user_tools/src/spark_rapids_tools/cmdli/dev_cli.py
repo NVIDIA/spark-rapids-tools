@@ -35,6 +35,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                            platform: str = None,
                            output_folder: str = None,
                            tools_jar: str = None,
+                           tools_config_file: str = None,
                            verbose: bool = None) -> None:
         """The Core Qualification cmd.
 
@@ -44,6 +45,9 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
                 rapids-4-spark-tools_*.jar from maven repository.
+        :param tools_config_file: Path to a configuration file that contains the tools' options.
+               For sample configuration files, please visit
+               https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
         """
         if verbose:
@@ -54,7 +58,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                                          eventlogs=eventlogs,
                                                          platform=platform,
                                                          output_folder=output_folder,
-                                                         tools_jar=tools_jar)
+                                                         tools_jar=tools_jar,
+                                                         tools_config_path=tools_config_file)
         if qual_args:
             tool_obj = QualificationCore(platform_type=qual_args['runtimePlatform'],
                                          output_folder=qual_args['outputFolder'],
@@ -67,6 +72,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                        platform: str = None,
                        output_folder: str = None,
                        tools_jar: str = None,
+                       tools_config_file: str = None,
                        verbose: bool = None):
         """The Core Profiling cmd runs the profiling tool JAR directly with minimal processing.
 
@@ -79,6 +85,9 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
                 rapids-4-spark-tools_*.jar from maven repository.
+        :param tools_config_file: Path to a configuration file that contains the tools' options.
+               For sample configuration files, please visit
+               https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
         """
         if verbose:
@@ -89,7 +98,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                                          eventlogs=eventlogs,
                                                          platform=platform,
                                                          output_folder=output_folder,
-                                                         tools_jar=tools_jar)
+                                                         tools_jar=tools_jar,
+                                                         tools_config_path=tools_config_file)
         if prof_args:
             tool_obj = ProfilingCore(platform_type=prof_args['runtimePlatform'],
                                      output_folder=prof_args['outputFolder'],

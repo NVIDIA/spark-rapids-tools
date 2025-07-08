@@ -864,7 +864,10 @@ def _predict_cli(
         # --eventlogs takes priority over --qual_output
         if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
             # run qual tool if no existing qual output found
-            qual_handlers.extend(run_qualification_tool(platform, [eventlogs], output_dir))
+            qual_handlers.extend(run_qualification_tool(platform,
+                                                        [eventlogs],
+                                                        output_dir,
+                                                        tools_config=cfg.tools_config))
         qual = output_dir
     else:
         qual = qual_output
@@ -927,7 +930,7 @@ def evaluate(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config)
+    cfg = get_config(config)
 
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
@@ -955,7 +958,11 @@ def evaluate(
         eventlogs = ds_meta['eventlogs']
         eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
         skip_run = ds_name in quals
-        qual_handlers.extend(run_qualification_tool(platform, eventlogs, f'{qual_dir}/{ds_name}', skip_run=skip_run))
+        qual_handlers.extend(run_qualification_tool(platform,
+                                                    eventlogs,
+                                                    f'{qual_dir}/{ds_name}',
+                                                    skip_run=skip_run,
+                                                    tools_config=cfg.tools_config))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 

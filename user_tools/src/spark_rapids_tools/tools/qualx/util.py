@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
+from spark_rapids_tools.cmdli.dev_cli import DevCLI
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
 
@@ -338,46 +339,50 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
-def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str) -> None:
+def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
+    # Split platform on underscore and get the first part (e.g., 'databricks-aws' -> 'databricks')
+    base_platform = platform.split('_')[0]
+
     def run_profiling_core(eventlog: str) -> None:
-        """Run profiling_core for a single eventlog."""
-        from spark_rapids_tools.cmdli.dev_cli import DevCLI
         dev_cli = DevCLI()
         dev_cli.profiling_core(
             eventlogs=os.path.expandvars(eventlog),
-            platform=platform,
+            platform=base_platform,
             output_folder=output_dir,
             tools_jar=None,
-            verbose=False
+            tools_config_file=tools_config,
+            verbose=True
         )
 
     run_commands(eventlogs, run_profiling_core)
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
-                           output_dir: str, skip_run: bool = False) -> List[QualCoreHandler]:
+                           output_dir: str, skip_run: bool = False, tools_config: str = None) -> List[QualCoreHandler]:
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
+
+    # Split platform on underscore and get the first part (e.g., 'databricks-aws_velox' -> 'databricks-aws')
+    base_platform = platform.split('_')[0]
 
     if skip_run:
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
     else:
         def run_qualification_core(eventlog: str) -> None:
-            """Run qualification_core for a single eventlog."""
             # Skip gpu logs, assuming /gpu appearing in path can be used to distinguish
             if '/gpu' in str(eventlog).lower():
                 return
-            from spark_rapids_tools.cmdli.dev_cli import DevCLI
             dev_cli = DevCLI()
             dev_cli.qualification_core(
                 eventlogs=os.path.expandvars(eventlog),
-                platform=platform,
+                platform=base_platform,
                 output_folder=output_dir,
                 tools_jar=None,
+                tools_config_file=tools_config,
                 verbose=False
             )
 

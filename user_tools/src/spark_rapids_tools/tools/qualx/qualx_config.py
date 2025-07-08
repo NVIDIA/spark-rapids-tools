@@ -95,6 +95,11 @@ class QualxConfig(BaseConfig):
         description='OPTIONAL: Path to alignment directory.',
         examples=['alignment'])
 
+    tools_config: Optional[str] = Field(
+        default=None,
+        description='OPTIONAL: Path to tools configuration file for Profiler and Qualification tools.',
+        examples=['tools-config.yaml'])
+
     @model_validator(mode='after')
     def check_env_overrides(self):
         """Check for environment variable overrides after model initialization."""

@@ -100,7 +100,7 @@ def to_snake_case(word: str) -> str:
 
 def dump_tool_usage(cli_class: Optional[str], cli_name: Optional[str], tool_name: Optional[str],
                     raise_sys_exit: Optional[bool] = True) -> None:
-    imported_module = __import__('spark_rapids_tools.cmdli', globals(), locals(), [cli_class])
+    imported_module = __import__('spark_rapids_tools.cmdli.tools_cli', globals(), locals(), [cli_class])
     wrapper_clzz = getattr(imported_module, cli_class)
     usage_cmd = f'{tool_name} -- --help'
     try:
