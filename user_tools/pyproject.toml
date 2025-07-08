@@ -13,7 +13,9 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools"]
+# set wheel version to 0.45.1 new packages (0.46+) were yanked as the broke the wheel
+# builds on some OS for Python 3.10
+requires = ["wheel==0.45.1", "setuptools>=80.9.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -107,6 +109,8 @@ version = {attr = "spark_rapids_pytools.__version__"}
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
 test = [
+    # make sure that wheel version is available for testing
+    "wheel==0.45.1",
     "tox", 'pytest', 'cli_test_helpers', 'behave',
     # use flak-8 plugin for pydantic
     'flake8-pydantic',

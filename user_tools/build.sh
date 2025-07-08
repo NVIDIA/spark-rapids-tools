@@ -189,6 +189,13 @@ pre_build() {
   pip install --upgrade pip
   echo "rm previous build and dist directories"
   rm -rf build/ dist/
+  echo "Cleanup pip cache"
+  pip cache purge
+  # enforce wheel package to 0.45.1 to avoid a bug in the package that breaks the wheel on some OS
+  echo "install the wheel-package dependency used to build the wheel"
+  pip install "wheel==0.45.1"
+  echo "install the setuptools to use the latest version"
+  pip install "setuptools>=80.9.0"
   echo "install build dependencies using pip"
   pip install build .[qualx,test]
   # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
