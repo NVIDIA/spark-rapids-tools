@@ -353,9 +353,23 @@ class AutoTuner(
   /**
    * Used to get the property value from the source properties
    * (i.e. from app info and cluster properties)
+   * This method also handles property aliasing by resolving the key using alias mappings.
    */
   private def getPropertyValueFromSource(key: String): Option[String] = {
-    getAllSourceProperties.get(key)
+    // First try to get the value using the original key
+    val directValue = getAllSourceProperties.get(key)
+    if (directValue.isDefined) {
+      directValue
+    } else {
+      // If not found, try to resolve using alias mapping
+      // aliasPropertiesMap: alias -> standard
+      // If the input key is a standard key (value in alias map), find the corresponding alias key
+      val resolvedKey = platform.targetCluster.flatMap(
+        _.getSparkProperties.aliasPropertiesMap.find {
+          case (_, standardKey) => standardKey == key
+        }.map(_._1))
+      resolvedKey.flatMap(getAllSourceProperties.get)
+    }
   }
 
   /**
@@ -364,7 +378,11 @@ class AutoTuner(
    * 2. Source Spark properties (i.e. from app info and cluster properties)
    */
   protected def getPropertyValue(key: String): Option[String] = {
-    AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)(key)
+    // First check recommendations (which includes user-enforced properties)
+    recommendations.get(key).flatMap(entry => Option(entry.getTuneValue())).orElse {
+      // Then check source properties with alias support
+      getPropertyValueFromSource(key)
+    }
   }
 
   /**
@@ -441,24 +459,42 @@ class AutoTuner(
       // skipped as we have already added it during the initialization.
       return
     }
+
+    // Check if the input key exists as a value in the alias map
+    // aliasPropertiesMap: alias -> standard
+    // If the input key is a standard key (value in alias map), use the corresponding alias key
+    val actualKey = platform.targetCluster.flatMap(_.getSparkProperties.aliasPropertiesMap.find {
+      case (_, standardKey) => standardKey == key
+    }.map(_._1)).getOrElse(key)
+
+    // Skip if the actual key is in skipped recommendations
+    if (skippedRecommendations.contains(actualKey)) {
+      return
+    }
+
+    // Skip if the actual key is user-enforced
+    if (platform.getUserEnforcedSparkProperty(actualKey).isDefined) {
+      return
+    }
+
     // Update the recommendation entry or update the existing one.
-    val recomRecord = recommendations.getOrElseUpdate(key,
-      TuningEntry.build(key, getPropertyValue(key), None))
+    val recomRecord = recommendations.getOrElseUpdate(actualKey,
+      TuningEntry.build(actualKey, getPropertyValue(actualKey), None))
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
       recomRecord.getOriginalValue match {
         case None =>
           // add missing comment if any
-          appendMissingComment(key)
+          appendMissingComment(actualKey)
         case Some(originalValue) if originalValue != recomRecord.getTuneValue() =>
           // add updated comment if any
-          appendUpdatedComment(key)
+          appendUpdatedComment(actualKey)
         case _ =>
           // do not add any comment if the tuned value is the same as the original value
       }
       // add the persistent comment if any.
-      appendPersistentComment(key)
+      appendPersistentComment(actualKey)
     }
   }
 

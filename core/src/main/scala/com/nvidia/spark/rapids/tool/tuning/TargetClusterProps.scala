@@ -88,8 +88,9 @@ class WorkerInfo (
  * This will be extended in future to include preserved and removed categories.
  */
 class SparkProperties(
-  @BeanProperty var enforced: util.LinkedHashMap[String, String]) {
-  def this() = this(new util.LinkedHashMap[String, String]())
+  @BeanProperty var enforced: util.LinkedHashMap[String, String],
+  @BeanProperty var alias: util.LinkedHashMap[String, String]) {
+  def this() = this(new util.LinkedHashMap[String, String](), new util.LinkedHashMap[String, String]())
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
     if (enforced == null || enforced.isEmpty) {
@@ -98,6 +99,33 @@ class SparkProperties(
       import scala.collection.JavaConverters.mapAsScalaMapConverter
       enforced.asScala.toMap
     }
+  }
+
+  lazy val aliasPropertiesMap: Map[String, String] = {
+    if (alias == null || alias.isEmpty) {
+      Map.empty
+    } else {
+      import scala.collection.JavaConverters.mapAsScalaMapConverter
+      alias.asScala.toMap
+    }
+  }
+
+  /**
+   * Resolves a property key using alias mapping if available.
+   * @param key the original property key
+   * @return the resolved property key (either the original or the aliased key)
+   */
+  def resolvePropertyKey(key: String): String = {
+    aliasPropertiesMap.getOrElse(key, key)
+  }
+
+  /**
+   * Gets the original key for a given aliased key.
+   * @param aliasedKey the aliased property key
+   * @return the original property key if found, otherwise None
+   */
+  def getOriginalKey(aliasedKey: String): Option[String] = {
+    aliasPropertiesMap.get(aliasedKey)
   }
 }
 

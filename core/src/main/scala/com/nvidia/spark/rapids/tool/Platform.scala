@@ -653,9 +653,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   /**
    * Get the user-enforced Spark property for the given property key.
+   * This method also handles property aliasing by checking if the property key
+   * is an alias for an enforced property.
    */
   final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
-    userEnforcedRecommendations.get(propertyKey)
+    // First check if the property is directly enforced
+    val directValue = userEnforcedRecommendations.get(propertyKey)
+    if (directValue.isDefined) {
+      directValue
+    } else {
+      // If not found, check if this property is an alias for an enforced property
+      targetCluster.flatMap(_.getSparkProperties.aliasPropertiesMap.get(propertyKey))
+        .flatMap(userEnforcedRecommendations.get)
+    }
   }
 }
 
