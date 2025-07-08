@@ -1,0 +1,4 @@
+Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity
+"",0,"show at <console>:26",1812,606
+"",1,"createOrReplaceTempView at <console>:26",4,4
+"",2,"show at <console>:24",1811,1798

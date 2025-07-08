@@ -39,8 +39,7 @@ class RunningQualOutputWriter(
     outputDir: String,
     hadoopConf: Option[Configuration] = None,
     fileNameSuffix: String = "")
-  extends QualOutputWriter(outputDir, reportReadSchema = false, printStdout = false,
-    prettyPrintOrder = "desc", hadoopConf) {
+  extends QualOutputWriter(outputDir, printStdout = false, hadoopConf) {
 
   private lazy val csvPerSQLFileWriter = new ToolTextFileWriter(outputDir,
     s"${QualOutputWriter.LOGFILE_NAME}_persql_$fileNameSuffix.csv",

@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>25.04.4-SNAPSHOT</version>
+    <version>25.04.5-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -541,6 +541,14 @@
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
+        <!-- Testing properties -->
+        <!-- define the location to generate the golden-sets -->
+        <tools.qual.test.generate.golden.dir>${project.basedir}/golden-sets/${buildver}/qual</tools.qual.test.generate.golden.dir>
+        <!-- enable generation of golden-sets -->
+        <tools.qual.test.generate.golden.enable>false</tools.qual.test.generate.golden.enable>
+        <tools.qual.test.keep.per_app.summary>false</tools.qual.test.keep.per_app.summary>
+        <!-- enable/disable cleanup of temporary directories created during testing -->
+        <tools.test.cleanup.tmp.dir>true</tools.test.cleanup.tmp.dir>
     </properties>
 
     <dependencies>
@@ -581,6 +589,12 @@
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.binary.version}</artifactId>
             <version>${scalatest.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.tototoshi</groupId>
+            <artifactId>scala-csv_${scala.binary.version}</artifactId>
+            <version>2.0.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>

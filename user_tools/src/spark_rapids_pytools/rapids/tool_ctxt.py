@@ -19,7 +19,7 @@ import re
 import tarfile
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Type, Any, ClassVar, List
+from typing import Type, Any, ClassVar, List, Union
 
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
@@ -129,23 +129,49 @@ class ToolContext(YAMLPropertiesContainer):
     def get_remote(self, key: str):
         return self.props['remoteCtx'].get(key)
 
-    def set_local_workdir(self, parent: str):
+    def _set_local_dep_dir(self) -> None:
+        """
+        Create the dependency folder. It is a subdirectory of temp folders because we cannot
+        store those on remote storage. Especially if this used for the classPath.
+        The directory is going to be in 'tmp/run_name/work_dir'
+        """
+        cache_folder = self.get_cache_folder()
+        exec_full_name = self.get_ctxt('execFullName')
+
+        dep_folder_name = 'work_dir'
+        self.set_ctxt('depFolderName', dep_folder_name)
+        temp_folder = FSUtil.build_path(cache_folder, exec_full_name)
+        self.set_local('tmpFolder', temp_folder)
+        dep_folder = FSUtil.build_path(temp_folder, dep_folder_name)
+        FSUtil.make_dirs(dep_folder, exist_ok=False)
+        self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
+        self.set_local('depFolder', dep_folder)
+
+    def set_local_directories(self, output_parent_folder: str) -> None:
+        """
+        Creates and initializes local directories used for dependencies and output folder
+        :param output_parent_folder: the directory where the local output is going to be created.
+        """
         short_name = self.get_value('platform', 'shortName')
         exec_dir_name = f'{short_name}_{self.uuid}'
         self.set_ctxt('execFullName', exec_dir_name)
-        exec_root_dir = FSUtil.build_path(parent, exec_dir_name)
-        self.logger.info('Local workdir root folder is set as %s', exec_root_dir)
-        # It should never happen that the exec_root_dir exists
-        FSUtil.make_dirs(exec_root_dir, exist_ok=False)
-        # Create the dependency folder. It is a subdirectory in the output folder
-        # because we want that same name appear on the remote storage when copying
-        dep_folder_name = 'work_dir'
-        self.set_ctxt('depFolderName', dep_folder_name)
-        dep_folder = FSUtil.build_path(exec_root_dir, dep_folder_name)
-        FSUtil.make_dirs(dep_folder, exist_ok=False)
+        # create the local dependency folder
+        self._set_local_dep_dir()
+        # create the local output folder
+        self.set_local_output_folder(output_parent_folder)
+
+    def set_local_output_folder(self, parent: str) -> None:
+        """
+        create and initialized output folder on local disk. it will be as follows:
+        parent/exec_full_name
+        :param parent: the parent directory that will contain the subdirectory
+        """
+        exec_full_name = self.get_ctxt('execFullName')
+        exec_root_dir = FSUtil.build_path(parent, exec_full_name)
         self.set_local('outputFolder', exec_root_dir)
-        self.set_local('depFolder', dep_folder)
-        self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
+        # For now set the cspOutputPath here
+        self.set_csp_output_path(exec_root_dir)
+        FSUtil.make_dirs(exec_root_dir, exist_ok=False)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
 
     def _identify_tools_wheel_jar(self, resource_files: List[str]) -> None:
@@ -210,7 +236,7 @@ class ToolContext(YAMLPropertiesContainer):
 
     def get_wrapper_summary_file_path(self) -> str:
         summary_file_name = self.get_value('local', 'output', 'fileName')
-        summary_path = FSUtil.build_path(self.get_output_folder(), summary_file_name)
+        summary_path = FSUtil.build_path(self.get_csp_output_path(), summary_file_name)
         return summary_path
 
     def get_local_work_dir(self) -> str:
@@ -239,7 +265,9 @@ class ToolContext(YAMLPropertiesContainer):
         return flag
 
     def get_rapids_output_folder(self) -> str:
-        root_dir = self.get_local('outputFolder')
+        # TODO: Remove the subfolder entry from here as it is not relevant
+        #       in the new output folder structure for Qualification
+        root_dir = self.get_csp_output_path()
         rapids_subfolder = self.get_value_silent('toolOutput', 'subFolder')
         if rapids_subfolder is None:
             return root_dir
@@ -279,3 +307,21 @@ class ToolContext(YAMLPropertiesContainer):
             )
         self.logger.info('Using jar from wheel file %s', jar_filepath)
         return jar_filepath
+
+    def do_cleanup_tmp_directory(self) -> bool:
+        """
+        checks whether the temp folder created for the run should be deleted at the end or not.
+        :return: True/False if the temp folders hsould be cleaned up
+        """
+        config_val = self.get_value_silent('platform', 'cleanUp')
+        return Utilities.string_to_bool(config_val)
+
+    def get_local_tmp_folder(self) -> str:
+        return self.get_local('tmpFolder')
+
+    def set_csp_output_path(self, path: Union[str, CspPath]) -> None:
+        csp_path = CspPath(path)
+        self.set_ctxt('cspOutputPath', csp_path)
+
+    def get_csp_output_path(self) -> str:
+        return self.get_output_folder()

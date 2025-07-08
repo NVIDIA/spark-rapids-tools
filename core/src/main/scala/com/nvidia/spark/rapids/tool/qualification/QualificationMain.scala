@@ -23,7 +23,6 @@ import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
-import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
 import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, RapidsToolsConfUtil}
 
 /**
@@ -33,10 +32,10 @@ import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, RapidsToolsConfU
 object QualificationMain extends Logging {
 
   def main(args: Array[String]): Unit = {
-    val (exitCode, _) =
-      mainInternal(new QualificationArgs(args), printStdout = true, enablePB = true)
-    if (exitCode != 0) {
-      System.exit(exitCode)
+    val runResult =
+      mainInternal(new QualificationArgs(args), enablePB = true)
+    if (runResult.isFailed) {
+      System.exit(runResult.returnCode)
     }
   }
 
@@ -44,8 +43,7 @@ object QualificationMain extends Logging {
    * Entry point for tests
    */
   def mainInternal(appArgs: QualificationArgs,
-      printStdout: Boolean = false,
-      enablePB: Boolean = false): (Int, Seq[QualificationSummaryInfo]) = {
+      enablePB: Boolean = false): QualToolResult = {
 
     val eventlogPaths = appArgs.eventlog()
     val filterN = appArgs.filterCriteria
@@ -53,20 +51,17 @@ object QualificationMain extends Logging {
     val maxEventLogSize = appArgs.maxEventLogSize.toOption
     val matchEventLogs = appArgs.matchEventLogs
     val outputDirectory = appArgs.outputDirectory().stripSuffix("/")
-    val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
     val maxSQLDescLength = appArgs.maxSqlDescLength.getOrElse(100)
 
     val nThreads = appArgs.numThreads.getOrElse(
       Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
     val timeout = appArgs.timeout.toOption
-    val reportReadSchema = appArgs.reportReadSchema.getOrElse(false)
-    val order = appArgs.order.getOrElse("desc")
     val reportSqlLevel = appArgs.perSql.getOrElse(false)
     val mlOpsEnabled = appArgs.mlFunctions.getOrElse(false)
     val penalizeTransitions = appArgs.penalizeTransitions.getOrElse(true)
     val recursiveSearchEnabled = !appArgs.noRecursion()
 
-    val hadoopConf = RapidsToolsConfUtil.newHadoopConf
+    val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
     // Note we need the platform to get the correct files we use in the PluginTypeChecker.
     // Here we create one dummy global one just to get those files as the platform should
     // be the same for all applications but then later we create a per application one for
@@ -80,7 +75,7 @@ object QualificationMain extends Logging {
     } catch {
       case NonFatal(e) =>
         logError("Error creating the platform", e)
-        return (1, Seq[QualificationSummaryInfo]())
+        return QualToolResultBuilder.failedResult()
     }
 
     val pluginTypeChecker = try {
@@ -90,7 +85,7 @@ object QualificationMain extends Logging {
     } catch {
       case ie: IllegalStateException =>
         logError("Error creating the plugin type checker!", ie)
-        return (1, Seq[QualificationSummaryInfo]())
+        return QualToolResultBuilder.failedResult()
     }
 
     val (eventLogFsFiltered, allEventLogs) = EventLogPathProcessor.processAllPaths(
@@ -98,9 +93,9 @@ object QualificationMain extends Logging {
       maxEventLogSize, minEventLogSize, appArgs.fsStartTime.toOption, appArgs.fsEndTime.toOption)
 
     val filteredLogs = if (argsContainsAppFilters(appArgs)) {
-      val appFilter = new AppFilterImpl(numOutputRows, hadoopConf, timeout, nThreads)
+      val appFilter = new AppFilterImpl(hadoopConf, timeout, nThreads)
       val finaleventlogs = if (appArgs.any() && argsContainsFSFilters(appArgs)) {
-        (appFilter.filterEventLogs(allEventLogs, appArgs) ++ eventLogFsFiltered).toSet.toSeq
+        (appFilter.filterEventLogs(allEventLogs, appArgs) ++ eventLogFsFiltered).distinct
       } else {
         appFilter.filterEventLogs(eventLogFsFiltered, appArgs)
       }
@@ -111,7 +106,7 @@ object QualificationMain extends Logging {
 
     if (filteredLogs.isEmpty) {
       logWarning("No event logs to process after checking paths, exiting!")
-      return (0, Seq[QualificationSummaryInfo]())
+      return QualToolResultBuilder.emptyResult()
     }
     // create the AutoTuner context object
     val tunerContext = if (appArgs.autoTuner()) {
@@ -119,12 +114,12 @@ object QualificationMain extends Logging {
     } else {
       None
     }
-    val qual = new Qualification(outputDirectory, numOutputRows, hadoopConf, timeout,
-      nThreads, order, pluginTypeChecker, reportReadSchema, printStdout,
+    val qual = new Qualification(outputDirectory, hadoopConf, timeout,
+      nThreads, pluginTypeChecker,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
       tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo.toOption)
     val res = qual.qualifyApps(filteredLogs)
-    (0, res)
+    res
   }
 
   def argsContainsFSFilters(appArgs: QualificationArgs): Boolean = {

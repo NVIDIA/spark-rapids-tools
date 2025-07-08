@@ -396,3 +396,22 @@ class Utilities:
                                    format=archive_format,
                                    root_dir=os.path.dirname(source_folder),
                                    base_dir=os.path.basename(source_folder))
+
+    @staticmethod
+    def string_to_bool(s: str = None) -> bool:
+        """
+        Converts a string to a boolean using a dictionary lookup, handling case insensitivity.
+        Maps specific string values to True or False.
+        :param s: The string to convert.
+        :return: The corresponding boolean value.
+        """
+        if s is None:
+            return False
+        return {
+            'true': True,
+            'false': False,
+            'on': True,
+            'off': False,
+            'yes': True,
+            'no': False
+        }.get(s.lower(), False)

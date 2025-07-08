@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -77,11 +77,25 @@ class AbstractPropertiesContainer(object):
     def _init_fields(self):
         pass
 
+    def _validate_file_exists(self, file_path: Union[str, Path]) -> None:
+        """
+        Validate that the file exists before attempting to load it.
+        :param file_path: Path to the file to validate
+        :raises FileNotFoundError: If the file does not exist
+        """
+        path_obj = Path(file_path)
+        if not path_obj.exists():
+            raise FileNotFoundError(f'Property file does not exist: {file_path}. '
+                                    f'Please ensure the file path is correct and the file is accessible.')
+
     def _load_properties_from_file(self):
         """
         In some case, we want to be able to accept both json and yaml format when the properties are saved as a file.
         :return:
         """
+        # Validate file exists before attempting to load
+        self._validate_file_exists(self.prop_arg)
+
         file_suffix = Path(self.prop_arg).suffix
         if file_suffix in ('.yaml', '.yml'):
             # this is a yaml property

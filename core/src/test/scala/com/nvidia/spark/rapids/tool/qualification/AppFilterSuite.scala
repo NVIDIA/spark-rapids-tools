@@ -16,18 +16,15 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.io.File
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
 import java.util.Calendar
 
-import com.nvidia.spark.rapids.BaseTestSuite
-import com.nvidia.spark.rapids.tool.{StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.BaseNoSparkSuite
+import com.nvidia.spark.rapids.tool.{EventlogContentGenMeta, EventlogProviderImpl, StatusReportCounts}
+import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
 
-import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
 
-class AppFilterSuite extends BaseTestSuite {
+class AppFilterSuite extends BaseNoSparkSuite {
 
   test("illegal args") {
     assertThrows[IllegalArgumentException](AppFilterImpl.parseAppTimePeriod("0"))
@@ -83,41 +80,37 @@ class AppFilterSuite extends BaseTestSuite {
 
   private def testTimePeriod(eventLogTime: Long, startTimePeriod: String,
       failFilter: Boolean = false): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-        val qualOutputPrefix = "rapids_4_spark_qualification_output"
-        val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, "testTimeEventLog")
-
-        // scalastyle:off line.size.limit
-        val supText =
-          s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-             |{"Event":"SparkListenerApplicationStart","App Name":"Spark shell","App ID":"local-1626104300434","Timestamp":${eventLogTime},"User":"user1"}""".stripMargin
-        // scalastyle:on line.size.limit
-        Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--start-app-time",
-          startTimePeriod
-        )
-        val appArgs = new QualificationArgs(allArgs ++ Array(elogFile.toString()))
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        val expectedStatusCount = if (failFilter) {
-          assert(appSum.size == 0)
-          // Status counts: 0 SUCCESS, 1 FAILURE, 0 SKIPPED, 0 UNKNOWN
-          StatusReportCounts(0, 1, 0, 0)
-        } else {
-          assert(appSum.size == 1)
-          // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
-          StatusReportCounts(1, 0, 0, 0)
-        }
-        // Compare the expected status counts with the actual status counts from the application
-        ToolTestUtils.compareStatusReport(sparkSession, expectedStatusCount,
-          s"${outpath.getAbsolutePath}/$qualOutputPrefix/${qualOutputPrefix}_status.csv")
-      }
+    val (resSize, statusCount) = if (failFilter) {
+      // Status counts: 0 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      // The status should be empty
+      (0, StatusReportCounts(0, 0, 0, 0))
+    } else {
+      // Status counts: 1 SUCCESS, 0 FAILURE, 0 SKIPPED, 0 UNKNOWN
+      (1, StatusReportCounts(1, 0, 0, 0))
     }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerator { _ =>
+            // scalastyle:off line.size.limit
+            val applicationName = "Spark shell"
+            val applicationID = "local-1626104300434"
+            val fileContent =
+              s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                 |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationID","Timestamp":$eventLogTime,"User":"user1"}""".stripMargin
+            // scalastyle:on line.size.limit
+            EventlogContentGenMeta(applicationName = applicationName,
+              applicationId = applicationID, evLogCont = fileContent)
+          })
+      .withToolArgs(Array("--start-app-time", startTimePeriod))
+      .withChecker(
+        QToolResultCoreChecker("check app count and potential problems")
+          .withExpectedSize(resSize)
+          .withSuccessCode())
+      .withChecker(
+        QToolStatusChecker("check the status is as expected")
+          .withExpectedCounts(statusCount))
+      .build()
   }
 
   private def msMonthsAgo(months: Int): Long = {
@@ -150,17 +143,18 @@ class AppFilterSuite extends BaseTestSuite {
     c.getTimeInMillis
   }
 
-  val appsToTest = Array(TestEventLogInfo("ndshours18", msHoursAgo(18), 1),
-    TestEventLogInfo("ndsweeks2", msWeeksAgo(2), 2),
-    TestEventLogInfo("ndsmonths4", msMonthsAgo(5), 3),
-    TestEventLogInfo("ndsdays3", msDaysAgo(3), 4),
-    TestEventLogInfo("ndsmins34", msMinAgo(34), 5),
-    TestEventLogInfo("nds86", msDaysAgo(4), 6),
-    TestEventLogInfo("nds86", msWeeksAgo(2), 7),
-    TestEventLogInfo("otherapp", msWeeksAgo(2), 8))
+  val appsToTest: Array[TestEventLogInfo] =
+    Array(TestEventLogInfo("ndshours18", msHoursAgo(18), 1),
+      TestEventLogInfo("ndsweeks2", msWeeksAgo(2), 2),
+      TestEventLogInfo("ndsmonths4", msMonthsAgo(5), 3),
+      TestEventLogInfo("ndsdays3", msDaysAgo(3), 4),
+      TestEventLogInfo("ndsmins34", msMinAgo(34), 5),
+      TestEventLogInfo("nds86", msDaysAgo(4), 6),
+      TestEventLogInfo("nds86", msWeeksAgo(2), 7),
+      TestEventLogInfo("otherapp", msWeeksAgo(2), 8))
 
   test("app name and start time 20m") {
-    testTimePeriodAndStart(appsToTest, "20m", "nds", appsToTest.size - 1)
+    testTimePeriodAndStart(appsToTest, "20m", "nds", appsToTest.length - 1)
   }
 
   test("app name no matche and start time 20m") {
@@ -191,34 +185,29 @@ class AppFilterSuite extends BaseTestSuite {
 
   private def testTimePeriodAndStart(apps: Array[TestEventLogInfo],
       startTimePeriod: String, filterAppName: String, expectedFilterSize: Int): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
-            s"${app.appName}-${app.uniqueId}-eventlog")
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":${app.eventLogTime},"User":"user1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--start-app-time",
-          startTimePeriod,
-          "--application-name",
-          filterAppName
-        )
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
-    }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = "local-16261043-" + app.uniqueId
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationId","Timestamp":${app.eventLogTime},"User":"user1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(applicationName, applicationId, fileContent)
+              }}))
+      .withToolArgs(
+        Array("--start-app-time", startTimePeriod,
+          "--application-name", filterAppName))
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   case class TestEventLogFSAndAppNameInfo(appName: String, fsTime: Long, uniqueId: Int)
@@ -278,35 +267,30 @@ class AppFilterSuite extends BaseTestSuite {
 
   private def testFileSystemTimeAndStart(apps: Array[TestEventLogFSAndAppNameInfo],
       filterCriteria: String, filterAppName: String, expectedFilterSize: Int): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
-            s"${app.appName}-${app.uniqueId}-eventlog")
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":1626104299853,"User":"user1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--filter-criteria",
-          filterCriteria,
-          "--application-name",
-          filterAppName
-        )
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
-    }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = "local-16261043-" + app.uniqueId
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationId","Timestamp":1626104299853,"User":"user1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(
+                  applicationName, applicationId, fileContent, Some(app.fsTime))
+              }}))
+      .withToolArgs(
+        Array("--filter-criteria", filterCriteria,
+          "--application-name", filterAppName))
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   private def testFileSystemNewerAndOlderTimes(
@@ -314,41 +298,39 @@ class AppFilterSuite extends BaseTestSuite {
       fsStartTime: String,
       fsEndTime: String,
       expectedFilterSize: Int): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
-            s"${app.appName}-${app.uniqueId}-eventlog")
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":1626104299853,"User":"user1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val startingArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath()
-        )
-        val argsWithOptStart = if (!fsStartTime.isEmpty) {
-          startingArgs ++ Array("--fs-start-time", fsStartTime)
-        } else {
-          startingArgs
-        }
-        val allArgs = if (!fsEndTime.isEmpty) {
-          argsWithOptStart ++ Array("--fs-end-time", fsEndTime)
-        } else {
-          argsWithOptStart
-        }
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
+    val startTimeArgs = if (fsStartTime.nonEmpty) {
+      Array("--fs-start-time", fsStartTime)
+    } else {
+      Array.empty[String]
     }
+    val endTimeArgs = if (fsEndTime.nonEmpty) {
+      Array("--fs-end-time", fsEndTime)
+    } else {
+      Array.empty[String]
+    }
+    val filterArgs = Array() ++ startTimeArgs ++ endTimeArgs
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = "local-16261043-" + app.uniqueId
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationId","Timestamp":1626104299853,"User":"user1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(
+                  applicationName, applicationId, fileContent, Some(app.fsTime))
+              }}))
+      .withToolArgs(filterArgs)
+      .withChecker(
+        QToolResultCoreChecker("check app count and potential problems")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   case class TestEventLogFSAndAppInfo(fileName: String, fsTime: Long, appName: String,
@@ -423,39 +405,33 @@ class AppFilterSuite extends BaseTestSuite {
   private def testFileSystemTimeAndStartAndAppFull(apps: Array[TestEventLogFSAndAppInfo],
       filterCriteria: String, filterAppName: String, matchFileName: String,
       startTimePeriod: String, expectedFilterSize: Int): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, app.fileName)
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":${app.appTime},"User":"user1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--filter-criteria",
-          filterCriteria,
-          "--application-name",
-          filterAppName,
-          "--start-app-time",
-          startTimePeriod,
-          "--match-event-logs",
-          matchFileName
-        )
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
-    }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = s"local-16261043003${app.uniqueId}"
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"$applicationId","Timestamp":${app.appTime},"User":"user1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                // for this test, we want the eventlog to be named after the filename.
+                EventlogContentGenMeta(applicationName, app.fileName, fileContent,
+                  Some(app.fsTime))
+              }}))
+      .withToolArgs(
+        Array("--filter-criteria", filterCriteria,
+          "--application-name", filterAppName,
+          "--start-app-time", startTimePeriod,
+          "--match-event-logs", matchFileName))
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   private val appsWithAppNameCriteriaToTest = Array(
@@ -509,36 +485,35 @@ class AppFilterSuite extends BaseTestSuite {
       apps: Array[TestEventLogFSAndAppInfo],
       filterCriteria: String, expectedFilterSize: Int,
       expectedAppName: Array[(String, String)]): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
 
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, app.fileName)
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}","App ID":"local-16261043003${app.uniqueId}","Timestamp":${app.appTime},"User":"user1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--filter-criteria",
-          filterCriteria
-        )
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        val resultAppName = appSum.map(x => (x.appName, x.appId)).toArray
-
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-        assert(resultAppName.sorted.sameElements(expectedAppName.sorted))
-      }
-    }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = s"local-16261043003${app.uniqueId}"
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationId","Timestamp":${app.appTime},"User":"user1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(applicationName, applicationId, fileContent)
+              }}))
+      .withToolArgs(
+        Array("--filter-criteria", filterCriteria))
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode()
+          .withCheckBlock(
+            "check the appName, IDS are correct",
+            qRes => {
+              val reasultAppNames = qRes.appSummaries.map(x => (x.appName, x.appId)).toArray
+              reasultAppNames sameElements expectedAppName
+            }))
+      .build()
   }
 
   case class TestRegexAppNameAndUserName(fileName: String, fsTime: Long, appName: String,
@@ -587,45 +562,39 @@ class AppFilterSuite extends BaseTestSuite {
       apps: Array[TestRegexAppNameAndUserName],
       filterCriteria: String, filterAppName: String, userName: String,
       filterArgs: String, expectedFilterSize: Int): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-
-        val fileNames = apps.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, app.fileName)
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}", "App ID":"local-16261043003${app.uniqueId}","Timestamp":${app.appTime}, "User":"${app.userName}"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = if (filterArgs.endsWith("all")) {
-          Array(
-            "--output-directory",
-            outpath.getAbsolutePath(),
-            "--filter-criteria",
-            filterCriteria,
-            "--application-name",
-            filterAppName,
-            "--user-name",
-            userName
-          )
-        } else {
-          Array(
-            "--output-directory",
-            outpath.getAbsolutePath(),
-            "--user-name",
-            userName)
-        }
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
+    val allArgs = if (filterArgs.endsWith("all")) {
+      Array(
+        "--filter-criteria",
+        filterCriteria,
+        "--application-name",
+        filterAppName,
+        "--user-name",
+        userName
+      )
+    } else {
+      Array("--user-name", userName)
     }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = s"local-16261043003${app.uniqueId}"
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"$applicationName","App ID":"$applicationId","Timestamp":${app.appTime},"User":"${app.userName}"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(applicationName, applicationId, fileContent)
+              }}))
+      .withToolArgs(allArgs)
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   case class TestConjunctionAndDisjunction(
@@ -702,13 +671,13 @@ class AppFilterSuite extends BaseTestSuite {
   test("Test conjunction all filters") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       filterCriteria("10-newest") ++ filterAppName("nds") ++
-          startTimePeriod("3w") ++ userName("user1"), 2, "all")
+          startTimePeriod("3w") ++ userName("user1"), 2)
   }
 
   test("Test conjunction no appName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       filterCriteria("10-newest") ++
-          startTimePeriod("2w") ++ userName("user3"), 0, "all")
+          startTimePeriod("2w") ++ userName("user3"), 0)
   }
 
   test("Test conjunction no startTime") {
@@ -719,7 +688,7 @@ class AppFilterSuite extends BaseTestSuite {
   test("Test conjunction no userName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       filterCriteria("10-newest") ++ filterAppName("nds") ++
-          startTimePeriod("2w"), 3, "all")
+          startTimePeriod("2w"), 3)
   }
 
   test("Test conjunction only userName") {
@@ -734,47 +703,46 @@ class AppFilterSuite extends BaseTestSuite {
 
   test("Test conjunction match fileName and appName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
-      matchFileName("app-nds") ++ filterAppName("Nds"),
-      2, "all")
+      matchFileName("app-nds") ++ filterAppName("Nds"), 2)
   }
 
   test("Test conjunction match filename, 10-newest-filesystem and appName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       matchFileName("app-nds") ++ filterCriteria("10-newest-filesystem") ++ filterAppName("nds"),
-      3, "all")
+      3)
   }
 
   test("Test conjunction match appName and config") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
-      filterAppName("nds") ++ filterSparkProperty("spark.driver.port:43492"), 1, "all")
+      filterAppName("nds") ++ filterSparkProperty("spark.driver.port:43492"), 1)
   }
 
   test("Test conjunction match filename and config") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
-      matchFileName("app-nds") ++ filterSparkProperty("spark.app.name:Ndsweeks"), 1, "all")
+      matchFileName("app-nds") ++ filterSparkProperty("spark.app.name:Ndsweeks"), 1)
   }
 
   test("Test conjunction match filename and spark hive metastore config") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       matchFileName("app-nds") ++ filterSparkProperty("spark.sql.hive.metastore.sharedPrefixes:" +
-          "com.mysql.jdbc,org.postgresql,com.microsoft.sqlserver"), 5, "all")
+          "com.mysql.jdbc,org.postgresql,com.microsoft.sqlserver"), 5)
   }
 
   test("Test conjunction match fileName and appName with configs") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       matchFileName("app-nds") ++ filterSparkProperty("spark.driver.port:43492")
-          ++ filterAppName("Nds"), 1, "all")
+          ++ filterAppName("Nds"), 1)
   }
 
   test("Test conjunction match redaction regex config and appName") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
-      filterSparkProperty("spark.redaction.regex") ++ filterAppName("Nds"), 2, "all")
+      filterSparkProperty("spark.redaction.regex") ++ filterAppName("Nds"), 2)
   }
 
   test("Test conjunction spark shuffle configs") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       filterSparkProperty("spark.shuffle.io.maxRetries:2") ++
-          filterSparkProperty("spark.shuffle.registration.maxAttempts:3"), 2, "all")
+          filterSparkProperty("spark.shuffle.registration.maxAttempts:3"), 2)
   }
 
   test("Test disjunction match multiple configs") {
@@ -815,7 +783,7 @@ class AppFilterSuite extends BaseTestSuite {
   test("Test conjunction match fileName and appName with non existent configs") {
     testConjunctionAndDisjunction(appsNameConjunctionAndDisjunctionToTest,
       matchFileName("app-nds") ++ filterSparkProperty("spark.driver.hosta")
-          ++ filterSparkProperty("spark.driver.porta") ++ filterAppName("Nds"), 0, "all")
+          ++ filterSparkProperty("spark.driver.porta") ++ filterAppName("Nds"), 0)
   }
 
   test("Test disjunction match fileName and appName with non existent configs") {
@@ -853,65 +821,55 @@ class AppFilterSuite extends BaseTestSuite {
       filtersToApply: Array[String],
       expectedFilterSize: Int,
       logicFilter: String = "all"): Unit = {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-
-        val fileNames = apps.map { app =>
-          val userPattern = "user(\\d+)".r
-          val userId = userPattern.findFirstMatchIn(app.userName).get.group(1).toInt
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath, app.fileName)
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
-               |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}", "App ID":"local-16261043003${app.uniqueId}","Timestamp":${app.appTime}, "User":"${app.userName}"}
-               |{"Event":"SparkListenerEnvironmentUpdate","JVM Information":{"Java Home":"/usr/lib/jvm/java-8-openjdk-amd64/jre"},"Spark Properties":{"spark.driver.host":"10.10.19.1$userId","spark.app.name":"${app.appName}","spark.driver.port":"4349$userId","spark.eventLog.enabled":"true","spark.master":"spark://5.6.7.8:707${userId + 4}","spark.redaction.regex":"*********(redacted)","spark.eventLog.dir":"file:///tmp/spark-events-$userId","spark.sql.maven.additionalRemoteRepositories":"https://maven-central.storage-download.googleapis.com/maven2/","spark.sql.hive.metastore.sharedPrefixes":"com.mysql.jdbc,org.postgresql,com.microsoft.sqlserver","spark.shuffle.io.maxRetries":"$userId","spark.shuffle.registration.maxAttempts":"${userId + 1}"},"Hadoop Properties":{"hadoop.service.shutdown.timeout":"30s"},"System Properties":{"java.io.tmpdir":"/tmp"},"Classpath Entries":{"/home/user1/runspace/spark311/spark-3.1.1-bin-hadoop3.2/jars/hive-exec-2.3.7-core.jar":"System Classpath"}}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          s"--$logicFilter"
-        )
-
-        val appArgs = new QualificationArgs(filtersToApply ++ allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == expectedFilterSize)
-      }
-    }
+    val allArgs = filtersToApply ++ Array(s"--$logicFilter")
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            apps.map { app =>
+              (_: EventlogProviderImpl) => {
+                val userPattern = "user(\\d+)".r
+                val userId = userPattern.findFirstMatchIn(app.userName).get.group(1).toInt
+                val applicationId = s"local-16261043003${app.uniqueId}"
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}
+                     |{"Event":"SparkListenerApplicationStart","App Name":"${app.appName}", "App ID":"$applicationId","Timestamp":${app.appTime}, "User":"${app.userName}"}
+                     |{"Event":"SparkListenerEnvironmentUpdate","JVM Information":{"Java Home":"/usr/lib/jvm/java-8-openjdk-amd64/jre"},"Spark Properties":{"spark.driver.host":"10.10.19.1$userId","spark.app.name":"${app.appName}","spark.driver.port":"4349$userId","spark.eventLog.enabled":"true","spark.master":"spark://5.6.7.8:707${userId + 4}","spark.redaction.regex":"*********(redacted)","spark.eventLog.dir":"file:///tmp/spark-events-$userId","spark.sql.maven.additionalRemoteRepositories":"https://maven-central.storage-download.googleapis.com/maven2/","spark.sql.hive.metastore.sharedPrefixes":"com.mysql.jdbc,org.postgresql,com.microsoft.sqlserver","spark.shuffle.io.maxRetries":"$userId","spark.shuffle.registration.maxAttempts":"${userId + 1}"},"Hadoop Properties":{"hadoop.service.shutdown.timeout":"30s"},"System Properties":{"java.io.tmpdir":"/tmp"},"Classpath Entries":{"/home/user1/runspace/spark311/spark-3.1.1-bin-hadoop3.2/jars/hive-exec-2.3.7-core.jar":"System Classpath"}}""".stripMargin
+                // scalastyle:on line.size.limit
+                // set the file name from the qpp object.
+                EventlogContentGenMeta(app.appName, app.fileName, fileContent)
+              }}))
+      .withToolArgs(allArgs)
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(expectedFilterSize)
+          .withSuccessCode())
+      .build()
   }
 
   test("Test filtering eventlog with missing start event") {
-    TrampolineUtil.withTempDir { outpath =>
-      TrampolineUtil.withTempDir { tmpEventLogDir =>
-
-        val fileNames = appsFullWithFsToTest.map { app =>
-          val elogFile = Paths.get(tmpEventLogDir.getAbsolutePath,
-            s"${app.appName}-${app.uniqueId}-eventlog")
-          // scalastyle:off line.size.limit
-          val supText =
-            s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}""".stripMargin
-          // scalastyle:on line.size.limit
-          Files.write(elogFile, supText.getBytes(StandardCharsets.UTF_8))
-          new File(elogFile.toString).setLastModified(app.fsTime)
-          elogFile.toString
-        }
-
-        val allArgs = Array(
-          "--output-directory",
-          outpath.getAbsolutePath(),
-          "--filter-criteria",
-          "1-newest"
-        )
-        val appArgs = new QualificationArgs(allArgs ++ fileNames)
-        val (exit, appSum) = QualificationMain.mainInternal(appArgs)
-        assert(exit == 0)
-        assert(appSum.size == 0)
-      }
-    }
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with text generator")
+          .withContentGenerators(
+            appsFullWithFsToTest.map { app =>
+              (_: EventlogProviderImpl) => {
+                val applicationName = app.appName
+                val applicationId = "local-16261043-" + app.uniqueId
+                // scalastyle:off line.size.limit
+                val fileContent =
+                  s"""{"Event":"SparkListenerLogStart","Spark Version":"3.1.1"}""".stripMargin
+                // scalastyle:on line.size.limit
+                EventlogContentGenMeta(applicationName, applicationId, fileContent,
+                  Some(app.fsTime))
+              }}))
+      .withToolArgs(
+        Array("--filter-criteria", "1-newest"))
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(0)
+          .withSuccessCode())
+      .build()
   }
 }

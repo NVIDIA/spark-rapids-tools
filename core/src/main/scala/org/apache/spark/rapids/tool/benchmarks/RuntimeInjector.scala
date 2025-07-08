@@ -28,7 +28,7 @@ object RuntimeInjector extends RuntimeCheckpointTrait {
    * @return the runtime injector
    */
   private def loadRuntimeCheckPoint(): RuntimeCheckpointTrait = {
-    val buildProps = RapidsToolsConfUtil.loadBuildProperties
+    val buildProps = RapidsToolsConfUtil.loadBuildProperties()
     if (buildProps.getProperty("build.benchmarks.checkpoints").contains("dev")) {
       // The benchmark injection is enabled.
       new DevRuntimeCheckpoint

@@ -1,0 +1,5 @@
+Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity
+"",0,"json at QualificationInfoUtils.scala:76",1306,164
+"",1,"count at QualificationInfoUtils.scala:94",7143,6719
+"",2,"count at QualificationInfoUtils.scala:94",1933,1551
+"",3,"count at QualificationInfoUtils.scala:94",2052,1660

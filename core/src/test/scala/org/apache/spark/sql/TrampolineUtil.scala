@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,14 @@ object TrampolineUtil {
     try f(path) finally Utils.deleteRecursively(path)
   }
 
-  def createCodec(conf: SparkConf, codecName: String) =
+  def createTempDir(prefix: Option[String] = None): File = {
+    Utils.createTempDir(namePrefix = prefix.getOrElse("toolTestDir"))
+  }
+
+  def deleteRecursively(f: File): Unit = {
+    Utils.deleteRecursively(f)
+  }
+
+  def createCodec(conf: SparkConf, codecName: String): CompressionCodec =
     CompressionCodec.createCodec(conf, codecName)
 }
