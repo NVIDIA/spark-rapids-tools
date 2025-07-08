@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Defines the example target cluster information to be used by the Profiling Tool.
-# Usage: `<JAVA CMD> --platform onprem --target-cluster-info <path to this file>`
+# Defines the example target cluster information file containing spark properties
+# that should be enforced on the target cluster. This will be used by the AutoTuner
+# to generate the recommended spark properties for the target cluster.
+#
+# Usage: `spark_rapids qualification/profiling --platform <platform> \
+#           --eventlogs <path to eventlogs> \
+#           --target_cluster_info <path to this file>`
 sparkProperties:
   enforced:
     spark.memory.offHeap.size: 18g

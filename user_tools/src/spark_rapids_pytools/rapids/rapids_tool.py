@@ -810,10 +810,14 @@ class RapidsJarTool(RapidsTool):
                                                 exec_files=exc_files)
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
             out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
-            # if the target worker info is provided, then add a comment about speed up estimation being inaccurate.
+            # If running qualification Tool and the target worker info is provided,
+            # then add a comment about speed up estimation being inaccurate.
             target_worker_info_provided = self.ctxt.get_ctxt('targetWorkerInfoProvided')
-            inaccurate_speedup_comment = self.ctxt.get_value_silent('local', 'output', 'stdout', 'inaccurateSpeedupComment')
-            if target_worker_info_provided and inaccurate_speedup_comment:
+            # Lazy import Qualification to avoid circular import issues
+            from spark_rapids_pytools.rapids.qualification import Qualification  # pylint: disable=import-outside-toplevel
+            if isinstance(self, Qualification) and target_worker_info_provided:
+                inaccurate_speedup_comment =\
+                    self.ctxt.get_value('local', 'output', 'stdout', 'inaccurateSpeedupComment')
                 out_tree_list.append(f'{indentation}- {inaccurate_speedup_comment}')
             return out_tree_list
         return []
