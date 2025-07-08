@@ -23,10 +23,9 @@ authors = [
 ]
 description = "A simple wrapper process around cloud service providers to run tools for the RAPIDS Accelerator for Apache Spark."
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -35,57 +34,57 @@ classifiers = [
 license = "Apache-2.0"
 # see https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for list of supported licenses
 dependencies = [
-    # numpy-2.0.0 supports python [3.9, 3.13]. numpy2.1.0 drooped support for Python 3.9.
-    "numpy>=2.0.0",
+    # numpy-2.2.6 supports python [3.10, 3.13]. numpy2.3.0 dropped support for Python 3.10.
+    "numpy>=2.2.6",
     # For moustache templates
     "chevron==0.14.0",
     "fastprogress==1.0.3",
     "fastcore==1.7.28",
     # Python [3.9, 3.13]
     "fire==0.7.0",
-    # pandas python [3.9, 3.12]
-    "pandas==2.2.3",
+    # pandas python [3.9, 3.13]
+    "pandas==2.3.0",
     # pyYaml-6.0.2 supports python[3.9, 3.13]
     "pyYAML>=6.0.2",
-    # This is used to resolve env-variable in yaml files. It requires netween 5.0 and 6.0
-    "pyaml-env==1.2.1",
+    # This is used to resolve env-variable in yaml files. It requires between 5.0 and 6.0
+    "pyaml-env==1.2.2",
     "tabulate==0.9.0",
     # Supports Python 3.9+
-    "importlib-resources==6.5.0",
-    # supports python [3.9, 3.12]
-    "requests==2.32.3",
+    "importlib-resources==6.5.2",
+    # supports python [3.9, 3.13]
+    "requests==2.32.4",
     # Supports Python [3.9, 3.13]
-    "packaging==24.2",
+    "packaging==25.0",
     # supports python[3.8, 3.13]
-    "certifi==2024.12.14",
+    "certifi==2025.6.15",
     # supports python[3.9, 3.13]
-    "urllib3==2.3.0",
+    "urllib3==2.5.0",
     # Used as a syntax highlighter for the CLI STDOUT. Python [3.9, 3.12]
-    "pygments==2.18.0",
+    "pygments==2.19.2",
     # used to apply validator on objects and models.
     # "2.9.2" contains from_json method.
     # Python [3.9, 3.13]
-    "pydantic==2.10.4",
+    "pydantic==2.11.7",
     # used to help pylint understand pydantic. Python [3.9, 3.12]
-    "pylint-pydantic==0.3.4",
+    "pylint-pydantic==0.3.5",
     # used for common API to access remote filesystems like local/s3/gcs/hdfs
-    # pin to 18.1.0 which supports python [3.9, 3.13]
-    "pyarrow==18.1.0",
+    # pin to 20.0.0 which supports python [3.9, 3.13]
+    "pyarrow==20.0.0",
     # used for ADLS filesystem implementation
     # Python [3.9, 3.12]
-    "azure-storage-blob==12.24.0",
+    "azure-storage-blob==12.25.1",
     # used for ADLS filesystem implementation. Python [3.9, 3.13]
     "adlfs==2024.12.0",
     # used for spinner animation
-    "progress==1.6",
-    # used for model estimations python [3.9-3.11]
-    "xgboost==2.1.4",
-    # used for model interpretability. python [3.9, 3.12]
-    "shap==0.46.0",
-    # dependency of shap, python [3.9, 3.12]
-    "scikit-learn==1.5.2",
+    "progress==1.6.1",
+    # used for model estimations python [3.9-3.13]
+    "xgboost==3.0.2",
+    # used for model interpretability. python [3.9, 3.13]
+    "shap==0.48.0",
+    # dependency of shap, python [3.10, 3.13]
+    "scikit-learn==1.7.0",
     # used for retrieving available memory on the host
-    "psutil==6.1.1",
+    "psutil==7.0.0",
     # pyspark for distributed computing
     "pyspark>=3.4.2,<4.0.0"
 ]
@@ -112,9 +111,8 @@ test = [
     # use flak-8 plugin for pydantic
     'flake8-pydantic',
     # Use pylint for static code analysis.
-    # Latest version to drop Python 3.8 is 3.27.
     # Set specific version to avoid breaking test with newer pylint releases. Python [3.9-3.13]
-    'pylint==3.3.3'
+    'pylint==3.3.7'
 ]
 qualx = [
     "holoviews",
