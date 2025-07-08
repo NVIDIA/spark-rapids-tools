@@ -22,10 +22,8 @@ import re
 import secrets
 import string
 import types
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -341,72 +339,51 @@ def random_string(length: int) -> str:
 
 
 def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str) -> None:
-    ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    platform_base = platform.split('_')[0]  # remove any platform variants when invoking profiler
-    cmds = []
-
-    eventlog_files = []
-    for eventlog in eventlogs:
-        eventlog_files.extend(find_eventlogs(eventlog))
-
-    # construct commands for each eventlog file
-    for log in eventlog_files:
-        logfile = os.path.basename(log)
-        match = re.search('sf[0-9]+[k]*-', logfile)
-        if match:
-            output = f'{output_dir}/{logfile}'
-        else:
-            suffix = random_string(6)
-            output = f'{output_dir}/prof_{ts}_{suffix}'
-        cmd = (
-            # f'spark_rapids_user_tools {platform} profiling --csv --eventlogs {log} --local_folder {output}'
-            'java -Xmx64g -cp $SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
-            'com.nvidia.spark.rapids.tool.profiling.ProfileMain '
-            f'--platform {platform_base} --csv --output-sql-ids-aligned -o {output} {log}'
+    def run_profiling_core(eventlog: str) -> None:
+        """Run profiling_core for a single eventlog."""
+        from spark_rapids_tools.cmdli.dev_cli import DevCLI
+        dev_cli = DevCLI()
+        dev_cli.profiling_core(
+            eventlogs=os.path.expandvars(eventlog),
+            platform=platform,
+            output_folder=output_dir,
+            tools_jar=None,
+            verbose=False
         )
-        cmds.append(cmd)
-    run_commands(cmds)
+
+    run_commands(eventlogs, run_profiling_core)
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
                            output_dir: str, skip_run: bool = False) -> List[QualCoreHandler]:
-    ts = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
-
-    platform_base = platform.split('_')[0]  # remove any platform variants when invoking qualification
-    cmds = []
-    output_dirs = []
 
     if skip_run:
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
     else:
-        eventlog_files = []
-        for eventlog in eventlogs:
-            eventlog_files.extend(find_eventlogs(eventlog))
-
-        # construct commands for each eventlog file
-        for log in eventlog_files:
-            # skip gpu logs, assuming /gpu appearing in path can be used to distinguish
-            if '/gpu' in str(log).lower():
-                continue
-            suffix = random_string(6)
-            output = f'{output_dir}/qual_{ts}_{suffix}'
-            output_dirs.append(output)
-            cmd = (
-                # f'spark_rapids_user_tools {platform} qualification --csv
-                # --per-sql --eventlogs {log} --local_folder {output}'
-                'java -Xmx32g -cp '
-                '$SPARK_RAPIDS_TOOLS_JAR:$SPARK_HOME/jars/*:$SPARK_HOME/assembly/target/scala-2.12/jars/* '
-                'com.nvidia.spark.rapids.tool.qualification.QualificationMain '
-                f'--platform {platform_base} --per-sql -o {output} {log}'
+        def run_qualification_core(eventlog: str) -> None:
+            """Run qualification_core for a single eventlog."""
+            # Skip gpu logs, assuming /gpu appearing in path can be used to distinguish
+            if '/gpu' in str(eventlog).lower():
+                return
+            from spark_rapids_tools.cmdli.dev_cli import DevCLI
+            dev_cli = DevCLI()
+            dev_cli.qualification_core(
+                eventlogs=os.path.expandvars(eventlog),
+                platform=platform,
+                output_folder=output_dir,
+                tools_jar=None,
+                verbose=False
             )
-            cmds.append(cmd)
-        run_commands(cmds)
+
+        run_commands(eventlogs, run_qualification_core)
+        output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
+                                 return_directories=True)
 
     qual_handlers = []
     for output_path in output_dirs:
@@ -422,32 +399,24 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
     return qual_handlers
 
 
-def run_commands(commands: List[str], workers: int = 8) -> None:
-    """Run a list of commands using a thread pool."""
-    if not commands:
+def run_commands(tasks: List, task_func, workers: int = 8) -> None:
+    """Run a list of tasks using a thread pool."""
+    if not tasks:
         return
-
-    def run_command(command: str) -> subprocess.CompletedProcess:
-        logger.debug('Command started: %s', command)
-        return subprocess.run(
-            command, shell=True, env=os.environ, capture_output=True, text=True, check=False
-        )
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
         futures = {
-            executor.submit(run_command, command): command for command in commands
+            executor.submit(task_func, task): task for task in tasks
         }
 
-        # iterate over completed futures as they become available
         for future in as_completed(futures):
-            command = futures[future]
+            task = futures[future]
             try:
-                result = future.result()
-                logger.debug('Command completed: %s', command)
-                logger.debug(result.stdout)
-                logger.debug(result.stderr)
+                future.result()
+                logger.info('Task completed: %s', task)
+
             except Exception as e:  # pylint: disable=broad-except
-                logger.error('Command failed: %s', command)
+                logger.error('Task failed: %s', task)
                 logger.error(e)
 
 

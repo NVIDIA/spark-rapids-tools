@@ -22,11 +22,80 @@ from spark_rapids_tools.enums import CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
+from spark_rapids_pytools.rapids.qualification_core import QualificationCore
+from spark_rapids_pytools.rapids.profiling_core import ProfilingCore
 from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 
 
 class DevCLI(object):  # pylint: disable=too-few-public-methods
-    """CLI to run development related tools (for internal use only)."""
+    """CLI to run development related tools and core tool variants."""
+
+    def qualification_core(self,
+                           eventlogs: str = None,
+                           platform: str = None,
+                           output_folder: str = None,
+                           tools_jar: str = None,
+                           verbose: bool = None) -> None:
+        """The Core Qualification cmd.
+
+        :param eventlogs: Event log filenames or CSP storage directories containing event logs
+                (comma separated).
+        :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
+        :param output_folder: Local path to store the output.
+        :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
+                rapids-4-spark-tools_*.jar from maven repository.
+        :param verbose: True or False to enable verbosity of the script.
+        """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+        init_environment('qual')
+
+        qual_args = AbsToolUserArgModel.create_tool_args('qualification_core',
+                                                         eventlogs=eventlogs,
+                                                         platform=platform,
+                                                         output_folder=output_folder,
+                                                         tools_jar=tools_jar)
+        if qual_args:
+            tool_obj = QualificationCore(platform_type=qual_args['runtimePlatform'],
+                                         output_folder=qual_args['outputFolder'],
+                                         wrapper_options=qual_args,
+                                         rapids_options={})
+            tool_obj.launch()
+
+    def profiling_core(self,
+                       eventlogs: str = None,
+                       platform: str = None,
+                       output_folder: str = None,
+                       tools_jar: str = None,
+                       verbose: bool = None):
+        """The Core Profiling cmd runs the profiling tool JAR directly with minimal processing.
+
+        This is a simplified version for development and testing purposes that directly executes
+        the profiling tool JAR without the extra processing layers.
+
+        :param eventlogs: Event log filenames or cloud storage directories containing event logs
+                (comma separated).
+        :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
+        :param output_folder: Local path to store the output.
+        :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
+                rapids-4-spark-tools_*.jar from maven repository.
+        :param verbose: True or False to enable verbosity of the script.
+        """
+        if verbose:
+            ToolLogging.enable_debug_mode()
+        init_environment('prof')
+
+        prof_args = AbsToolUserArgModel.create_tool_args('profiling_core',
+                                                         eventlogs=eventlogs,
+                                                         platform=platform,
+                                                         output_folder=output_folder,
+                                                         tools_jar=tools_jar)
+        if prof_args:
+            tool_obj = ProfilingCore(platform_type=prof_args['runtimePlatform'],
+                                     output_folder=prof_args['outputFolder'],
+                                     wrapper_options=prof_args,
+                                     rapids_options={})
+            tool_obj.launch()
 
     def generate_instance_description(self,
                                       platform: str = None,

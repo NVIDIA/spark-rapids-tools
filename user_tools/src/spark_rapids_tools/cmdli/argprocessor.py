@@ -777,6 +777,98 @@ class StatsUserArgModel(AbsToolUserArgModel):
 
 
 @dataclass
+@register_tool_arg_validator('qualification_core')
+class QualificationCoreUserArgModel(ToolUserArgModel):
+    """
+    Qualification Core Output
+    """
+
+    def init_tool_args(self) -> None:
+        self.p_args['toolArgs']['platform'] = self.platform
+
+    @model_validator(mode='after')
+    def validate_arg_cases(self) -> 'QualificationCoreUserArgModel':
+        self.validate_arguments()
+        return self
+
+    def build_tools_args(self) -> dict:
+        runtime_platform = self.get_or_set_platform()
+        self.process_jvm_args()
+        self.load_tools_config()
+
+        wrapped_args = {
+            'runtimePlatform': runtime_platform,
+            'outputFolder': self.output_folder,
+            'eventlogs': self.eventlogs,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
+            'platformOpts': {
+                'credentialFile': None,
+                'deployMode': DeployMode.LOCAL
+            },
+            'jobSubmissionProps': {
+                'remoteFolder': None,
+                'platformArgs': {
+                    'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
+                    'jvmGC': self.p_args['toolArgs']['jvmGC'],
+                    'Dlog4j.configuration': self.p_args['toolArgs']['log4jPath']
+                },
+                'jobResources': self.p_args['toolArgs']['jobResources']
+            },
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig']
+        }
+        return wrapped_args
+
+
+@dataclass
+@register_tool_arg_validator('profiling_core')
+class ProfilingCoreUserArgModel(ToolUserArgModel):
+    """
+    Profiling Core Output
+    """
+
+    def init_tool_args(self) -> None:
+        self.p_args['toolArgs']['platform'] = self.platform
+
+    @model_validator(mode='after')
+    def validate_arg_cases(self) -> 'ProfilingCoreUserArgModel':
+        # Use the sophisticated validation framework from ToolUserArgModel
+        self.validate_arguments()
+        return self
+
+    def build_tools_args(self) -> dict:
+        # At this point, if the platform is still none, then we can set it to the default value
+        runtime_platform = self.get_or_set_platform()
+        # process JVM arguments (simplified for core tool)
+        self.process_jvm_args()
+        # process the tools config file
+        self.load_tools_config()
+
+        wrapped_args = {
+            'runtimePlatform': runtime_platform,
+            'outputFolder': self.output_folder,
+            'eventlogs': self.eventlogs,
+            'toolsJar': self.p_args['toolArgs']['toolsJar'],
+            'platformOpts': {
+                'credentialFile': None,
+                'deployMode': DeployMode.LOCAL
+            },
+            'jobSubmissionProps': {
+                'remoteFolder': None,
+                'platformArgs': {
+                    'jvmMaxHeapSize': self.p_args['toolArgs']['jvmMaxHeapSize'],
+                    'jvmGC': self.p_args['toolArgs']['jvmGC'],
+                    'Dlog4j.configuration': self.p_args['toolArgs']['log4jPath']
+                },
+                'jobResources': self.p_args['toolArgs']['jobResources']
+            },
+            'toolsConfig': self.p_args['toolArgs']['toolsConfig'],
+            'requiresEventlogs': True,
+            'rapidOptions': {}
+        }
+        return wrapped_args
+
+
+@dataclass
 @register_tool_arg_validator('generate_instance_description')
 class InstanceDescriptionUserArgModel(AbsToolUserArgModel):
     """

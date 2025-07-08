@@ -254,22 +254,6 @@ class Qualification(RapidsJarTool):
         )
         return result_df, notes
 
-    def __generate_mc_types_conversion_report(self) -> list:  # pylint: disable=unused-private-member
-        report_content = []
-        if bool(self.ctxt.platform.ctxt['notes']):
-            # get the converted instance types
-            node_conversions = self.ctxt.platform.ctxt['notes'].get('nodeConversions')
-            if node_conversions is not None:
-                report_content = [
-                    Utils.gen_report_sec_header('Instance types conversions', hrule=False),
-                ]
-                conversion_items = []
-                for mc_src, mc_target in node_conversions.items():
-                    conversion_items.append([mc_src, 'to', mc_target])
-                report_content.append(tabulate(conversion_items))
-                report_content.append(self.ctxt.platform.get_footer_message())
-        return report_content
-
     def __generate_recommended_configs_report(self) -> list:
         # This method will generate the report for the recommended configurations.
         # The configurations disable that section by default.
