@@ -209,15 +209,16 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
             arrow_fs.FileSelector(csp_path.no_scheme))
         res = []
         for i_entry in dir_list:
-            item = csp_path.create_sub_path(i_entry.base_name)
+            item_name = i_entry.base_name
+            item = csp_path.create_sub_path(item_name)
             if item.is_dir() and recursive:
                 res.extend(
                     self.glob_inner(
-                        csp_path.create_sub_path(item.base_name()),
+                        csp_path.create_sub_path(item_name),
                         pattern,
                         item_type,
                         recursive=recursive))
-            if bool(re.search(pattern, item.base_name())):
+            if bool(pattern.search(item_name)):
                 if item_type is None or i_entry.type == item_type:
                     res.append(item)
         return res
