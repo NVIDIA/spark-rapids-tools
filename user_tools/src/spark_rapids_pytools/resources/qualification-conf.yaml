@@ -119,13 +119,15 @@ sparkRapids:
       - spark-property
       - speedup-factor-file
       - start-app-time
-      - t
+      - target-cluster-info
       - timeout
       - u
       - user-name
 local:
   output:
     cleanUp: true
+    stdout:
+      inaccurateSpeedupComment: 'Speed up estimations may be inaccurate because custom target worker information was provided.'
     files:
       summary:
         name: qualification_summary.csv
