@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 import abc
 import os
+import re
 from typing import Generic, Callable, TypeVar, Any, Union, List, Optional
 
 from pyarrow import fs as arrow_fs
@@ -175,9 +176,70 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
         if not path.is_dir():
             raise CspPathTypeMismatchError(f'Path is not a directory: {path}')
 
-        dir_info_list = path.fs_obj.get_file_info(arrow_fs.FileSelector(path.no_scheme, recursive=False))
+        dir_info_list = path.fs_obj.get_file_info(
+            arrow_fs.FileSelector(base_dir=path.no_scheme))
         return [
             path.create_sub_path(dir_info.base_name)
             for dir_info in dir_info_list
             if item_type is None or dir_info.type == item_type
         ]
+
+    def glob_inner(self,
+                   csp_path: BoundedCspPath,
+                   pattern: re.Pattern[str],
+                   item_type: Optional[FileType] = None,
+                   recursive: bool = False) -> List[BoundedCspPath]:
+        """
+        Given a cspPath and regex pattern, it returns a list of all files/folders that match
+        the pattern.
+        :param csp_path: a cspPath object (typically directory root)
+        :param pattern: the regex pattern
+        :param item_type: File/Directory. when provided the results will be filtered by type
+        :param recursive: search recursively in subfolders
+        :return: a list of cspPaths objects matching the criteria.
+
+        >>> # find all csv files in a directory
+            all_files = local_fs.glob_inner(
+            CspPath('/path/to/dir'),
+            pattern=re.compile('.*\\.csv'),
+            recursive=True)
+        """
+        dir_list = self.get_file_info(
+            # do not raise error if path does not exist
+            arrow_fs.FileSelector(csp_path.no_scheme))
+        res = []
+        for i_entry in dir_list:
+            item = csp_path.create_sub_path(i_entry.base_name)
+            if item.is_dir() and recursive:
+                res.extend(
+                    self.glob_inner(
+                        csp_path.create_sub_path(item.base_name()),
+                        pattern,
+                        item_type,
+                        recursive=recursive))
+            if bool(re.search(pattern, item.base_name())):
+                if item_type is None or i_entry.type == item_type:
+                    res.append(item)
+        return res
+
+    @staticmethod
+    def glob_path(path: Union[str, BoundedCspPath],
+                  pattern: re.Pattern[str],
+                  item_type: Optional[FileType] = None,
+                  recursive: bool = False) -> List[BoundedCspPath]:
+        """
+        a helper function to call glob_inner on string or cspPath objects.
+        :param path: a string or cspPath object (typically directory root).
+        :param pattern: regex pattern
+        :param item_type: File/Directory. When provided, the results will be filtered by type.
+        :param recursive: search in subdirectories or not.
+        :return: a list of all cspPath objects matching the criteria
+        """
+        if isinstance(path, str):
+            csp_path = CspPath(path)
+        else:
+            csp_path = path
+        return csp_path.fs_obj.glob_inner(csp_path,
+                                          pattern,
+                                          item_type=item_type,
+                                          recursive=recursive)
