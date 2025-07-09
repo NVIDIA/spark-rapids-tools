@@ -766,10 +766,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       //   gpu:
       //     count: 1
       //     name: l4
-      intercept[IllegalArgumentException] {
+      assertThrows[IllegalArgumentException] {
         ToolTestUtils.createTargetClusterInfoFile(
           tempDir.getAbsolutePath,
-          instanceType = Some("g2-standard-8"),
+          workerNodeInstanceType = Some("g2-standard-8"),
           cpuCores = Some(16), memoryGB = Some(64),
           gpuCount = Some(1), gpuDevice = Some(GpuTypes.L4))
       }
@@ -783,10 +783,32 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       // workerInfo:
       //   cpuCores: 16
       //   memoryGB: 64
-      intercept[IllegalArgumentException] {
+      assertThrows[IllegalArgumentException] {
         ToolTestUtils.createTargetClusterInfoFile(
           tempDir.getAbsolutePath,
           cpuCores = Some(16), memoryGB = Some(64))
+      }
+    }
+  }
+
+  // This test verifies that an error is thrown when the target cluster YAML file
+  // contains both worker info and driver info for OnPrem
+  test("Should fail when target cluster contains both worker info and driver info for OnPrem") {
+    TrampolineUtil.withTempDir { tempDir =>
+      // driverInfo:
+      //   instanceType: foobar
+      // workerInfo:
+      //   cpuCores: 16
+      //   memoryGB: 64
+      //   gpu:
+      //     count: 1
+      //     name: l4
+      assertThrows[IllegalArgumentException] {
+        ToolTestUtils.createTargetClusterInfoFile(
+          tempDir.getAbsolutePath,
+          driverNodeInstanceType = Some("foobar"),
+          cpuCores = Some(16), memoryGB = Some(64),
+          gpuCount = Some(1), gpuDevice = Some(GpuTypes.L4))
       }
     }
   }

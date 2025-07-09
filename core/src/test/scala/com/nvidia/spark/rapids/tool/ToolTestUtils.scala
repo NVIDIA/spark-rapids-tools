@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-import com.nvidia.spark.rapids.tool.tuning.{GpuWorkerProps, SparkProperties, TargetClusterProps, WorkerInfo}
+import com.nvidia.spark.rapids.tool.tuning.{DriverInfo, GpuWorkerProps, SparkProperties, TargetClusterProps, WorkerInfo}
 import org.apache.hadoop.fs.Path
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import scala.collection.mutable.ArrayBuffer
@@ -205,33 +205,36 @@ object ToolTestUtils extends Logging {
   }
 
   def buildTargetClusterInfo(
-      instanceType: Option[String] = None,
+      driverNodeInstanceType: Option[String] = None,
+      workerNodeInstanceType: Option[String] = None,
       cpuCores: Option[Int] = None,
       memoryGB: Option[Long] = None,
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
       enforcedSparkProperties: Map[String, String] = Map.empty): TargetClusterProps = {
+    val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
     import scala.collection.JavaConverters._
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-   val workerProps = new WorkerInfo(instanceType.getOrElse(""), cpuCores.getOrElse(0),
+   val workerProps = new WorkerInfo(workerNodeInstanceType.getOrElse(""), cpuCores.getOrElse(0),
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
-    new TargetClusterProps(workerProps, sparkProps)
+    new TargetClusterProps(driverProps, workerProps, sparkProps)
   }
 
   def buildTargetClusterInfoAsString(
-      instanceType: Option[String] = None,
+      driverNodeInstanceType: Option[String] = None,
+      workerNodeInstanceType: Option[String] = None,
       cpuCores: Option[Int] = None,
       memoryGB: Option[Long] = None,
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
       enforcedSparkProperties: Map[String, String] = Map.empty): String = {
-    val targetCluster = buildTargetClusterInfo(instanceType, cpuCores, memoryGB,
-      gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+    val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
+      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -245,7 +248,8 @@ object ToolTestUtils extends Logging {
 
   def createTargetClusterInfoFile(
        outputDirectory: String,
-       instanceType: Option[String] = None,
+       driverNodeInstanceType: Option[String] = None,
+       workerNodeInstanceType: Option[String] = None,
        cpuCores: Option[Int] = None,
        memoryGB: Option[Long] = None,
        gpuCount: Option[Int] = None,
@@ -255,8 +259,9 @@ object ToolTestUtils extends Logging {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
-      val targetClusterInfoString = buildTargetClusterInfoAsString(instanceType, cpuCores,
-        memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+      val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
+        workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
+        enforcedSparkProperties)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {

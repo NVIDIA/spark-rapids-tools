@@ -224,7 +224,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties],
     val targetCluster: Option[TargetClusterProps]) extends Logging {
   val platformName: String
-  def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = None
+  def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = None
+  def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = None
   def defaultRecommendedCoresPerExec: Int = 16
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
@@ -268,13 +269,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                |
                |Next Steps:
                |Update the target cluster YAML with a valid instance type and GPU count, or skip
-               |it to use default: ${defaultRecommendedNodeInstanceMapKey.getOrElse("None")}
+               |it to use default: ${defaultRecommendedWorkerNode.getOrElse("None")}
                |""".stripMargin.trim
           throw new MatchingInstanceTypeNotFoundException(errorMsg)
         }
       case None =>
         val defaultInstanceInfo =
-          defaultRecommendedNodeInstanceMapKey.flatMap(getInstanceMapByName.get)
+          defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
         logInfo("Instance type is not provided in the target cluster. " +
           s"Using default instance type: $defaultInstanceInfo")
         defaultInstanceInfo
@@ -286,7 +287,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   // in future we can refactor.
   var clusterInfoFromEventLog: Option[SourceClusterInfo] = None
   // instance information for the gpu node type we will use to run with
-  var recommendedNodeInstanceInfo: Option[InstanceInfo] = {
+  var recommendedWorkerNode: Option[InstanceInfo] = {
     getRecommendedInstanceInfoFromTargetWorker(targetCluster.map(_.getWorkerInfo))
   }
 
@@ -295,16 +296,16 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
   // Default recommendation based on NDS benchmarks (note: this could be platform specific)
   final def recommendedCoresPerExec: Int = {
-    recommendedNodeInstanceInfo.map(instInfo => instInfo.cores / instInfo.numGpus)
+    recommendedWorkerNode.map(instInfo => instInfo.cores / instInfo.numGpus)
       .getOrElse(defaultRecommendedCoresPerExec)
   }
 
   final def recommendedGpuDevice: GpuDevice = {
-    recommendedNodeInstanceInfo.map(_.gpuDevice).getOrElse(defaultGpuDevice)
+    recommendedWorkerNode.map(_.gpuDevice).getOrElse(defaultGpuDevice)
   }
 
   final def recommendedNumGpus: Int = {
-    recommendedNodeInstanceInfo.map(_.numGpus).getOrElse(defaultNumGpus)
+    recommendedWorkerNode.map(_.numGpus).getOrElse(defaultNumGpus)
   }
 
   // Default runtime for the platform
@@ -604,7 +605,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
           case Some(clusterConfig) =>
             // If recommended node instance information is not already set, create it based on the
             // existing cluster configuration and platform defaults.
-            val recommendedNodeInstance = recommendedNodeInstanceInfo.getOrElse {
+            val _recommendedWorkerNode = recommendedWorkerNode.getOrElse {
               InstanceInfo.createDefaultInstance(
                 cores = clusterConfig.coresPerNode,
                 memoryMB = clusterConfig.memoryPerNodeMb,
@@ -612,29 +613,44 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                 gpuDevice = clusterConfig.gpuDevice)
             }
             val vendor = clusterInfoFromEventLog.map(_.vendor).getOrElse("")
+
+            // Determine the driver node type in the following order:
+            // 1. Use the value specified in the target cluster, if present
+            // 2. Else, if it was inferred from the event log
+            //
+            // Notes:
+            // - If the driver node type is still undefined and the user is running
+            //   the Qualification Tool, a platform default will be set later.
+            // - Using a platform default for the driver node type is not applicable
+            //   when running the Profiling Tool.
+            val recommendedDriverNode = targetCluster.map(_.getDriverInfo.getInstanceType)
+              .filter(_.nonEmpty)
+              .orElse(clusterInfoFromEventLog.flatMap(_.driverNodeType))
+
             val numWorkerNodes = if (!isPlatformCSP) {
               // For on-prem, we do not have the concept of worker nodes.
               -1
             } else {
               // Calculate number of worker nodes based on executors and GPUs per instance
               math.ceil(clusterConfig.numExecutors.toDouble /
-                recommendedNodeInstance.numGpus).toInt
+                _recommendedWorkerNode.numGpus).toInt
             }
 
             val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sourceSparkProperties)
-            recommendedNodeInstanceInfo = Some(recommendedNodeInstance)
+            recommendedWorkerNode = Some(_recommendedWorkerNode)
             recommendedClusterInfo = Some(RecommendedClusterInfo(
               vendor = vendor,
               coresPerExecutor = clusterConfig.coresPerExec,
               numWorkerNodes = numWorkerNodes,
-              numGpusPerNode = recommendedNodeInstance.numGpus,
+              numGpusPerNode = _recommendedWorkerNode.numGpus,
               numExecutors = clusterConfig.numExecutors,
-              gpuDevice = recommendedNodeInstance.gpuDevice.toString,
+              gpuDevice = _recommendedWorkerNode.gpuDevice.toString,
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
               dynamicAllocationInitialExecutors = dynamicAllocSettings.initial,
-              workerNodeType = Some(recommendedNodeInstance.name)
+              driverNodeType = recommendedDriverNode,
+              workerNodeType = Some(_recommendedWorkerNode.name)
             ))
 
           case None =>
@@ -656,6 +672,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
     userEnforcedRecommendations.get(propertyKey)
+  }
+
+  /**
+   * Set the default driver node type for the recommended cluster if it is missing.
+   */
+  final def setDefaultDriverNodeToRecommendedClusterIfMissing() : Unit = {
+    recommendedClusterInfo = recommendedClusterInfo.map { recClusterInfo =>
+      if (recClusterInfo.driverNodeType.isEmpty) {
+        recClusterInfo.copy(driverNodeType = defaultRecommendedDriverNode.map(_.instanceType))
+      } else {
+        recClusterInfo
+      }
+    }
   }
 }
 
@@ -713,8 +742,12 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
   extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster)
   with Logging {
   override val platformName: String = PlatformNames.DATABRICKS_AWS
-  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "g5.8xlarge"))
+  }
+
+  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "m6gd.2xlarge"))
   }
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
@@ -733,8 +766,12 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATABRICKS_AZURE
-  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "Standard_NC8as_T4_v3"))
+  }
+
+  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "Standard_E8ds_v4"))
   }
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
@@ -753,8 +790,12 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.DATAPROC
-  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "g2-standard-16"))
+  }
+
+  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "n1-standard-16"))
   }
 
   // scalastyle:off line.size.limit
@@ -804,8 +845,12 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
   override val platformName: String = PlatformNames.EMR
-  override def defaultRecommendedNodeInstanceMapKey: Option[NodeInstanceMapKey] = {
+  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
     Some(NodeInstanceMapKey(instanceType = "g6.4xlarge"))
+  }
+
+  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
+    Some(NodeInstanceMapKey(instanceType = "i3.2xlarge"))
   }
 
   // scalastyle:off line.size.limit
