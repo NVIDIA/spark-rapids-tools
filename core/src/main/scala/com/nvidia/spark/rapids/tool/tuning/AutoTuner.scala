@@ -365,11 +365,7 @@ class AutoTuner(
    * 2. Source Spark properties (i.e. from app info and cluster properties)
    */
   protected def getPropertyValue(key: String): Option[String] = {
-    // First check recommendations (which includes user-enforced properties)
-    recommendations.get(key).flatMap(entry => Option(entry.getTuneValue())).orElse {
-      // Then check source properties with alias support
-      getPropertyValueFromSource(key)
-    }
+    AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)(key)
   }
 
   /**
@@ -444,16 +440,6 @@ class AutoTuner(
     if (platform.getUserEnforcedSparkProperty(key).isDefined) {
       // If the property is enforced by the user, the recommendation should be
       // skipped as we have already added it during the initialization.
-      return
-    }
-
-    // Skip if the actual key is in skipped recommendations
-    if (skippedRecommendations.contains(key)) {
-      return
-    }
-
-    // Skip if the actual key is user-enforced
-    if (platform.getUserEnforcedSparkProperty(key).isDefined) {
       return
     }
 

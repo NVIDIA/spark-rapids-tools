@@ -221,8 +221,7 @@ object ToolTestUtils extends Logging {
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty,
-      aliasSparkProperties: Map[String, String] = Map.empty): TargetClusterProps = {
+      enforcedSparkProperties: Map[String, String] = Map.empty): TargetClusterProps = {
     import scala.collection.JavaConverters._
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
@@ -230,7 +229,6 @@ object ToolTestUtils extends Logging {
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
-    sparkProps.getAlias.putAll(aliasSparkProperties.asJava)
     new TargetClusterProps(workerProps, sparkProps)
   }
 
@@ -241,10 +239,9 @@ object ToolTestUtils extends Logging {
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty,
-      aliasSparkProperties: Map[String, String] = Map.empty): String = {
+      enforcedSparkProperties: Map[String, String] = Map.empty): String = {
     val targetCluster = buildTargetClusterInfo(instanceType, cpuCores, memoryGB,
-      gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties, aliasSparkProperties)
+      gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -264,13 +261,12 @@ object ToolTestUtils extends Logging {
        gpuCount: Option[Int] = None,
        gpuMemory: Option[String] = None,
        gpuDevice: Option[String] = None,
-       enforcedSparkProperties: Map[String, String] = Map.empty,
-       aliasSparkProperties: Map[String, String] = Map.empty): Path = {
+       enforcedSparkProperties: Map[String, String] = Map.empty): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
       val targetClusterInfoString = buildTargetClusterInfoAsString(instanceType, cpuCores,
-        memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties, aliasSparkProperties)
+        memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {

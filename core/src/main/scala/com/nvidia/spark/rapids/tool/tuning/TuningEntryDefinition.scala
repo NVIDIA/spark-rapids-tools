@@ -135,7 +135,6 @@ class TuningEntryDefinition(
     defaultSpark != null
   }
 
-
   def getMissingComment(): Option[String] = {
     Option(comments.get("missing"))
   }
