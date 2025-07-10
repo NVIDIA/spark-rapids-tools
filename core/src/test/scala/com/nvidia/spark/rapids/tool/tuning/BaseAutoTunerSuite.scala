@@ -202,8 +202,7 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     clusterProps: String,
     mockInfoProvider: AppInfoProviderMockTest,
     platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-    sparkMaster: Option[SparkMaster] = None,
-    tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+    sparkMaster: Option[SparkMaster] = None
   ): AutoTuner = {
 
     // Determine the SparkMaster using provided value or platform-based default
@@ -227,7 +226,6 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
 
     // Build and return the AutoTuner
     autoTunerConfigsProvider.buildAutoTunerFromProps(
-      clusterProps, mockInfoProvider, platform,
-      tuningTableProvider = tuningTableProvider)
+      clusterProps, mockInfoProvider, platform)
   }
 }

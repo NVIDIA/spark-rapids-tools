@@ -328,8 +328,7 @@ class AutoTuner(
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
-    val autoTunerConfigsProvider: AutoTunerConfigsProvider,
-    val tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+    val autoTunerConfigsProvider: AutoTunerConfigsProvider
   ) extends Logging {
 
   var comments = new mutable.ListBuffer[String]()
@@ -381,7 +380,7 @@ class AutoTuner(
     recommendationsTarget.foreach { key =>
       // no need to add new records if they are missing from props
       getPropertyValueFromSource(key).foreach { propVal =>
-        val recommendationVal = TuningEntry.build(key, Option(propVal), None, tuningTableProvider)
+        val recommendationVal = TuningEntry.build(key, Option(propVal), None, finalTuningTable.get(key))
         recommendations(key) = recommendationVal
       }
     }
@@ -389,46 +388,40 @@ class AutoTuner(
     platform.userEnforcedRecommendations.foreach {
       case (key, value) =>
         val recomRecord = recommendations.getOrElseUpdate(key,
-          TuningEntry.build(key, getPropertyValueFromSource(key), None, tuningTableProvider))
+          TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
         recomRecord.setRecommendedValue(value)
         appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
     }
   }
 
   /**
-   * Add default missing comments from the tuningEntry table if any.
+   * Add default missing comments.
    * @param key the property set by the autotuner.
    */
   private def appendMissingComment(key: String): Unit = {
-    val missingComment = tuningTableProvider.table.get(key)
-      .flatMap(_.getMissingComment())
-      .getOrElse(s"was not set.")
-    appendComment(s"'$key' $missingComment")
-  }
-
-  /**
-   * Append a comment to the list by looking up the persistent comment if any in the tuningEntry
-   * table.
-   * @param key the property set by the autotuner.
-   */
-  private def appendPersistentComment(key: String): Unit = {
-    tuningTableProvider.table.get(key).foreach { eDef =>
-      eDef.getPersistentComment().foreach { comment =>
-        appendComment(s"'$key' $comment")
-      }
+    finalTuningTable.get(key).flatMap(_.getMissingComment) match {
+      case Some(comment) => appendComment(s"'$key' $comment")
+      case None => appendComment(s"'$key' was not set.")
     }
   }
 
   /**
-   * Append a comment to the list by looking up the updated comment if any in the tuningEntry
-   * table. If it is not defined in the table, then add nothing.
+   * Append a comment to the list by looking up the persistent comment if any.
+   * @param key the property set by the autotuner.
+   */
+  private def appendPersistentComment(key: String): Unit = {
+    finalTuningTable.get(key).flatMap(_.getPersistentComment).foreach { comment =>
+      appendComment(s"'$key' $comment")
+    }
+  }
+
+  /**
+   * Append a comment to the list by looking up the updated comment if any.
    * @param key the property set by the autotuner.
    */
   private def appendUpdatedComment(key: String): Unit = {
-    tuningTableProvider.table.get(key).foreach { eDef =>
-      eDef.getUpdatedComment().foreach { comment =>
-        appendComment(s"'$key' $comment")
-      }
+    finalTuningTable.get(key).flatMap(_.getUpdatedComment).foreach { comment =>
+      appendComment(s"'$key' $comment")
     }
   }
 
@@ -445,7 +438,7 @@ class AutoTuner(
 
     // Update the recommendation entry or update the existing one.
     val recomRecord = recommendations.getOrElseUpdate(key,
-      TuningEntry.build(key, getPropertyValue(key), None, tuningTableProvider))
+      TuningEntry.build(key, getPropertyValue(key), None, finalTuningTable.get(key)))
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
@@ -1291,7 +1284,7 @@ class AutoTuner(
       fillInValue: Option[String] = None): Unit = {
     if (!skippedRecommendations.contains(key)) {
       val recomRecord = recommendations.getOrElseUpdate(key,
-        TuningEntry.build(key, getPropertyValueFromSource(key), None, tuningTableProvider))
+        TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
       recomRecord.markAsUnresolved(fillInValue)
       comments += comment
     }
@@ -1422,15 +1415,14 @@ class AutoTuner(
   }
 
   /**
-   * Gets the initial partition number property key by checking if the alias property
-   * exists in TuningEntry collection.
+   * Gets the initial partition number property key.
    * @return the property key to use for initial partition number
    */
   private def getInitialPartitionNumProperty: String = {
     val minShufflePartitionsKey = "spark.sql.adaptive.shuffle.minNumPostShufflePartitions"
     val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
-
-    if (tuningTableProvider.table.contains(minShufflePartitionsKey)) {
+    // check if minShufflePartitionsKey is in final tuning table
+    if (finalTuningTable.contains(minShufflePartitionsKey)) {
       minShufflePartitionsKey
     } else {
       initialPartitionNumKey
@@ -1446,7 +1438,12 @@ class AutoTuner(
     getPropertyValue(propertyKey)
   }
 
-  def recommendationsTarget: Iterable[String] = tuningTableProvider.table.keys
+  lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
+    platform.targetCluster
+      .map(_.getSparkProperties.tuningDefinitionsMap)
+      .getOrElse(Map.empty[String, TuningEntryDefinition])
+
+  def recommendationsTarget: Iterable[String] = finalTuningTable.keys
 }
 
 object AutoTuner {
@@ -1477,10 +1474,9 @@ class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
     appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider,
-    tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+    driverInfoProvider: DriverLogInfoProvider
   ) extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-    ProfilingAutoTunerConfigsProvider, tuningTableProvider) {
+    ProfilingAutoTunerConfigsProvider) {
 
   /**
    * Overrides the calculation for 'spark.sql.files.maxPartitionBytes'.
@@ -1670,20 +1666,18 @@ trait AutoTunerConfigsProvider extends Logging {
     clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider,
-    tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+    driverInfoProvider: DriverLogInfoProvider
   ): AutoTuner
 
   def handleException(
       ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider,
-      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+      driverInfoProvider: DriverLogInfoProvider
   ): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
     val tuning = createAutoTunerInstance(new ClusterProperties(), appInfo,
-      platform, driverInfoProvider, tuningTableProvider)
+      platform, driverInfoProvider)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1707,33 +1701,31 @@ trait AutoTunerConfigsProvider extends Logging {
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
-      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
       createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
+        singleAppProvider, platform, driverInfoProvider)
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
 
   def buildAutoTuner(
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
-      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
   ): AutoTuner = {
     try {
       val autoT = createAutoTunerInstance(
         platform.clusterProperties.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
+        singleAppProvider, platform, driverInfoProvider)
       autoT
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider)
     }
   }
 
@@ -1798,13 +1790,12 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider,
-      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+      driverInfoProvider: DriverLogInfoProvider
   ): AutoTuner = {
     appInfoProvider match {
       case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
         new ProfilingAutoTuner(
-          clusterProps, profilingAppProvider, platform, driverInfoProvider, tuningTableProvider)
+          clusterProps, profilingAppProvider, platform, driverInfoProvider)
       case _ =>
         throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
           s"${classOf[BaseProfilingAppSummaryInfoProvider]}")

@@ -156,23 +156,18 @@ class MemoryUnitTuningEntry(
 
 object TuningEntry extends Logging {
   /**
-   * Build a TuningEntry object and automatically pull the information from Tuning Entry Table.
+   * Build a TuningEntry object.
    * @param name the property label
    * @param originalValue the original value from the eventlog
    * @param tunedValue the value recommended by the AutoTuner
+   * @param tuningDefinition optional tuning definition
    * @return a TuningEntry object
    */
   def build(
       name: String,
       originalValue: Option[String],
       tunedValue: Option[String],
-      tuningTableProvider: TuningTableProvider): TuningEntryBase = {
-    // pull the information from Tuning Entry Table
-    val tuningDefinition = tuningTableProvider.table.get(name)
-    // for debugging purpose
-    if (tuningDefinition.isEmpty) {
-      logInfo("Tuning Entry is not defined for " + name)
-    }
+      tuningDefinition: Option[TuningEntryDefinition] = None): TuningEntryBase = {
     tuningDefinition match {
       case Some(defn) if defn.isMemoryProperty =>
         new MemoryUnitTuningEntry(name, originalValue, tunedValue, tuningDefinition)

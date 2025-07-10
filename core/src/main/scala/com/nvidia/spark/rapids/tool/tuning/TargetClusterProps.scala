@@ -88,8 +88,9 @@ class WorkerInfo (
  * This will be extended in future to include preserved and removed categories.
  */
 class SparkProperties(
-  @BeanProperty var enforced: util.LinkedHashMap[String, String]) {
-  def this() = this(new util.LinkedHashMap[String, String]())
+  @BeanProperty var enforced: util.LinkedHashMap[String, String],
+  @BeanProperty var tuningDefinitions: java.util.List[TuningEntryDefinition]) {
+  def this() = this(new util.LinkedHashMap[String, String](), new java.util.ArrayList[TuningEntryDefinition]())
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
     if (enforced == null || enforced.isEmpty) {
@@ -97,6 +98,17 @@ class SparkProperties(
     } else {
       import scala.collection.JavaConverters.mapAsScalaMapConverter
       enforced.asScala.toMap
+    }
+  }
+
+  lazy val tuningDefinitionsMap: Map[String, TuningEntryDefinition] = {
+    if (tuningDefinitions == null || tuningDefinitions.isEmpty) {
+      Map.empty
+    } else {
+      import scala.collection.JavaConverters._
+      tuningDefinitions.asScala.collect {
+        case e if e.isEnabled() => (e.label, e)
+      }.toMap
     }
   }
 }
