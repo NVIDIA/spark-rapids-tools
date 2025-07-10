@@ -1,0 +1,354 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Test-specific tuning table that includes alias properties for testing
+tuningDefinitions:
+  - label: spark.databricks.adaptive.autoOptimizeShuffle.enabled
+    description: >-
+      Auto-Optimized shuffle. It is recommended to turn it off to set 'spark.sql.shuffle.partitions' manually.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: boolean
+  - label: spark.dataproc.enhanced.execution.enabled
+    description: Enables enhanced execution. Turning this on might cause the accelerated dataproc cluster to hang.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: boolean
+    comments:
+      persistent: >-
+        should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+  - label: spark.dataproc.enhanced.optimizer.enabled
+    description: Enables enhanced optimizer. Turning this on might cause the accelerated dataproc cluster to hang.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: boolean
+    comments:
+      persistent: >-
+        should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+  - label: spark.executor.cores
+    description: The number of cores to use on each executor. It is recommended to be set to 16.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.executor.instances
+    description: >-
+      Controls parallelism level. It is recommended to be set to (cpuCoresPerNode * numWorkers) / spark.executor.cores.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.executor.memory
+    description: >-
+      Amount of memory to use per executor process. This is tuned based on the available CPU memory on worker node.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: MiB
+  - label: spark.executor.memoryOverhead
+    description: >-
+      Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
+      This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
+      This tends to grow with the executor size. 
+      Note: memoryOverheadFactor is not recommended as specifying the overhead explicitly is sufficient.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: MiB
+  - label: spark.kryo.registrator
+    description: >-
+      Fraction of executor memory to be allocated as additional non-heap memory per executor process.
+      This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
+      This tends to grow with the container size.
+    enabled: true
+    level: job
+    category: functionality
+    confType:
+      name: string
+    comments:
+      missing: should include GpuKryoRegistrator when using Kryo serialization.
+      updated: GpuKryoRegistrator must be appended to the existing value when using Kryo serialization.
+  - label: spark.kryoserializer.buffer.max
+    description: >-
+      This property helps manage the buffer used by Kryo during serialization, preventing out-of-memory
+      errors when dealing with large objects.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "64MB"
+    confType:
+      name: byte
+      defaultUnit: MiB
+    comments:
+      missing: setting the max buffer to prevent out-of-memory errors.
+      updated: increasing the max buffer to prevent out-of-memory errors.
+  - label: spark.locality.wait
+    description: >-
+      The time to wait to launch a data-local task before giving up and launching it on a less-local node.
+      It is recommended to avoid waiting for a data-local task.
+    enabled: true
+    level: cluster
+    category: tuning
+    defaultSpark: "3s"
+    confType:
+      name: time
+      unit: "ms"
+  - label: spark.rapids.filecache.enabled
+    description: >-
+      Enables RAPIDS file cache. The file cache stores data locally in the same local directories
+      that have been configured for the Spark executor.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: boolean
+  - label: spark.rapids.memory.pinnedPool.size
+    description: The size of the pinned memory pool in bytes unless otherwise specified. Use 0 to disable the pool.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.rapids.shuffle.multiThreaded.maxBytesInFlight
+    description: >-
+      This property controls the amount of bytes we allow in flight per Spark task.
+      This typically happens on the reader side, when blocks are received from the network,
+      they're queued onto these threads for decompression and decode.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.rapids.shuffle.multiThreaded.reader.threads
+    description: >-
+      The shuffle reader is a single implementation irrespective of the number of partitions.
+      Set the value to zero to turn off multi-threaded reader entirely.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.rapids.shuffle.multiThreaded.writer.threads
+    description: >-
+      Controls the number of threads used for writing shuffle data in a multi-threaded shuffle writer
+      for the Rapids shuffle implementation.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.rapids.sql.batchSizeBytes
+    description: >-
+      Set the target number of bytes for a GPU batch. Splits sizes for input data is covered by separate configs.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.rapids.sql.concurrentGpuTasks
+    description: >-
+      Set the number of tasks that can execute concurrently per GPU. Tasks may temporarily block when the number of
+      concurrent tasks in the executor exceeds this amount. Allowing too many concurrent tasks on the same GPU may
+      lead to GPU out of memory errors.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.rapids.sql.format.parquet.multithreaded.combine.waitTime
+    description: >-
+      When using the multithreaded parquet reader with combine mode, how long to wait, in milliseconds,
+      for more files to finish if haven't met the size threshold. Note that this will wait this amount
+      of time from when the last file was available, so total wait time could be larger then this.
+      DEPRECATED: use spark.rapids.sql.reader.multithreaded.combine.waitTime instead.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.rapids.sql.enabled
+    description: Should be true to enable SQL operations on the GPU.
+    enabled: true
+    level: cluster
+    category: functionality
+    confType:
+      name: boolean
+  - label: spark.rapids.sql.multiThreadedRead.numThreads
+    description: The maximum number of threads on each executor to use for reading small files in parallel.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.rapids.sql.reader.multithreaded.combine.sizeBytes
+    description: >-
+      The target size in bytes to combine multiple small files together when using the MULTITHREADED
+      parquet or orc reader. With combine disabled, the MULTITHREADED reader reads the files in parallel
+      and sends individual files down to the GPU, but that can be inefficient for small files.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.serializer
+    description: >-
+      Specifies which serialization mechanism to use when serializing objects during distributed computation.
+      This impacts performance, memory usage, and efficiency in data shuffling and caching.
+      When set to Kryo, then the GPU configuration has to include GpuKryoRegistrator for the kryo registrator property.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: string
+  - label: spark.shuffle.manager
+    description: >-
+      The RAPIDS Shuffle Manager is an implementation of the ShuffleManager interface in Apache Spark that
+      allows custom mechanisms to exchange shuffle data.
+      We currently expose two modes of operation; Multi Threaded and UCX.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: string
+  - label: spark.sql.adaptive.enabled
+    description: >-
+      When true, enable adaptive query execution, which re-optimizes the query plan in the middle of
+      query execution, based on accurate runtime statistics.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+  - label: spark.sql.adaptive.advisoryPartitionSizeInBytes
+    description: >-
+      The advisory size in bytes of the shuffle partition during adaptive optimization
+      (when 'spark.sql.adaptive.enabled' is true).
+      It takes effect when Spark coalesces small shuffle partitions or splits skewed shuffle partition.
+    enabled: true
+    level: job
+    category: tuning
+    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.sql.adaptive.coalescePartitions.initialPartitionNum
+    description: >-
+      The initial number of shuffle partitions before coalescing. If not set, it equals to
+      'spark.sql.shuffle.partitions'.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: int
+  - label: spark.sql.adaptive.coalescePartitions.minPartitionNum
+    description: >-
+      (deprecated) The suggested (not guaranteed) minimum number of shuffle partitions after coalescing.
+      If not set, the default value is the default parallelism of the Spark cluster.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: int
+  - label: spark.sql.adaptive.coalescePartitions.minPartitionSize
+    description: >-
+      The minimum size of shuffle partitions after coalescing. This is useful when the adaptively calculated
+      target size is too small during partition coalescing.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: 1m
+    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.sql.adaptive.coalescePartitions.parallelismFirst
+    description: >-
+      When true, Spark does not respect the target size specified by 'spark.sql.adaptive.advisoryPartitionSizeInBytes'
+      (default 64MB) when coalescing contiguous shuffle partitions, but adaptively calculate the target size
+      according to the default parallelism of the Spark cluster.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+  - label: spark.sql.adaptive.autoBroadcastJoinThreshold
+    description: >-
+      Configures the maximum size in bytes for a table that will be broadcast to all worker nodes when
+      performing a join. By setting this value to -1, broadcasting can be disabled.
+    enabled: true
+    level: job
+    category: tuning
+    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.sql.files.maxPartitionBytes
+    description: >-
+      The maximum number of bytes to pack into a single partition when reading files.
+      This configuration is effective only when using file-based sources such as Parquet, JSON and ORC.
+    enabled: true
+    level: job
+    category: tuning
+    defaultMemoryUnit: Byte
+    confType:
+      name: byte
+      defaultUnit: Byte
+  - label: spark.sql.shuffle.partitions
+    description: >-
+      The default number of partitions to use when shuffling data for joins or aggregations.
+      Note that for structured streaming, this configuration cannot be changed between query
+      restarts from the same checkpoint location.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "200"
+    confType:
+      name: int
+  - label: spark.task.resource.gpu.amount
+    description: >-
+      The GPU resource amount per task when Apache Spark schedules GPU resources.
+      For example, setting the value to 1 means that only one task will run concurrently per executor.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: double
+  # Test alias property for backward compatibility
+  - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+    description: >-
+      Legacy property that maps to spark.sql.adaptive.coalescePartitions.initialPartitionNum.
+      This is an alias property for backward compatibility with customized Spark distributions.
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: int 

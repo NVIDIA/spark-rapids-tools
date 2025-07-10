@@ -90,7 +90,8 @@ class WorkerInfo (
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],
   @BeanProperty var alias: util.LinkedHashMap[String, String]) {
-  def this() = this(new util.LinkedHashMap[String, String](), new util.LinkedHashMap[String, String]())
+  def this() = this(new util.LinkedHashMap[String, String](),
+    new util.LinkedHashMap[String, String]())
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
     if (enforced == null || enforced.isEmpty) {

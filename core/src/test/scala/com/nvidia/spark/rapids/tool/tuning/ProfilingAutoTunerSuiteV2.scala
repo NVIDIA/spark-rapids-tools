@@ -795,7 +795,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // to standard ones, using the specific example from the issue:
   // spark.sql.adaptive.shuffle.minNumPostShufflePartitions ->
   //   spark.sql.adaptive.coalescePartitions.initialPartitionNum
-  test("AutoTuner should handle aliased properties") {
+  test("AutoTuner should handle aliased properties from tuningTable.yaml") {
+    // Load the test-specific tuning table that includes the alias property
+    val testTuningTableProvider = TuningTableProvider.fromResource("tuningTable-test.yaml")
+
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("n1-standard-16", Option(1))
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
@@ -812,28 +815,21 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.executor.resource.gpu.amount" -> "1",
-        // This is the aliased property from the issue
+        // This is the aliased property from tuningTable.yaml
         // Set to 100 which is <= 200 (AQE_MIN_INITIAL_PARTITION_NUM) to trigger recommendation
         "spark.sql.adaptive.shuffle.minNumPostShufflePartitions" -> "100"
       )
 
-    // 3. Define enforced properties for the target cluster
+    // 3. Define enforced properties for the target cluster (no alias needed in target-cluster yaml)
     val enforcedSparkProperties = Map(
       "spark.task.resource.gpu.amount" -> "0.25",
       "spark.rapids.sql.concurrentGpuTasks" -> "2"
     )
 
-    // 4. Define alias mapping as specified in the issue
-    val aliasSparkProperties = Map(
-      "spark.sql.adaptive.shuffle.minNumPostShufflePartitions" ->
-        "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
-    )
-
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       instanceType = Some("n1-standard-16"),
       gpuCount = Some(1),
-      enforcedSparkProperties = enforcedSparkProperties,
-      aliasSparkProperties = aliasSparkProperties
+      enforcedSparkProperties = enforcedSparkProperties
     )
 
     val infoProvider = getMockInfoProvider(
@@ -847,7 +843,9 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
       sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val autoTuner = buildAutoTunerForTests(
+      sourceWorkerInfo, infoProvider, platform,
+      tuningTableProvider = testTuningTableProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
 

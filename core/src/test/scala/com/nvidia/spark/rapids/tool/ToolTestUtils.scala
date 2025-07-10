@@ -277,7 +277,7 @@ object ToolTestUtils extends Logging {
       fileWriter.close()
     }
   }
-  
+
   /**
    * Given a directory, find all files recursively in the directory with the given file name.
    * Example usage is to crate a list of all output files in a directory.

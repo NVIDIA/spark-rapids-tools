@@ -328,8 +328,9 @@ class AutoTuner(
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
-    val autoTunerConfigsProvider: AutoTunerConfigsProvider)
-  extends Logging {
+    val autoTunerConfigsProvider: AutoTunerConfigsProvider,
+    val tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+  ) extends Logging {
 
   var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
@@ -353,23 +354,9 @@ class AutoTuner(
   /**
    * Used to get the property value from the source properties
    * (i.e. from app info and cluster properties)
-   * This method also handles property aliasing by resolving the key using alias mappings.
    */
   private def getPropertyValueFromSource(key: String): Option[String] = {
-    // First try to get the value using the original key
-    val directValue = getAllSourceProperties.get(key)
-    if (directValue.isDefined) {
-      directValue
-    } else {
-      // If not found, try to resolve using alias mapping
-      // aliasPropertiesMap: alias -> standard
-      // If the input key is a standard key (value in alias map), find the corresponding alias key
-      val resolvedKey = platform.targetCluster.flatMap(
-        _.getSparkProperties.aliasPropertiesMap.find {
-          case (_, standardKey) => standardKey == key
-        }.map(_._1))
-      resolvedKey.flatMap(getAllSourceProperties.get)
-    }
+    getAllSourceProperties.get(key)
   }
 
   /**
@@ -395,10 +382,10 @@ class AutoTuner(
   }
 
   def initRecommendations(): Unit = {
-    autoTunerConfigsProvider.recommendationsTarget.foreach { key =>
+    recommendationsTarget.foreach { key =>
       // no need to add new records if they are missing from props
       getPropertyValueFromSource(key).foreach { propVal =>
-        val recommendationVal = TuningEntry.build(key, Option(propVal), None)
+        val recommendationVal = TuningEntry.build(key, Option(propVal), None, tuningTableProvider)
         recommendations(key) = recommendationVal
       }
     }
@@ -406,7 +393,7 @@ class AutoTuner(
     platform.userEnforcedRecommendations.foreach {
       case (key, value) =>
         val recomRecord = recommendations.getOrElseUpdate(key,
-          TuningEntry.build(key, getPropertyValueFromSource(key), None))
+          TuningEntry.build(key, getPropertyValueFromSource(key), None, tuningTableProvider))
         recomRecord.setRecommendedValue(value)
         appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
     }
@@ -417,7 +404,7 @@ class AutoTuner(
    * @param key the property set by the autotuner.
    */
   private def appendMissingComment(key: String): Unit = {
-    val missingComment = TuningEntryDefinition.TUNING_TABLE.get(key)
+    val missingComment = tuningTableProvider.table.get(key)
       .flatMap(_.getMissingComment())
       .getOrElse(s"was not set.")
     appendComment(s"'$key' $missingComment")
@@ -429,7 +416,7 @@ class AutoTuner(
    * @param key the property set by the autotuner.
    */
   private def appendPersistentComment(key: String): Unit = {
-    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+    tuningTableProvider.table.get(key).foreach { eDef =>
       eDef.getPersistentComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
@@ -442,7 +429,7 @@ class AutoTuner(
    * @param key the property set by the autotuner.
    */
   private def appendUpdatedComment(key: String): Unit = {
-    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+    tuningTableProvider.table.get(key).foreach { eDef =>
       eDef.getUpdatedComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
@@ -460,41 +447,34 @@ class AutoTuner(
       return
     }
 
-    // Check if the input key exists as a value in the alias map
-    // aliasPropertiesMap: alias -> standard
-    // If the input key is a standard key (value in alias map), use the corresponding alias key
-    val actualKey = platform.targetCluster.flatMap(_.getSparkProperties.aliasPropertiesMap.find {
-      case (_, standardKey) => standardKey == key
-    }.map(_._1)).getOrElse(key)
-
     // Skip if the actual key is in skipped recommendations
-    if (skippedRecommendations.contains(actualKey)) {
+    if (skippedRecommendations.contains(key)) {
       return
     }
 
     // Skip if the actual key is user-enforced
-    if (platform.getUserEnforcedSparkProperty(actualKey).isDefined) {
+    if (platform.getUserEnforcedSparkProperty(key).isDefined) {
       return
     }
 
     // Update the recommendation entry or update the existing one.
-    val recomRecord = recommendations.getOrElseUpdate(actualKey,
-      TuningEntry.build(actualKey, getPropertyValue(actualKey), None))
+    val recomRecord = recommendations.getOrElseUpdate(key,
+      TuningEntry.build(key, getPropertyValue(key), None, tuningTableProvider))
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
       recomRecord.getOriginalValue match {
         case None =>
           // add missing comment if any
-          appendMissingComment(actualKey)
+          appendMissingComment(key)
         case Some(originalValue) if originalValue != recomRecord.getTuneValue() =>
           // add updated comment if any
-          appendUpdatedComment(actualKey)
+          appendUpdatedComment(key)
         case _ =>
           // do not add any comment if the tuned value is the same as the original value
       }
       // add the persistent comment if any.
-      appendPersistentComment(actualKey)
+      appendPersistentComment(key)
     }
   }
 
@@ -1045,8 +1025,7 @@ class AutoTuner(
       platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      val initialPartitionNumProperty =
-        getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
+      val initialPartitionNumProperty = getInitialPartitionNumValue.map(_.toInt)
       if (initialPartitionNumProperty.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
@@ -1073,8 +1052,7 @@ class AutoTuner(
         // Set 'initialPartitionNum' when either:
         // - AutoTuner has not recommended 'spark.sql.shuffle.partitions' OR
         // - Recommended shuffle partitions is small (< recInitialPartitionNum)
-        appendRecommendation("spark.sql.adaptive.coalescePartitions.initialPartitionNum",
-          recInitialPartitionNum)
+        appendRecommendation(getInitialPartitionNumProperty, recInitialPartitionNum)
         appendRecommendation("spark.sql.shuffle.partitions", recInitialPartitionNum)
     }
     // scalastyle:on line.size.limit
@@ -1327,7 +1305,7 @@ class AutoTuner(
       fillInValue: Option[String] = None): Unit = {
     if (!skippedRecommendations.contains(key)) {
       val recomRecord = recommendations.getOrElseUpdate(key,
-        TuningEntry.build(key, getPropertyValueFromSource(key), None))
+        TuningEntry.build(key, getPropertyValueFromSource(key), None, tuningTableProvider))
       recomRecord.markAsUnresolved(fillInValue)
       comments += comment
     }
@@ -1456,6 +1434,33 @@ class AutoTuner(
       case (pK, pV) => RecommendedPropertyResult(pK, pV)
     }
   }
+
+  /**
+   * Gets the initial partition number property key by checking if the alias property
+   * exists in TuningEntry collection.
+   * @return the property key to use for initial partition number
+   */
+  private def getInitialPartitionNumProperty: String = {
+    val minShufflePartitionsKey = "spark.sql.adaptive.shuffle.minNumPostShufflePartitions"
+    val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
+
+    if (tuningTableProvider.table.contains(minShufflePartitionsKey)) {
+      minShufflePartitionsKey
+    } else {
+      initialPartitionNumKey
+    }
+  }
+
+  /**
+   * Gets the initial partition number value using the appropriate property key.
+   * @return the initial partition number value if found
+   */
+  private def getInitialPartitionNumValue: Option[String] = {
+    val propertyKey = getInitialPartitionNumProperty
+    getPropertyValue(propertyKey)
+  }
+
+  def recommendationsTarget: Iterable[String] = tuningTableProvider.table.keys
 }
 
 object AutoTuner {
@@ -1486,9 +1491,10 @@ class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
     appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider)
-  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-    ProfilingAutoTunerConfigsProvider) {
+    driverInfoProvider: DriverLogInfoProvider,
+    tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+  ) extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+    ProfilingAutoTunerConfigsProvider, tuningTableProvider) {
 
   /**
    * Overrides the calculation for 'spark.sql.files.maxPartitionBytes'.
@@ -1637,8 +1643,6 @@ trait AutoTunerConfigsProvider extends Logging {
   ) ++ commentsForMissingMemoryProps
   // scalastyle:off line.size.limit
 
-  lazy val recommendationsTarget: Iterable[String] = TuningEntryDefinition.TUNING_TABLE.keys
-
   val classPathComments: Map[String, String] = Map(
     "rapids.jars.missing" ->
       ("RAPIDS Accelerator for Apache Spark plugin jar is missing\n" +
@@ -1680,16 +1684,20 @@ trait AutoTunerConfigsProvider extends Logging {
     clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider): AutoTuner
+    driverInfoProvider: DriverLogInfoProvider,
+    tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+  ): AutoTuner
 
   def handleException(
       ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider,
+      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+  ): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
     val tuning = createAutoTunerInstance(new ClusterProperties(), appInfo,
-      platform, driverInfoProvider)
+      platform, driverInfoProvider, tuningTableProvider)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1713,31 +1721,33 @@ trait AutoTunerConfigsProvider extends Logging {
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
+      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
   ): AutoTuner = {
     try {
       val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
       createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider)
+        singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
     }
   }
 
   def buildAutoTuner(
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
+      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
   ): AutoTuner = {
     try {
       val autoT = createAutoTunerInstance(
         platform.clusterProperties.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider)
+        singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
       autoT
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider, tuningTableProvider)
     }
   }
 
@@ -1802,10 +1812,13 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider,
+      tuningTableProvider: TuningTableProvider = TuningTableProvider.fromDefaultResource()
+  ): AutoTuner = {
     appInfoProvider match {
       case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
-        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform, driverInfoProvider)
+        new ProfilingAutoTuner(
+          clusterProps, profilingAppProvider, platform, driverInfoProvider, tuningTableProvider)
       case _ =>
         throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
           s"${classOf[BaseProfilingAppSummaryInfoProvider]}")

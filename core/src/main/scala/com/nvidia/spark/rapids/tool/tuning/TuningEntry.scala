@@ -165,9 +165,10 @@ object TuningEntry extends Logging {
   def build(
       name: String,
       originalValue: Option[String],
-      tunedValue: Option[String]): TuningEntryBase = {
+      tunedValue: Option[String],
+      tuningTableProvider: TuningTableProvider): TuningEntryBase = {
     // pull the information from Tuning Entry Table
-    val tuningDefinition = TuningEntryDefinition.TUNING_TABLE.get(name)
+    val tuningDefinition = tuningTableProvider.table.get(name)
     // for debugging purpose
     if (tuningDefinition.isEmpty) {
       logInfo("Tuning Entry is not defined for " + name)

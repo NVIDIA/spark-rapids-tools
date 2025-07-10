@@ -135,6 +135,7 @@ class TuningEntryDefinition(
     defaultSpark != null
   }
 
+
   def getMissingComment(): Option[String] = {
     Option(comments.get("missing"))
   }
@@ -155,18 +156,32 @@ class TuningEntries(
   }
 }
 
+class TuningTableProvider(val table: Map[String, TuningEntryDefinition])
+
+object TuningTableProvider {
+  def fromDefaultResource(): TuningTableProvider =
+    new TuningTableProvider(
+      TuningEntryDefinition.loadTableFromResource("bootstrap/tuningTable.yaml"))
+  def fromResource(resource: String): TuningTableProvider =
+    new TuningTableProvider(TuningEntryDefinition.loadTableFromResource(resource))
+}
 
 object TuningEntryDefinition {
-  // A static Map between the propertyName and the TuningEntryDefinition
-  lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] = loadTable()
-
   /**
    * Load the tuning table from the yaml file.
    * @return a map between property name and the TuningEntryDefinition
    */
-  private def loadTable(): Map[String, TuningEntryDefinition] = {
-    val yamlSource =
-      UTF8Source.fromResource("bootstrap/tuningTable.yaml").mkString
+  //  private def loadTable(): Map[String, TuningEntryDefinition] = {
+  //    loadTableFromResource("bootstrap/tuningTable.yaml")
+  //  }
+
+  /**
+   * Load the tuning table from a specific yaml resource file.
+   * @param resourcePath the path to the yaml resource file
+   * @return a map between property name and the TuningEntryDefinition
+   */
+  def loadTableFromResource(resourcePath: String): Map[String, TuningEntryDefinition] = {
+    val yamlSource = UTF8Source.fromResource(resourcePath).mkString
     val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)
     val constructor = new Constructor(classOf[TuningEntries], new LoaderOptions())
