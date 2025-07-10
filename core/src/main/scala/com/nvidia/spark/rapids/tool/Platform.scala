@@ -106,6 +106,28 @@ object InstanceInfo {
 // format (instance type name, gpu count) -> InstanceInfo about that CSP node instance type
 object PlatformInstanceTypes {
 
+  // Default driver node mappings for each platform
+  // Selection: Nodes having atleast 8 cores and 32GB memory
+  val DEFAULT_DRIVER_NODES: Map[String, String] = Map(
+    PlatformNames.DATABRICKS_AWS -> "m6gd.2xlarge",
+    PlatformNames.DATABRICKS_AZURE -> "Standard_E8ds_v4",
+    PlatformNames.DATAPROC -> "n1-standard-16",
+    PlatformNames.DATAPROC_GKE -> "n1-standard-16",
+    PlatformNames.DATAPROC_SL -> "n1-standard-16",
+    PlatformNames.EMR -> "i3.2xlarge"
+  )
+
+  // Default worker node mappings for each platform
+  // Selection: Nodes used by the estimation model
+  val DEFAULT_WORKER_NODES: Map[String, String] = Map(
+    PlatformNames.DATABRICKS_AWS -> "g5.8xlarge",
+    PlatformNames.DATABRICKS_AZURE -> "Standard_NC8as_T4_v3",
+    PlatformNames.DATAPROC -> "g2-standard-16",
+    PlatformNames.DATAPROC_GKE -> "g2-standard-16",
+    PlatformNames.DATAPROC_SL -> "g2-standard-16",
+    PlatformNames.EMR -> "g6.4xlarge"
+  )
+
   // Using G6 instances for EMR
   val EMR_BY_INSTANCE_NAME: Map[NodeInstanceMapKey, InstanceInfo] = Map(
     NodeInstanceMapKey("g6.xlarge") -> InstanceInfo(4, 16 * 1024, "g6.xlarge", 1, L4Gpu),
@@ -223,10 +245,16 @@ object PlatformInstanceTypes {
 abstract class Platform(var gpuDevice: Option[GpuDevice],
     val clusterProperties: Option[ClusterProperties],
     val targetCluster: Option[TargetClusterProps]) extends Logging {
-  val platformName: String
-  def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = None
-  def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = None
-  def defaultRecommendedCoresPerExec: Int = 16
+  def platformName: String
+  private def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
+    PlatformInstanceTypes.DEFAULT_WORKER_NODES.get(platformName)
+      .map(instanceType => NodeInstanceMapKey(instanceType = instanceType))
+  }
+  private def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
+    PlatformInstanceTypes.DEFAULT_DRIVER_NODES.get(platformName)
+      .map(instanceType => NodeInstanceMapKey(instanceType = instanceType))
+  }
+  private def defaultRecommendedCoresPerExec: Int = 16
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
 
@@ -741,14 +769,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster)
   with Logging {
-  override val platformName: String = PlatformNames.DATABRICKS_AWS
-  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "g5.8xlarge"))
-  }
-
-  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "m6gd.2xlarge"))
-  }
+  override def platformName: String = PlatformNames.DATABRICKS_AWS
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATABRICKS_AWS_BY_INSTANCE_NAME
@@ -765,14 +786,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
   extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster) {
-  override val platformName: String = PlatformNames.DATABRICKS_AZURE
-  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "Standard_NC8as_T4_v3"))
-  }
-
-  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "Standard_E8ds_v4"))
-  }
+  override def platformName: String = PlatformNames.DATABRICKS_AZURE
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.AZURE_NCAS_T4_V3_BY_INSTANCE_NAME
@@ -789,14 +803,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
-  override val platformName: String = PlatformNames.DATAPROC
-  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "g2-standard-16"))
-  }
-
-  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "n1-standard-16"))
-  }
+  override def platformName: String = PlatformNames.DATAPROC
 
   // scalastyle:off line.size.limit
   /**
@@ -826,7 +833,7 @@ class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends DataprocPlatform(gpuDevice, clusterProperties, targetCluster) {
 
-  override val platformName: String = PlatformNames.DATAPROC_SL
+  override def platformName: String = PlatformNames.DATAPROC_SL
   override def defaultGpuDevice: GpuDevice = L4Gpu
   override def isPlatformCSP: Boolean = true
 }
@@ -836,7 +843,7 @@ class DataprocGkePlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends DataprocPlatform(gpuDevice, clusterProperties, targetCluster) {
 
-  override val platformName: String = PlatformNames.DATAPROC_GKE
+  override def platformName: String = PlatformNames.DATAPROC_GKE
   override def isPlatformCSP: Boolean = true
 }
 
@@ -844,14 +851,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
     clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
-  override val platformName: String = PlatformNames.EMR
-  override def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "g6.4xlarge"))
-  }
-
-  override def defaultRecommendedDriverNode: Option[NodeInstanceMapKey] = {
-    Some(NodeInstanceMapKey(instanceType = "i3.2xlarge"))
-  }
+  override def platformName: String = PlatformNames.EMR
 
   // scalastyle:off line.size.limit
   /**
@@ -893,7 +893,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, clusterProperties, targetCluster) {
 
-  override val platformName: String = PlatformNames.ONPREM
+  override def platformName: String = PlatformNames.ONPREM
   override def defaultGpuDevice: GpuDevice = L4Gpu
   override val defaultGpuForSpeedupFactor: GpuDevice = A100Gpu
   // on prem is hard since we don't know what node configurations they have
