@@ -444,17 +444,24 @@ class RapidsJarTool(RapidsTool):
         try:
             if tools_jar_url is None:
                 tools_jar_url = self.ctxt.get_rapids_jar_url()
-            # download the jar
-            self.logger.info('Downloading the tools jars %s', tools_jar_url)
-            jar_path = self.ctxt.platform.storage.download_resource(tools_jar_url,
-                                                                    self.ctxt.get_local_work_dir(),
-                                                                    fail_ok=False,
-                                                                    create_dir=True)
+
+            # Check if this is a local JAR from resources (to avoid race condition)
+            if self.ctxt.use_local_tools_jar():
+                # Use JAR directly from resources - no need to copy to work directory
+                jar_path = tools_jar_url
+                self.logger.info('Using tools jar directly from resources %s', jar_path)
+            else:
+                # download the jar for remote/external jars
+                self.logger.info('Downloading the tools jars %s', tools_jar_url)
+                jar_path = self.ctxt.platform.storage.download_resource(tools_jar_url,
+                                                                        self.ctxt.get_local_work_dir(),
+                                                                        fail_ok=False,
+                                                                        create_dir=True)
+                self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         except Exception as e:    # pylint: disable=broad-except
-            self.logger.exception('Exception occurred downloading jar %s', tools_jar_url)
+            self.logger.exception('Exception occurred processing jar %s', tools_jar_url)
             raise e
 
-        self.logger.info('RAPIDS accelerator tools jar is downloaded to work_dir %s', jar_path)
         # get the jar file name
         jar_file_name = FSUtil.get_resource_name(jar_path)
         version_match = re.search(r'\d{2}\.\d{2}\.\d+', jar_file_name)

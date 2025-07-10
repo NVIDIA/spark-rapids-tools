@@ -60,7 +60,7 @@ class ToolContext(YAMLPropertiesContainer):
     def __create_and_set_uuid(self):
         # For backward compatibility, we still generate the uuid with timestamp if
         # the environment variable is not set.
-        self.uuid = Utils.get_rapids_tools_env('UUID', Utils.gen_uuid_with_ts(suffix_len=8))
+        self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default
@@ -176,7 +176,7 @@ class ToolContext(YAMLPropertiesContainer):
 
     def _identify_tools_wheel_jar(self, resource_files: List[str]) -> None:
         """
-        Identifies the tools JAR file from resource files and sets its name in the context.
+        Identifies the tools JAR file from resource files and sets its path in the context.
         :param resource_files: List of resource files to search for the tools JAR file.
         :raises AssertionError: If the number of matching files is not exactly one.
         """
@@ -186,9 +186,9 @@ class ToolContext(YAMLPropertiesContainer):
         assert len(matched_files) == 1, \
             (f'Expected exactly one tools JAR file, found {len(matched_files)}. '
              'Rebuild the wheel package with the correct tools JAR file.')
-        # set the tools JAR file name in the context
+        # set the tools JAR file path in the context
         self.set_ctxt('useLocalToolsJar', True)
-        self.set_ctxt('toolsJarFileName', FSUtil.get_resource_name(matched_files[0]))
+        self.set_ctxt('toolsJarFilePath', matched_files[0])
 
     def load_tools_jar_resources(self):
         """
@@ -198,11 +198,11 @@ class ToolContext(YAMLPropertiesContainer):
         for tools_related_files in self.tools_resource_path:
             # This function uses a regex based comparison to identify the tools jar file
             # from the tools-resources directory. The jar is pre-packed in the wheel file
-            # and moved to the work directory when user runs the tool.
+            # and will be copied to the work directory when the tool runs.
             self.logger.info('Checking for tools related files in %s', tools_related_files)
             if os.path.exists(tools_related_files):
-                FSUtil.copy_resource(tools_related_files, self.get_cache_folder())
-                self._identify_tools_wheel_jar(FSUtil.get_all_files(tools_related_files))
+                tools_files = FSUtil.get_all_files(tools_related_files)
+                self._identify_tools_wheel_jar(tools_files)
 
     def load_prepackaged_resources(self):
         """
@@ -290,19 +290,17 @@ class ToolContext(YAMLPropertiesContainer):
 
     def _get_tools_jar_from_local(self) -> str:
         """
-        Extracts the tools JAR file from the context and returns its path from the cache folder.
+        Extracts the tools JAR file from the context and returns its path from the resources directory.
         """
-        jar_filename = self.get_ctxt('toolsJarFileName')
-        if jar_filename is None:
+        jar_filepath = self.get_ctxt('toolsJarFilePath')
+        if jar_filepath is None:
             raise ValueError(
-                'Tools JAR file name not found in context. '
+                'Tools JAR file path not found in context. '
                 'Make sure the tools JAR is included in the package.'
             )
-        # construct the path to the tools JAR file in the cache folder
-        jar_filepath = FSUtil.build_path(self.get_cache_folder(), jar_filename)
         if not FSUtil.resource_exists(jar_filepath):
             raise FileNotFoundError(
-                f'Tools JAR not found in cache folder: {jar_filepath}. '
+                f'Tools JAR not found at path: {jar_filepath}. '
                 'Rebuild the wheel package'
             )
         self.logger.info('Using jar from wheel file %s', jar_filepath)

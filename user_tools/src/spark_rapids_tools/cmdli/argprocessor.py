@@ -831,16 +831,12 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'ProfilingCoreUserArgModel':
-        # Use the sophisticated validation framework from ToolUserArgModel
         self.validate_arguments()
         return self
 
     def build_tools_args(self) -> dict:
-        # At this point, if the platform is still none, then we can set it to the default value
         runtime_platform = self.get_or_set_platform()
-        # process JVM arguments (simplified for core tool)
         self.process_jvm_args()
-        # process the tools config file
         self.load_tools_config()
 
         wrapped_args = {
