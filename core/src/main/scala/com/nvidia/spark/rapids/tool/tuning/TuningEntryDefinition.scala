@@ -167,14 +167,6 @@ object TuningTableProvider {
 
 object TuningEntryDefinition {
   /**
-   * Load the tuning table from the yaml file.
-   * @return a map between property name and the TuningEntryDefinition
-   */
-  //  private def loadTable(): Map[String, TuningEntryDefinition] = {
-  //    loadTableFromResource("bootstrap/tuningTable.yaml")
-  //  }
-
-  /**
    * Load the tuning table from a specific yaml resource file.
    * @param resourcePath the path to the yaml resource file
    * @return a map between property name and the TuningEntryDefinition
