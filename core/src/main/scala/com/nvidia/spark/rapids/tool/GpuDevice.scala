@@ -27,6 +27,7 @@ object GpuTypes {
   val P100 = "p100"
   val P4 = "p4"
   val L4 = "l4"
+  val L20 = "l20"
   val A10 = "a10"
   val A10G = "a10G"
 }
@@ -63,6 +64,12 @@ case object T4Gpu extends GpuDevice {
 case object L4Gpu extends GpuDevice {
   override def getMemory: String = "24576m"
   override def toString: String = GpuTypes.L4
+}
+
+case object L20Gpu extends GpuDevice {
+  // TODO: Add recommended values for advisory partition size
+  override def getMemory: String = "49152m"
+  override def toString: String = GpuTypes.L20
 }
 
 case object V100Gpu extends GpuDevice {
@@ -107,6 +114,7 @@ object GpuDevice extends Logging {
     GpuTypes.A100-> A100Gpu,
     GpuTypes.T4 -> T4Gpu,
     GpuTypes.L4 -> L4Gpu,
+    GpuTypes.L20 -> L20Gpu,
     GpuTypes.V100 -> V100Gpu,
     GpuTypes.K80 -> K80Gpu,
     GpuTypes.P100 -> P100Gpu,
