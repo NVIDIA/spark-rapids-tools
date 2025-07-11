@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import java.util
 
 import scala.beans.BeanProperty
+import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
 
@@ -90,13 +91,13 @@ class WorkerInfo (
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],
   @BeanProperty var tuningDefinitions: java.util.List[TuningEntryDefinition]) {
-  def this() = this(new util.LinkedHashMap[String, String](), new java.util.ArrayList[TuningEntryDefinition]())
+  def this() = this(new util.LinkedHashMap[String, String](),
+    new java.util.ArrayList[TuningEntryDefinition]())
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
     if (enforced == null || enforced.isEmpty) {
       Map.empty
     } else {
-      import scala.collection.JavaConverters.mapAsScalaMapConverter
       enforced.asScala.toMap
     }
   }
@@ -105,7 +106,6 @@ class SparkProperties(
     if (tuningDefinitions == null || tuningDefinitions.isEmpty) {
       Map.empty
     } else {
-      import scala.collection.JavaConverters._
       tuningDefinitions.asScala.collect {
         case e if e.isEnabled() => (e.label, e)
       }.toMap

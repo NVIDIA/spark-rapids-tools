@@ -161,10 +161,12 @@ object TuningEntryDefinition {
 
   /**
    * Load the tuning table from a specific yaml resource file.
-   * @param resourcePath the path to the yaml resource file, defaults to "bootstrap/tuningTable.yaml"
+   * @param resourcePath the path to the yaml resource file, defaults to
+   *                     "bootstrap/tuningTable.yaml"
    * @return a map between property name and the TuningEntryDefinition
    */
-  def loadTableFromResource(resourcePath: String = "bootstrap/tuningTable.yaml"): Map[String, TuningEntryDefinition] = {
+  def loadTableFromResource(resourcePath: String = "bootstrap/tuningTable.yaml"):
+    Map[String, TuningEntryDefinition] = {
     val yamlSource = UTF8Source.fromResource(resourcePath).mkString
     val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)

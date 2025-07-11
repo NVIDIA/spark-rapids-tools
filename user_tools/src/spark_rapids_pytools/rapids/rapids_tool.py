@@ -517,6 +517,17 @@ class RapidsJarTool(RapidsTool):
                 else:
                     # this could be a boolean type flag that has no arguments
                     arguments_list.append(f'{k_arg}')
+
+        # If the target cluster info is provided and contains worker info,
+        # set the context to indicate that worker info is provided.
+        # This is used later to determine if the Speed up calculation should be skipped if
+        # running the Qualification Tool.
+        target_cluster_info_file = self.rapids_options.get('target_cluster_info')
+        target_cluster_info = YAMLPropertiesContainer(target_cluster_info_file) if target_cluster_info_file else None
+        # workerInfo may or may not be present in the target cluster info.
+        worker_info = target_cluster_info.get_value_silent('workerInfo') if target_cluster_info else None
+        if worker_info:
+            self.ctxt.set_ctxt('targetWorkerInfoProvided', True)
         return arguments_list
 
     def _process_tool_args(self):
@@ -799,8 +810,17 @@ class RapidsJarTool(RapidsTool):
                                                 exec_files=exc_files)
             doc_url = self.ctxt.get_value('sparkRapids', 'outputDocURL')
             out_tree_list.append(f'{indentation}- To learn more about the output details, visit {doc_url}')
+            # If running qualification Tool and the target worker info is provided,
+            # then add a comment about speed up estimation being inaccurate.
+            target_worker_info_provided = self.ctxt.get_ctxt('targetWorkerInfoProvided')
+            # Lazy import Qualification to avoid circular import issues
+            from spark_rapids_pytools.rapids.qualification import Qualification  # pylint: disable=import-outside-toplevel
+            if isinstance(self, Qualification) and target_worker_info_provided:
+                inaccurate_speedup_comment =\
+                    self.ctxt.get_value('local', 'output', 'stdout', 'inaccurateSpeedupComment')
+                out_tree_list.append(f'{indentation}- {inaccurate_speedup_comment}')
             return out_tree_list
-        return None
+        return []
 
     def _report_tool_full_location(self) -> str:
         if not self._rapids_jar_tool_has_output():

@@ -377,10 +377,11 @@ class AutoTuner(
   }
 
   def initRecommendations(): Unit = {
-    recommendationsTarget.foreach { key =>
+    finalTuningTable.keys.foreach { key =>
       // no need to add new records if they are missing from props
       getPropertyValueFromSource(key).foreach { propVal =>
-        val recommendationVal = TuningEntry.build(key, Option(propVal), None, finalTuningTable.get(key))
+        val recommendationVal = TuningEntry.build(key, Option(propVal), None,
+          finalTuningTable.get(key))
         recommendations(key) = recommendationVal
       }
     }
@@ -1442,8 +1443,6 @@ class AutoTuner(
     platform.targetCluster
       .map(_.getSparkProperties.tuningDefinitionsMap)
       .getOrElse(Map.empty[String, TuningEntryDefinition])
-
-  def recommendationsTarget: Iterable[String] = finalTuningTable.keys
 }
 
 object AutoTuner {
@@ -1474,8 +1473,8 @@ class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
     appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider
-  ) extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+    driverInfoProvider: DriverLogInfoProvider)
+  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
     ProfilingAutoTunerConfigsProvider) {
 
   /**
@@ -1666,15 +1665,13 @@ trait AutoTunerConfigsProvider extends Logging {
     clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider
-  ): AutoTuner
+    driverInfoProvider: DriverLogInfoProvider): AutoTuner
 
   def handleException(
       ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider
-  ): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
     val tuning = createAutoTunerInstance(new ClusterProperties(), appInfo,
       platform, driverInfoProvider)
@@ -1790,12 +1787,10 @@ object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider
-  ): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     appInfoProvider match {
       case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
-        new ProfilingAutoTuner(
-          clusterProps, profilingAppProvider, platform, driverInfoProvider)
+        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform, driverInfoProvider)
       case _ =>
         throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
           s"${classOf[BaseProfilingAppSummaryInfoProvider]}")
