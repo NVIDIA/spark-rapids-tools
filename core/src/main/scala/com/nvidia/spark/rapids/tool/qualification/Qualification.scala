@@ -165,6 +165,9 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
             val newQualSummary = qualSumInfo.get
+            // If the recommended cluster info does not have a driver node type,
+            // set it to the platform default.
+            platform.setDefaultDriverNodeToRecommendedClusterIfMissing()
             val newClusterSummary = newQualSummary.clusterSummary.copy(
               recommendedClusterInfo = platform.recommendedClusterInfo)
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
