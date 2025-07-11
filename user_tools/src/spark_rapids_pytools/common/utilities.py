@@ -183,6 +183,21 @@ class Utils:
 class ToolLogging:
     """Holds global utilities used for logging."""
 
+    _logging_lock = threading.Lock()
+    _configured = False
+
+    @classmethod
+    def _ensure_configured(cls, debug_enabled: bool = False):
+        """Ensure logging is configured exactly once in a thread-safe manner."""
+        if cls._configured:
+            return
+
+        with cls._logging_lock:
+            if cls._configured:
+                return
+            logging.config.dictConfig(cls.get_log_dict({'debug': debug_enabled}))
+            cls._configured = True
+
     @classmethod
     def get_log_dict(cls, args):
         return {
@@ -218,7 +233,9 @@ class ToolLogging:
     @classmethod
     def get_and_setup_logger(cls, type_label: str, debug_mode: bool = False):
         debug_enabled = bool(Utils.get_rapids_tools_env('LOG_DEBUG', debug_mode))
-        logging.config.dictConfig(cls.get_log_dict({'debug': debug_enabled}))
+
+        cls._ensure_configured(debug_enabled)
+
         logger = logging.getLogger(type_label)
         log_file = Utils.get_rapids_tools_env('LOG_FILE')
         # Ensure multiple handlers are not added
