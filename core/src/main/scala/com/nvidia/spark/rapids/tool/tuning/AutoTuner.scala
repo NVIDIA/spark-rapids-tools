@@ -328,8 +328,7 @@ class AutoTuner(
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
-    val autoTunerConfigsProvider: AutoTunerConfigsProvider
-  ) extends Logging {
+    val autoTunerConfigsProvider: AutoTunerConfigsProvider) extends Logging {
 
   var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
@@ -396,14 +395,15 @@ class AutoTuner(
   }
 
   /**
-   * Add default missing comments.
+   * Append a comment to the list by looking up the persistent comment if any in the tuningEntry
+   * table.
    * @param key the property set by the autotuner.
    */
   private def appendMissingComment(key: String): Unit = {
-    finalTuningTable.get(key).flatMap(_.getMissingComment) match {
-      case Some(comment) => appendComment(s"'$key' $comment")
-      case None => appendComment(s"'$key' was not set.")
-    }
+    val missingComment = finalTuningTable.get(key)
+      .flatMap(_.getMissingComment())
+      .getOrElse(s"was not set.")
+    appendComment(s"'$key' $missingComment")
   }
 
   /**
@@ -411,18 +411,23 @@ class AutoTuner(
    * @param key the property set by the autotuner.
    */
   private def appendPersistentComment(key: String): Unit = {
-    finalTuningTable.get(key).flatMap(_.getPersistentComment).foreach { comment =>
-      appendComment(s"'$key' $comment")
+    finalTuningTable.get(key).foreach { eDef =>
+      eDef.getPersistentComment().foreach { comment =>
+        appendComment(s"'$key' $comment")
+      }
     }
   }
 
   /**
-   * Append a comment to the list by looking up the updated comment if any.
+   * Append a comment to the list by looking up the updated comment if any in the tuningEntry
+   * table. If it is not defined in the table, then add nothing.
    * @param key the property set by the autotuner.
    */
   private def appendUpdatedComment(key: String): Unit = {
-    finalTuningTable.get(key).flatMap(_.getUpdatedComment).foreach { comment =>
-      appendComment(s"'$key' $comment")
+    finalTuningTable.get(key).foreach { eDef =>
+      eDef.getUpdatedComment().foreach { comment =>
+        appendComment(s"'$key' $comment")
+      }
     }
   }
 
@@ -436,7 +441,6 @@ class AutoTuner(
       // skipped as we have already added it during the initialization.
       return
     }
-
     // Update the recommendation entry or update the existing one.
     val recomRecord = recommendations.getOrElseUpdate(key,
       TuningEntry.build(key, getPropertyValue(key), None, finalTuningTable.get(key)))
