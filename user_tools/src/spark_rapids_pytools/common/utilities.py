@@ -184,19 +184,18 @@ class ToolLogging:
     """Holds global utilities used for logging."""
 
     _logging_lock = threading.Lock()
-    _configured = False
+    _current_debug_state = None
 
     @classmethod
     def _ensure_configured(cls, debug_enabled: bool = False):
-        """Ensure logging is configured exactly once in a thread-safe manner."""
-        if cls._configured:
+        if cls._current_debug_state == debug_enabled:
             return
 
         with cls._logging_lock:
-            if cls._configured:
+            if cls._current_debug_state == debug_enabled:
                 return
             logging.config.dictConfig(cls.get_log_dict({'debug': debug_enabled}))
-            cls._configured = True
+            cls._current_debug_state = debug_enabled
 
     @classmethod
     def get_log_dict(cls, args):
