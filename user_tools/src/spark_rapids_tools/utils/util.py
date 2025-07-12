@@ -153,9 +153,7 @@ def init_environment(short_name: str):
     - This function is not implemented as the `__init__()` method to avoid execution
       when `--help` argument is passed.
     """
-    # Set the 'UUID' environment variable with a unique identifier.
     uuid = Utils.gen_uuid_with_ts(suffix_len=8)
-    Utils.set_rapids_tools_env('UUID', uuid)
 
     # Set the 'tools_home_dir' to store logs and other configuration files.
     home_dir = Utils.get_sys_env_var('HOME', '/tmp')
