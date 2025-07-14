@@ -193,6 +193,7 @@ class QualOutputFileReader:
             'sourceClusterInfo.dynamicAllocationMinExecutors': 'Dynamic Allocation Min Executors',
             'sourceClusterInfo.dynamicAllocationInitialExecutors': 'Dynamic Allocation Initial Executors',
             'sourceClusterInfo.coresPerExecutor': 'Cores Per Executor',
+            'recommendedClusterInfo.driverNodeType': 'Recommended Driver Node Type',
             'recommendedClusterInfo.workerNodeType': 'Recommended Worker Node Type',
             'recommendedClusterInfo.numExecutors': 'Recommended Num Executors',
             'recommendedClusterInfo.numWorkerNodes': 'Recommended Num Worker Nodes',

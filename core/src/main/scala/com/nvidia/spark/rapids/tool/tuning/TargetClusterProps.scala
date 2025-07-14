@@ -85,6 +85,18 @@ class WorkerInfo (
 }
 
 /**
+ * Class to hold the driver instance information for the target cluster.
+ */
+class DriverInfo (
+  @BeanProperty var instanceType: String) {
+  def this() = this("")
+
+  def isEmpty: Boolean = {
+    instanceType == null || instanceType.isEmpty
+  }
+}
+
+/**
  * Class to hold the Spark properties specified for the target cluster.
  * This will be extended in future to include preserved and removed categories.
  */
@@ -121,14 +133,19 @@ class SparkProperties(
  * @see [[org.apache.spark.sql.rapids.tool.util.PropertiesLoader]]
  */
 class TargetClusterProps (
+  @BeanProperty var driverInfo: DriverInfo,
   @BeanProperty var workerInfo: WorkerInfo,
   @BeanProperty var sparkProperties: SparkProperties) extends ValidatableProperties {
 
-  def this() = this(new WorkerInfo(), new SparkProperties())
+  def this() = this(new DriverInfo(), new WorkerInfo(), new SparkProperties())
 
-  // Validating only the worker info for now.
   override def validate(): Unit = {
     workerInfo.validate()
+    if (workerInfo.isOnpremInfo && !driverInfo.isEmpty) {
+      throw new IllegalArgumentException(
+        "OnPrem target cluster info does not support specifying driver instance type. " +
+          "Please remove the driver instance type from the target cluster info.")
+    }
   }
 
   override def toString: String = {

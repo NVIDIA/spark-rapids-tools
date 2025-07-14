@@ -370,10 +370,12 @@ local:
     clusterInference:
       cpuClusterColumns:
         - 'Num Worker Nodes'
+        - 'Driver Node Type'
         - 'Worker Node Type'
         - 'Cores Per Executor'
       gpuClusterColumns:
         - 'Recommended Num Worker Nodes'
+        - 'Recommended Driver Node Type'
         - 'Recommended Worker Node Type'
         - 'Recommended Cores Per Executor'
 

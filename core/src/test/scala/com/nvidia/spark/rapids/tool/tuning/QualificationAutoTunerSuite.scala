@@ -179,6 +179,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
    *
    * Target Cluster YAML file:
    * {{{
+   * driverInfo:
+   *  instanceType: n1-standard-8
    * workerInfo:
    *  instanceType: g2-standard-8
    * sparkProperties:
@@ -191,7 +193,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   test(s"test valid cluster shape recommendation with enforced spark properties on dataproc " +
     s"affecting the cluster shape") {
     val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
-    val testWorkerNodeType = Some("g2-standard-8")
     val testEnforcedSparkProperties = Map(
       "spark.executor.cores" -> "8",
       "spark.executor.instances" -> "4",
@@ -208,12 +209,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      workerNodeType = testWorkerNodeType
+      driverNodeType = Some("n1-standard-8"),
+      workerNodeType = Some("g2-standard-8")
     )
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
-        instanceType = testWorkerNodeType,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
         enforcedSparkProperties = testEnforcedSparkProperties)
 
       val appArgs = new QualificationArgs(Array(

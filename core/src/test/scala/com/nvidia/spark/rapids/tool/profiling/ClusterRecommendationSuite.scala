@@ -42,7 +42,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   val validClusterRecommendationScenarios: TableFor4[
       String, String, Option[Int], RecommendedClusterInfo] = Table(
     // Define the column headers
-    ("platform", "instanceType", "gpuCount", "expectedClusterInfo"),
+    ("platform", "workerNodeInstanceType", "gpuCount", "expectedClusterInfo"),
     // Test scenarios
     (
       PlatformNames.DATAPROC,
@@ -132,16 +132,16 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   )
   // scalastyle:on line.size.limit
   forAll(validClusterRecommendationScenarios) {
-    (platform, instanceType, gpuCount, expectedClusterInfo) =>
+    (platform, workerNodeInstanceType, gpuCount, expectedClusterInfo) =>
       val scenarioName = gpuCount match {
-        case Some(count) => s"$instanceType with $count GPUs"
-        case None => instanceType
+        case Some(count) => s"$workerNodeInstanceType with $count GPUs"
+        case None => workerNodeInstanceType
       }
       test(s"test valid cluster shape recommendation on $platform - $scenarioName") {
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = Some(instanceType),
+            workerNodeInstanceType = Some(workerNodeInstanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -220,7 +220,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = Some(instanceType),
+            workerNodeInstanceType = Some(instanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -250,6 +250,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
    *
    * Target Cluster YAML file:
    * {{{
+   * driverInfo:
+   *  instanceType: n1-standard-8
    * workerInfo:
    *  instanceType: g2-standard-8
    * sparkProperties:
@@ -273,6 +275,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some("n1-standard-8"),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -285,7 +288,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
-        instanceType = expectedClusterInfo.workerNodeType,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
         enforcedSparkProperties = expectedEnforcedSparkProperties)
 
       val appArgs = new ProfileArgs(Array(
@@ -396,6 +400,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = None,
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -406,7 +411,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
-        instanceType = expectedClusterInfo.workerNodeType,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
         enforcedSparkProperties = expectedEnforcedSparkProperties)
 
       val appArgs = new ProfileArgs(Array(
