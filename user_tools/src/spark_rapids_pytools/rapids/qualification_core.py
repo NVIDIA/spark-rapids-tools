@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Core implementation class for direct JAR execution of qualification tool."""
+"""Core implementation class for qualification tool base functionality."""
 
 from dataclasses import dataclass
 from typing import List
@@ -23,15 +23,29 @@ from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
 @dataclass
 class QualificationCore(RapidsJarTool):
     """
-    Core qualification tool that directly runs the Tools jar directly.
+    Base class for qualification tools that provides core qualification functionality.
     """
-    name = 'qualification'
+    name = 'qualification_core'
 
     def _process_custom_args(self) -> None:
         self._process_eventlogs_args()
 
     def _init_rapids_arg_list(self) -> List[str]:
-        return super()._init_rapids_arg_list() + ['--per-sql']
+        rapids_threads_args = self._get_rapids_threads_count(self.name)
+        return super()._init_rapids_arg_list() + ['--per-sql'] + rapids_threads_args
+
+    def _process_output(self) -> None:
+        if not self._evaluate_rapids_jar_tool_output_exist():
+            self.logger.warning('No output generated from qualification core tool')
+        else:
+            self.logger.info('Qualification core tool completed successfully')
+
+
+@dataclass
+class QualificationCoreAsLocal(QualificationCore):
+    """
+    QualificationCore tool running in local mode.
+    """
 
     def _copy_dependencies_to_remote(self):
         self.logger.info('Skipping preparing remote dependency folder')
@@ -48,8 +62,5 @@ class QualificationCore(RapidsJarTool):
     def _download_remote_output_folder(self):
         self.logger.debug('Local mode skipping downloading the remote output workdir')
 
-    def _process_output(self) -> None:
-        if not self._evaluate_rapids_jar_tool_output_exist():
-            self.logger.warning('No output generated from qualification core tool')
-        else:
-            self.logger.info('Qualification core tool completed successfully')
+    def _archive_results(self):
+        self._archive_local_results()

@@ -22,8 +22,8 @@ from spark_rapids_tools.enums import CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
-from spark_rapids_pytools.rapids.qualification_core import QualificationCore
-from spark_rapids_pytools.rapids.profiling_core import ProfilingCore
+from spark_rapids_pytools.rapids.qualification_core import QualificationCoreAsLocal
+from spark_rapids_pytools.rapids.profiling_core import ProfilingCoreAsLocal
 from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 
 
@@ -52,19 +52,20 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         """
         if verbose:
             ToolLogging.enable_debug_mode()
-        init_environment('qual')
+        session_uuid = init_environment('qual')
 
         qual_args = AbsToolUserArgModel.create_tool_args('qualification_core',
                                                          eventlogs=eventlogs,
                                                          platform=platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
-                                                         tools_config_path=tools_config_file)
+                                                         tools_config_path=tools_config_file,
+                                                         session_uuid=session_uuid)
         if qual_args:
-            tool_obj = QualificationCore(platform_type=qual_args['runtimePlatform'],
-                                         output_folder=qual_args['outputFolder'],
-                                         wrapper_options=qual_args,
-                                         rapids_options={})
+            tool_obj = QualificationCoreAsLocal(platform_type=qual_args['runtimePlatform'],
+                                                output_folder=qual_args['outputFolder'],
+                                                wrapper_options=qual_args,
+                                                rapids_options={})
             tool_obj.launch()
 
     def profiling_core(self,
@@ -92,19 +93,20 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         """
         if verbose:
             ToolLogging.enable_debug_mode()
-        init_environment('prof')
+        session_uuid = init_environment('prof')
 
         prof_args = AbsToolUserArgModel.create_tool_args('profiling_core',
                                                          eventlogs=eventlogs,
                                                          platform=platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
-                                                         tools_config_path=tools_config_file)
+                                                         tools_config_path=tools_config_file,
+                                                         session_uuid=session_uuid)
         if prof_args:
-            tool_obj = ProfilingCore(platform_type=prof_args['runtimePlatform'],
-                                     output_folder=prof_args['outputFolder'],
-                                     wrapper_options=prof_args,
-                                     rapids_options={})
+            tool_obj = ProfilingCoreAsLocal(platform_type=prof_args['runtimePlatform'],
+                                            output_folder=prof_args['outputFolder'],
+                                            wrapper_options=prof_args,
+                                            rapids_options={})
             tool_obj.launch()
 
     def generate_instance_description(self,

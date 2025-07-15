@@ -58,9 +58,10 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
-        # For backward compatibility, we still generate the uuid with timestamp if
-        # the environment variable is not set.
-        self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+        if self.platform_opts.get('sessionUuid'):
+            self.uuid = self.platform_opts['sessionUuid']
+        else:
+            self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default

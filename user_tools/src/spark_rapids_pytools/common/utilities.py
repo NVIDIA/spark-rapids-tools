@@ -188,9 +188,6 @@ class ToolLogging:
 
     @classmethod
     def _ensure_configured(cls, debug_enabled: bool = False):
-        if cls._current_debug_state == debug_enabled:
-            return
-
         with cls._logging_lock:
             if cls._current_debug_state == debug_enabled:
                 return

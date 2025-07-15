@@ -146,12 +146,14 @@ def gen_app_banner(mode: str = '') -> str:
 """
 
 
-def init_environment(short_name: str):
+def init_environment(short_name: str) -> str:
     """
     Initialize the Python Rapids tool environment.
     Note:
     - This function is not implemented as the `__init__()` method to avoid execution
       when `--help` argument is passed.
+    Returns:
+        str: The generated UUID for this tool execution session.
     """
     uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
@@ -170,6 +172,8 @@ def init_environment(short_name: str):
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
+
+    return uuid
 
 
 class Utilities:

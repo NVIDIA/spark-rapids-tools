@@ -31,13 +31,22 @@ class ProfilingCore(RapidsJarTool):
         self._process_eventlogs_args()
 
     def _init_rapids_arg_list(self) -> List[str]:
-        return super()._init_rapids_arg_list() + ['--csv', '--output-sql-ids-aligned']
+        rapids_threads_args = self._get_rapids_threads_count(self.name)
+        return super()._init_rapids_arg_list() + ['--csv', '--output-sql-ids-aligned'] + rapids_threads_args
 
     def _process_output(self) -> None:
         if not self._evaluate_rapids_jar_tool_output_exist():
             self.logger.warning('No output files found from profiling core tool')
         else:
             self.logger.info('Profiling core tool completed successfully')
+
+
+@dataclass
+class ProfilingCoreAsLocal(ProfilingCore):
+    """
+    ProfilingCore tool running in local mode.
+    """
+    description: str = 'This is the local ProfilingCore for direct JAR execution'
 
     def _download_remote_output_folder(self):
         self.logger.debug('Local mode skipping downloading the remote output workdir')
@@ -50,3 +59,6 @@ class ProfilingCore(RapidsJarTool):
 
     def _prepare_job_arguments(self):
         super()._prepare_local_job_arguments()
+
+    def _archive_results(self):
+        self._archive_local_results()

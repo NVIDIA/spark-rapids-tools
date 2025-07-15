@@ -98,6 +98,7 @@ class AbsToolUserArgModel:
     platform: Optional[CspEnv] = None
     output_folder: Optional[str] = None
     tools_jar: Optional[str] = None
+    session_uuid: Optional[str] = None
     rejected: dict = dataclasses.field(init=False, default_factory=dict)
     detected: dict = dataclasses.field(init=False, default_factory=dict)
     extra: dict = dataclasses.field(init=False, default_factory=dict)
@@ -796,15 +797,19 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
         self.process_jvm_args()
         self.load_tools_config()
 
+        platform_opts = {
+            'credentialFile': None,
+            'deployMode': DeployMode.LOCAL
+        }
+        if self.session_uuid:
+            platform_opts['sessionUuid'] = self.session_uuid
+
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
             'eventlogs': self.eventlogs,
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'platformOpts': {
-                'credentialFile': None,
-                'deployMode': DeployMode.LOCAL
-            },
+            'platformOpts': platform_opts,
             'jobSubmissionProps': {
                 'remoteFolder': None,
                 'platformArgs': {
@@ -839,15 +844,19 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
         self.process_jvm_args()
         self.load_tools_config()
 
+        platform_opts = {
+            'credentialFile': None,
+            'deployMode': DeployMode.LOCAL
+        }
+        if self.session_uuid:
+            platform_opts['sessionUuid'] = self.session_uuid
+
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
             'eventlogs': self.eventlogs,
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'platformOpts': {
-                'credentialFile': None,
-                'deployMode': DeployMode.LOCAL
-            },
+            'platformOpts': platform_opts,
             'jobSubmissionProps': {
                 'remoteFolder': None,
                 'platformArgs': {
