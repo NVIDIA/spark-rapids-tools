@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TargetClusterProps, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import com.nvidia.spark.rapids.tool.views.qualification.{QualPerAppReportGenerator, QualReportGenConfProvider, QualToolReportGenerator}
 import org.apache.hadoop.conf.Configuration
@@ -36,7 +36,8 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
     enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String])
+    clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String],
+    targetClusterInfoPath: Option[String])
   extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
@@ -124,7 +125,9 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
       val platform = {
         val clusterPropsOpt = workerInfoPath.flatMap(
           PropertiesLoader[ClusterProperties].loadFromFile)
-        PlatformFactory.createInstance(platformArg, clusterPropsOpt)
+        val targetClusterPropsOpt = targetClusterInfoPath.flatMap(
+          PropertiesLoader[TargetClusterProps].loadFromFile)
+        PlatformFactory.createInstance(platformArg, clusterPropsOpt, targetClusterPropsOpt)
       }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions, platform)
@@ -162,6 +165,9 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
             val newQualSummary = qualSumInfo.get
+            // If the recommended cluster info does not have a driver node type,
+            // set it to the platform default.
+            platform.setDefaultDriverNodeToRecommendedClusterIfMissing()
             val newClusterSummary = newQualSummary.clusterSummary.copy(
               recommendedClusterInfo = platform.recommendedClusterInfo)
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>

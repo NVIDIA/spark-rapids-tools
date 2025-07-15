@@ -115,8 +115,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       default = Some(false))
   val targetClusterInfo: ScallopOption[String] =
     opt[String](required = false,
-      descr = "File path containing the system information of the target cluster. " +
-        "This is supported only for CSP platform yet.")
+      descr = "File path containing the system information of the target cluster")
 
   validate(filterCriteria) {
     case crit if crit.endsWith("-newest-filesystem") ||

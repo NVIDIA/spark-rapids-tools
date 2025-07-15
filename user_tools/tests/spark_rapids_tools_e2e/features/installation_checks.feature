@@ -19,7 +19,7 @@ Feature: Tool Installation Checks
     Given platform is "<platform>"
     And "<cli>" is not installed
     When spark-rapids tool is executed with "join_agg_on_yarn_eventlog.zstd" eventlogs
-    Then stdout contains the following
+    Then stdout does "contain" the following
       """
       <expected_stdout>
       """

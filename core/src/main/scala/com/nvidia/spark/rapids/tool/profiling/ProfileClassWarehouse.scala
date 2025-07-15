@@ -377,9 +377,14 @@ case class AppInfoProfileResults(
     appId: Option[String],
     attemptId: Option[Int],
     sparkUser: String,
-    startTime: Long, endTime: Option[Long], duration: Option[Long],
-    durationStr: String, sparkRuntime: SparkRuntime.SparkRuntime, sparkVersion: String,
-    pluginEnabled: Boolean)  extends ProfileResult {
+    startTime: Long,
+    endTime: Option[Long],
+    duration: Option[Long],
+    durationStr: String,
+    sparkRuntime: SparkRuntime.SparkRuntime,
+    sparkVersion: String,
+    pluginEnabled: Boolean,
+    totalCoreSeconds: Long)  extends ProfileResult {
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("AppInfoProfileResults")
   }
@@ -415,7 +420,8 @@ case class AppInfoProfileResults(
   override def convertToSeq(): Array[String] = {
     Array(appName, appIdToStr, attemptIdToStr,
       sparkUser, startTime.toString, endTimeToStr, durToStr,
-      durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString)
+      durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString,
+      totalCoreSeconds.toString)
   }
 
   override def convertToCSVSeq(): Array[String] = {
@@ -425,7 +431,9 @@ case class AppInfoProfileResults(
       StringUtils.reformatCSVString(sparkUser),
       startTime.toString, endTimeToStr, durToStr, StringUtils.reformatCSVString(durationStr),
       StringUtils.reformatCSVString(sparkRuntime.toString),
-      StringUtils.reformatCSVString(sparkVersion), pluginEnabled.toString)
+      StringUtils.reformatCSVString(sparkVersion),
+      pluginEnabled.toString,
+      totalCoreSeconds.toString)
   }
 }
 

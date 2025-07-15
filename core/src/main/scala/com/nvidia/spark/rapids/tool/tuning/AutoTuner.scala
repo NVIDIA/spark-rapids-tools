@@ -794,7 +794,7 @@ class AutoTuner(
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
       val availableMemPerExec =
-        platform.recommendedNodeInstanceInfo.map(_.getMemoryPerExec).getOrElse(0.0)
+        platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
       val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
         val availableMemPerExecExpr = () => availableMemPerExec
         val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)

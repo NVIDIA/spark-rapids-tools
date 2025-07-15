@@ -24,7 +24,7 @@ import subprocess
 from attr import dataclass
 from enum import auto
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from urllib.parse import urlparse
 
 from spark_rapids_tools import EnumeratedType
@@ -68,16 +68,18 @@ class E2ETestUtils:
             f"{error_msg}\n{cls.get_cmd_output_str(cmd_result)}"
 
     @classmethod
-    def create_spark_rapids_cmd(cls,
-                                event_logs: List[str],
-                                output_dir: str,
-                                platform: str = 'onprem',
-                                filter_apps: str = 'all') -> List[str]:
+    def create_spark_rapids_qual_cmd(cls,
+                                     *,
+                                     event_logs: List[str],
+                                     output_dir: str,
+                                     platform: str = 'onprem',
+                                     filter_apps: str = 'all',
+                                     target_cluster_info: Optional[str] = None) -> List[str]:
         """
         Create the command to run the Spark Rapids qualification tool.
         TODO: We can add more options to the command as needed.
         """
-        return [
+        base_cmd = [
             cls.get_spark_rapids_cli(),
             'qualification',
             '--platform', platform,
@@ -86,6 +88,32 @@ class E2ETestUtils:
             '--verbose',
             '--filter_apps', filter_apps
         ]
+        if target_cluster_info:
+            base_cmd.extend(['--target_cluster_info', target_cluster_info])
+        return base_cmd
+
+    @classmethod
+    def create_spark_rapids_profiling_cmd(cls,
+                                          *,
+                                          event_logs: List[str],
+                                          output_dir: str,
+                                          platform: str = 'onprem',
+                                          target_cluster_info: Optional[str] = None) -> List[str]:
+        """
+        Create the command to run the Spark Rapids profiling tool.
+        TODO: We can add more options to the command as needed.
+        """
+        base_cmd = [
+            cls.get_spark_rapids_cli(),
+            'profiling',
+            '--platform', platform,
+            '--eventlogs', ','.join(event_logs),
+            '-o', output_dir,
+            '--verbose'
+        ]
+        if target_cluster_info:
+            base_cmd.extend(['--target_cluster_info', target_cluster_info])
+        return base_cmd
 
     # Utility getter functions
     @staticmethod

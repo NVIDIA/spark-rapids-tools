@@ -16,20 +16,29 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import java.nio.file.Paths
+
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
+import com.nvidia.spark.rapids.tool.qualification.{QualificationArgs, QualificationMain}
+import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
+import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider
+import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor3
 
-import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
+import org.apache.spark.sql.TrampolineUtil
+import org.apache.spark.sql.rapids.tool.RecommendedClusterInfo
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, PropertiesLoader}
 
 /**
  * Suite to test the Qualification Tool's AutoTuner
  */
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
+  val qualLogDir: String = ToolTestUtils.getTestResourcePath("spark-events-qualification")
   val autoTunerConfigsProvider: AutoTunerConfigsProvider = QualificationAutoTunerConfigsProvider
 
   /**
@@ -160,6 +169,135 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
       val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
       assertExpectedLinesExist(expectedResults, autoTunerOutput)
+    }
+  }
+
+  /**
+   * Test to validate the cluster shape recommendation with enforced spark properties.
+   * This tests that if the user has enforced `spark.executor.instances`, this will
+   * affect the recommended cluster shape.
+   *
+   * Target Cluster YAML file:
+   * {{{
+   * driverInfo:
+   *  instanceType: n1-standard-8
+   * workerInfo:
+   *  instanceType: g2-standard-8
+   * sparkProperties:
+   *  enforced:
+   *    spark.executor.cores: 8
+   *    spark.executor.instances: 4
+   *    spark.executor.memory: 12g
+   * }}}
+   */
+  test(s"test valid cluster shape recommendation with enforced spark properties on dataproc " +
+    s"affecting the cluster shape") {
+    val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
+    val testEnforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "4",
+      "spark.rapids.sql.batchSizeBytes" -> "3g"
+    )
+    val expectedClusterInfo = RecommendedClusterInfo(
+      vendor = PlatformNames.DATAPROC,
+      coresPerExecutor = 8,
+      numWorkerNodes = 4,
+      numGpusPerNode = 1,
+      numExecutors = 4,
+      gpuDevice = GpuTypes.L4,
+      dynamicAllocationEnabled = false,
+      dynamicAllocationMaxExecutors = "N/A",
+      dynamicAllocationMinExecutors = "N/A",
+      dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some("n1-standard-8"),
+      workerNodeType = Some("g2-standard-8")
+    )
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
+        enforcedSparkProperties = testEnforcedSparkProperties)
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--auto-tuner",
+        testEventLog
+        ))
+
+      val result = QualificationMain.mainInternal(appArgs)
+      assert(!result.isFailed)
+      val appId = result.appSummaries.headOption.map(_.appId)
+        .getOrElse(throw new TestFailedException("No appId found in the result", 0))
+
+      // 1. Verify the recommended cluster info
+      val clusterInfoFileName = s"${CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase}.json"
+      val actualClusterInfoFile = Paths.get(
+        QualReportGenConfProvider.getPerAppReportPath(tempDir.getAbsolutePath),
+        appId, clusterInfoFileName
+      ).toFile
+      assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
+
+      // 2. Verify the enforced spark properties
+      val tuningResultPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId.log"
+      ).toString
+      val actualTuningResults = FSUtils.readFileContentAsUTF8(tuningResultPath)
+
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |### Recommended SPARK Configuration on GPU Cluster for App: $appId ###
+            |
+            |Spark Properties:
+            |--conf spark.dataproc.enhanced.execution.enabled=true
+            |--conf spark.dataproc.enhanced.optimizer.enabled=true
+            |--conf spark.executor.cores=8
+            |--conf spark.executor.instances=4
+            |--conf spark.executor.memory=16g
+            |--conf spark.executor.memoryOverhead=9830m
+            |--conf spark.locality.wait=0
+            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+            |--conf spark.rapids.sql.batchSizeBytes=3g
+            |--conf spark.rapids.sql.concurrentGpuTasks=3
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
+            |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark353.RapidsShuffleManager
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+            |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
+            |--conf spark.sql.adaptive.enabled=true
+            |--conf spark.sql.files.maxPartitionBytes=1644m
+            |--conf spark.sql.shuffle.partitions=128
+            |--conf spark.task.resource.gpu.amount=0.001
+            |
+            |Comments:
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.instances")}
+            |- 'spark.rapids.memory.pinnedPool.size' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.rapids.sql.batchSizeBytes")}
+            |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.shuffle.manager' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.files.maxPartitionBytes' was not set.
+            |- 'spark.task.resource.gpu.amount' was not set.
+            |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
+            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin.trim
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, actualTuningResults)
     }
   }
 }

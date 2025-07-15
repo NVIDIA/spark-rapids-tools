@@ -347,7 +347,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     val exec = app.getOrCreateExecutor(event.executorId, event.time)
     exec.isActive = false
     exec.removeTime = event.time
-    exec.removeReason = event.reason
+    exec.removeReason =
+      StringUtils.renderStr(event.reason, doEscapeMetaCharacters = true, maxLength = 0)
   }
 
   override def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved): Unit = {

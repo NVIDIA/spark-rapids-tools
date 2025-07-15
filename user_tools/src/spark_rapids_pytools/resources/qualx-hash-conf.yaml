@@ -22,6 +22,7 @@ remove_nodes_prefix:
   - ColumnarToRow  # only appears in CPU plans
   - InputAdapter  # only appears in CPU plans
   - ReusedExchange  # only appears in CPU plans
+  - WindowSort # only appears in CPU plans
   - WholeStageCodegen  # only appears in CPU plans
   # GPU
   - GpuCoalesceBatches  # only appears in GPU plans
