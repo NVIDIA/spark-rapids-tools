@@ -125,6 +125,12 @@ abstract class AppBase(
   // A task is added during a TaskEnd eventLog
   lazy val taskManager: TaskModelManager = new TaskModelManager()
 
+  // The sum over executor core seconds.
+  // The duration of an executor is the upTime which is the difference between removalTime and
+  // addTime.
+  // Caches the total core seconds to be used between both Profiler and Qualification output.
+  lazy val totalCoreSeconds: Long = calculateTotalCoreSec()
+
   var driverAccumMap: HashMap[Long, ArrayBuffer[DriverAccumCase]] =
     HashMap[Long, ArrayBuffer[DriverAccumCase]]()
 
@@ -216,31 +222,6 @@ abstract class AppBase(
     } else {
       None
     }
-  }
-
-  /**
-   * Calculates total core seconds which is the sum over executor core seconds. Executor
-   * core seconds is computed as executor duration (s) multiplied by num of cores.
-   */
-  def calculateTotalCoreSec(): Long = {
-    var totalCoreSec: Double = 0
-    executorIdToInfo.foreach { case(_, eInfo) =>
-      val eStartTime = eInfo.addTime
-      var eEndTime = eInfo.removeTime
-      if (eEndTime == 0L) {
-        getAppEndTime match {
-          case Some(appEndTime) =>
-            eEndTime = appEndTime
-          case None =>
-            logInfo("Unable to find either executor or app end time: " +
-              "setting executor duration to 0")
-            eEndTime = eStartTime
-        }
-      }
-      totalCoreSec += (eEndTime - eStartTime).toDouble / 1000 * eInfo.totalCores
-    }
-    // round up for edge case when total core seconds is in range [0, 1)
-    math.ceil(totalCoreSec).toLong
   }
 
   def getOrCreateExecutor(executorId: String, addTime: Long): ExecutorInfoClass = {
@@ -589,6 +570,31 @@ abstract class AppBase(
         throw UnsupportedSparkRuntimeException(p, parsedRuntime)
       )
     }
+  }
+
+  /**
+   * Calculates total core seconds which is the sum over executor core seconds. Executor
+   * core seconds is computed as executor duration (s) multiplied by num of cores.
+   */
+  private def calculateTotalCoreSec(): Long = {
+    var totalCoreSec: Double = 0
+    executorIdToInfo.foreach { case(_, eInfo) =>
+      val eStartTime = eInfo.addTime
+      var eEndTime = eInfo.removeTime
+      if (eEndTime == 0L) {
+        getAppEndTime match {
+          case Some(appEndTime) =>
+            eEndTime = appEndTime
+          case None =>
+            logInfo("Unable to find either executor or app end time: " +
+              "setting executor duration to 0")
+            eEndTime = eStartTime
+        }
+      }
+      totalCoreSec += (eEndTime - eStartTime).toDouble / 1000 * eInfo.totalCores
+    }
+    // round up for edge case when total core seconds is in range [0, 1)
+    math.ceil(totalCoreSec).toLong
   }
 }
 

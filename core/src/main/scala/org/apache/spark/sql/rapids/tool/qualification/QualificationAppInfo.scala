@@ -641,7 +641,7 @@ class QualificationAppInfo(
         mlFunctions = mlFuncReportInfo.mlFunctionsAndStageInfo,
         mlFunctionsStageDurations = mlFuncReportInfo.mlTotalStageDurations,
         clusterSummary = clusterSummary,
-        totalCoreSec = calculateTotalCoreSec())
+        totalCoreSec = totalCoreSeconds)
     }
   }
 
