@@ -53,7 +53,11 @@ class EnumeratedType(str, Enum):
         """
         attribute = getattr(cls, value.upper(), None)
         if attribute is None:
-            raise ValueError(f'{value} is not a valid {cls.__name__}')
+            # Call the enum constructor to call _missing_ in case no match
+            try:
+                return cls(value)
+            except ValueError as exc:
+                raise ValueError(f'{value} is not a valid {cls.__name__}') from exc
         return attribute
 
     @classmethod

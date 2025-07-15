@@ -339,18 +339,24 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
+def process_eventlog_path(eventlog_path: str) -> str:
+    """
+    This processing is needed for the Scala tools to work with S3a paths
+    """
+    if eventlog_path.startswith('s3://'):
+        return eventlog_path.replace('s3://', 's3a://', 1)
+    return eventlog_path
+
+
 def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    # Split platform on underscore and get the first part (e.g., 'databricks-aws' -> 'databricks')
-    base_platform = platform.split('_')[0]
-
     def run_profiling_core(eventlog: str) -> None:
         dev_cli = DevCLI()
         dev_cli.profiling_core(
-            eventlogs=os.path.expandvars(eventlog),
-            platform=base_platform,
+            eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
+            platform=platform,
             output_folder=output_dir,
             tools_jar=None,
             tools_config_file=tools_config,
@@ -365,9 +371,6 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    # Split platform on underscore and get the first part (e.g., 'databricks-aws_velox' -> 'databricks-aws')
-    base_platform = platform.split('_')[0]
-
     if skip_run:
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
@@ -378,8 +381,8 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
                 return
             dev_cli = DevCLI()
             dev_cli.qualification_core(
-                eventlogs=os.path.expandvars(eventlog),
-                platform=base_platform,
+                eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
+                platform=platform,
                 output_folder=output_dir,
                 tools_jar=None,
                 tools_config_file=tools_config,
