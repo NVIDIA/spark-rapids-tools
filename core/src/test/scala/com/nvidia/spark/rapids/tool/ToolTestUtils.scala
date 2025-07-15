@@ -236,9 +236,12 @@ object ToolTestUtils extends Logging {
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty): String = {
+      enforcedSparkProperties: Map[String, String] = Map.empty,
+      tuningDefinitions: java.util.List[TuningEntryDefinition] =
+        new java.util.ArrayList[TuningEntryDefinition]()): String = {
     val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
-      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties,
+      tuningDefinitions)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -259,13 +262,15 @@ object ToolTestUtils extends Logging {
        gpuCount: Option[Int] = None,
        gpuMemory: Option[String] = None,
        gpuDevice: Option[String] = None,
-       enforcedSparkProperties: Map[String, String] = Map.empty): Path = {
+       enforcedSparkProperties: Map[String, String] = Map.empty,
+       tuningDefinitions: java.util.List[TuningEntryDefinition] =
+         new java.util.ArrayList[TuningEntryDefinition]()): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
       val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
         workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
-        enforcedSparkProperties)
+        enforcedSparkProperties, tuningDefinitions)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {

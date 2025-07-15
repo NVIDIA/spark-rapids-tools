@@ -375,6 +375,14 @@ class AutoTuner(
     appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
   }
 
+  /**
+   * Combined tuning table that merges the default tuning definitions with user-defined ones.
+   */
+  private lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
+    platform.targetCluster
+      .map(_.getSparkProperties.tuningDefinitionsMap)
+      .getOrElse(Map.empty[String, TuningEntryDefinition])
+
   def initRecommendations(): Unit = {
     finalTuningTable.keys.foreach { key =>
       // no need to add new records if they are missing from props
@@ -1009,8 +1017,8 @@ class AutoTuner(
       platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      val initialPartitionNumProperty = getInitialPartitionNumValue.map(_.toInt)
-      if (initialPartitionNumProperty.getOrElse(0) <=
+      val initialPartitionNumValue = getInitialPartitionNumValue.map(_.toInt)
+      if (initialPartitionNumValue.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
@@ -1443,10 +1451,6 @@ class AutoTuner(
     getPropertyValue(propertyKey)
   }
 
-  lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
-    platform.targetCluster
-      .map(_.getSparkProperties.tuningDefinitionsMap)
-      .getOrElse(Map.empty[String, TuningEntryDefinition])
 }
 
 object AutoTuner {

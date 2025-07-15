@@ -98,7 +98,31 @@ class DriverInfo (
 
 /**
  * Class to hold the Spark properties specified for the target cluster.
- * This will be extended in future to include preserved and removed categories.
+ * This includes both enforced properties and custom tuning definitions.
+ * The tuningDefinitions allow users to define custom Spark properties that will be merged
+ * with the default tuning table. This is useful for:
+ * - Legacy properties that have been replaced in newer Spark versions
+ * - Custom properties specific to a particular Spark distribution
+ * - Properties that need special handling or validation
+ * Example YAML format:
+ * {{{
+ * sparkProperties:
+ *   enforced:
+ *     spark.executor.cores: "8"
+ *     spark.executor.memory: "16g"
+ *   tuningDefinitions:
+ *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *       description: alias for spark.sql.adaptive.coalescePartitions.initialPartitionNum
+ *       enabled: true
+ *       level: job
+ *       category: tuning
+ *       confType:
+ *         name: int
+ * }}}
+ *
+ * For more examples, see:
+ * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
+ * - Target cluster examples: core/src/main/resources/targetClusterInfo/
  */
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],
@@ -129,6 +153,31 @@ class SparkProperties(
  * Class to hold the properties for the target cluster.
  * This class will instantiate from the `--target-cluster-info` YAML file
  * using SnakeYAML.
+ *
+ * The YAML file can include:
+ * - driverInfo: Driver instance configuration
+ * - workerInfo: Worker node configuration (instance type or OnPrem resources)
+ * - sparkProperties: Spark configuration including enforced properties and tuning definitions
+ *
+ * Example YAML format:
+ * {{{
+ * driverInfo:
+ *   instanceType: n1-standard-8
+ * workerInfo:
+ *   instanceType: g2-standard-8
+ * sparkProperties:
+ *   enforced:
+ *     spark.executor.cores: "8"
+ *     spark.executor.memory: "16g"
+ *   tuningDefinitions:
+ *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *       description: Legacy property for initial shuffle partitions
+ *       enabled: true
+ *       level: job
+ *       category: tuning
+ *       confType:
+ *         name: int
+ * }}}
  *
  * @see [[org.apache.spark.sql.rapids.tool.util.PropertiesLoader]]
  */

@@ -920,7 +920,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       )
 
     // 3. Create user-defined tuningDefinitions for the target cluster
-    val userTuningDefinitions = createUserTuningDefinitions()
+    val userTuningDefinitions = createMinNumPostShufflePartitionsTuningDefinition()
 
     // 4. Define enforced properties for the target cluster (no alias needed in target-cluster yaml)
     val enforcedSparkProperties = Map(
@@ -1009,9 +1009,11 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   }
 
   /**
-   * Helper method to create user-defined tuningDefinitions for testing
+   * Helper method to create tuning definition for testing
+   * spark.sql.adaptive.shuffle.minNumPostShufflePartitions alias
    */
-  private def createUserTuningDefinitions(): java.util.List[TuningEntryDefinition] = {
+  private def createMinNumPostShufflePartitionsTuningDefinition():
+    java.util.List[TuningEntryDefinition] = {
     import scala.collection.JavaConverters._
     // Create a custom tuning definition for testing
     val customTuningDef = new TuningEntryDefinition()
