@@ -94,8 +94,18 @@ object StringUtils extends Logging {
     }
   }
 
+  /**
+   * A utility function to guard a string with double quotes. This is handy to use when we know that
+   * the argument string has no double_quotes. Therefore, it is faster to execute.
+   * @param str the string to be processed.
+   * @return return the str surrounded with double quotes.
+   */
+  def quoteCSVString(str: String): String = {
+    "\"" + str + "\""
+  }
+
   def reformatCSVString(str: String): String = {
-    "\"" + str.replace("\"", "\"\"") + "\""
+    quoteCSVString(str.replace("\"", "\"\""))
   }
 
   def escapeMetaCharacters(str: String): String = {

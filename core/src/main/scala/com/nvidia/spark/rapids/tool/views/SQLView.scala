@@ -19,10 +19,11 @@ package com.nvidia.spark.rapids.tool.views
 import scala.collection.breakOut
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, SQLPlanInfoProfileResult, WholeStageCodeGenResults}
+import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, SQLPlanGraphProfileResult, SQLPlanInfoProfileResult, WholeStageCodeGenResults}
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 trait AppSQLCodeGenViewTrait extends ViewableTrait[WholeStageCodeGenResults] {
   override def getLabel: String = "WholeStageCodeGen Mapping"
@@ -31,6 +32,39 @@ trait AppSQLCodeGenViewTrait extends ViewableTrait[WholeStageCodeGenResults] {
   override def sortView(
       rows: Seq[WholeStageCodeGenResults]): Seq[WholeStageCodeGenResults] = {
     rows.sortBy(cols => (cols.sqlID, cols.nodeID))
+  }
+}
+
+/**
+ * This view is used during generation of the SQL plan graphs.
+ * This provides a comprehensive view of the SQL plan Info executed by the application.
+ * It shows the node ID, name, description, stages, and its sink nodes.
+ */
+trait AppSQLPlanGraphViewTrait extends ViewableTrait[SQLPlanGraphProfileResult] {
+  override def getLabel: String = "SQL Plan Graph"
+  override def getDescription: String = "SQL Graph of the final plan"
+  override def getRawView(app: AppBase, index: Int): Seq[SQLPlanGraphProfileResult] = {
+    app.sqlManager.applyToAllPlanModels { planModel =>
+      val toolsGraph = planModel.getToolsPlanGraph
+      toolsGraph.allNodes.map { n =>
+        SQLPlanGraphProfileResult(
+          sqlID = planModel.id,
+          planVersion = planModel.plan.version,
+          nodeID = n.id,
+          nodeName = n.name,
+          // node desc should be processed to escape special characters
+          nodeDesc = StringUtils.renderStr(n.desc,
+            doEscapeMetaCharacters = true, maxLength = 0),
+          sinkNodes = toolsGraph.getSinkNodes(n.id),
+          stageIds = toolsGraph.getNodeStageRawAssignment(n.id)
+        )
+      }
+    }.flatten.toSeq
+  }
+
+  override def sortView(
+    rows: Seq[SQLPlanGraphProfileResult]): Seq[SQLPlanGraphProfileResult] = {
+    rows.sortBy(cols => (cols.sqlID, cols.planVersion, cols.nodeID))
   }
 }
 
@@ -175,4 +209,8 @@ object QualSQLPlanMetricsView extends AppSQLPlanMetricsViewTrait with QualAppInd
       sqlAnalyzer: AppSQLPlanAnalyzer): Seq[SQLAccumProfileResults] = {
     sortView(sqlAnalyzer.generateSQLAccums())
   }
+}
+
+object ProfSQLPlanGraphView extends AppSQLPlanGraphViewTrait with ProfAppIndexMapperTrait {
+
 }
