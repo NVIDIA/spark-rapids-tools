@@ -19,7 +19,6 @@ import glob
 import itertools
 import json
 import os
-import re
 import shutil
 import zipfile
 from datetime import datetime
@@ -83,11 +82,9 @@ def _create_dataset_json(
     for path in ds_eventlogs:
         csp_path = CspPath(path)
         if filter_app_ids and csp_path.is_dir():
-            app_ids_pattern = '|'.join(re.escape(app_id) for app_id in app_ids)
-            pattern = re.compile(f'.*({app_ids_pattern}).*')
             matching_items = CspFs.glob_path(
                 path=csp_path,
-                pattern=pattern,
+                pattern=app_ids,
                 item_type=None,
                 recursive=False
             )

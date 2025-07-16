@@ -186,23 +186,26 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
 
     def glob_inner(self,
                    csp_path: BoundedCspPath,
-                   pattern: re.Pattern[str],
+                   pattern: Union[re.Pattern[str], List[str]],
                    item_type: Optional[FileType] = None,
                    recursive: bool = False) -> List[BoundedCspPath]:
         """
-        Given a cspPath and regex pattern, it returns a list of all files/folders that match
-        the pattern.
+        Given a cspPath and pattern, it returns a list of all files/folders that match.
         :param csp_path: a cspPath object (typically directory root)
-        :param pattern: the regex pattern
+        :param pattern: regex Pattern object or set of strings for inclusion matching
         :param item_type: File/Directory. when provided the results will be filtered by type
         :param recursive: search recursively in subfolders
         :return: a list of cspPaths objects matching the criteria.
 
-        >>> # find all csv files in a directory
+        >>> # find all csv files in a directory (regex)
             all_files = local_fs.glob_inner(
             CspPath('/path/to/dir'),
             pattern=re.compile('.*\\.csv'),
             recursive=True)
+        >>> # find files containing specific strings (string set)
+            app_files = local_fs.glob_inner(
+            CspPath('/path/to/dir'),
+            pattern=['app-001', 'app-002'])
         """
         dir_list = self.get_file_info(
             # do not raise error if path does not exist
@@ -218,20 +221,25 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
                         pattern,
                         item_type,
                         recursive=recursive))
-            if bool(pattern.search(item_name)):
+            if isinstance(pattern, list):
+                pattern_match = any(include_str in item_name for include_str in pattern)
+            else:
+                pattern_match = bool(pattern.search(item_name))
+
+            if pattern_match:
                 if item_type is None or i_entry.type == item_type:
                     res.append(item)
         return res
 
     @staticmethod
     def glob_path(path: Union[str, BoundedCspPath],
-                  pattern: re.Pattern[str],
+                  pattern: Union[re.Pattern[str], List[str]],
                   item_type: Optional[FileType] = None,
                   recursive: bool = False) -> List[BoundedCspPath]:
         """
         a helper function to call glob_inner on string or cspPath objects.
         :param path: a string or cspPath object (typically directory root).
-        :param pattern: regex pattern
+        :param pattern: regex Pattern object or set of strings for inclusion matching
         :param item_type: File/Directory. When provided, the results will be filtered by type.
         :param recursive: search in subdirectories or not.
         :return: a list of all cspPath objects matching the criteria
