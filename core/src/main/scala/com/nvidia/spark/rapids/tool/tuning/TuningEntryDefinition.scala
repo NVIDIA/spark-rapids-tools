@@ -157,7 +157,7 @@ class TuningEntries(
 
 object TuningEntryDefinition {
   // A static Map between the propertyName and the TuningEntryDefinition
-  lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] = loadTableFromResource()
+  lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] = loadTable()
 
   /**
    * Load the tuning table from a specific yaml resource file.
@@ -165,9 +165,9 @@ object TuningEntryDefinition {
    *                     "bootstrap/tuningTable.yaml"
    * @return a map between property name and the TuningEntryDefinition
    */
-  def loadTableFromResource(resourcePath: String = "bootstrap/tuningTable.yaml"):
-    Map[String, TuningEntryDefinition] = {
-    val yamlSource = UTF8Source.fromResource(resourcePath).mkString
+  def loadTable(): Map[String, TuningEntryDefinition] = {
+    val yamlSource =
+      UTF8Source.fromResource("bootstrap/tuningTable.yaml").mkString
     val representer = new Representer(new DumperOptions())
     representer.getPropertyUtils.setSkipMissingProperties(true)
     val constructor = new Constructor(classOf[TuningEntries], new LoaderOptions())
