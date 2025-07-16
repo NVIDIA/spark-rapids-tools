@@ -30,6 +30,7 @@ from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.qualx_config import QualxPipelineConfig
 from spark_rapids_tools.tools.qualx.qualx_main import preprocess, train, evaluate
 from spark_rapids_tools.tools.qualx.util import get_abs_path, get_logger, ensure_directory, find_paths
+from spark_rapids_tools.storagelib.cspfs import CspFs, CspPath
 
 logger = get_logger(__name__)
 
@@ -40,7 +41,8 @@ def _create_dataset_json(
         datasets: str,
         platform: str,
         dataset_name: str,
-        split_fn: Union[str, dict]) -> str:
+        split_fn: Union[str, dict],
+        filter_app_ids: bool = False) -> str:
     """Create a dataset JSON file from alignment CSV and eventlogs.
 
     Parameters
@@ -77,11 +79,18 @@ def _create_dataset_json(
     # get list of all eventlogs for targeted CPU and GPU appIds
     # note: getting direct paths to files, since the parent directory may contain extra eventlogs
     eventlogs = []
-    for eventlog_path in ds_eventlogs:
-        if os.path.isdir(eventlog_path):
-            eventlogs.extend(find_paths(eventlog_path, lambda f: any(app_id in f for app_id in app_ids)))
+    for path in ds_eventlogs:
+        csp_path = CspPath(path)
+        if filter_app_ids and csp_path.is_dir():
+            matching_items = CspFs.glob_path(
+                path=csp_path,
+                pattern=app_ids,
+                item_type=None,
+                recursive=False
+            )
+            eventlogs.extend([str(item) for item in matching_items])
         else:
-            eventlogs.append(eventlog_path)
+            eventlogs.append(str(csp_path))
     # remove duplicates
     eventlogs = sorted(list(set(eventlogs)))
 
@@ -202,12 +211,12 @@ def train_and_evaluate(
     """
     # read config
     cfg = get_config(config, cls=QualxPipelineConfig, reload=True)
-
     # extract config values
     alignment_dir = get_abs_path(cfg.alignment_dir)
-    cpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['cpu']]
-    gpu_eventlogs = [get_abs_path(f) for f in cfg.eventlogs['gpu']]
+    cpu_eventlogs = cfg.eventlogs['cpu']
+    gpu_eventlogs = cfg.eventlogs['gpu']
     zipped_eventlogs = cfg.eventlogs.get('zipped', True)
+    filter_app_ids = cfg.eventlogs.get('filter_app_ids', False)
     datasets = get_abs_path(cfg.datasets)
     platform = cfg.platform
     dataset_basename = cfg.dataset_name
@@ -293,7 +302,8 @@ def train_and_evaluate(
             datasets,
             platform,
             ds_name,
-            split_fn=test_split_fn
+            split_fn=test_split_fn,
+            filter_app_ids=filter_app_ids
         )
 
         preprocess(datasets)
@@ -323,7 +333,8 @@ def train_and_evaluate(
         datasets,
         platform,
         ds_name,
-        split_fn=train_split_fn
+        split_fn=train_split_fn,
+        filter_app_ids=filter_app_ids
     )
 
     # preprocess the data

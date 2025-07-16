@@ -28,7 +28,7 @@ from spark_rapids_pytools.common.cluster_inference import ClusterInference, Clus
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, convert_dict_to_camel_case
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
-from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
+from spark_rapids_pytools.rapids.qualification_core import QualificationCore
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -108,7 +108,7 @@ class QualificationSummary:
 
 
 @dataclass
-class Qualification(RapidsJarTool):
+class Qualification(QualificationCore):
     """
     Wrapper layer around Qualification Tool.
     """
@@ -172,6 +172,8 @@ class Qualification(RapidsJarTool):
         3. gpu_per_machine: number of gpu installed on a worker node.
         4. cuda version
         """
+        super()._process_custom_args()
+
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
         gpu_device_arg = self.wrapper_options.get('gpuDevice')
         if gpu_device_arg is not None:
@@ -191,7 +193,6 @@ class Qualification(RapidsJarTool):
         self.__process_filter_args(self.wrapper_options.get('filterApps'))
         self._process_estimation_model_args()
         self._process_offline_cluster_args()
-        self._process_eventlogs_args()
         self._process_submission_mode_arg()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
@@ -253,22 +254,6 @@ class Qualification(RapidsJarTool):
             100.0
         )
         return result_df, notes
-
-    def __generate_mc_types_conversion_report(self) -> list:  # pylint: disable=unused-private-member
-        report_content = []
-        if bool(self.ctxt.platform.ctxt['notes']):
-            # get the converted instance types
-            node_conversions = self.ctxt.platform.ctxt['notes'].get('nodeConversions')
-            if node_conversions is not None:
-                report_content = [
-                    Utils.gen_report_sec_header('Instance types conversions', hrule=False),
-                ]
-                conversion_items = []
-                for mc_src, mc_target in node_conversions.items():
-                    conversion_items.append([mc_src, 'to', mc_target])
-                report_content.append(tabulate(conversion_items))
-                report_content.append(self.ctxt.platform.get_footer_message())
-        return report_content
 
     def __generate_recommended_configs_report(self) -> list:
         # This method will generate the report for the recommended configurations.
@@ -466,8 +451,7 @@ class Qualification(RapidsJarTool):
         return super()._init_rapids_arg_list() + self._init_rapids_arg_list_for_qual()
 
     def _init_rapids_arg_list_for_qual(self) -> List[str]:
-        rapids_threads_args = self._get_rapids_threads_count(self.name)
-        return ['--per-sql'] + rapids_threads_args + self._create_autotuner_rapids_args()
+        return self._create_autotuner_rapids_args()
 
     def _infer_cluster_per_app(self, cluster_info_df: pd.DataFrame,
                                cluster_type: ClusterType) -> Dict[str, Optional[ClusterBase]]:
