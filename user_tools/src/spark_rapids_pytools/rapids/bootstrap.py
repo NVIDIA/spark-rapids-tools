@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -74,7 +74,7 @@ class Bootstrap(RapidsTool):
         if tool_result is not None and any(tool_result):
             # write the result to log file
             # Now create the new folder
-            FSUtil.make_dirs(self.ctxt.get_output_folder(), exist_ok=True)
+            FSUtil.make_dirs(self.ctxt.get_csp_output_path(), exist_ok=True)
             wrapper_out_content_arr = [f'##### BEGIN : RAPIDS bootstrap settings for {exec_cluster.name}']
             for conf_key, conf_val in tool_result.items():
                 wrapper_out_content_arr.append(f'{conf_key}={conf_val}')

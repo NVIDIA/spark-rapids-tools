@@ -14,7 +14,7 @@
 
 toolOutput:
   completeOutput: true
-  subFolder: rapids_4_spark_qualification_output
+  subFolder:
   metricsSubFolder: raw_metrics
   textFormat:
     summaryLog:
@@ -119,13 +119,15 @@ sparkRapids:
       - spark-property
       - speedup-factor-file
       - start-app-time
-      - t
+      - target-cluster-info
       - timeout
       - u
       - user-name
 local:
   output:
     cleanUp: true
+    stdout:
+      inaccurateSpeedupComment: 'Speed up estimations may be inaccurate because custom target worker information was provided.'
     files:
       summary:
         name: qualification_summary.csv
@@ -151,7 +153,7 @@ local:
             name: 'heuristics_info.csv'
             outputComment: "Heuristics information"
       configRecommendations:
-        name: 'rapids_4_spark_qualification_output/tuning'
+        name: 'qual_core_output/tuning'
         columns:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
@@ -168,7 +170,7 @@ local:
           - 'Full Cluster Config Recommendations*'
           - 'GPU Config Recommendation Breakdown*'
       appsStatusReport:
-        name: 'rapids_4_spark_qualification_output/rapids_4_spark_qualification_output_status.csv'
+        name: 'qual_core_output/status.csv'
         outputComment: "Application status report"
     costColumns:
       - 'Savings Based Recommendation'
@@ -368,14 +370,19 @@ local:
     clusterInference:
       cpuClusterColumns:
         - 'Num Worker Nodes'
+        - 'Driver Node Type'
         - 'Worker Node Type'
         - 'Cores Per Executor'
       gpuClusterColumns:
         - 'Recommended Num Worker Nodes'
+        - 'Recommended Driver Node Type'
         - 'Recommended Worker Node Type'
         - 'Recommended Cores Per Executor'
 
 platform:
   shortName: 'qual'
   outputDir: qual-tool-output
-  cleanUp: true
+  # Whether or not the temp directories should be cleaned up. For example,
+  # the temporary folder for each run will be cleaned-up.
+  # Set that to false if we need to troubleshoot the workdir/dependencies.
+  cleanUp: !ENV ${RAPIDS_USER_TOOLS_CLEAN_UP:true}

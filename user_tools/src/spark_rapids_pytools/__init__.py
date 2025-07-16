@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 from spark_rapids_pytools.build import get_version, get_spark_dep_version
 
-VERSION = '25.04.4'
+VERSION = '25.04.5'
 # defines the default runtime build version for the user tools environment
 SPARK_DEP_VERSION = '350'
 __version__ = get_version(VERSION)

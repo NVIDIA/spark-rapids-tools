@@ -16,13 +16,14 @@
 
 package com.nvidia.spark.rapids.tool.qualification
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TargetClusterProps, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
+import com.nvidia.spark.rapids.tool.views.qualification.{QualPerAppReportGenerator, QualReportGenConfProvider, QualToolReportGenerator}
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.rapids.tool.FailureApp
@@ -30,31 +31,59 @@ import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
 
-class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
-    timeout: Option[Long], nThreads: Int, order: String,
-    pluginTypeChecker: PluginTypeChecker, reportReadSchema: Boolean,
-    printStdout: Boolean, enablePB: Boolean,
+class Qualification(outputPath: String, hadoopConf: Configuration,
+    timeout: Option[Long], nThreads: Int, pluginTypeChecker: PluginTypeChecker,
+    enablePB: Boolean,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String])
+    clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String],
+    targetClusterInfoPath: Option[String])
   extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
-  override val outputDir = s"$outputPath/rapids_4_spark_qualification_output"
-  private val allApps = new ConcurrentHashMap[String, QualificationSummaryInfo]()
+  override val outputDir: String = QualReportGenConfProvider.getGlobalReportPath(outputPath)
+  private val qualResultBuilder = QualToolResultBuilder()
+
+  // Set the report configurations from the qualArgs
+  private val qualAppReportOptions: Map[String, String] = Map(
+    "clusterInfoJSONReport.report.enabled" -> clusterReport.toString,
+    "mlFunctionsCSVReport.report.enabled" -> mlOpsEnabled.toString,
+    "mlFunctionsDurationsCSVReport.report.enabled" -> mlOpsEnabled.toString,
+    "perSqlCSVReport.report.enabled" -> reportSqlLevel.toString,
+    "perSqlCSVReport.column.sql_description.max.length" -> maxSQLDescLength.toString
+  )
+
+  /**
+   * Called once an app is successful. It creates a summary object and adds it to the
+   * concurrent summary map. Then, it updates the global progress bar.
+   * @param app the qualification app Info containing  reference to raw data
+   * @param summaryRec The recorded created by the aggregator
+   */
+  def appendAppSummary(app: QualificationAppInfo, summaryRec: QualificationSummaryInfo): Unit = {
+    // check if the app is already in the map
+    val appExisted = qualResultBuilder.appendAppSummary(summaryRec)
+    if (appExisted) {
+      // fix the progress bar counts
+      progressBar.foreach(_.adjustCounterForMultipleAttempts())
+      logInfo(s"Removing older app summary for app: ${app.appId} " +
+        s"before adding the new one with attempt: ${app.attemptId}")
+    }
+    progressBar.foreach(_.reportSuccessfulProcess())
+  }
 
   override def getNumThreads: Int = nThreads
 
   private class QualifyThread(path: EventLogInfo) extends Runnable {
-    def run: Unit = qualifyApp(path, hadoopConf)
+    def run(): Unit = qualifyApp(path, hadoopConf)
   }
 
-  def qualifyApps(allPaths: Seq[EventLogInfo]): Seq[QualificationSummaryInfo] = {
+  def qualifyApps(allPaths: Seq[EventLogInfo]): QualToolResult = {
     if (enablePB && allPaths.nonEmpty) { // total count to start the PB cannot be 0
       progressBar = Some(new ConsoleProgressBar("Qual Tool", allPaths.length))
     }
     // generate metadata
-    generateRuntimeReport()
+    // TODO: Consider moving this to the global QualToolReport generator
+    generateRuntimeReport(Option(hadoopConf))
 
     allPaths.foreach { path =>
       try {
@@ -72,32 +101,10 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       threadPool.shutdownNow()
     }
     progressBar.foreach(_.finishAll())
-    val allAppsSum = allApps.asScala.values.toSeq
-    // sort order and limit only applies to the report summary text file,
-    // the csv file we write the entire data in descending order
-    val sortedDescDetailed = sortDescForDetailedReport(allAppsSum)
-    generateQualificationReport(allAppsSum, sortedDescDetailed)
-    sortedDescDetailed
-  }
-
-  private def sortDescForDetailedReport(
-      allAppsSum: Seq[QualificationSummaryInfo]): Seq[QualificationSummaryInfo] = {
-    // Default sorting for of the csv files. Use the endTime to break the tie.
-    allAppsSum.sortBy(sum => {
-      (sum.estimatedInfo.gpuOpportunity, sum.startTime + sum.estimatedInfo.appDur)
-    }).reverse
-  }
-
-  // Sorting for the pretty printed executive summary.
-  // The sums elements is ordered in descending order. so, only we need to reverse it if the order
-  // is ascending
-  private def sortForExecutiveSummary(appsSumDesc: Seq[QualificationSummaryInfo],
-      order: String): Seq[EstimatedAppInfo] = {
-    if (QualificationArgs.isOrderAsc(order)) {
-      appsSumDesc.reverse.map(_.estimatedInfo)
-    } else {
-      appsSumDesc.map(_.estimatedInfo)
-    }
+    val qualResults = qualResultBuilder.build(
+      generateStatusResults(appStatusReporter.asScala.values.toSeq))
+    generateQualificationReport(qualResults)
+    qualResults
   }
 
   private def qualifyApp(
@@ -118,7 +125,9 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
       val platform = {
         val clusterPropsOpt = workerInfoPath.flatMap(
           PropertiesLoader[ClusterProperties].loadFromFile)
-        PlatformFactory.createInstance(platformArg, clusterPropsOpt)
+        val targetClusterPropsOpt = targetClusterInfoPath.flatMap(
+          PropertiesLoader[TargetClusterProps].loadFromFile)
+        PlatformFactory.createInstance(platformArg, clusterPropsOpt, targetClusterPropsOpt)
       }
       val appResult = QualificationAppInfo.createApp(path, hadoopConf, pluginTypeChecker,
         reportSqlLevel, mlOpsEnabled, penalizeTransitions, platform)
@@ -155,20 +164,18 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
           }
           if (qualSumInfo.isDefined) {
             // add the recommend cluster info into the summary
-            val tempSummary = qualSumInfo.get
-            val newClusterSummary = tempSummary.clusterSummary.copy(
+            val newQualSummary = qualSumInfo.get
+            // If the recommended cluster info does not have a driver node type,
+            // set it to the platform default.
+            platform.setDefaultDriverNodeToRecommendedClusterIfMissing()
+            val newClusterSummary = newQualSummary.clusterSummary.copy(
               recommendedClusterInfo = platform.recommendedClusterInfo)
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
-              val newQualSummary = tempSummary.copy(clusterSummary = newClusterSummary)
-              // check if the app is already in the map
-              if (allApps.containsKey(app.appId)) {
-                // fix the progress bar counts
-                progressBar.foreach(_.adjustCounterForMultipleAttempts())
-                logInfo(s"Removing older app summary for app: ${app.appId} " +
-                  s"before adding the new one with attempt: ${app.attemptId}")
-              }
-              progressBar.foreach(_.reportSuccessfulProcess())
-              allApps.put(app.appId, newQualSummary)
+              newQualSummary.updateClusterSummary(newClusterInfo = newClusterSummary)
+              appendAppSummary(app, newQualSummary)
+              // generate report for the current QualApp.
+              QualPerAppReportGenerator.build(
+                newQualSummary, outputDir, Option(hadoopConf), qualAppReportOptions)
               val endTime = System.currentTimeMillis()
               SuccessAppResult(pathStr, app.appId, app.attemptId,
                 s"Took ${endTime - startTime}ms to process")
@@ -208,36 +215,10 @@ class Qualification(outputPath: String, numRows: Int, hadoopConf: Configuration,
   }
 
   /**
-   * Generates a qualification report based on the provided summary information.
+   * Generates a qualification tool report based on the provided summary information.
    */
-  private def generateQualificationReport(allAppsSum: Seq[QualificationSummaryInfo],
-      sortedDescDetailed: Seq[QualificationSummaryInfo]): Unit = {
-    val qWriter = new QualOutputWriter(outputDir, reportReadSchema, printStdout,
-      order)
-
-    qWriter.writeTextReport(allAppsSum, sortForExecutiveSummary(sortedDescDetailed, order), numRows)
-    qWriter.writeDetailedCSVReport(sortedDescDetailed)
-    if (reportSqlLevel) {
-      qWriter.writePerSqlCSVReport(allAppsSum, maxSQLDescLength)
-    }
-    qWriter.writeExecReport(allAppsSum)
-    qWriter.writeStageReport(allAppsSum, order)
-    qWriter.writeUnsupportedOpsSummaryCSVReport(allAppsSum)
-    qWriter.writeAllOpsSummaryCSVReport(allAppsSum)
-    val appStatusResult = generateStatusResults(appStatusReporter.asScala.values.toSeq)
-    logOutputPath()
-    qWriter.writeStatusReport(appStatusResult, order)
-    if (mlOpsEnabled) {
-      if (allAppsSum.exists(x => x.mlFunctions.nonEmpty)) {
-        qWriter.writeMlFuncsReports(allAppsSum, order)
-        qWriter.writeMlFuncsTotalDurationReports(allAppsSum)
-      } else {
-        logWarning(s"Eventlogs doesn't contain any ML functions")
-      }
-    }
-    if (clusterReport) {
-      qWriter.writeClusterReport(allAppsSum)
-      qWriter.writeClusterReportCsv(allAppsSum)
-    }
+  private def generateQualificationReport(qualResult: QualToolResult): Unit = {
+    QualToolReportGenerator.build(qualResult, outputPath,
+      Option(hadoopConf), reportOptions = qualAppReportOptions)
   }
 }

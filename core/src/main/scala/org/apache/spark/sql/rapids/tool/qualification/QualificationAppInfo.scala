@@ -18,7 +18,8 @@ package org.apache.spark.sql.rapids.tool.qualification
 
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, SQLPlanParser}
@@ -46,16 +47,18 @@ class QualificationAppInfo(
   var lastJobEndTime: Option[Long] = None
   var lastSQLEndTime: Option[Long] = None
 
-  val sqlIDToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
-    HashMap.empty[Long, StageTaskQualificationSummary]
-  val stageIdToTaskEndSum: HashMap[Long, StageTaskQualificationSummary] =
-    HashMap.empty[Long, StageTaskQualificationSummary]
-  val stageIdToGpuCpuTransitions: HashMap[Int, Int] = HashMap.empty[Int, Int]
+  val sqlIDToTaskEndSum: mutable.HashMap[Long, StageTaskQualificationSummary] =
+    mutable.HashMap.empty[Long, StageTaskQualificationSummary]
+  val stageIdToTaskEndSum: mutable.HashMap[Long, StageTaskQualificationSummary] =
+    mutable.HashMap.empty[Long, StageTaskQualificationSummary]
+  val stageIdToGpuCpuTransitions: mutable.HashMap[Int, Int] = mutable.HashMap.empty[Int, Int]
 
-  val stageIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
-  val sqlIDtoFailures: HashMap[Long, ArrayBuffer[String]] = HashMap.empty[Long, ArrayBuffer[String]]
+  val stageIdToSqlID: mutable.HashMap[Int, Long] = mutable.HashMap.empty[Int, Long]
+  val sqlIDtoFailures: mutable.HashMap[Long, ArrayBuffer[String]] =
+    mutable.HashMap.empty[Long, ArrayBuffer[String]]
 
-  val notSupportFormatAndTypes: HashMap[String, Set[String]] = HashMap[String, Set[String]]()
+  val notSupportFormatAndTypes: mutable.HashMap[String, Set[String]] =
+    mutable.HashMap[String, Set[String]]()
 
   private lazy val eventProcessor = new QualificationEventProcessor(this, perSqlOnly)
 
@@ -146,7 +149,7 @@ class QualificationAppInfo(
       // if jobEndTime is not set, use job.startTime
       pivot = Math.max(pivot, job.endTime.getOrElse(job.startTime))
     }
-    // add in the Gap between maximum job's endTime (pivot)  and the argument jobEndTime
+    // add in the Gap between maximum job's endTime (pivot) and the argument jobEndTime
     if (appEndTime > 0 && pivot < appEndTime) {
       overhead + appEndTime - pivot
     } else {
@@ -179,19 +182,13 @@ class QualificationAppInfo(
     all.map(_.unsupportedTaskDur).sum
   }
 
-  private def getAllReadFileFormats: Seq[String] = {
-    dataSourceInfo.map { ds =>
-      s"${ds.format.toLowerCase()}[${ds.schema}]"
-    }
-  }
-
   protected def checkUnsupportedReadFormats(): Unit = {
     if (dataSourceInfo.nonEmpty) {
       dataSourceInfo.map { ds =>
         val (_, nsTypes) = pluginTypeChecker.scoreReadDataTypes(ds.format, ds.schema)
         if (nsTypes.nonEmpty) {
-          val currentFormat = notSupportFormatAndTypes.get(ds.format).getOrElse(Set.empty[String])
-          notSupportFormatAndTypes(ds.format) = (currentFormat ++ nsTypes)
+          val currentFormat = notSupportFormatAndTypes.getOrElse(ds.format, Set.empty[String])
+          notSupportFormatAndTypes(ds.format) = currentFormat ++ nsTypes
         }
       }
     }
@@ -252,9 +249,9 @@ class QualificationAppInfo(
       // corner case to handle first element
       case 0 => if (execInfosInOrder.size > 1) {
         // If there are more than one Execs, then check if the next Exec has a stageId.
-        checkStageIdInExec(None, execInfosInOrder(0), Some(execInfosInOrder(1)))
+        checkStageIdInExec(None, execInfosInOrder.head, Some(execInfosInOrder(1)))
       } else {
-        checkStageIdInExec(None, execInfosInOrder(0), None)
+        checkStageIdInExec(None, execInfosInOrder.head, None)
       }
       // corner case to handle last element
       case i if i == execInfosInOrder.size - 1 && execInfosInOrder.size > 1 =>
@@ -296,7 +293,7 @@ class QualificationAppInfo(
     val allFlattenedExecs = flattenedExecs(execInfos)
     // Add penalty if there are UDF's. The time taken in stage with UDF's is usually more than on
     // GPU due to fallback. So, we are adding a penalty to the speedup factor if there are UDF's.
-    val udfs = allFlattenedExecs.filter(x => x.udf == true)
+    val udfs = allFlattenedExecs.filter(x => x.udf)
     val stageFinalSpeedupFactor = if (udfs.nonEmpty) {
       allSpeedupFactorAvg / 2.0
     } else {
@@ -313,9 +310,10 @@ class QualificationAppInfo(
     stages.map { stageId =>
       val stageTaskTime = stageIdToTaskEndSum.get(stageId)
         .map(_.totalTaskDuration).getOrElse(0L)
-      val numTransitions = penalizeTransitions match {
-        case true => stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
-        case false => 0
+      val numTransitions = if (penalizeTransitions) {
+        stageIdToGpuCpuTransitions.getOrElse(stageId, 0)
+      } else {
+        0
       }
       val transitionsTime = numTransitions match {
         case 0 => 0L // no transitions
@@ -359,11 +357,11 @@ class QualificationAppInfo(
       // Flatten all the Execs within a stage.
       // Example: Exchange;WholeStageCodegen (14);Exchange;WholeStageCodegen (13);Exchange
       // will be flattened to Exchange;Sort;Exchange;Sort;SortMergeJoin;SortMergeJoin;Exchange;
-      val allExecs = execs.map(x => if (x.exec.startsWith("WholeStage")) {
+      val allExecs = execs.flatMap(x => if (x.exec.startsWith("WholeStage")) {
         x.children.getOrElse(Seq.empty).reverse
       } else {
         Seq(x)
-      }).flatten
+      })
 
       // If it's a shuffle stage, then we need to keep the first and last Exchange and remove
       // all the intermediate Exchanges as input size is captured in Exchange node.
@@ -405,7 +403,7 @@ class QualificationAppInfo(
       } else {
         // we don't know which execs map to each stage so we are going to cheat somewhat and
         // apply equally and then just split apart for per stage reporting
-        stagesSummary(execInfos, allStagesBasedOnJobs, true)
+        stagesSummary(execInfos, allStagesBasedOnJobs, estimated = true)
       }
     } else {
       val stageIdsWithExecs = allStagesToExecs.keys.toSet
@@ -413,7 +411,7 @@ class QualificationAppInfo(
       val stagesNotAccounted = allStagesBasedOnJobs.toSet -- stageIdsWithExecs
       val stageSummaryNotMapped = if (stagesNotAccounted.nonEmpty) {
         if (execsNoStage.nonEmpty) {
-          stagesSummary(execsNoStage, stagesNotAccounted.toSeq, true)
+          stagesSummary(execsNoStage, stagesNotAccounted.toSeq, estimated = true)
         } else {
           // weird case, stages but not associated execs, not sure what to do with this so
           // just drop for now
@@ -426,7 +424,7 @@ class QualificationAppInfo(
       // SQL so we just drop it
       val stagesFromExecs = stageIdsWithExecs.flatMap { stageId =>
         val execsForStage = allStagesToExecs.getOrElse(stageId, Seq.empty)
-        stagesSummary(execsForStage, Seq(stageId), false)
+        stagesSummary(execsForStage, Seq(stageId), estimated = false)
       }
       stagesFromExecs ++ stageSummaryNotMapped
     }
@@ -450,7 +448,7 @@ class QualificationAppInfo(
         val numUnsupportedExecs = execInfos.filterNot(_.isSupported).size
         // This is a guestimate at how much wall clock was supported
         val numExecs = execInfos.size.toDouble
-        val numSupportedExecs = (numExecs - numUnsupportedExecs)
+        val numSupportedExecs = numExecs - numUnsupportedExecs
         val ratio = numSupportedExecs / numExecs
         val estimateWallclockSupported = (sqlWallClockDuration * ratio).toInt
         // don't worry about supported execs for these are these are mostly indicator of I/O
@@ -498,7 +496,7 @@ class QualificationAppInfo(
       checkUnsupportedReadFormats()
       val notSupportFormatAndTypesString = notSupportFormatAndTypes.map { case (format, types) =>
         val typeString = types.mkString(":").replace(",", ":")
-        s"${format}[$typeString]"
+        s"$format[$typeString]"
       }.toSeq
       val writeFormat = writeFormatNotSupported(getWriteDataFormats())
       val (allComplexTypes, nestedComplexTypes) = reportComplexTypes
@@ -509,8 +507,6 @@ class QualificationAppInfo(
           val sqlDesc = sqlIdToInfo(id).description
           SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
-
-      val unsupportedOpsReason = pluginTypeChecker.readUnsupportedOpsByDefaultReasons
 
       // get summary of each SQL Query for original plan
       val origPlanInfosSummary = summarizeSQLStageInfo(origPlanInfos)
@@ -545,7 +541,7 @@ class QualificationAppInfo(
         None
       }
 
-      val longestSQLDuration = if (allSQLDurations.size > 0) {
+      val longestSQLDuration = if (allSQLDurations.nonEmpty) {
         allSQLDurations.max
       } else {
         0L
@@ -570,19 +566,10 @@ class QualificationAppInfo(
       // overhead or execs that didn't have associated stages
       val supportedSQLTaskDuration = calculateSQLSupportedTaskDuration(allStagesSummary)
       // Get all the unsupported Execs from the plan
-      val unSupportedExecs = planInfos.flatMap { p =>
-        // WholeStageCodeGen is excluded from the result.
-        val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
-          x => x.isClusterNode)
-        val childrenExecs = p.execInfo.flatMap { e =>
-          e.children.map(x => x.filterNot(_.isSupported))
-        }.flatten
-        topLevelExecs ++ childrenExecs
-      }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+      val unSupportedExecs = constructUnsupExecsStringFromPlanInfo(planInfos)
 
       // Get all the unsupported Expressions from the plan
-      val unSupportedExprs = origPlanInfos.flatMap(p => p.getUnsupportedExpressions)
-        .map(s => s.getOpName).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+      val unSupportedExprs = constructUnsupExprStringFromPlanInfo(origPlanInfos)
 
       // TODO - this is not correct as this is using the straight stage wall
       // clock time and hasn't been adjusted to the app duration wall clock
@@ -623,21 +610,55 @@ class QualificationAppInfo(
         eventLogInfo.map(_.eventLog.toString), platform.clusterInfoFromEventLog,
         None)
 
-      QualificationSummaryInfo(info.appName, appId, problems,
-        executorCpuTimePercent, endDurationEstimated, sqlIdsWithFailures,
-        notSupportFormatAndTypesString, getAllReadFileFormats, writeFormat,
-        allComplexTypes, nestedComplexTypes, longestSQLDuration, sqlDataframeTaskDuration,
-        nonSQLTaskDuration, unsupportedSQLTaskDuration, supportedSQLTaskDuration,
-        info.sparkUser, info.startTime, estimatedInfo.sqlDfDuration,
-        origPlanInfos, origPlanInfosSummary.map(_.stageSum).flatten,
-        perSqlStageSummary.map(_.stageSum).flatten, estimatedInfo, perSqlInfos,
-        unSupportedExecs, unSupportedExprs, clusterTags, allClusterTagsMap,
-        mlFuncReportInfo.mlFunctionsAndStageInfo, mlFuncReportInfo.mlTotalStageDurations,
-        unsupportedOpsReason, clusterSummary, calculateTotalCoreSec())
+      QualificationSummaryInfo(
+        appName = info.appName,
+        appId = appId,
+        potentialProblems = problems,
+        executorCpuTimePercent = executorCpuTimePercent,
+        endDurationEstimated = endDurationEstimated,
+        failedSQLIds = sqlIdsWithFailures,
+        readFileFormatAndTypesNotSupported = notSupportFormatAndTypesString,
+        writeDataFormat = writeFormat,
+        complexTypes = allComplexTypes,
+        nestedComplexTypes = nestedComplexTypes,
+        longestSqlDuration = longestSQLDuration,
+        sqlDataframeTaskDuration = sqlDataframeTaskDuration,
+        nonSqlTaskDurationAndOverhead = nonSQLTaskDuration,
+        unsupportedSQLTaskDuration = unsupportedSQLTaskDuration,
+        supportedSQLTaskDuration = supportedSQLTaskDuration,
+        user = info.sparkUser,
+        startTime = info.startTime,
+        sparkSqlDFWallClockDuration = estimatedInfo.sqlDfDuration,
+        planInfo = origPlanInfos,
+        origPlanStageInfo = origPlanInfosSummary.flatMap(_.stageSum),
+        stageInfo = perSqlStageSummary.flatMap(_.stageSum),
+        estimatedInfo = estimatedInfo,
+        perSQLEstimatedInfo = perSqlInfos,
+        unSupportedExecs = unSupportedExecs,
+        unSupportedExprs = unSupportedExprs,
+        clusterTags = clusterTags,
+        allClusterTagsMap = allClusterTagsMap,
+        mlFunctions = mlFuncReportInfo.mlFunctionsAndStageInfo,
+        mlFunctionsStageDurations = mlFuncReportInfo.mlTotalStageDurations,
+        clusterSummary = clusterSummary,
+        totalCoreSec = totalCoreSeconds)
     }
   }
 
-  private def getMlSpeedupAndDur(): MLFunctionReportInfo = {
+  protected def constructUnsupExprStringFromPlanInfo(origPlanInfos: Seq[PlanInfo]): String = {
+    // For qualification, we do not want to spend overhead constructing the string of
+    // unsupportedExpressions since there is an entire view for that purpose.
+    ""
+  }
+
+  protected def constructUnsupExecsStringFromPlanInfo(
+      planInfos: Seq[PlanInfo]): String = {
+    // For qualification, we do not want to spend overhead constructing the string of
+    // unsupportedExecs since there is an entire view for that purpose.
+    ""
+  }
+
+  private def getMlSpeedupAndDur: MLFunctionReportInfo = {
     // check if there are any SparkML/XGBoost functions or expressions if the mlOpsEnabled
     // config is true
     val mlFunctionsAndStageInfo = if (mlOpsEnabled) {
@@ -725,9 +746,8 @@ class QualificationAppInfo(
   }
 
   private def getStagesWithMlFuntions: Option[Seq[MLFunctions]] = {
-    val mlFunctions = stageManager.getAllStages.flatMap { case sModel =>
-      checkMLOps(Some(appId), sModel)
-    }
+    val mlFunctions = stageManager.getAllStages.flatMap(sModel =>
+      checkMLOps(Some(appId), sModel))
 
     if (mlFunctions.nonEmpty) {
       Some(mlFunctions.toSeq.sortBy(mlops => mlops.stageId))
@@ -754,7 +774,7 @@ class QualificationAppInfo(
         }
       }
 
-      // Consider stageInfo to have below string as an example
+      // Consider stageInfo to have the below string as an example
       // org.apache.spark.rdd.RDD.first(RDD.scala:1463)
       // org.apache.spark.mllib.feature.PCA.fit(PCA.scala:44)
       // org.apache.spark.ml.feature.PCA.fit(PCA.scala:93)
@@ -785,10 +805,11 @@ class QualificationAppInfo(
     // Check if the ML function is supported on GPU, if so then save it as corresponding simple
     // function name along with it's duration and stage Id.
     // Example: (org.apache.spark.ml.feature.PCA.fit, 200) becomes (PCA, 200)
-    val supportedMlFuncsStats = SupportedMLFuncsName.funcName.map(
-      supportedMlfunc => mlFuncs.filter(mlfunc =>
-        mlfunc._1.contains(supportedMlfunc._1)).map(
-        x => (SupportedMLFuncsName.funcName(supportedMlfunc._1), x._2, x._3))).flatten
+    val supportedMlFuncsStats =
+      SupportedMLFuncsName.funcName
+        .flatMap(supportedMlfunc =>
+          mlFuncs.filter(mlfunc => mlfunc._1.contains(supportedMlfunc._1))
+            .map(x => (SupportedMLFuncsName.funcName(supportedMlfunc._1), x._2, x._3)))
 
     // group by ML function name, capture it's stageId and add duration of corresponding functions
     val mlFuncsResult = supportedMlFuncsStats.groupBy(mlfunc => mlfunc._1).map(
@@ -809,7 +830,7 @@ class QualificationAppInfo(
     val speedupFactors = mlFuncAndDuration.map(
       mlFunc => mlFunc._1).map(mlFuncName => {
       // speedup of pyspark and scala are different
-      val mlFuncNameWithType = s"${mlFuncName}-${mlEventlogType}"
+      val mlFuncNameWithType = s"$mlFuncName-$mlEventlogType"
       pluginTypeChecker.getSpeedupFactor(mlFuncNameWithType)
     })
     val avgMlSpeedup = SQLPlanParser.averageSpeedup(speedupFactors)
@@ -900,7 +921,6 @@ case class QualificationSummaryInfo(
     endDurationEstimated: Boolean,
     failedSQLIds: Seq[String],
     readFileFormatAndTypesNotSupported: Seq[String],
-    readFileFormats: Seq[String],
     writeDataFormat: Seq[String],
     complexTypes: Seq[String],
     nestedComplexTypes: Seq[String],
@@ -917,16 +937,22 @@ case class QualificationSummaryInfo(
     stageInfo: Seq[StageQualSummaryInfo],
     estimatedInfo: EstimatedAppInfo,
     perSQLEstimatedInfo: Option[Seq[EstimatedPerSQLSummaryInfo]],
-    unSupportedExecs: String,
-    unSupportedExprs: String,
+    unSupportedExecs: String, // this is only used for runningQualification
+    unSupportedExprs: String, // this is only used for runningQualification
     clusterTags: String,
     allClusterTagsMap: Map[String, String],
     mlFunctions: Option[Seq[MLFunctions]],
     mlFunctionsStageDurations: Option[Seq[MLFuncsStageDuration]],
-    unsupportedOpsReasons: Map[String, String],
-    clusterSummary: ClusterSummary,
-    totalCoreSec: Long,
-    estimatedFrequency: Option[Long] = None)
+    var clusterSummary: ClusterSummary,
+    totalCoreSec: Long) {
+  def updateClusterSummary(newClusterInfo: ClusterSummary): Unit = {
+    clusterSummary = newClusterInfo
+  }
+
+  def getAttemptId: Int = {
+    estimatedInfo.attemptId
+  }
+}
 
 case class StageQualSummaryInfo(
     stageId: Int,

@@ -100,7 +100,7 @@ def to_snake_case(word: str) -> str:
 
 def dump_tool_usage(cli_class: Optional[str], cli_name: Optional[str], tool_name: Optional[str],
                     raise_sys_exit: Optional[bool] = True) -> None:
-    imported_module = __import__('spark_rapids_tools.cmdli', globals(), locals(), [cli_class])
+    imported_module = __import__('spark_rapids_tools.cmdli.tools_cli', globals(), locals(), [cli_class])
     wrapper_clzz = getattr(imported_module, cli_class)
     usage_cmd = f'{tool_name} -- --help'
     try:
@@ -146,16 +146,16 @@ def gen_app_banner(mode: str = '') -> str:
 """
 
 
-def init_environment(short_name: str):
+def init_environment(short_name: str) -> str:
     """
     Initialize the Python Rapids tool environment.
     Note:
     - This function is not implemented as the `__init__()` method to avoid execution
       when `--help` argument is passed.
+    Returns:
+        str: The generated UUID for this tool execution session.
     """
-    # Set the 'UUID' environment variable with a unique identifier.
     uuid = Utils.gen_uuid_with_ts(suffix_len=8)
-    Utils.set_rapids_tools_env('UUID', uuid)
 
     # Set the 'tools_home_dir' to store logs and other configuration files.
     home_dir = Utils.get_sys_env_var('HOME', '/tmp')
@@ -172,6 +172,8 @@ def init_environment(short_name: str):
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
+
+    return uuid
 
 
 class Utilities:
@@ -396,3 +398,22 @@ class Utilities:
                                    format=archive_format,
                                    root_dir=os.path.dirname(source_folder),
                                    base_dir=os.path.basename(source_folder))
+
+    @staticmethod
+    def string_to_bool(s: str = None) -> bool:
+        """
+        Converts a string to a boolean using a dictionary lookup, handling case insensitivity.
+        Maps specific string values to True or False.
+        :param s: The string to convert.
+        :return: The corresponding boolean value.
+        """
+        if s is None:
+            return False
+        return {
+            'true': True,
+            'false': False,
+            'on': True,
+            'off': False,
+            'yes': True,
+            'no': False
+        }.get(s.lower(), False)

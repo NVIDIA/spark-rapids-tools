@@ -17,11 +17,11 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.File
+import java.nio.file.Paths
 
 import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.tuning.{ProfilingAutoTunerConfigsProvider, ProfilingAutoTunerSuiteBase}
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
-import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
 
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
@@ -39,33 +39,10 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       .getOrCreate()
   }
 
-
-  /**
-   * Helper method to assert that the recommended cluster info matches the expected
-   */
-  def assertRecommendedClusterInfo(
-      actualClusterInfoFilePath: String,
-      expectedClusterInfo: RecommendedClusterInfo): Unit = {
-    val recommendedClusterInfo = ToolTestUtils.loadClusterSummaryFromJson(actualClusterInfoFilePath)
-      .headOption.flatMap(_.recommendedClusterInfo).getOrElse {
-        throw new TestFailedException(
-          s"Failed to load recommended cluster info from $actualClusterInfoFilePath", 0)
-      }
-
-    val clusterInfoMatches = recommendedClusterInfo == expectedClusterInfo
-    assert(clusterInfoMatches,
-      s"""
-         |Actual cluster info does not match the expected cluster info.
-         |Actual: $recommendedClusterInfo
-         |Expected: $expectedClusterInfo
-         |""".stripMargin)
-  }
-
-
   val validClusterRecommendationScenarios: TableFor4[
       String, String, Option[Int], RecommendedClusterInfo] = Table(
     // Define the column headers
-    ("platform", "instanceType", "gpuCount", "expectedClusterInfo"),
+    ("platform", "workerNodeInstanceType", "gpuCount", "expectedClusterInfo"),
     // Test scenarios
     (
       PlatformNames.DATAPROC,
@@ -155,16 +132,16 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   )
   // scalastyle:on line.size.limit
   forAll(validClusterRecommendationScenarios) {
-    (platform, instanceType, gpuCount, expectedClusterInfo) =>
+    (platform, workerNodeInstanceType, gpuCount, expectedClusterInfo) =>
       val scenarioName = gpuCount match {
-        case Some(count) => s"$instanceType with $count GPUs"
-        case None => instanceType
+        case Some(count) => s"$workerNodeInstanceType with $count GPUs"
+        case None => workerNodeInstanceType
       }
       test(s"test valid cluster shape recommendation on $platform - $scenarioName") {
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = Some(instanceType),
+            workerNodeInstanceType = Some(workerNodeInstanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -182,8 +159,10 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
           assert(exit == 0)
           val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
           val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-          val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
-          assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+          val actualClusterInfoFile = Paths.get(
+            s"${tempSubDir.getAbsolutePath}", s"$fileName.json"
+          ).toFile
+          assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
         }
       }
   }
@@ -215,8 +194,10 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       assert(exit == 0)
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
       val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
-      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+      val actualClusterInfoFile = Paths.get(
+        s"${tempSubDir.getAbsolutePath}", s"$fileName.json"
+      ).toFile
+      assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
     }
   }
 
@@ -239,7 +220,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         TrampolineUtil.withTempDir { tempDir =>
           val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
             tempDir.getAbsolutePath,
-            instanceType = Some(instanceType),
+            workerNodeInstanceType = Some(instanceType),
             gpuCount = gpuCount)
 
           val appArgs = new ProfileArgs(Array(
@@ -269,6 +250,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
    *
    * Target Cluster YAML file:
    * {{{
+   * driverInfo:
+   *  instanceType: n1-standard-8
    * workerInfo:
    *  instanceType: g2-standard-8
    * sparkProperties:
@@ -292,6 +275,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some("n1-standard-8"),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -304,7 +288,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
-        instanceType = expectedClusterInfo.workerNodeType,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
         enforcedSparkProperties = expectedEnforcedSparkProperties)
 
       val appArgs = new ProfileArgs(Array(
@@ -322,10 +307,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       assert(exit == 0)
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/app-20250305192829-0000")
       val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+      val actualClusterInfoFile = Paths.get(
+        s"${tempSubDir.getAbsolutePath}", s"$fileName.json"
+      ).toFile
 
       // 1. Verify the recommended cluster info
-      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+      assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
 
       // 2. Verify the enforced spark properties
       val logFile = getOutputFilePath(tempDir, "profile.log")
@@ -413,6 +400,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = None,
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -423,7 +411,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
-        instanceType = expectedClusterInfo.workerNodeType,
+        driverNodeInstanceType = expectedClusterInfo.driverNodeType,
+        workerNodeInstanceType = expectedClusterInfo.workerNodeType,
         enforcedSparkProperties = expectedEnforcedSparkProperties)
 
       val appArgs = new ProfileArgs(Array(
@@ -441,10 +430,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       assert(exit == 0)
       val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/app-20250305192829-0000")
       val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
-      val actualClusterInfoFilePath = s"${tempSubDir.getAbsolutePath}/$fileName.json"
+      val actualClusterInfoFile = Paths.get(
+        s"${tempSubDir.getAbsolutePath}", s"$fileName.json"
+      ).toFile
 
       // 1. Verify the recommended cluster info
-      assertRecommendedClusterInfo(actualClusterInfoFilePath, expectedClusterInfo)
+      assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
 
       // 2. Verify the enforced spark properties
       val logFile = getOutputFilePath(tempDir, "profile.log")

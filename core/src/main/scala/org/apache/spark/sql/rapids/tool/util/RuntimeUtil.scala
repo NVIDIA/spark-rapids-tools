@@ -48,7 +48,10 @@ object RuntimeUtil extends Logging {
    * @param hadoopConf the hadoop configuration object used to access the HDFS if any.
    */
   def generateReport(outputDir: String, hadoopConf: Option[Configuration] = None): Unit = {
-    val buildProps = RapidsToolsConfUtil.loadBuildProperties
+    // Do not generate test properties in the properties file
+    val buildProps = RapidsToolsConfUtil.loadBuildProperties( (k, _) => {
+      !k.startsWith("test")
+    })
     // Add the Spark version used in runtime.
     // Note that it is different from the Spark version used in the build.
     buildProps.setProperty("runtime.spark.version", ToolUtils.sparkRuntimeVersion)

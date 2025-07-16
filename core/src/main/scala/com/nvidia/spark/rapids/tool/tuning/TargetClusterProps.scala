@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import java.util
 
 import scala.beans.BeanProperty
+import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
 
@@ -84,19 +85,66 @@ class WorkerInfo (
 }
 
 /**
+ * Class to hold the driver instance information for the target cluster.
+ */
+class DriverInfo (
+  @BeanProperty var instanceType: String) {
+  def this() = this("")
+
+  def isEmpty: Boolean = {
+    instanceType == null || instanceType.isEmpty
+  }
+}
+
+/**
  * Class to hold the Spark properties specified for the target cluster.
- * This will be extended in future to include preserved and removed categories.
+ * This includes both enforced properties and custom tuning definitions.
+ * The tuningDefinitions allow users to define custom Spark properties that will be merged
+ * with the default tuning table. This is useful for:
+ * - Legacy properties that have been replaced in newer Spark versions
+ * - Custom properties specific to a particular Spark distribution
+ * - Properties that need special handling or validation
+ * Example YAML format:
+ * {{{
+ * sparkProperties:
+ *   enforced:
+ *     spark.executor.cores: "8"
+ *     spark.executor.memory: "16g"
+ *   tuningDefinitions:
+ *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *       description: alias for spark.sql.adaptive.coalescePartitions.initialPartitionNum
+ *       enabled: true
+ *       level: job
+ *       category: tuning
+ *       confType:
+ *         name: int
+ * }}}
+ *
+ * For more examples, see:
+ * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
+ * - Target cluster examples: core/src/main/resources/targetClusterInfo/
  */
 class SparkProperties(
-  @BeanProperty var enforced: util.LinkedHashMap[String, String]) {
-  def this() = this(new util.LinkedHashMap[String, String]())
+  @BeanProperty var enforced: util.LinkedHashMap[String, String],
+  @BeanProperty var tuningDefinitions: java.util.List[TuningEntryDefinition]) {
+  def this() = this(new util.LinkedHashMap[String, String](),
+    new java.util.ArrayList[TuningEntryDefinition]())
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
     if (enforced == null || enforced.isEmpty) {
       Map.empty
     } else {
-      import scala.collection.JavaConverters.mapAsScalaMapConverter
       enforced.asScala.toMap
+    }
+  }
+
+  lazy val tuningDefinitionsMap: Map[String, TuningEntryDefinition] = {
+    if (tuningDefinitions == null || tuningDefinitions.isEmpty) {
+      Map.empty
+    } else {
+      tuningDefinitions.asScala.collect {
+        case e if e.isEnabled() => (e.label, e)
+      }.toMap
     }
   }
 }
@@ -106,17 +154,47 @@ class SparkProperties(
  * This class will instantiate from the `--target-cluster-info` YAML file
  * using SnakeYAML.
  *
+ * The YAML file can include:
+ * - driverInfo: Driver instance configuration
+ * - workerInfo: Worker node configuration (instance type or OnPrem resources)
+ * - sparkProperties: Spark configuration including enforced properties and tuning definitions
+ *
+ * Example YAML format:
+ * {{{
+ * driverInfo:
+ *   instanceType: n1-standard-8
+ * workerInfo:
+ *   instanceType: g2-standard-8
+ * sparkProperties:
+ *   enforced:
+ *     spark.executor.cores: "8"
+ *     spark.executor.memory: "16g"
+ *   tuningDefinitions:
+ *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *       description: Legacy property for initial shuffle partitions
+ *       enabled: true
+ *       level: job
+ *       category: tuning
+ *       confType:
+ *         name: int
+ * }}}
+ *
  * @see [[org.apache.spark.sql.rapids.tool.util.PropertiesLoader]]
  */
 class TargetClusterProps (
+  @BeanProperty var driverInfo: DriverInfo,
   @BeanProperty var workerInfo: WorkerInfo,
   @BeanProperty var sparkProperties: SparkProperties) extends ValidatableProperties {
 
-  def this() = this(new WorkerInfo(), new SparkProperties())
+  def this() = this(new DriverInfo(), new WorkerInfo(), new SparkProperties())
 
-  // Validating only the worker info for now.
   override def validate(): Unit = {
     workerInfo.validate()
+    if (workerInfo.isOnpremInfo && !driverInfo.isEmpty) {
+      throw new IllegalArgumentException(
+        "OnPrem target cluster info does not support specifying driver instance type. " +
+          "Please remove the driver instance type from the target cluster info.")
+    }
   }
 
   override def toString: String = {

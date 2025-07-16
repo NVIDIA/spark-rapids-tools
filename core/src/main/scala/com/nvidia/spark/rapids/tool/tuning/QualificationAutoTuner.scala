@@ -65,6 +65,7 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
     // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
     //       passed to the `QualificationAutoTuner` instance.
-    new QualificationAutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider)
+    new QualificationAutoTuner(
+      clusterProps, appInfoProvider, platform, driverInfoProvider)
   }
 }

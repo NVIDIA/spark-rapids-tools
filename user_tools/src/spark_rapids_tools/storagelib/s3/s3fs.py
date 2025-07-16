@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 
 """Wrapper for the S3 File system"""
 
+import os
+from typing import Any
 
 from spark_rapids_tools.storagelib.cspfs import register_fs_class, CspFs
 
@@ -37,3 +39,14 @@ class S3Fs(CspFs):
     provided, then attempts to initialize from AWS environment variables,
     otherwise both access_key and secret_key must be provided.
     """
+
+    @classmethod
+    def create_fs_handler(cls, *args: Any, **kwargs: Any):
+        """
+        Create S3FileSystem handler with automatic endpoint detection.
+        """
+        endpoint_url = os.environ.get('AWS_ENDPOINT_URL_S3') or os.environ.get('AWS_ENDPOINT_URL')
+        if endpoint_url and 'endpoint_override' not in kwargs:
+            # Only set endpoint_override if it's not already explicitly provided
+            kwargs['endpoint_override'] = endpoint_url
+        return super().create_fs_handler(*args, **kwargs)

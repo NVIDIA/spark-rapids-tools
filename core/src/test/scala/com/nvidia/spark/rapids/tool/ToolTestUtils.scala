@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-import com.nvidia.spark.rapids.tool.tuning.{GpuWorkerProps, SparkProperties, TargetClusterProps, WorkerInfo}
+import com.nvidia.spark.rapids.tool.tuning.{DriverInfo, GpuWorkerProps, SparkProperties, TargetClusterProps, TuningEntryDefinition, WorkerInfo}
 import org.apache.hadoop.fs.Path
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import scala.collection.mutable.ArrayBuffer
@@ -195,43 +195,53 @@ object ToolTestUtils extends Logging {
   }
 
   /**
-   * Load a JSON file containing an array of ClusterSummary objects.
-   * @param path The path to the JSON file.
-   * @return An array of ClusterSummary objects.
+   * Load a JSON file containing ClusterSummary objects.
+   * @param jsonFile The JSON file to load.
+   * @return ClusterSummary object.
    */
-  def loadClusterSummaryFromJson(path: String): Array[ClusterSummary] = {
+  def loadClusterSummaryFromJson(jsonFile: File): ClusterSummary = {
     val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
-    mapper.readValue(new File(path), classOf[Array[ClusterSummary]])
+    mapper.readValue(jsonFile, classOf[ClusterSummary])
   }
 
   def buildTargetClusterInfo(
-      instanceType: Option[String] = None,
+      driverNodeInstanceType: Option[String] = None,
+      workerNodeInstanceType: Option[String] = None,
       cpuCores: Option[Int] = None,
       memoryGB: Option[Long] = None,
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty): TargetClusterProps = {
+      enforcedSparkProperties: Map[String, String] = Map.empty,
+      tuningDefinitions: java.util.List[TuningEntryDefinition] =
+        new java.util.ArrayList[TuningEntryDefinition]()):
+    TargetClusterProps = {
+    val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
     import scala.collection.JavaConverters._
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-   val workerProps = new WorkerInfo(instanceType.getOrElse(""), cpuCores.getOrElse(0),
+   val workerProps = new WorkerInfo(workerNodeInstanceType.getOrElse(""), cpuCores.getOrElse(0),
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
-    new TargetClusterProps(workerProps, sparkProps)
+    sparkProps.setTuningDefinitions(tuningDefinitions)
+    new TargetClusterProps(driverProps, workerProps, sparkProps)
   }
 
   def buildTargetClusterInfoAsString(
-      instanceType: Option[String] = None,
+      driverNodeInstanceType: Option[String] = None,
+      workerNodeInstanceType: Option[String] = None,
       cpuCores: Option[Int] = None,
       memoryGB: Option[Long] = None,
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty): String = {
-    val targetCluster = buildTargetClusterInfo(instanceType, cpuCores, memoryGB,
-      gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+      enforcedSparkProperties: Map[String, String] = Map.empty,
+      tuningDefinitions: java.util.List[TuningEntryDefinition] =
+        new java.util.ArrayList[TuningEntryDefinition]()): String = {
+    val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
+      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties,
+      tuningDefinitions)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -245,23 +255,41 @@ object ToolTestUtils extends Logging {
 
   def createTargetClusterInfoFile(
        outputDirectory: String,
-       instanceType: Option[String] = None,
+       driverNodeInstanceType: Option[String] = None,
+       workerNodeInstanceType: Option[String] = None,
        cpuCores: Option[Int] = None,
        memoryGB: Option[Long] = None,
        gpuCount: Option[Int] = None,
        gpuMemory: Option[String] = None,
        gpuDevice: Option[String] = None,
-       enforcedSparkProperties: Map[String, String] = Map.empty): Path = {
+       enforcedSparkProperties: Map[String, String] = Map.empty,
+       tuningDefinitions: java.util.List[TuningEntryDefinition] =
+         new java.util.ArrayList[TuningEntryDefinition]()): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
-      val targetClusterInfoString = buildTargetClusterInfoAsString(instanceType, cpuCores,
-        memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+      val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
+        workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
+        enforcedSparkProperties, tuningDefinitions)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {
       fileWriter.close()
     }
+  }
+
+  /**
+   * Given a directory, find all files recursively in the directory with the given file name.
+   * Example usage is to crate a list of all output files in a directory.
+   * @param dir The directory root
+   * @param fileName the file name to be loaded
+   * @return a list of files with the given file name
+   */
+  def findFilesRecursively(dir: File, fileName: String): Seq[File] = {
+    val files = Option(dir.listFiles).getOrElse(Array.empty[File])
+    val matchedFiles = files.filter(f => f.isFile && f.getName == fileName)
+    val subDirs = files.filter(_.isDirectory).flatMap(d => findFilesRecursively(d, fileName))
+    matchedFiles ++ subDirs
   }
 }
 

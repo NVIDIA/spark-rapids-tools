@@ -1,0 +1,10 @@
+Root SQL ID,SQL ID,SQL Description,SQL DF Duration,GPU Opportunity
+"",0,"json at QualificationInfoUtils.scala:130",1209,0
+"",1,"createOrReplaceTempView at QualificationInfoUtils.scala:133",2,2
+"",2,"json at QualificationInfoUtils.scala:136",321,107
+"",3,"json at QualificationInfoUtils.scala:130",108,0
+"",4,"createOrReplaceTempView at QualificationInfoUtils.scala:133",22,22
+"",5,"json at QualificationInfoUtils.scala:136",129,43
+"",6,"json at QualificationInfoUtils.scala:130",110,0
+"",7,"createOrReplaceTempView at QualificationInfoUtils.scala:133",4,4
+"",8,"json at QualificationInfoUtils.scala:136",127,42

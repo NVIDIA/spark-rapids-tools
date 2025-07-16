@@ -53,7 +53,11 @@ class EnumeratedType(str, Enum):
         """
         attribute = getattr(cls, value.upper(), None)
         if attribute is None:
-            raise ValueError(f'{value} is not a valid {cls.__name__}')
+            # Call the enum constructor to call _missing_ in case no match
+            try:
+                return cls(value)
+            except ValueError as exc:
+                raise ValueError(f'{value} is not a valid {cls.__name__}') from exc
         return attribute
 
     @classmethod
@@ -139,8 +143,17 @@ class CspEnv(EnumeratedType):
         # convert hyphens to underscores
         value = value.replace('-', '_')
         for member in cls:
-            if member.lower() == value:
+            if member.value.lower() == value:
                 return member
+        # This supports variants like 'databricks_aws_photon' -> 'databricks_aws'
+        if '_' in value:
+            parts = value.split('_')
+            if len(parts) > 2:
+                base_value = '_'.join(parts[:-1])
+                for member in cls:
+                    if member.value.lower() == base_value:
+                        return member
+
         return None
 
     @classmethod

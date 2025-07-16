@@ -28,6 +28,7 @@ import xgboost as xgb
 import fire
 
 from spark_rapids_tools import CspPath
+from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
     get_config,
@@ -37,7 +38,6 @@ from spark_rapids_tools.tools.qualx.preprocess import (
     load_datasets,
     load_profiles,
     load_qtool_execs,
-    load_qual_csv,
     PREPROCESSED_FILE
 )
 from spark_rapids_tools.tools.qualx.model import (
@@ -56,8 +56,9 @@ from spark_rapids_tools.tools.qualx.util import (
     print_summary,
     print_speedup_summary,
     run_qualification_tool,
-    RegexPattern,
-    INTERMEDIATE_DATA_ENABLED, create_row_with_default_speedup, write_csv_reports
+    INTERMEDIATE_DATA_ENABLED,
+    create_row_with_default_speedup,
+    write_csv_reports
 )
 from spark_rapids_pytools.common.utilities import Utils
 
@@ -152,42 +153,68 @@ def _get_model(platform: str,
     return xgb_model
 
 
-def _get_qual_data(qual: Optional[str]) -> Tuple[
+def _get_qual_data(qual_handler: QualCoreHandler) -> Tuple[
     Optional[pd.DataFrame],
     Optional[pd.DataFrame],
     List[str]
 ]:
-    if not qual:
-        return None, None, []
-
-    # load qual tool execs
-    qual_list = find_paths(
-        qual, RegexPattern.rapids_qual.match, return_directories=True
-    )
-    # load metrics directory from all qualification paths.
-    # metrics follow the pattern 'qual_2024xx/rapids_4_spark_qualification_output/raw_metrics'
-    qual_metrics = [
-        path
-        for q in qual_list
-        for path in find_paths(q, RegexPattern.qual_tool_metrics.match, return_directories=True)
-    ]
-    qual_execs = [
-        os.path.join(
-            q,
-            'rapids_4_spark_qualification_output_execs.csv',
-        )
-        for q in qual_list
-    ]
-    node_level_supp = load_qtool_execs(qual_execs)
-
-    # load qual tool per-app predictions
-    qualtool_output = load_qual_csv(
-        qual_list,
-        'rapids_4_spark_qualification_output.csv',
-        ['App Name', 'App ID', 'App Duration'],
-    )
+    node_level_supp = None
+    qualtool_output = None
+    qual_metrics = []
+    # Get node level support from combined exec DataFrame
+    exec_table = qual_handler.get_table_by_label('execCSVReport')
+    node_level_supp = load_qtool_execs(exec_table)
+    # Get qualification summary from qualCoreCSVSummary
+    qualtool_output = qual_handler.get_table_by_label('qualCoreCSVSummary')
+    if qualtool_output is not None:
+        # Extract only the required columns
+        cols = ['App Name', 'App ID', 'App Duration']
+        available_cols = [col for col in cols if col in qualtool_output.columns]
+        if available_cols:
+            qualtool_output = qualtool_output[available_cols]
+    # Get path to the raw metrics directory which has the per-app
+    # raw_metrics files
+    qual_metrics = qual_handler.get_raw_metrics_paths()
 
     return node_level_supp, qualtool_output, qual_metrics
+
+
+def _get_combined_qual_data(qual_handlers: List[QualCoreHandler]) -> Tuple[
+    Optional[pd.DataFrame],
+    Optional[pd.DataFrame],
+    List[str]
+]:
+    """
+    Combine qualification data from multiple QualCoreHandler objects.
+    """
+    if not qual_handlers:
+        return None, None, []
+
+    combined_node_level_supp = []
+    combined_qualtool_output = []
+    combined_qual_metrics = []
+
+    for handler in qual_handlers:
+        node_level_supp, qualtool_output, qual_metrics = _get_qual_data(handler)
+
+        if node_level_supp is not None:
+            combined_node_level_supp.append(node_level_supp)
+
+        if qualtool_output is not None:
+            combined_qualtool_output.append(qualtool_output)
+
+        combined_qual_metrics.extend(qual_metrics)
+
+    # Combine DataFrames
+    final_node_level_supp = None
+    if combined_node_level_supp:
+        final_node_level_supp = pd.concat(combined_node_level_supp, ignore_index=True)
+
+    final_qualtool_output = None
+    if combined_qualtool_output:
+        final_qualtool_output = pd.concat(combined_qualtool_output, ignore_index=True)
+
+    return final_node_level_supp, final_qualtool_output, combined_qual_metrics
 
 
 def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.DataFrame]:
@@ -624,6 +651,7 @@ def predict(
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = None,
     config: Optional[str] = None,
+    qual_handlers: List[QualCoreHandler]
 ) -> pd.DataFrame:
     """Predict GPU speedup given CPU logs.
 
@@ -641,6 +669,8 @@ def predict(
         Filter to apply to the qualification tool output: 'stage' (default), 'sqlId', or 'none'.
     config:
         Path to a qualx-conf.yaml file to use for configuration.
+    qual_handlers:
+        List of QualCoreHandler instances for reading qualification data.
     """
     # load config from command line argument, or use default
     cfg = get_config(config)
@@ -648,8 +678,10 @@ def predict(
     model_config = cfg.__dict__.get(model_type, {})
     qual_filter = qual_tool_filter if qual_tool_filter else model_config.get('qual_tool_filter', 'stage')
 
-    node_level_supp, qual_tool_output, qual_metrics = _get_qual_data(qual)
+    if not qual_handlers:
+        raise ValueError('qual_handlers list is empty - no qualification data available for prediction')
 
+    node_level_supp, qual_tool_output, qual_metrics = _get_combined_qual_data(qual_handlers)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
@@ -826,15 +858,20 @@ def _predict_cli(
 
     # Construct output paths
     ensure_directory(output_dir)
+    qual_handlers = []
 
     if eventlogs:
         # --eventlogs takes priority over --qual_output
         if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
             # run qual tool if no existing qual output found
-            run_qualification_tool(platform, [eventlogs], output_dir)
+            qual_handlers.extend(run_qualification_tool(platform,
+                                                        [eventlogs],
+                                                        output_dir,
+                                                        tools_config=cfg.tools_config))
         qual = output_dir
     else:
         qual = qual_output
+        qual_handlers.append(QualCoreHandler(result_path=qual_output))
 
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},
@@ -844,12 +881,16 @@ def _predict_cli(
         'featureImportance': {'path': os.path.join(output_dir, 'feature_importance.csv')},
     }
 
+    if not qual_handlers:
+        raise ValueError('No qualification handlers available - unable to proceed with prediction')
+
     predict(
         platform,
         output_info=output_info,
         qual=qual,
         model=model,
         qual_tool_filter=qual_filter,
+        qual_handlers=qual_handlers
     )
 
 
@@ -889,7 +930,7 @@ def evaluate(
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
-    get_config(config)
+    cfg = get_config(config)
 
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
@@ -912,17 +953,23 @@ def evaluate(
 
     split_fn = None
     quals = os.listdir(qual_dir)
+    qual_handlers = []
     for ds_name, ds_meta in datasets.items():
-        if ds_name not in quals:
-            # run qual tool if needed
-            eventlogs = ds_meta['eventlogs']
-            eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
-            run_qualification_tool(platform, eventlogs, f'{qual_dir}/{ds_name}')
+        eventlogs = ds_meta['eventlogs']
+        eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
+        skip_run = ds_name in quals
+        qual_handlers.extend(run_qualification_tool(platform,
+                                                    eventlogs,
+                                                    f'{qual_dir}/{ds_name}',
+                                                    skip_run=skip_run,
+                                                    tools_config=cfg.tools_config))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 
     logger.debug('Loading qualification tool CSV files.')
-    node_level_supp, qual_tool_output, _ = _get_qual_data(qual_dir)
+    if not qual_handlers:
+        raise ValueError('No qualification handlers available for evaluation')
+    node_level_supp, qual_tool_output, _ = _get_combined_qual_data(qual_handlers)
 
     logger.debug('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir=profile_dir)  # w/ GPU rows

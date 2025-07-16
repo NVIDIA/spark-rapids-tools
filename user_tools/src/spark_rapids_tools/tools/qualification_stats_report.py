@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -57,7 +57,6 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
     result_df: pd.DataFrame = field(default=None, init=False)
     execs_df: pd.DataFrame = field(default=None, init=False)
     output_columns: dict = field(default=None, init=False)
-    qual_output: str = field(default=None, init=True)
     ctxt: ToolContext = field(default=None, init=True)
 
     def __post_init__(self) -> None:
@@ -66,36 +65,34 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
 
     def _read_csv_files(self) -> None:
         self.logger.info('Reading CSV files...')
-        if self.qual_output is None:
-            qual_output_dir = self.ctxt.get_rapids_output_folder()
-        else:
-            qual_output_dir = self.qual_output
 
-        unsupported_operator_report_file = self.ctxt.get_value(
-            'toolOutput', 'csv', 'unsupportedOperatorsReport', 'fileName')
-        rapids_unsupported_operators_file = FSUtil.build_path(
-            qual_output_dir, unsupported_operator_report_file)
-        # load the unsupported operators and drop operators that have no names.
-        self.unsupported_operators_df = (
-            pd.read_csv(rapids_unsupported_operators_file,
-                        dtype={'Unsupported Operator': str})).dropna(subset=['Unsupported Operator'])
+        qual_handler = self.ctxt.get_ctxt('qualHandler')
+        if qual_handler is None:
+            raise ValueError('QualCoreHandler not found in context')
 
-        stages_report_file = self.ctxt.get_value('toolOutput', 'csv', 'stagesInformation',
-                                                 'fileName')
-        rapids_stages_file = FSUtil.build_path(qual_output_dir, stages_report_file)
-        self.stages_df = pd.read_csv(rapids_stages_file)
+        self.logger.info('Using QualCoreHandler to read data...')
 
-        rapids_execs_file = self.ctxt.get_value('toolOutput', 'csv', 'execsInformation',
-                                                'fileName')
-        # Load the execs CSV file and drop execs that have no stages or name
-        self.execs_df = (
-            pd.read_csv(FSUtil.build_path(qual_output_dir, rapids_execs_file),
-                        dtype={'Exec Name': str,
-                               'Exec Stages': str,
-                               'Exec Children': str,
-                               'Exec Children Node Ids': str})
-            .dropna(subset=['Exec Stages', 'Exec Name']))
-        self.logger.info('Reading CSV files completed.')
+        self.unsupported_operators_df = qual_handler.get_table_by_label('unsupportedOpsCSVReport')
+        if not self.unsupported_operators_df.empty:
+            self.unsupported_operators_df = (self.unsupported_operators_df
+                                             .astype({'Unsupported Operator': str}))
+            self.unsupported_operators_df = (self.unsupported_operators_df
+                                             .dropna(subset=['Unsupported Operator']))
+
+        self.stages_df = qual_handler.get_table_by_label('stagesCSVReport')
+
+        execs_dtype = {
+            'Exec Name': str,
+            'Exec Stages': str,
+            'Exec Children': str,
+            'Exec Children Node Ids': str
+        }
+        self.execs_df = qual_handler.get_table_by_label('execCSVReport',
+                                                        read_csv_kwargs={'dtype': execs_dtype})
+        if not self.execs_df.empty:
+            self.execs_df = self.execs_df.dropna(subset=['Exec Stages', 'Exec Name'])
+
+        self.logger.info('Reading data using QualCoreHandler completed.')
 
     def _convert_durations(self) -> None:
         # Convert durations from milliseconds to seconds

@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.analysis.AppSQLPlanAnalyzer
-import com.nvidia.spark.rapids.tool.planparser.SQLPlanParser
+import com.nvidia.spark.rapids.tool.planparser.{PlanInfo, SQLPlanParser}
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter.SQL_DESC_STR
 
 import org.apache.spark.SparkEnv
@@ -83,7 +83,7 @@ class RunningQualificationApp(
   private val SQL_DESC_LENGTH = 100
 
   private lazy val perSqlHeadersAndSizes = {
-      QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appId.size, SQL_DESC_LENGTH)
+    QualOutputWriter.getDetailedPerSqlHeaderStringsAndSizes(appId.length, SQL_DESC_LENGTH)
   }
 
   def this() = {
@@ -118,7 +118,7 @@ class RunningQualificationApp(
    */
   def getPerSqlCSVHeader: String = {
     QualOutputWriter.constructDetailedHeader(perSqlHeadersAndSizes,
-      QualOutputWriter.CSV_DELIMITER, false)
+      QualOutputWriter.CSV_DELIMITER, prettyPrint = false)
   }
 
   /**
@@ -127,7 +127,7 @@ class RunningQualificationApp(
    */
   def getPerSqlTextHeader: String = {
     QualOutputWriter.constructDetailedHeader(perSqlHeadersAndSizes,
-      QualOutputWriter.TEXT_DELIMITER, true)
+      QualOutputWriter.TEXT_DELIMITER, prettyPrint = true)
   }
 
   /**
@@ -200,23 +200,23 @@ class RunningQualificationApp(
       appInfo match {
         case Some(info) =>
           val unSupExecMaxSize = QualOutputWriter.getunSupportedMaxSize(
-            Seq(info).map(_.unSupportedExecs.size),
+            Seq(info).map(_.unSupportedExecs.length),
             QualOutputWriter.UNSUPPORTED_EXECS_MAX_SIZE,
-            QualOutputWriter.UNSUPPORTED_EXECS.size)
+            QualOutputWriter.UNSUPPORTED_EXECS.length)
           val unSupExprMaxSize = QualOutputWriter.getunSupportedMaxSize(
-            Seq(info).map(_.unSupportedExprs.size),
+            Seq(info).map(_.unSupportedExprs.length),
             QualOutputWriter.UNSUPPORTED_EXPRS_MAX_SIZE,
-            QualOutputWriter.UNSUPPORTED_EXPRS.size)
+            QualOutputWriter.UNSUPPORTED_EXPRS.length)
           val hasClusterTags = info.clusterTags.nonEmpty
           val (clusterIdMax, jobIdMax, runNameMax) = if (hasClusterTags) {
             (QualOutputWriter.getMaxSizeForHeader(Seq(info).map(
-              _.allClusterTagsMap.getOrElse(QualOutputWriter.CLUSTER_ID, "").size),
+              _.allClusterTagsMap.getOrElse(QualOutputWriter.CLUSTER_ID, "").length),
               QualOutputWriter.CLUSTER_ID),
               QualOutputWriter.getMaxSizeForHeader(Seq(info).map(
-                _.allClusterTagsMap.getOrElse(QualOutputWriter.JOB_ID, "").size),
+                _.allClusterTagsMap.getOrElse(QualOutputWriter.JOB_ID, "").length),
                 QualOutputWriter.JOB_ID),
               QualOutputWriter.getMaxSizeForHeader(Seq(info).map(
-                _.allClusterTagsMap.getOrElse(QualOutputWriter.RUN_NAME, "").size),
+                _.allClusterTagsMap.getOrElse(QualOutputWriter.RUN_NAME, "").length),
                 QualOutputWriter.RUN_NAME))
           } else {
             (QualOutputWriter.CLUSTER_ID_STR_SIZE, QualOutputWriter.JOB_ID_STR_SIZE,
@@ -264,18 +264,17 @@ class RunningQualificationApp(
    *                    add spacing so the data rows align with column headings.
    * @return String containing the detailed report.
    */
-  def getDetailed(delimiter: String = "|", prettyPrint: Boolean = true,
-      reportReadSchema: Boolean = false): String = {
+  def getDetailed(delimiter: String = "|", prettyPrint: Boolean = true): String = {
     if (!perSqlOnly) {
       val appInfo = aggregateStats()
       appInfo match {
         case Some(info) =>
           val headersAndSizesToUse =
-            QualOutputWriter.getDetailedHeaderStringsAndSizes(Seq(info), reportReadSchema)
+            QualOutputWriter.getDetailedHeaderStringsAndSizes(Seq(info))
           val headerStr = QualOutputWriter.constructDetailedHeader(headersAndSizesToUse,
             delimiter, prettyPrint)
           val appInfoStr = QualOutputWriter.constructAppDetailedInfo(info, headersAndSizesToUse,
-            delimiter, prettyPrint, reportReadSchema)
+            delimiter, prettyPrint)
           headerStr + appInfoStr
         case None =>
           logWarning(s"Unable to get qualification information for this application")
@@ -309,6 +308,22 @@ class RunningQualificationApp(
       }
     }
     perSqlInfos
+  }
+  override def constructUnsupExecsStringFromPlanInfo(planInfos: Seq[PlanInfo]): String = {
+    planInfos.flatMap { p =>
+      // WholeStageCodeGen is excluded from the result.
+      val topLevelExecs = p.execInfo.filterNot(_.isSupported).filterNot(
+        x => x.isClusterNode)
+      val childrenExecs = p.execInfo.flatMap { e =>
+        e.children.map(x => x.filterNot(_.isSupported))
+      }.flatten
+      topLevelExecs ++ childrenExecs
+    }.map(_.exec).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
+  }
+
+  override def constructUnsupExprStringFromPlanInfo(origPlanInfos: Seq[PlanInfo]): String = {
+    origPlanInfos.flatMap(p => p.getUnsupportedExpressions)
+      .map(s => s.getOpName).toSet.mkString(";").trim.replaceAll("\n", "").replace(",", ":")
   }
 
   override def buildPlanGraphs(): Unit = {

@@ -369,7 +369,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Some(ProfStageMetricView.getDescription))
     profileOutputWriter.writeTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
       Some(ProfSQLCodeGenView.getDescription))
-    profileOutputWriter.writeJson(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo, pretty = false)
+    profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
 
     profileOutputWriter.writeText("\n### B. Analysis ###\n")
     profileOutputWriter.writeTable(JOB_AGG_LABEL, app.jobAggMetrics,
@@ -405,23 +405,31 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }
 
-    profileOutputWriter.writeJson("Spark Rapids Build Info",
-      app.sparkRapidsBuildInfo, pretty = true)
+    profileOutputWriter.writeJson("Spark Rapids Build Info", app.sparkRapidsBuildInfo)
     if (enableDiagnosticViews) {
       profileOutputWriter.writeCSVTable(STAGE_DIAGNOSTICS_LABEL,
         profilerResult.diagnostics.stageDiagnostics)
       profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
         profilerResult.diagnostics.IODiagnostics)
     }
+    if (appArgs.printPlanGraph()) {
+      // print the Spark-Plan graph.
+      // this won't be part of the text formatted report.
+      profileOutputWriter.writeCSVTable(
+        ProfSQLPlanGraphView.getLabel, ProfSQLPlanGraphView.getRawView(profilerResult.app))
+    }
     // Construct the cluster summary information
-    // Note: This is available only after AutoTuner is run
-    val clusterSummary = app.appLogPath.map { logInfo =>
-      ClusterSummary(logInfo.appName, logInfo.appId.get, Some(logInfo.eventLogPath),
+    // Note:
+    // - This is available only after AutoTuner is run
+    // - There is at most one entry in app.appLogPath
+    app.appLogPath.headOption.foreach { logInfo =>
+      val clusterSummary = ClusterSummary(logInfo.appName, logInfo.appId.get,
+        Some(logInfo.eventLogPath),
         profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
         profilerResult.app.platform.flatMap(_.recommendedClusterInfo))
+      // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
+      profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary)
     }
-    // Kept the file name as "Cluster Information" to be consistent with Qualification Tool
-    profileOutputWriter.writeJson(CLUSTER_INFORMATION_LABEL, clusterSummary, pretty = true)
   }
 
   /**

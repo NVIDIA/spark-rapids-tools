@@ -19,7 +19,7 @@ import re
 import tarfile
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Type, Any, ClassVar, List
+from typing import Type, Any, ClassVar, List, Union
 
 from spark_rapids_pytools.cloud_api.sp_types import PlatformBase
 from spark_rapids_pytools.common.prop_manager import YAMLPropertiesContainer
@@ -58,9 +58,10 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
-        # For backward compatibility, we still generate the uuid with timestamp if
-        # the environment variable is not set.
-        self.uuid = Utils.get_rapids_tools_env('UUID', Utils.gen_uuid_with_ts(suffix_len=8))
+        if self.platform_opts.get('sessionUuid'):
+            self.uuid = self.platform_opts['sessionUuid']
+        else:
+            self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default
@@ -129,28 +130,54 @@ class ToolContext(YAMLPropertiesContainer):
     def get_remote(self, key: str):
         return self.props['remoteCtx'].get(key)
 
-    def set_local_workdir(self, parent: str):
+    def _set_local_dep_dir(self) -> None:
+        """
+        Create the dependency folder. It is a subdirectory of temp folders because we cannot
+        store those on remote storage. Especially if this used for the classPath.
+        The directory is going to be in 'tmp/run_name/work_dir'
+        """
+        cache_folder = self.get_cache_folder()
+        exec_full_name = self.get_ctxt('execFullName')
+
+        dep_folder_name = 'work_dir'
+        self.set_ctxt('depFolderName', dep_folder_name)
+        temp_folder = FSUtil.build_path(cache_folder, exec_full_name)
+        self.set_local('tmpFolder', temp_folder)
+        dep_folder = FSUtil.build_path(temp_folder, dep_folder_name)
+        FSUtil.make_dirs(dep_folder, exist_ok=False)
+        self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
+        self.set_local('depFolder', dep_folder)
+
+    def set_local_directories(self, output_parent_folder: str) -> None:
+        """
+        Creates and initializes local directories used for dependencies and output folder
+        :param output_parent_folder: the directory where the local output is going to be created.
+        """
         short_name = self.get_value('platform', 'shortName')
         exec_dir_name = f'{short_name}_{self.uuid}'
         self.set_ctxt('execFullName', exec_dir_name)
-        exec_root_dir = FSUtil.build_path(parent, exec_dir_name)
-        self.logger.info('Local workdir root folder is set as %s', exec_root_dir)
-        # It should never happen that the exec_root_dir exists
-        FSUtil.make_dirs(exec_root_dir, exist_ok=False)
-        # Create the dependency folder. It is a subdirectory in the output folder
-        # because we want that same name appear on the remote storage when copying
-        dep_folder_name = 'work_dir'
-        self.set_ctxt('depFolderName', dep_folder_name)
-        dep_folder = FSUtil.build_path(exec_root_dir, dep_folder_name)
-        FSUtil.make_dirs(dep_folder, exist_ok=False)
+        # create the local dependency folder
+        self._set_local_dep_dir()
+        # create the local output folder
+        self.set_local_output_folder(output_parent_folder)
+
+    def set_local_output_folder(self, parent: str) -> None:
+        """
+        create and initialized output folder on local disk. it will be as follows:
+        parent/exec_full_name
+        :param parent: the parent directory that will contain the subdirectory
+        """
+        exec_full_name = self.get_ctxt('execFullName')
+        exec_root_dir = FSUtil.build_path(parent, exec_full_name)
         self.set_local('outputFolder', exec_root_dir)
-        self.set_local('depFolder', dep_folder)
-        self.logger.info('Dependencies are generated locally in local disk as: %s', dep_folder)
+        # For now set the cspOutputPath here
+        self.set_csp_output_path(exec_root_dir)
+        FSUtil.make_dirs(exec_root_dir, exist_ok=False)
         self.logger.info('Local output folder is set as: %s', exec_root_dir)
 
     def _identify_tools_wheel_jar(self, resource_files: List[str]) -> None:
         """
-        Identifies the tools JAR file from resource files and sets its name in the context.
+        Identifies the tools JAR file from resource files and sets its path in the context.
         :param resource_files: List of resource files to search for the tools JAR file.
         :raises AssertionError: If the number of matching files is not exactly one.
         """
@@ -160,9 +187,9 @@ class ToolContext(YAMLPropertiesContainer):
         assert len(matched_files) == 1, \
             (f'Expected exactly one tools JAR file, found {len(matched_files)}. '
              'Rebuild the wheel package with the correct tools JAR file.')
-        # set the tools JAR file name in the context
+        # set the tools JAR file path in the context
         self.set_ctxt('useLocalToolsJar', True)
-        self.set_ctxt('toolsJarFileName', FSUtil.get_resource_name(matched_files[0]))
+        self.set_ctxt('toolsJarFilePath', matched_files[0])
 
     def load_tools_jar_resources(self):
         """
@@ -172,11 +199,11 @@ class ToolContext(YAMLPropertiesContainer):
         for tools_related_files in self.tools_resource_path:
             # This function uses a regex based comparison to identify the tools jar file
             # from the tools-resources directory. The jar is pre-packed in the wheel file
-            # and moved to the work directory when user runs the tool.
+            # and will be copied to the work directory when the tool runs.
             self.logger.info('Checking for tools related files in %s', tools_related_files)
             if os.path.exists(tools_related_files):
-                FSUtil.copy_resource(tools_related_files, self.get_cache_folder())
-                self._identify_tools_wheel_jar(FSUtil.get_all_files(tools_related_files))
+                tools_files = FSUtil.get_all_files(tools_related_files)
+                self._identify_tools_wheel_jar(tools_files)
 
     def load_prepackaged_resources(self):
         """
@@ -210,7 +237,7 @@ class ToolContext(YAMLPropertiesContainer):
 
     def get_wrapper_summary_file_path(self) -> str:
         summary_file_name = self.get_value('local', 'output', 'fileName')
-        summary_path = FSUtil.build_path(self.get_output_folder(), summary_file_name)
+        summary_path = FSUtil.build_path(self.get_csp_output_path(), summary_file_name)
         return summary_path
 
     def get_local_work_dir(self) -> str:
@@ -239,7 +266,9 @@ class ToolContext(YAMLPropertiesContainer):
         return flag
 
     def get_rapids_output_folder(self) -> str:
-        root_dir = self.get_local('outputFolder')
+        # TODO: Remove the subfolder entry from here as it is not relevant
+        #       in the new output folder structure for Qualification
+        root_dir = self.get_csp_output_path()
         rapids_subfolder = self.get_value_silent('toolOutput', 'subFolder')
         if rapids_subfolder is None:
             return root_dir
@@ -262,20 +291,36 @@ class ToolContext(YAMLPropertiesContainer):
 
     def _get_tools_jar_from_local(self) -> str:
         """
-        Extracts the tools JAR file from the context and returns its path from the cache folder.
+        Extracts the tools JAR file from the context and returns its path from the resources directory.
         """
-        jar_filename = self.get_ctxt('toolsJarFileName')
-        if jar_filename is None:
+        jar_filepath = self.get_ctxt('toolsJarFilePath')
+        if jar_filepath is None:
             raise ValueError(
-                'Tools JAR file name not found in context. '
+                'Tools JAR file path not found in context. '
                 'Make sure the tools JAR is included in the package.'
             )
-        # construct the path to the tools JAR file in the cache folder
-        jar_filepath = FSUtil.build_path(self.get_cache_folder(), jar_filename)
         if not FSUtil.resource_exists(jar_filepath):
             raise FileNotFoundError(
-                f'Tools JAR not found in cache folder: {jar_filepath}. '
+                f'Tools JAR not found at path: {jar_filepath}. '
                 'Rebuild the wheel package'
             )
         self.logger.info('Using jar from wheel file %s', jar_filepath)
         return jar_filepath
+
+    def do_cleanup_tmp_directory(self) -> bool:
+        """
+        checks whether the temp folder created for the run should be deleted at the end or not.
+        :return: True/False if the temp folders hsould be cleaned up
+        """
+        config_val = self.get_value_silent('platform', 'cleanUp')
+        return Utilities.string_to_bool(config_val)
+
+    def get_local_tmp_folder(self) -> str:
+        return self.get_local('tmpFolder')
+
+    def set_csp_output_path(self, path: Union[str, CspPath]) -> None:
+        csp_path = CspPath(path)
+        self.set_ctxt('cspOutputPath', csp_path)
+
+    def get_csp_output_path(self) -> str:
+        return self.get_output_folder()

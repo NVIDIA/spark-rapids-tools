@@ -16,18 +16,20 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import java.io.File
 import java.util
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import org.scalatest.exceptions.TestFailedException
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.ToolUtils
+import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
@@ -202,7 +204,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     clusterProps: String,
     mockInfoProvider: AppInfoProviderMockTest,
     platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-    sparkMaster: Option[SparkMaster] = None): AutoTuner = {
+    sparkMaster: Option[SparkMaster] = None
+  ): AutoTuner = {
 
     // Determine the SparkMaster using provided value or platform-based default
     val resolvedSparkMaster = sparkMaster.getOrElse {
@@ -224,6 +227,29 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     mockInfoProvider.setSparkMaster(mockSparkMasterStr)
 
     // Build and return the AutoTuner
-    autoTunerConfigsProvider.buildAutoTunerFromProps(clusterProps, mockInfoProvider, platform)
+    autoTunerConfigsProvider.buildAutoTunerFromProps(
+      clusterProps, mockInfoProvider, platform)
+  }
+
+  /**
+   * Helper method to assert that the recommended cluster info matches the expected
+   */
+  def assertRecommendedClusterInfo(
+      actualClusterInfoFile: File,
+      expectedClusterInfo: RecommendedClusterInfo): Unit = {
+    val recommendedClusterInfo =
+      ToolTestUtils.loadClusterSummaryFromJson(actualClusterInfoFile).recommendedClusterInfo
+        .getOrElse {
+          throw new TestFailedException(
+            s"Failed to load recommended cluster info from $actualClusterInfoFile", 0)
+        }
+
+    val clusterInfoMatches = recommendedClusterInfo == expectedClusterInfo
+    assert(clusterInfoMatches,
+      s"""
+         |Actual cluster info does not match the expected cluster info.
+         |Actual: $recommendedClusterInfo
+         |Expected: $expectedClusterInfo
+         |""".stripMargin)
   }
 }
