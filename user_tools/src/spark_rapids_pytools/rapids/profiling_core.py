@@ -32,7 +32,7 @@ class ProfilingCore(RapidsJarTool):
 
     def _init_rapids_arg_list(self) -> List[str]:
         rapids_threads_args = self._get_rapids_threads_count(self.name)
-        return super()._init_rapids_arg_list() + ['--csv', '--output-sql-ids-aligned'] + rapids_threads_args
+        return super()._init_rapids_arg_list() + ['--csv'] + rapids_threads_args
 
     def _process_output(self) -> None:
         if not self._evaluate_rapids_jar_tool_output_exist():
