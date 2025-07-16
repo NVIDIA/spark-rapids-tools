@@ -1,6 +1,33 @@
 
 <br/>
 
+## Release [v25.06.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.0)
+Generated on 2025-07-16
+### User Tools
+
+- Add option to report SQL-graphs in profiler ([#1794](https://github.com/NVIDIA/spark-rapids-tools/pull/1794))
+- QualX uses core Qual/Prof API as part of train-and-evaluate ([#1776](https://github.com/NVIDIA/spark-rapids-tools/pull/1776))
+- Allow users to specify driver instance type in target cluster file ([#1781](https://github.com/NVIDIA/spark-rapids-tools/pull/1781))
+- Add storageLib API to search file patterns within directory ([#1778](https://github.com/NVIDIA/spark-rapids-tools/pull/1778))
+- Validate custom target cluster info YAML and comment on speedup accuracy in Qual Tool ([#1777](https://github.com/NVIDIA/spark-rapids-tools/pull/1777))
+- Improve qualx hash algorithm for rewritten plans ([#1771](https://github.com/NVIDIA/spark-rapids-tools/pull/1771))
+- Drop support for Python 3.9 ([#1768](https://github.com/NVIDIA/spark-rapids-tools/pull/1768))
+- Move the local dependency-folder out of output folder ([#1766](https://github.com/NVIDIA/spark-rapids-tools/pull/1766))
+- Restructure the qual core output on per-app basis ([#1757](https://github.com/NVIDIA/spark-rapids-tools/pull/1757))
+
+### Core
+
+- Add option to report SQL-graphs in profiler ([#1794](https://github.com/NVIDIA/spark-rapids-tools/pull/1794))
+- Support "alias" feature via tuningTable yaml file ([#1772](https://github.com/NVIDIA/spark-rapids-tools/pull/1772))
+- Add totalCoreSeconds to Profiler tool output ([#1790](https://github.com/NVIDIA/spark-rapids-tools/pull/1790))
+- Allow users to specify driver instance type in target cluster file ([#1781](https://github.com/NVIDIA/spark-rapids-tools/pull/1781))
+- Add support for L20 GPU in Tools  ([#1783](https://github.com/NVIDIA/spark-rapids-tools/pull/1783))
+- Add target cluster info to Qualification Tool JAR and unify cluster info output format ([#1765](https://github.com/NVIDIA/spark-rapids-tools/pull/1765))
+- Restructure the qual core output on per-app basis ([#1757](https://github.com/NVIDIA/spark-rapids-tools/pull/1757))
+
+
+<br/>
+
 ## Release [v25.04.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.04.4)
 Generated on 2025-07-02
 ### User Tools
