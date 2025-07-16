@@ -213,8 +213,8 @@ def train_and_evaluate(
     cfg = get_config(config, cls=QualxPipelineConfig, reload=True)
     # extract config values
     alignment_dir = get_abs_path(cfg.alignment_dir)
-    cpu_eventlogs = [cfg.eventlogs['cpu']]
-    gpu_eventlogs = [cfg.eventlogs['gpu']]
+    cpu_eventlogs = cfg.eventlogs['cpu']
+    gpu_eventlogs = cfg.eventlogs['gpu']
     zipped_eventlogs = cfg.eventlogs.get('zipped', True)
     filter_app_ids = cfg.eventlogs.get('filter_app_ids', False)
     datasets = get_abs_path(cfg.datasets)

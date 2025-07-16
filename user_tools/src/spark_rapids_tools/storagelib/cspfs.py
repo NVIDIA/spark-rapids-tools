@@ -214,7 +214,7 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
         for i_entry in dir_list:
             item_name = i_entry.base_name
             item = csp_path.create_sub_path(item_name)
-            if item.is_dir() and recursive:
+            if i_entry.type == FileType.Directory and recursive:
                 res.extend(
                     self.glob_inner(
                         csp_path.create_sub_path(item_name),
