@@ -50,6 +50,7 @@ sparkRapids:
       - order
       - p
       - print-plans
+      - print-plan-graph
       - s
       - start-app-time
       - t
