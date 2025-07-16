@@ -328,8 +328,7 @@ class AutoTuner(
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
-    val autoTunerConfigsProvider: AutoTunerConfigsProvider)
-  extends Logging {
+    val autoTunerConfigsProvider: AutoTunerConfigsProvider) extends Logging {
 
   var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
@@ -376,11 +375,20 @@ class AutoTuner(
     appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
   }
 
+  /**
+   * Combined tuning table that merges the default tuning definitions with user-defined ones.
+   */
+  private lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
+    platform.targetCluster
+      .map(_.getSparkProperties.tuningDefinitionsMap)
+      .getOrElse(Map.empty[String, TuningEntryDefinition])
+
   def initRecommendations(): Unit = {
-    autoTunerConfigsProvider.recommendationsTarget.foreach { key =>
+    finalTuningTable.keys.foreach { key =>
       // no need to add new records if they are missing from props
       getPropertyValueFromSource(key).foreach { propVal =>
-        val recommendationVal = TuningEntry.build(key, Option(propVal), None)
+        val recommendationVal = TuningEntry.build(key, Option(propVal), None,
+          finalTuningTable.get(key))
         recommendations(key) = recommendationVal
       }
     }
@@ -388,21 +396,10 @@ class AutoTuner(
     platform.userEnforcedRecommendations.foreach {
       case (key, value) =>
         val recomRecord = recommendations.getOrElseUpdate(key,
-          TuningEntry.build(key, getPropertyValueFromSource(key), None))
+          TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
         recomRecord.setRecommendedValue(value)
         appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
     }
-  }
-
-  /**
-   * Add default missing comments from the tuningEntry table if any.
-   * @param key the property set by the autotuner.
-   */
-  private def appendMissingComment(key: String): Unit = {
-    val missingComment = TuningEntryDefinition.TUNING_TABLE.get(key)
-      .flatMap(_.getMissingComment())
-      .getOrElse(s"was not set.")
-    appendComment(s"'$key' $missingComment")
   }
 
   /**
@@ -410,8 +407,19 @@ class AutoTuner(
    * table.
    * @param key the property set by the autotuner.
    */
+  private def appendMissingComment(key: String): Unit = {
+    val missingComment = finalTuningTable.get(key)
+      .flatMap(_.getMissingComment())
+      .getOrElse(s"was not set.")
+    appendComment(s"'$key' $missingComment")
+  }
+
+  /**
+   * Append a comment to the list by looking up the persistent comment if any.
+   * @param key the property set by the autotuner.
+   */
   private def appendPersistentComment(key: String): Unit = {
-    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+    finalTuningTable.get(key).foreach { eDef =>
       eDef.getPersistentComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
@@ -424,7 +432,7 @@ class AutoTuner(
    * @param key the property set by the autotuner.
    */
   private def appendUpdatedComment(key: String): Unit = {
-    TuningEntryDefinition.TUNING_TABLE.get(key).foreach { eDef =>
+    finalTuningTable.get(key).foreach { eDef =>
       eDef.getUpdatedComment().foreach { comment =>
         appendComment(s"'$key' $comment")
       }
@@ -443,7 +451,7 @@ class AutoTuner(
     }
     // Update the recommendation entry or update the existing one.
     val recomRecord = recommendations.getOrElseUpdate(key,
-      TuningEntry.build(key, getPropertyValue(key), None))
+      TuningEntry.build(key, getPropertyValue(key), None, finalTuningTable.get(key)))
     // if the value is not null, then proceed to add the recommendation.
     Option(value).foreach { nonNullValue =>
       recomRecord.setRecommendedValue(nonNullValue)
@@ -1009,9 +1017,8 @@ class AutoTuner(
       platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      val initialPartitionNumProperty =
-        getPropertyValue("spark.sql.adaptive.coalescePartitions.initialPartitionNum").map(_.toInt)
-      if (initialPartitionNumProperty.getOrElse(0) <=
+      val initialPartitionNumValue = getInitialPartitionNumValue.map(_.toInt)
+      if (initialPartitionNumValue.getOrElse(0) <=
             autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
@@ -1037,8 +1044,7 @@ class AutoTuner(
         // Set 'initialPartitionNum' when either:
         // - AutoTuner has not recommended 'spark.sql.shuffle.partitions' OR
         // - Recommended shuffle partitions is small (< recInitialPartitionNum)
-        appendRecommendation("spark.sql.adaptive.coalescePartitions.initialPartitionNum",
-          recInitialPartitionNum)
+        appendRecommendation(getInitialPartitionNumProperty, recInitialPartitionNum)
         appendRecommendation("spark.sql.shuffle.partitions", recInitialPartitionNum)
     }
     // scalastyle:on line.size.limit
@@ -1291,7 +1297,7 @@ class AutoTuner(
       fillInValue: Option[String] = None): Unit = {
     if (!skippedRecommendations.contains(key)) {
       val recomRecord = recommendations.getOrElseUpdate(key,
-        TuningEntry.build(key, getPropertyValueFromSource(key), None))
+        TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
       recomRecord.markAsUnresolved(fillInValue)
       comments += comment
     }
@@ -1420,6 +1426,31 @@ class AutoTuner(
       case (pK, pV) => RecommendedPropertyResult(pK, pV)
     }
   }
+
+  /**
+   * Gets the initial partition number property key.
+   * @return the property key to use for initial partition number
+   */
+  private def getInitialPartitionNumProperty: String = {
+    val minShufflePartitionsKey = "spark.sql.adaptive.shuffle.minNumPostShufflePartitions"
+    val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
+    // check if minShufflePartitionsKey is in final tuning table
+    if (finalTuningTable.contains(minShufflePartitionsKey)) {
+      minShufflePartitionsKey
+    } else {
+      initialPartitionNumKey
+    }
+  }
+
+  /**
+   * Gets the initial partition number value using the appropriate property key.
+   * @return the initial partition number value if found
+   */
+  private def getInitialPartitionNumValue: Option[String] = {
+    val propertyKey = getInitialPartitionNumProperty
+    getPropertyValue(propertyKey)
+  }
+
 }
 
 object AutoTuner {
@@ -1600,8 +1631,6 @@ trait AutoTunerConfigsProvider extends Logging {
       "'spark.sql.adaptive.enabled' should be enabled for better performance."
   ) ++ commentsForMissingMemoryProps
   // scalastyle:off line.size.limit
-
-  lazy val recommendationsTarget: Iterable[String] = TuningEntryDefinition.TUNING_TABLE.keys
 
   val classPathComments: Map[String, String] = Map(
     "rapids.jars.missing" ->

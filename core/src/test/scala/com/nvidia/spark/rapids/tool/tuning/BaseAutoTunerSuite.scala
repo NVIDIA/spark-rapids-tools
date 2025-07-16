@@ -204,7 +204,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     clusterProps: String,
     mockInfoProvider: AppInfoProviderMockTest,
     platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-    sparkMaster: Option[SparkMaster] = None): AutoTuner = {
+    sparkMaster: Option[SparkMaster] = None
+  ): AutoTuner = {
 
     // Determine the SparkMaster using provided value or platform-based default
     val resolvedSparkMaster = sparkMaster.getOrElse {
@@ -226,7 +227,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     mockInfoProvider.setSparkMaster(mockSparkMasterStr)
 
     // Build and return the AutoTuner
-    autoTunerConfigsProvider.buildAutoTunerFromProps(clusterProps, mockInfoProvider, platform)
+    autoTunerConfigsProvider.buildAutoTunerFromProps(
+      clusterProps, mockInfoProvider, platform)
   }
 
   /**

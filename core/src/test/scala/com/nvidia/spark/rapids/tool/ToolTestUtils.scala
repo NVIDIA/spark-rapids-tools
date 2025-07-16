@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-import com.nvidia.spark.rapids.tool.tuning.{DriverInfo, GpuWorkerProps, SparkProperties, TargetClusterProps, WorkerInfo}
+import com.nvidia.spark.rapids.tool.tuning.{DriverInfo, GpuWorkerProps, SparkProperties, TargetClusterProps, TuningEntryDefinition, WorkerInfo}
 import org.apache.hadoop.fs.Path
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import scala.collection.mutable.ArrayBuffer
@@ -212,7 +212,10 @@ object ToolTestUtils extends Logging {
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty): TargetClusterProps = {
+      enforcedSparkProperties: Map[String, String] = Map.empty,
+      tuningDefinitions: java.util.List[TuningEntryDefinition] =
+        new java.util.ArrayList[TuningEntryDefinition]()):
+    TargetClusterProps = {
     val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
     import scala.collection.JavaConverters._
     val gpuWorkerProps = new GpuWorkerProps(
@@ -221,6 +224,7 @@ object ToolTestUtils extends Logging {
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
+    sparkProps.setTuningDefinitions(tuningDefinitions)
     new TargetClusterProps(driverProps, workerProps, sparkProps)
   }
 
@@ -232,9 +236,12 @@ object ToolTestUtils extends Logging {
       gpuCount: Option[Int] = None,
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
-      enforcedSparkProperties: Map[String, String] = Map.empty): String = {
+      enforcedSparkProperties: Map[String, String] = Map.empty,
+      tuningDefinitions: java.util.List[TuningEntryDefinition] =
+        new java.util.ArrayList[TuningEntryDefinition]()): String = {
     val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
-      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties)
+      cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties,
+      tuningDefinitions)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -255,13 +262,15 @@ object ToolTestUtils extends Logging {
        gpuCount: Option[Int] = None,
        gpuMemory: Option[String] = None,
        gpuDevice: Option[String] = None,
-       enforcedSparkProperties: Map[String, String] = Map.empty): Path = {
+       enforcedSparkProperties: Map[String, String] = Map.empty,
+       tuningDefinitions: java.util.List[TuningEntryDefinition] =
+         new java.util.ArrayList[TuningEntryDefinition]()): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
       val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
         workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
-        enforcedSparkProperties)
+        enforcedSparkProperties, tuningDefinitions)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {
