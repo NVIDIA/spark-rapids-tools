@@ -149,6 +149,16 @@ class SQLPlanModelManager {
   }
 
   /**
+   * Apply a function to all the SqlPlanModels.
+   * @param f function to be applied
+   * @tparam A Type of the result of the function
+   * @return Iterable of type A
+   */
+  def applyToAllPlanModels[A](f: SQLPlanModel => A): Iterable[A] = {
+    sqlPlans.values.map(f)
+  }
+
+  /**
    * Shortcuts to make the new implementation compatible with previous code that was expecting a
    * Map[Long, String]
    * @return map between executionId and the physical description of the last version.

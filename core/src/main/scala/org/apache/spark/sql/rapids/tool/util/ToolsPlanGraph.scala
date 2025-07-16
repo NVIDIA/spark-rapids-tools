@@ -484,6 +484,15 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
   def getStageNodesByRawAssignment(stageId: Int): collection.Set[Long] = {
     nodeStageMapper.getRawSTN(stageId)
   }
+
+  /**
+   * retrieve all the sinkNodes adajacent to a given node.
+   * @param nodeId the id of the current node
+   * @return a set of nodeIds, or empty if none.
+   */
+  def getSinkNodes(nodeId: Long): collection.Set[Long] = {
+    edges.filter(_.fromId == nodeId).map(_.toId).toSet
+  }
 } // end of class ToolsPlanGraph
 
 /**

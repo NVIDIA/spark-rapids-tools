@@ -39,6 +39,11 @@ object OutHeaderRegistry {
       Array("sqlID"),
     "SQLPlanInfoProfileResult" ->
       Array("sqlID", "SparkPlanInfoTruncated"),
+    "SQLPlanGraph" ->
+      // This is the table that shows the SQL plan graph. It dumps basic information
+      // about the nodes in each SQL. See "SQLPlanGraphProfileResult" for more details.
+      Array("sqlID", "sqlPlanVersion", "nodeID", "nodeName", "description", "sinkNodes",
+        "stageIds"),
     "SQLStageInfoProfileResult" ->
       Array("sqlID", "jobID", "stageId", "stageAttemptId", "Stage Duration", "SQL Nodes(IDs)"),
     "RapidsJarProfileResult" ->

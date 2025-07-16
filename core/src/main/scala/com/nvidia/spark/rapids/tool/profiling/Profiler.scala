@@ -412,6 +412,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       profileOutputWriter.writeCSVTable(ProfIODiagnosticMetricsView.getLabel,
         profilerResult.diagnostics.IODiagnostics)
     }
+    if (appArgs.printPlanGraph()) {
+      // print the Spark-Plan graph.
+      // this won't be part of the text formatted report.
+      profileOutputWriter.writeCSVTable(
+        ProfSQLPlanGraphView.getLabel, ProfSQLPlanGraphView.getRawView(profilerResult.app))
+    }
     // Construct the cluster summary information
     // Note:
     // - This is available only after AutoTuner is run

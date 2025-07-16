@@ -131,6 +131,44 @@ case class SQLPlanInfoProfileResult(sqlID: Long, sparkPlanInfo: SparkPlanInfoTru
   }
 }
 
+/**
+ * This result class is used in the SQL graph report that displays
+ * the full list of operators executed within a plan.
+ * @param sqlID the SQL ID
+ * @param planVersion the plan version (commonly the final plan)
+ * @param nodeID the node ID
+ * @param nodeName the node name
+ * @param nodeDesc the node description. The caller should cleanup the description and escape the
+ *                 special characters.
+ * @param sinkNodes A comma separated list of adjacent node Ids. Those nodes are the destination of
+ *                  the edge going out of the current node.
+ * @param stageIds The stage IDs that the node belongs to.
+ *                 This typically a raw representation using the accumulable IDs.
+ */
+case class SQLPlanGraphProfileResult(
+    sqlID: Long,
+    planVersion: Int,
+    nodeID: Long,
+    nodeName: String,
+    nodeDesc: String, // node desc should be processed to escape characters
+    sinkNodes: Iterable[Long],
+    stageIds: Iterable[Int]) extends ProfileResult {
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("SQLPlanGraph")
+  }
+  override def convertToSeq(): Array[String] = {
+    Array(sqlID.toString, planVersion.toString, nodeID.toString,
+      nodeName, nodeDesc, sinkNodes.mkString(","), stageIds.mkString(","))
+  }
+  override def convertToCSVSeq(): Array[String] = {
+    Array(sqlID.toString, planVersion.toString, nodeID.toString,
+      StringUtils.reformatCSVString(nodeName),
+      StringUtils.reformatCSVString(nodeDesc),
+      StringUtils.quoteCSVString(sinkNodes.mkString(",")),
+      StringUtils.quoteCSVString(stageIds.mkString(",")))
+  }
+}
+
 case class SQLStageInfoProfileResult(
     sqlID: Long,
     jobID: Int,

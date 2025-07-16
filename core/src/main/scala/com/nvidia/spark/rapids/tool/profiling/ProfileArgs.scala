@@ -62,8 +62,14 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Generate query visualizations in DOT format. Default is false.")
   val printPlans: ScallopOption[Boolean] =
     opt[Boolean](required = false,
-      descr = "Print the SQL plans to a file named 'planDescriptions.log'." +
+      descr = "Print the SQL physical plan descriptions to a file named 'planDescriptions.log'." +
         " Default is false.")
+  val printPlanGraph: ScallopOption[Boolean] =
+    opt[Boolean](
+      required = false,
+      descr = "Print the SQL Spark-Graph of the SQL plans to a file." +
+        " Default is false.",
+      default = Some(false))
   val platform: ScallopOption[String] =
     opt[String](required = false,
       descr = "Cluster platform where Spark GPU workloads were executed. Options include " +
