@@ -184,11 +184,13 @@ def _get_calib_params(platform: str,
     """
     model_path = _get_model_path(platform, model, variant)
     calib_path = model_path.parent / Path(model_path.stem + '_calib.cfg')
-    logger.debug('Loading calib params from: %s', calib_path)
     calib_params = {'c1': 1.0, 'c2': 1.0, 'c3': 0.0}
     if calib_path.exists():
+        logger.debug('Loading calib params from: %s', calib_path)
         with open(calib_path, 'r', encoding='utf-8') as f:
             calib_params = json.load(f)
+    else:
+        logger.debug('Calib params file not found: %s', calib_path)
     return calib_params
 
 

@@ -163,10 +163,7 @@ def train(
             'booster': 'gbtree',
         }
         xgb_params = {**base_params, **hyperparams}
-        if 'n_estimators' in xgb_params:
-            n_estimators = xgb_params.pop('n_estimators')
-        else:
-            n_estimators = 100
+        n_estimators = xgb_params.pop('n_estimators', 100)
     else:
         # use optuna hyper-parameter tuning
         best_params = tune_hyperparameters(x_tune, y_tune, n_trials, sample_weights)
@@ -203,11 +200,12 @@ def calibrate(
     xgb_model: Booster,
 ) -> Dict[str, float]:
     """
-    Calibration involves first training a pre-calib xgb model on
-    a smaller random split of full training data (train+val)
-    that was used for training the main model that we want to calibrate.
-    This pre-calibrated model serves as an independent copy of the main model.
-    We refer to this split of the full training data as pre-calib holdout data.
+    Calibration involves first training a pre-calib xgb model on a smaller random split of full
+    training data (train+val) that was used for training the main model that we want to calibrate.
+    This pre-calibrated model serves as an independent near-identical version of the main model.
+    This surrogate model is needed instead of main model since the calibration bias is only observed
+    on out-of-sample data (not seen previously in training). We refer to this split of the full
+    training data as pre-calib holdout data.
 
     The calibration parameters are fit using the pre-calib model predictions
     on the remaining training data, that is referred to as calib holdout data.
@@ -236,7 +234,7 @@ def calibrate(
     hyperparams['subsample'] = float(train_params['subsample'])
     hyperparams['n_estimators'] = int(cfg['learner']['gradient_booster']['gbtree_model_param']['num_trees'])
 
-    # Train precalib model as an independent copy of main model
+    # Train precalib model as an independent near-identical version of main model
     xgb_model_precalib = train(cpu_aug_tbl_precalib, feature_cols, label_col, hyperparams=hyperparams)
 
     # Get predictions from precalib model on calib holdout samples
@@ -260,7 +258,6 @@ def calibrate(
             np.linspace(y_min*0.99, y_avg, (num_bins+1)//2 + 1)[:-1],
             np.exp(np.linspace(math.log(y_avg), math.log(y_max*1.01), math.ceil((num_bins+1)/2)))
         )
-        np.exp(np.linspace(math.log(y_min*0.99), math.log(y_max*1.01), num_bins+1))
         bin_labels = np.arange(0, num_bins)
         calib_df['y_qz'] = pd.cut(calib_df['y'], bins, labels=bin_labels)
         y_qz_hist_df = calib_df \
