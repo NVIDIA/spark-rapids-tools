@@ -25,7 +25,7 @@ class QualificationCore(RapidsJarTool):
     """
     Base class for qualification tools that provides core qualification functionality.
     """
-    name = 'qualification_core'
+    name = 'qualification'
 
     def _process_custom_args(self) -> None:
         self._process_eventlogs_args()
