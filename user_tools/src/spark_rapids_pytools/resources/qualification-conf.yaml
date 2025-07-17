@@ -19,7 +19,7 @@ toolOutput:
   textFormat:
     summaryLog:
       fileName: rapids_4_spark_qualification_output.log
-    log4jFileName: rapids_4_spark_qualification_stderr.log
+    log4jFileName: qual_core_stderr.log
   csv:
     unsupportedOperatorsReport:
       fileName: rapids_4_spark_qualification_output_unsupportedOperators.csv
