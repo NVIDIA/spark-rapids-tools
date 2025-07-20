@@ -318,7 +318,16 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.executor.memory" -> "8g",
         "spark.executor.memoryOverhead" -> "2g"
       )
-    // 2. Define user provided tuning configurations including Qualification specific ones
+    // 2. Mock the user-provided tuning configurations. Equivalent YAML snippet:
+    // tuningConfigs:
+    //   default:
+    //   - name: GPU_MEM_PER_TASK
+    //     default: 4g
+    //   - name: CONC_GPU_TASKS
+    //     max: 8
+    //   qualification:
+    //   - name: HEAP_PER_CORE
+    //     default: 1.2g
     val defaultTuningConfigsEntries = List(
       TuningConfigEntry(name = "GPU_MEM_PER_TASK", default = "4g"),
       TuningConfigEntry(name = "CONC_GPU_TASKS", max = "8")
