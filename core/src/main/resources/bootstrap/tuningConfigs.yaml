@@ -27,9 +27,9 @@
 # - max: The maximum allowed value (optional)
 # - usedBy: Comma-separated list of Spark configurations this constant affects
 #
-# Users can override these default values by specifying custom values using
-# - `--tuning-configs` argument when running the Tools JAR
-# - `--tuning_configs` argument when running the Tools CLI
+# Usage: Users can override these default values by specifying custom tuning configurations via:
+# - `--tuning-configs /path/to/custom/file.YAML` argument when running the Tools JAR
+# - `--tuning_configs /path/to/custom/file.YAML` argument when running the Tools CLI
 
 default:
   - name: CONC_GPU_TASKS
@@ -91,7 +91,6 @@ default:
     default: 7500m
     usedBy: spark.rapids.sql.concurrentGpuTasks
 
-  # Partition and shuffle configuration parameters
   - name: INPUT_BYTES_RANGE
     description: >-
       Target range for input bytes per partition. This will be used to
@@ -119,7 +118,6 @@ default:
     default: 2
     usedBy: spark.sql.shuffle.partitions
 
-  # Worker configuration parameters
   - name: WORKER_GPU_COUNT
     description: >-
       Default number of GPUs per worker node
@@ -132,7 +130,6 @@ default:
     min: 1
     usedBy: spark.executor.instances
 
-  # Thresholds and limits
   - name: DISTINCT_READ_THRESHOLD
     description: >-
       Threshold percentage for distinct read locations to enable file caching
