@@ -53,14 +53,15 @@ case class TunerContext (
       appAggStats: Option[QualificationSummaryInfo],
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult],
-      platform: Platform): Option[TuningResult] = {
+      platform: Platform,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider]): Option[TuningResult] = {
     val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo)
     val rawAggMetrics =
       QualSparkMetricsAggregator.getAggRawMetrics(appInfo, appIndex, Some(sqlAnalyzer))
     QualificationAutoTunerRunner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {
-          qualTuner.runAutoTuner(platform)
+          qualTuner.runAutoTuner(platform, userProvidedTuningConfigs)
         } match {
           case Success(r) => r
           case Failure(e) =>

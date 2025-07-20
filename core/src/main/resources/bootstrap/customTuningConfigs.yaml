@@ -1,0 +1,5 @@
+default:
+  - name: CONC_GPU_TASKS
+    max: 1
+  - name: HEAP_PER_CORE
+    default: 0.8g
