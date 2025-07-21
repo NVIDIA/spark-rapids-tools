@@ -190,9 +190,7 @@ pre_build() {
   echo "rm previous build and dist directories"
   rm -rf build/ dist/
   echo "install build dependencies using pip"
-  pip install -q setuptools wheel build
-  pip install build .[qualx,test]
-  pip list
+  pip install build -e .[qualx,test]
   # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
 }
 
