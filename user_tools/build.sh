@@ -140,7 +140,6 @@ download_web_dependencies() {
   local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
   echo "Downloading dependencies"
-  which python
   python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp="$is_fat_mode"
   if [ $? -ne 0 ]; then
     echo "Dependency download failed. Exiting"
@@ -186,13 +185,13 @@ copy_qual_output_table_yaml() {
 
 # Pre-build setup
 pre_build() {
-  which pip
   echo "upgrade pip"
   pip install --upgrade pip
   echo "rm previous build and dist directories"
   rm -rf build/ dist/
   echo "install build dependencies using pip"
   pip install build .[qualx,test]
+  pip list
   # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
 }
 
