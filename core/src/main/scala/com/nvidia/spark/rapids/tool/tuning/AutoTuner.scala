@@ -1432,11 +1432,11 @@ class AutoTuner(
    * @return the property key to use for initial partition number
    */
   private def getInitialPartitionNumProperty: String = {
-    val minShufflePartitionsKey = "spark.sql.adaptive.shuffle.minNumPostShufflePartitions"
+    val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
     val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
     // check if minShufflePartitionsKey is in final tuning table
-    if (finalTuningTable.contains(minShufflePartitionsKey)) {
-      minShufflePartitionsKey
+    if (finalTuningTable.contains(maxNumPostShufflePartitions)) {
+      maxNumPostShufflePartitions
     } else {
       initialPartitionNumKey
     }
