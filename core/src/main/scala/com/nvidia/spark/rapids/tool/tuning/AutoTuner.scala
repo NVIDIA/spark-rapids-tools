@@ -1434,7 +1434,7 @@ class AutoTuner(
   private def getInitialPartitionNumProperty: String = {
     val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
     val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
-    // check if minShufflePartitionsKey is in final tuning table
+    // check if maxNumPostShufflePartitions is in final tuning table
     if (finalTuningTable.contains(maxNumPostShufflePartitions)) {
       maxNumPostShufflePartitions
     } else {
