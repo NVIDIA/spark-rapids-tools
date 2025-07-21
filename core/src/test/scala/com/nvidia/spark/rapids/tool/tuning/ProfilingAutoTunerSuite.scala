@@ -244,7 +244,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
           |- 'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.
-          |- 'spark.executor.memory' should be set to at least 2g/core.
+          |- 'spark.executor.memory' should be set to 2g/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2g.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7500m)).
@@ -278,7 +278,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
           |- 'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.
-          |- 'spark.executor.memory' should be set to at least 2g/core.
+          |- 'spark.executor.memory' should be set to 2g/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2g.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7500m)).
@@ -365,7 +365,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.cores' should be set to 16.
           |- 'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.
-          |- 'spark.executor.memory' should be set to at least 2g/core.
+          |- 'spark.executor.memory' should be set to 2g/core.
           |- 'spark.rapids.memory.pinnedPool.size' should be set to 2g.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
           |- 'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7500m)).

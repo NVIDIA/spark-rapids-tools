@@ -48,7 +48,7 @@ class TuningConfigEntry(
   }
 
   private def isEmpty: Boolean = {
-    isEmptyValue(name) && isEmptyValue(description) && isEmptyValue(usedBy)
+    isEmptyValue(name) && isEmptyValue(description) && isEmptyValue(usedBy) &&
       isEmptyValue(default) && isEmptyValue(min) && isEmptyValue(max)
   }
 

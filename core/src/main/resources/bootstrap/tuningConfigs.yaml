@@ -91,10 +91,11 @@ default:
     default: 7500m
     usedBy: spark.rapids.sql.concurrentGpuTasks
 
-  - name: INPUT_BYTES_RANGE
+  - name: TASK_INPUT_SIZE_THRESHOLD
     description: >-
-      Target range for input bytes per partition. This will be used to
-      calculate maxPartitionBytes.
+      Threshold range for task input size used to determine when to adjust maxPartitionBytes.
+      If actual task input size is below min threshold, maxPartitionBytes is increased.
+      If actual task input size is above max threshold, maxPartitionBytes is decreased.
     min: 128m
     max: 256m
     usedBy: spark.sql.files.maxPartitionBytes

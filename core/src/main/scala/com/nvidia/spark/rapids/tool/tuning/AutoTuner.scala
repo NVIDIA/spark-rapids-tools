@@ -1159,43 +1159,44 @@ abstract class AutoTuner(
    * The max bytes here does not distinguish between GPU and CPU reads so we could
    * improve that in the future.
    * Eg,
-   * MIN_PARTITION_BYTES_RANGE = 128m, MAX_PARTITION_BYTES_RANGE = 256m
-   * (1) Input:  maxPartitionBytes = 512m
-   *             taskInputSize = 12m
-   *     Output: newMaxPartitionBytes = 512m * (128m/12m) = 4g (hit max value)
-   * (2) Input:  maxPartitionBytes = 2g
-   *             taskInputSize = 512m,
-   *     Output: newMaxPartitionBytes = 2g / (512m/128m) = 512m
+   * TASK_INPUT_SIZE_THRESHOLD = {min: 128m, max: 256m}
+   * (1) Input:  currentMaxPartitionBytes = 512m
+   *             actualTaskInputSizeMB = 12m (below min threshold -> increase maxPartitionBytes)
+   *     Output: recommendedMaxPartitionBytes = 512m * (128m/12m) = 4g (hit max value)
+   * (2) Input:  currentMaxPartitionBytes = 2g
+   *             actualTaskInputSizeMB = 512m (above max threshold -> decrease maxPartitionBytes)
+   *     Output: recommendedMaxPartitionBytes = 2g / (512m/128m) = 512m
    */
-  protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
+  protected def calculateMaxPartitionBytesInMB(currentMaxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
-    val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes, Some(ByteUnit.BYTE))
-    // Get the min and max values for the input bytes range
-    val inputBytesRange = tuningConfigs.getEntry("INPUT_BYTES_RANGE")
-    val inputBytesRangeMin = inputBytesRange.getMinAsMemory(ByteUnit.MiB)
-    val inputBytesRangeMax = inputBytesRange.getMaxAsMemory(ByteUnit.MiB)
+    val actualTaskInputSizeMB = appInfoProvider.getMaxInput / 1024 / 1024
+    val currentMaxPartitionBytesMB = StringUtils.convertToMB(
+      currentMaxPartitionBytes, Some(ByteUnit.BYTE))
+    // Get the min and max thresholds for the task input size
+    val taskInputSizeThreshold = tuningConfigs.getEntry("TASK_INPUT_SIZE_THRESHOLD")
+    val minTaskInputSizeThresholdMB = taskInputSizeThreshold.getMinAsMemory(ByteUnit.MiB)
+    val maxTaskInputSizeThresholdMB = taskInputSizeThreshold.getMaxAsMemory(ByteUnit.MiB)
     // Get the upper bound for the max partition bytes
-    val maxPartitionBytesUpperBound =
+    val maxAllowedPartitionBytesMB =
       tuningConfigs.getEntry("MAX_PARTITION_BYTES").getMaxAsMemory(ByteUnit.MiB)
 
-    if (inputBytesMax == 0.0) {
-      Some(maxPartitionBytesNum)
+    if (actualTaskInputSizeMB == 0.0) {
+      Some(currentMaxPartitionBytesMB)
     } else {
-      if (inputBytesMax > 0 && inputBytesMax < inputBytesRangeMin) {
-        // Increase partition size
-        val calculatedMaxPartitionBytes = Math.min(
-          maxPartitionBytesNum * (inputBytesRangeMin / inputBytesMax),
-          maxPartitionBytesUpperBound)
-        Some(calculatedMaxPartitionBytes.toLong)
-      } else if (inputBytesMax > inputBytesRangeMax) {
-        // Decrease partition size
-        val calculatedMaxPartitionBytes = Math.min(
-          maxPartitionBytesNum / (inputBytesMax / inputBytesRangeMax),
-          maxPartitionBytesUpperBound)
-        Some(calculatedMaxPartitionBytes.toLong)
+      if (actualTaskInputSizeMB > 0 && actualTaskInputSizeMB < minTaskInputSizeThresholdMB) {
+        // If task input too small (< min threshold): increase partition size to get bigger tasks
+        val recommendedMaxPartitionBytesMB = Math.min(
+          currentMaxPartitionBytesMB * (minTaskInputSizeThresholdMB / actualTaskInputSizeMB),
+          maxAllowedPartitionBytesMB)
+        Some(recommendedMaxPartitionBytesMB.toLong)
+      } else if (actualTaskInputSizeMB > maxTaskInputSizeThresholdMB) {
+        //  If task input too large (> max threshold): decrease partition size to get smaller tasks
+        val recommendedMaxPartitionBytesMB = Math.min(
+          currentMaxPartitionBytesMB / (actualTaskInputSizeMB / maxTaskInputSizeThresholdMB),
+          maxAllowedPartitionBytesMB)
+        Some(recommendedMaxPartitionBytesMB.toLong)
       } else {
-        // Do not recommend maxPartitionBytes
+        // If task input within range: no adjustment needed
         None
       }
     }
@@ -1779,23 +1780,37 @@ trait AutoTunerStaticComments {
 trait AutoTunerCommentsWithTuningConfigs {
   val tuningConfigs: TuningConfigsProvider
 
+  /**
+   * Helper function to generate a comment for a missing property.
+   */
+  private def generateMissingComment(property: String, recommendation: String): String = {
+    s"'$property' should be set to $recommendation."
+  }
+
   // scalastyle:off line.size.limit
   protected val commentsForMissingMemoryProps: Map[String, String] = Map(
     "spark.executor.memory" ->
-      s"'spark.executor.memory' should be set to at least ${tuningConfigs.getEntry("HEAP_PER_CORE").getDefault}/core.",
+      generateMissingComment("spark.executor.memory",
+        s"${tuningConfigs.getEntry("HEAP_PER_CORE").getDefault}/core"),
     "spark.rapids.memory.pinnedPool.size" ->
-      s"'spark.rapids.memory.pinnedPool.size' should be set to ${tuningConfigs.getEntry("PINNED_MEMORY").getDefault}.")
+      generateMissingComment("spark.rapids.memory.pinnedPool.size",
+        tuningConfigs.getEntry("PINNED_MEMORY").getDefault))
 
   protected val commentsForMissingProps: Map[String, String] = Map(
     "spark.executor.cores" ->
       // TODO: This could be extended later to be platform specific.
-      s"'spark.executor.cores' should be set to ${tuningConfigs.getEntry("CORES_PER_EXECUTOR").getDefault}.",
+      generateMissingComment("spark.executor.cores",
+        tuningConfigs.getEntry("CORES_PER_EXECUTOR").getDefault),
     "spark.executor.instances" ->
-      "'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.",
+      generateMissingComment("spark.executor.instances",
+        "(cpuCoresPerNode * numWorkers) / 'spark.executor.cores'"),
     "spark.task.resource.gpu.amount" ->
-      s"'spark.task.resource.gpu.amount' should be set to ${tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault}.",
+      generateMissingComment("spark.task.resource.gpu.amount",
+        tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault),
     "spark.rapids.sql.concurrentGpuTasks" ->
-      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(${tuningConfigs.getEntry("CONC_GPU_TASKS").getMax.toLong}, (gpuMemory / ${tuningConfigs.getEntry("GPU_MEM_PER_TASK").getDefault})).",
+      generateMissingComment("spark.rapids.sql.concurrentGpuTasks",
+        s"Min(${tuningConfigs.getEntry("CONC_GPU_TASKS").getMax.toLong}, " +
+          s"(gpuMemory / ${tuningConfigs.getEntry("GPU_MEM_PER_TASK").getDefault}))"),
     "spark.rapids.sql.enabled" ->
       "'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.",
     "spark.sql.adaptive.enabled" ->
