@@ -1010,7 +1010,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
   /**
    * Helper method to create tuning definition for testing
-   * spark.sql.adaptive.shuffle.maxNumPostShufflePartitions alias
+   * spark.sql.adaptive.maxNumPostShufflePartitions alias
    */
   private def createMaxNumPostShufflePartitionsTuningDefinition():
     java.util.List[TuningEntryDefinition] = {
