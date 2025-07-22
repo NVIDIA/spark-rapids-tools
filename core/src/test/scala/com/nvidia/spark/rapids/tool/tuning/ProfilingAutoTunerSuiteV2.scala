@@ -1163,8 +1163,9 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     // AutoTuner should throw IllegalArgumentException due to invalid tuning config name
     assertThrows[IllegalArgumentException] {
-      buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+      val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
         userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+      autoTuner.getRecommendedProperties()
     }
   }
 }

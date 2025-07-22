@@ -76,6 +76,10 @@ class TuningConfigEntry(
   /**
    * Merge this TuningConfigEntry with another one. The other entry's values will override
    * this entry's values if they are not empty.
+   * Note:
+   * - Name must be the same for both entries, otherwise an exception is thrown.
+   * - Description and usedBy are not merged, the original values are kept.
+   *
    * @param other The other TuningConfigEntry to merge with
    * @return A new TuningConfigEntry with merged values
    */
@@ -85,7 +89,8 @@ class TuningConfigEntry(
 
     new TuningConfigEntry(
       name = this.name,
-      description = if (isEmptyValue(other.description)) this.description else other.description,
+      description = this.description,
+      usedBy = this.usedBy,
       default = if (isEmptyValue(other.default)) this.default else other.default,
       min = if (isEmptyValue(other.min)) this.min else other.min,
       max = if (isEmptyValue(other.max)) this.max else other.max
@@ -171,11 +176,16 @@ class TuningConfigsProvider (
 
   /**
    * Merges entries from the override list into the base list.
-   * Returns a new list containing the merged entries.
+   *
+   * @param baseList The base list of tuning configurations.
+   * @param overrideList The override list of tuning configurations.
+   * @param allowExtra Whether to allow extra entries in the override list.
+   * @return A new list containing the merged entries.
    */
   private def mergeConfigs(
       baseList: util.List[TuningConfigEntry],
-      overrideList: util.List[TuningConfigEntry])
+      overrideList: util.List[TuningConfigEntry],
+      allowExtra: Boolean = false)
   : util.List[TuningConfigEntry] = {
     if (overrideList == null || overrideList.isEmpty) {
       return baseList
@@ -191,8 +201,17 @@ class TuningConfigsProvider (
           val index = result.indexOf(baseEntry)
           result.set(index, baseEntry.merge(overrideEntry))
         case None =>
-          // Entry does not exist in base list, add it
-          result.add(overrideEntry)
+          // Entry does not exist in base list
+          if (allowExtra) {
+            // If extra entries are allowed (e.g. merging user defined qualification overrides with
+            // qualification defaults), add the new entry.
+            result.add(overrideEntry)
+          } else {
+            // Else, throw an error to indicate the override entry is invalid (e.g. merging
+            // into the default list).
+            throw new IllegalArgumentException(s"Override entry '${overrideEntry.name}' " +
+              s"does not exist in the base tuning configs. Please check for typos.")
+          }
       }
     }
     result
@@ -219,8 +238,10 @@ class TuningConfigsProvider (
   def merge(other: TuningConfigsProvider): TuningConfigsProvider = {
     new TuningConfigsProvider(
       mergeConfigs(this.default, other.default),
-      mergeConfigs(this.qualification, other.qualification),
-      mergeConfigs(this.profiling, other.profiling),
+      // Extra entries are allowed while merging qualification/profiling configs
+      // as the base default list may not contain all tool-specific entries.
+      mergeConfigs(this.qualification, other.qualification, allowExtra = true),
+      mergeConfigs(this.profiling, other.profiling, allowExtra = true),
       this.selectedAutoTuner
     )
   }
