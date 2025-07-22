@@ -1126,4 +1126,45 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  // This test validates that AutoTuner throws IllegalArgumentException when user provides
+  // tuning configurations with typos in name.
+  test("AutoTuner should throw IllegalArgumentException for typo in tuning config name") {
+    // 1. Mock source cluster info for dataproc
+    val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
+    val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
+    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
+    val sourceClusterInfoOpt =
+      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    // 2. Mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "2",
+        "spark.rapids.memory.pinnedPool.size" -> "5g",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"
+      )
+    // 3. Mock the user-provided tuning configurations with typo. Equivalent YAML snippet:
+    // tuningConfigs:
+    //   default:
+    //   - name: BATCH_SIZE_BTYES  # Typo: should be BATCH_SIZE_BYTES
+    //     default: 512m
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "BATCH_SIZE_BTYES", default = "512m")  // Typo in name
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
+      sourceClusterInfoOpt)
+
+    // AutoTuner should throw IllegalArgumentException due to invalid tuning config name
+    assertThrows[IllegalArgumentException] {
+      buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+        userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+    }
+  }
 }
