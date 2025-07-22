@@ -93,7 +93,6 @@ install_python_package() {
 
   echo "Installing wheel: $wheel_file"
   pip install "$wheel_file"
-  pip install .
   popd
 }
 
@@ -104,8 +103,8 @@ if [ -d "$python_tools_dir/dist" ] && [ -n "$(find "$python_tools_dir/dist" -nam
   wheel_exists=true
 fi
 
-# Build the wheel file using build.sh in non-fat mode if needed
-if [ "$E2E_TEST_BUILD_WHEEL" = "true" ] || [ "$wheel_exists" = false ]; then
+# Build wheel if: wheel doesn't exist AND E2E_BUILD_WHEEL is explicitly true
+if [ "$wheel_exists" = false ] && [ "$E2E_TEST_BUILD_WHEEL" = "true" ]; then
   build_wheel
 fi
 
