@@ -98,13 +98,13 @@ install_python_package() {
 
 # Check if we need to build the wheel file
 python_tools_dir="$E2E_TEST_TOOLS_DIR/user_tools"
-wheel_exists=false
+wheel_exists="false"
 if [ -d "$python_tools_dir/dist" ] && [ -n "$(find "$python_tools_dir/dist" -name "*.whl" -type f 2>/dev/null)" ]; then
-  wheel_exists=true
+  wheel_exists="true"
 fi
 
 # Build wheel if: wheel doesn't exist AND E2E_BUILD_WHEEL is explicitly true
-if [ "$wheel_exists" = false ] && [ "$E2E_TEST_BUILD_WHEEL" = "true" ]; then
+if [ "$wheel_exists" != "true" ] && [ "$E2E_TEST_BUILD_WHEEL" = "true" ]; then
   build_wheel
 fi
 
