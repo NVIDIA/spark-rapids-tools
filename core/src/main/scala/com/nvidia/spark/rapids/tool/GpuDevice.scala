@@ -40,8 +40,9 @@ abstract class GpuDevice {
   def getAdvisoryPartitionSizeInBytes: Option[String] = None
   def getInitialPartitionNum: Option[Int] = None
   // TODO: Improve logic for concurrent tasks
-  final def getGpuConcTasks: Long =
-    StringUtils.convertToMB(getMemory, Some(ByteUnit.BYTE)) / GpuDevice.DEF_GPU_MEM_PER_TASK_MB
+  final def getGpuConcTasks(gpuMemPerTaskMB: Long): Long = {
+    StringUtils.convertToMB(getMemory, Some(ByteUnit.BYTE)) / gpuMemPerTaskMB
+  }
 }
 
 case object A100Gpu extends GpuDevice {
@@ -103,11 +104,6 @@ case object A10GGpu extends GpuDevice {
 }
 
 object GpuDevice extends Logging {
-  // Amount of GPU memory to use per concurrent task in megabytes.
-  // Current estimate is based on T4 GPUs with 14.75 GB and we want
-  // to run with 2 concurrent by default on T4s.
-  private val DEF_GPU_MEM_PER_TASK_MB = 7500L
-
   val DEFAULT: GpuDevice = T4Gpu
 
   lazy val deviceMap: Map[String, GpuDevice] = Map(

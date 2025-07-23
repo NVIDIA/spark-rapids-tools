@@ -20,7 +20,7 @@ import java.io.File
 import java.nio.file.Paths
 
 import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.tuning.{ProfilingAutoTunerConfigsProvider, ProfilingAutoTunerSuiteBase}
+import com.nvidia.spark.rapids.tool.tuning.ProfilingAutoTunerSuiteBase
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
 
@@ -348,11 +348,11 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.dataproc.enhanced.execution.enabled' was not set.
             |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
             |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
+            |- ${getEnforcedPropertyComment("spark.executor.cores")}
             |- 'spark.executor.instances' was not set.
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.memory")}
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.memory.offHeap.enabled")}
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.memory.offHeap.size")}
+            |- ${getEnforcedPropertyComment("spark.executor.memory")}
+            |- ${getEnforcedPropertyComment("spark.memory.offHeap.enabled")}
+            |- ${getEnforcedPropertyComment("spark.memory.offHeap.size")}
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -362,9 +362,9 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
-            |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
-            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |- ${getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+            |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)
@@ -469,9 +469,9 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.dataproc.enhanced.execution.enabled' was not set.
             |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
             |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.instances")}
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.memory")}
+            |- ${getEnforcedPropertyComment("spark.executor.cores")}
+            |- ${getEnforcedPropertyComment("spark.executor.instances")}
+            |- ${getEnforcedPropertyComment("spark.executor.memory")}
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -481,8 +481,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
-            |- ${ProfilingAutoTunerConfigsProvider.latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
-            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)

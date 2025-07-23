@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TargetClusterProps, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TargetClusterProps, TunerContext, TuningConfigsProvider}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import com.nvidia.spark.rapids.tool.views.qualification.{QualPerAppReportGenerator, QualReportGenConfProvider, QualToolReportGenerator}
 import org.apache.hadoop.conf.Configuration
@@ -37,7 +37,7 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
     reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
     clusterReport: Boolean, platformArg: String, workerInfoPath: Option[String],
-    targetClusterInfoPath: Option[String])
+    targetClusterInfoPath: Option[String], tuningConfigsPath: Option[String])
   extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
@@ -155,11 +155,15 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
           val qualSumInfo = app.aggregateStats()
           AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
             tunerContext.foreach { tuner =>
+              // Load any user provided tuning configurations
+              val userProvidedTuningConfigs = tuningConfigsPath.flatMap(
+                PropertiesLoader[TuningConfigsProvider].loadFromFile)
               // Run the autotuner if it is enabled.
               // Note that we call the autotuner anyway without checking the aggregate results
               // because the Autotuner can still make some recommendations based on the information
               // enclosed by the QualificationInfo object
-              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo, platform)
+              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo, platform,
+                userProvidedTuningConfigs)
             }
           }
           if (qualSumInfo.isDefined) {
