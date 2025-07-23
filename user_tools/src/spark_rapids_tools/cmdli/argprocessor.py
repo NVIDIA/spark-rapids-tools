@@ -356,9 +356,6 @@ class ToolUserArgModel(AbsToolUserArgModel):
     tools_config_path: Optional[str] = None
     target_cluster_info: Optional[str] = None
 
-    def is_concurrent_submission(self) -> bool:
-        return False
-
     def process_jvm_args(self) -> None:
         # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
         self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
@@ -366,11 +363,8 @@ class ToolUserArgModel(AbsToolUserArgModel):
         if jvm_heap is None:
             # set default GC heap size based on the virtual memory of the host.
             jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
-        # check if both tools are going to run concurrently, then we need to reduce the heap size
-        # To reduce possibility of OOME, each core-tools thread should be running with at least 8 GB
-        # of heap.
+        # We adjust tools resources and the number of threads optimally here
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
-                                                              jvm_processes=2 if self.is_concurrent_submission() else 1,
                                                               jvm_threads=self.jvm_threads)
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
@@ -525,9 +519,6 @@ class QualifyUserArgModel(ToolUserArgModel):
         # shortcircuit to fail early
         self.validate_arguments()
         return self
-
-    def is_concurrent_submission(self) -> bool:
-        return self.p_args['toolArgs']['estimationModelArgs']['xgboostEnabled']
 
     def load_tools_config_internal(self) -> ToolsConfig:
         # Override the method to load the tools config file based on the submission mode

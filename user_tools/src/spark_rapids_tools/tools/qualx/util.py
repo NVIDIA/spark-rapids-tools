@@ -22,7 +22,6 @@ import re
 import secrets
 import string
 import types
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -352,18 +351,21 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    def run_profiling_core(eventlog: str) -> None:
-        dev_cli = DevCLI()
-        dev_cli.profiling_core(
-            eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
-            platform=platform,
-            output_folder=output_dir,
-            tools_jar=None,
-            tools_config_file=tools_config,
-            verbose=True
-        )
+    # Join all eventlogs as comma-separated string to allow Java to ensure parallel processing
+    processed_eventlogs = [process_eventlog_path(os.path.expandvars(eventlog)) for eventlog in eventlogs]
+    eventlogs_str = ','.join(processed_eventlogs)
 
-    run_commands(eventlogs, run_profiling_core)
+    logger.info('Triggering profiling with %d eventlogs in single batch', len(eventlogs))
+
+    dev_cli = DevCLI()
+    dev_cli.profiling_core(
+        eventlogs=eventlogs_str,
+        platform=platform,
+        output_folder=output_dir,
+        tools_jar=None,
+        tools_config_file=tools_config,
+        verbose=True
+    )
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
@@ -375,13 +377,19 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
     else:
-        def run_qualification_core(eventlog: str) -> None:
-            # Skip gpu logs, assuming /gpu appearing in path can be used to distinguish
-            if '/gpu' in str(eventlog).lower():
-                return
+        # Filter out GPU logs early and process all qualifying eventlogs in a single call
+        filtered_eventlogs = [eventlog for eventlog in eventlogs if '/gpu' not in str(eventlog).lower()]
+        if filtered_eventlogs:
+            # Process all eventlogs in a single call for better benchmarking
+            # Join all eventlogs as comma-separated string and let Java tools handle parallelism
+            processed_eventlogs = \
+                [process_eventlog_path(os.path.expandvars(eventlog)) for eventlog in filtered_eventlogs]
+            eventlogs_str = ','.join(processed_eventlogs)
+            logger.info('Triggering qualification with %d eventlogs in single batch', len(filtered_eventlogs))
+
             dev_cli = DevCLI()
             dev_cli.qualification_core(
-                eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
+                eventlogs=eventlogs_str,
                 platform=platform,
                 output_folder=output_dir,
                 tools_jar=None,
@@ -389,7 +397,6 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
                 verbose=False
             )
 
-        run_commands(eventlogs, run_qualification_core)
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
 
@@ -405,27 +412,6 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         logger.warning('No valid qualification handlers were created from eventlogs')
 
     return qual_handlers
-
-
-def run_commands(tasks: List, task_func, workers: int = 8) -> None:
-    """Run a list of tasks using a thread pool."""
-    if not tasks:
-        return
-
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(task_func, task): task for task in tasks
-        }
-
-        for future in as_completed(futures):
-            task = futures[future]
-            try:
-                future.result()
-                logger.info('Task completed: %s', task)
-
-            except Exception as e:  # pylint: disable=broad-except
-                logger.error('Task failed: %s', task)
-                logger.error(e)
 
 
 def print_summary(summary: pd.DataFrame) -> None:
