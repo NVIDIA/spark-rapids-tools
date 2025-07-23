@@ -939,7 +939,7 @@ class RapidsJarTool(RapidsTool):
         if job_resources is None:
             # default values
             platform_args = submission_args.get('platformArgs')
-            job_resources = Utilities.adjust_tools_resources(platform_args.get('jvmMaxHeapSize'))
+            job_resources = Utilities.adjust_tools_resources(platform_args.get('jvmMaxHeapSize'), jvm_processes=1)
         return job_resources.get(tool_name)
 
     def _get_rapids_threads_count(self, tool_name) -> List[str]:
@@ -1038,7 +1038,7 @@ class RapidsJarTool(RapidsTool):
         rapids_job_containers = self.ctxt.get_ctxt('rapidsJobContainers')
         futures_list = []
         results = []
-        executors_cnt = len(rapids_job_containers)
+        executors_cnt = len(rapids_job_containers) if Utilities.conc_mode_enabled else 1
         with ThreadPoolExecutor(max_workers=executors_cnt) as executor:
             for rapids_job in rapids_job_containers:
                 if self.ctxt.is_distributed_mode():
