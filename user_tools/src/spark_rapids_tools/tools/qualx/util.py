@@ -352,7 +352,7 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    # Join all eventlogs as comma-separated string to allow Java to ensure parallel processing
+    # Join all eventlogs as a comma-separated string to enable Java tools to handle parallel processing internally
     processed_eventlogs = [process_eventlog_path(os.path.expandvars(eventlog)) for eventlog in eventlogs]
     eventlogs_str = ','.join(processed_eventlogs)
 
