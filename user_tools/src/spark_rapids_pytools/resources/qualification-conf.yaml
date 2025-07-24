@@ -120,6 +120,7 @@ sparkRapids:
       - speedup-factor-file
       - start-app-time
       - target-cluster-info
+      - tuning-configs
       - timeout
       - u
       - user-name

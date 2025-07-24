@@ -38,4 +38,4 @@ sparkProperties:
       level: job
       category: tuning
       confType:
-        name: int 
+        name: int

@@ -18,8 +18,7 @@ Feature: Testing preprocessing functionality
   So that I can reliably process Spark event logs
 
   Background:
-    Given SPARK_RAPIDS_TOOLS_JAR environment variable is set
-    And SPARK_HOME environment variable is set
+    Given SPARK_HOME environment variable is set
     And QUALX_DATA_DIR environment variable is set
     And QUALX_CACHE_DIR environment variable is set
     And sample event logs in the QUALX_DATA_DIR

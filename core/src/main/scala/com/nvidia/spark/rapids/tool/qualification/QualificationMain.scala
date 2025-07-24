@@ -118,7 +118,7 @@ object QualificationMain extends Logging {
       nThreads, pluginTypeChecker,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
       tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo.toOption,
-      appArgs.targetClusterInfo.toOption)
+      appArgs.targetClusterInfo.toOption, appArgs.tuningConfigs.toOption)
     val res = qual.qualifyApps(filteredLogs)
     res
   }

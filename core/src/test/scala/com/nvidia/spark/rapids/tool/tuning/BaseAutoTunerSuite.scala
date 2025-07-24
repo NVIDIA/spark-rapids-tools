@@ -85,7 +85,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
 /**
  * Base class for AutoTuner test suites
  */
-abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with Logging {
+abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
+  with Logging with AutoTunerStaticComments {
 
   // Spark runtime version used for testing
   def testSparkVersion: String = ToolUtils.sparkRuntimeVersion
@@ -96,7 +97,7 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
   // RapidsShuffleManager version used for testing Databricks
   def testSmVersionDatabricks: String = "332db"
   //  Subclasses to provide the AutoTuner configuration to use
-  val autoTunerConfigsProvider: AutoTunerConfigsProvider
+  val autoTunerHelper: AutoTunerHelper
 
   val defaultDataprocProps: mutable.Map[String, String] = {
     mutable.LinkedHashMap[String, String](
@@ -204,7 +205,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     clusterProps: String,
     mockInfoProvider: AppInfoProviderMockTest,
     platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-    sparkMaster: Option[SparkMaster] = None
+    sparkMaster: Option[SparkMaster] = None,
+    userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
   ): AutoTuner = {
 
     // Determine the SparkMaster using provided value or platform-based default
@@ -227,8 +229,9 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach with 
     mockInfoProvider.setSparkMaster(mockSparkMasterStr)
 
     // Build and return the AutoTuner
-    autoTunerConfigsProvider.buildAutoTunerFromProps(
-      clusterProps, mockInfoProvider, platform)
+    autoTunerHelper.buildAutoTunerFromProps(
+      clusterProps, mockInfoProvider, platform,
+      userProvidedTuningConfigs = userProvidedTuningConfigs)
   }
 
   /**
