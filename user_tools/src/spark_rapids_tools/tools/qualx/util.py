@@ -347,7 +347,8 @@ def process_eventlog_path(eventlog_path: str) -> str:
     return eventlog_path
 
 
-def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
+def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None,
+                      jvm_heap_size: int = None, jvm_threads: int = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
@@ -364,12 +365,15 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
         output_folder=output_dir,
         tools_jar=None,
         tools_config_file=tools_config,
+        jvm_heap_size=jvm_heap_size,
+        jvm_threads=jvm_threads,
         verbose=True
     )
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
-                           output_dir: str, skip_run: bool = False, tools_config: str = None) -> List[QualCoreHandler]:
+                           output_dir: str, skip_run: bool = False, tools_config: str = None,
+                           jvm_heap_size: int = None, jvm_threads: int = None) -> List[QualCoreHandler]:
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
@@ -394,6 +398,8 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
                 output_folder=output_dir,
                 tools_jar=None,
                 tools_config_file=tools_config,
+                jvm_heap_size=jvm_heap_size,
+                jvm_threads=jvm_threads,
                 verbose=False
             )
 
