@@ -916,11 +916,11 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.executor.resource.gpu.amount" -> "1",
         // alias property
-        "spark.sql.adaptive.shuffle.minNumPostShufflePartitions" -> "100"
+        "spark.sql.adaptive.maxNumPostShufflePartitions" -> "100"
       )
 
     // 3. Create user-defined tuningDefinitions for the target cluster
-    val userTuningDefinitions = createMinNumPostShufflePartitionsTuningDefinition()
+    val userTuningDefinitions = createMaxNumPostShufflePartitionsTuningDefinition()
 
     // 4. Define enforced properties for the target cluster (no alias needed in target-cluster yaml)
     val enforcedSparkProperties = Map(
@@ -975,7 +975,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
-          |--conf spark.sql.adaptive.shuffle.minNumPostShufflePartitions=800
+          |--conf spark.sql.adaptive.maxNumPostShufflePartitions=800
           |--conf spark.sql.files.maxPartitionBytes=4g
           |--conf spark.sql.shuffle.partitions=800
           |--conf spark.task.resource.gpu.amount=0.25
@@ -1010,14 +1010,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
   /**
    * Helper method to create tuning definition for testing
-   * spark.sql.adaptive.shuffle.minNumPostShufflePartitions alias
+   * spark.sql.adaptive.maxNumPostShufflePartitions alias
    */
-  private def createMinNumPostShufflePartitionsTuningDefinition():
+  private def createMaxNumPostShufflePartitionsTuningDefinition():
     java.util.List[TuningEntryDefinition] = {
     import scala.collection.JavaConverters._
     // Create a custom tuning definition for testing
     val customTuningDef = new TuningEntryDefinition()
-    customTuningDef.setLabel("spark.sql.adaptive.shuffle.minNumPostShufflePartitions")
+    customTuningDef.setLabel("spark.sql.adaptive.maxNumPostShufflePartitions")
     customTuningDef.setDescription("Custom tuning definition for testing alias feature")
     customTuningDef.setEnabled(true)
     customTuningDef.setLevel("job")

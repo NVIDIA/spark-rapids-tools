@@ -17,7 +17,7 @@
 #
 # This example demonstrates how to use the "tuningDefinitions" feature to define custom Spark properties
 # that will be merged with the default tuning table. For example, if a customer is using a customized Spark
-# with legacy properties like "spark.sql.adaptive.shuffle.minNumPostShufflePartitions", you can define it
+# with legacy properties like "spark.sql.adaptive.maxNumPostShufflePartitions", you can define it
 # in tuningDefinitions and the AutoTuner will use it for recommendations.
 workerInfo:
   cpuCores: 16
@@ -29,7 +29,7 @@ sparkProperties:
   enforced:
     spark.rapids.sql.concurrentGpuTasks: 2
   tuningDefinitions:
-    - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+    - label: spark.sql.adaptive.maxNumPostShufflePartitions
       description: >-
         The initial number of shuffle partitions before coalescing. This is a legacy property
         that has been replaced by spark.sql.adaptive.coalescePartitions.initialPartitionNum
