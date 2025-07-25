@@ -44,7 +44,7 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
  */
 object QualReportGenConfProvider {
   // TODO: Move those configurations to yaml file.
-  val TABLES_CONFIG_PATH = "configs/qualOutputTable.yaml"
+  val TABLES_CONFIG_PATH = "configs/reports/qualOutputTable.yaml"
   val PER_APP_SUBDIRECTORY = "qual_metrics"
   val GLOBAL_SUBDIRECTORY = "qual_core_output"
   val TUNING_SUBDIRECTORY = "tuning"

@@ -24,17 +24,63 @@
 # If the build_mode is "non-fat" and jar_url is provided, it downloads the JAR from the URL and packages it with the wheel.
 # If the build_mode is "non-fat" and jar_url is not provided, it builds the JAR from source and packages it with the wheel.
 
+###############################
+# define utilities and methods
+###############################
+
+# define coloring for logging
+UNDER='\033[4m'
+RED='\033[31;1m'
+GREEN='\033[32;1m'
+YELLOW='\033[33;1m'
+BLUE='\033[34;1m'
+MAGENTA='\033[35;1m'
+CYAN='\033[36;1m'
+WHITE='\033[37;1m'
+ENDCOLOR='\033[0m'
+
+PRODUCT_NAME="Spark RAPIDS user tools"
+
+log_msg() {
+  echo -e "${1}${2}${ENDCOLOR}"
+}
+
+log_error() {
+  log_msg "${RED}" "Error: $1"
+}
+
+log_section() {
+  echo
+  log_msg "${MAGENTA}" "$1"
+  echo
+}
+
+log_info() {
+  log_msg "${YELLOW}" "$1"
+}
+
+log_debug() {
+  echo -e "$1"
+}
+
+bail() {
+ log_error "$1"
+ exit 1
+}
+
+###############################
+# Process Arguments
+###############################
+
 # Get the build mode argument
 # Check if build_mode is provided and valid
 if [ -z "$1" ]; then
-  echo "Error: build_mode parameter is required. Use either 'fat' or 'non-fat'."
-  exit 1
+  bail "build_mode parameter is required. Use either 'fat' or 'non-fat'."
 fi
 
 # Validate build_mode is either "fat" or "non-fat"
 if [ "$1" != "fat" ] && [ "$1" != "non-fat" ]; then
-  echo "Error: build_mode must be either 'fat' or 'non-fat'. Got '$1' instead."
-  exit 1
+  bail "build_mode must be either 'fat' or 'non-fat'. Got '$1' instead."
 fi
 
 build_mode="$1"
@@ -43,13 +89,20 @@ jar_url="$2"
 # get the directory of the script
 WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
-# Define resource directory
-RESOURCE_DIR="src/spark_rapids_pytools/resources"
-TOOLS_RESOURCE_FOLDER="tools-resources"
+# Define wrapper module directories
+WRAPPER_RESOURCES_DIR="src/spark_rapids_pytools/resources"
+# define the destination folder where the core files will be located.
+GENERATED_RES_REL_PATH="generated_files/core"
+DEST_CORE_REPORTS_REL_PATH="${GENERATED_RES_REL_PATH}/reports"
+DEST_CORE_JARS_REL_PATH="${GENERATED_RES_REL_PATH}/jars"
+
 PREPACKAGED_FOLDER="csp-resources"
 
+# Define core module directories
 # Constants and variables of core module
 CORE_DIR="$WORK_DIR/../core"
+CORE_RESOURCES_DIR="${CORE_DIR}/src/main/resources"
+SRC_CORE_REPORTS_REL_PATH="configs/reports"
 TOOLS_JAR_FILE=""
 BUILD_DIR="/var/tmp/spark_rapids_user_tools_cache/build_$(date +%Y%m%d_%H%M%S)"
 
@@ -59,28 +112,30 @@ download_jar_from_url() {
   local output_dir="$2"
 
   # Create download directory if it doesn't exist
-  mkdir -p "$output_dir"
+  mkdir -p "${output_dir}"
 
   # Extract filename from URL
-  local filename=$(basename "$url")
-  local output_path="$output_dir/$filename"
+  local filename
+  filename=$(basename "$url")
+  local output_path="${output_dir}/$filename"
 
   # Validate the JAR filename to ensure it is not a source, javadoc, or test JAR
   if [[ "$filename" == *"sources.jar" || "$filename" == *"javadoc.jar" || "$filename" == *"tests.jar" ]]; then
-    echo "Invalid JAR file: $filename. Source, javadoc, or test JARs are not allowed."
-    exit 1
+    bail "Invalid JAR file: ${filename}. Source, javadoc, or test JARs are not allowed."
   fi
 
-  echo "Downloading JAR from $url to $output_path"
-  curl -L -f -o "$output_path" "$url"
+  log_debug "Downloading JAR from $url to ${output_path}"
+  curl -L -f -o "${output_path}" "$url"
 
-  if [ $? -ne 0 ]; then
-    echo "Failed to download JAR from URL: $url"
-    exit 1
+  curl_exit_code=$(curl -L -f -o "${output_path}" "$url"; echo $?)
+  log_debug "Downloading JAR from $url to ${output_path}"
+
+  if [ "$curl_exit_code" -ne 0 ]; then
+    bail "Failed to download JAR from URL: $url"
   fi
 
-  TOOLS_JAR_FILE="$output_path"
-  echo "Downloaded JAR file: $TOOLS_JAR_FILE"
+  TOOLS_JAR_FILE="${output_path}"
+  log_info "Downloaded JAR file: ${TOOLS_JAR_FILE}"
 }
 
 clean_up_build_jars() {
@@ -97,37 +152,36 @@ build_jar_from_source() {
   # store teh current directory
   local curr_dir
   curr_dir=$(pwd)
-  local jar_dir="$CORE_DIR"/target
-  cd "$CORE_DIR" || exit
+  local jar_dir="${CORE_DIR}"/target
+  cd "${CORE_DIR}" || exit
 
   # Construct Maven command with optional arguments from environment
   local mvn_cmd="mvn clean package -DskipTests"
 
   # Add additional Maven arguments if provided via environment variable
-  if [ -n "$TOOLS_MAVEN_ARGS" ]; then
-    mvn_cmd="$mvn_cmd $TOOLS_MAVEN_ARGS"
-    echo "Using additional Maven arguments: $TOOLS_MAVEN_ARGS"
+  if [ -n "${TOOLS_MAVEN_ARGS}" ]; then
+    log_debug "Using additional Maven arguments: ${TOOLS_MAVEN_ARGS}"
+    mvn_cmd="${mvn_cmd} ${TOOLS_MAVEN_ARGS}"
   fi
 
-  echo "Running Maven command: $mvn_cmd"
+  log_debug "Running Maven command: ${mvn_cmd}"
 
   # build mvn
-  eval "$mvn_cmd"
-  if [ $? -ne 0 ]; then
-    echo "Failed to build the tools jar"
-    exit 1
+  eval "${mvn_cmd}"
+  mvn_exit_code=$?
+  if [ $mvn_exit_code -ne 0 ]; then
+    bail "Failed to build the tools jar from source"
   fi
   # rename jar file stripping snapshot
   TOOLS_JAR_FILE=( "$( find "${jar_dir}" -type f \( -iname "rapids-4-spark-tools_*.jar" ! -iname "*sources.jar" ! -iname "*tests.jar" ! -iname "original-rapids-4*.jar" ! -iname "*javadoc.jar" \) )" )
 
   if [ -z "$TOOLS_JAR_FILE" ]; then
-    echo "Failing because tools jar could not be located"
-    exit 1
+    bail "Failing because tools jar could not be located"
   else
-    echo "Using tools jar file: $TOOLS_JAR_FILE"
+    log_info "Tools jar file: $TOOLS_JAR_FILE"
   fi
   # restore the current directory
-  cd "$curr_dir" || exit
+  cd "${curr_dir}" || exit
 }
 
 # Function to run the dependency downloader script for non-fat/fat mode
@@ -139,100 +193,115 @@ download_web_dependencies() {
   local res_dir="$1"
   local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
-  echo "Downloading dependencies"
-  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="$TOOLS_JAR_FILE" --fetch_all_csp="$is_fat_mode"
-  if [ $? -ne 0 ]; then
-    echo "Dependency download failed. Exiting"
-    exit 1
+  log_section "Downloading dependencies"
+  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="${TOOLS_JAR_FILE}" --fetch_all_csp="$is_fat_mode"
+  exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    bail "Dependency download failed. Exiting"
   fi
 }
 
 # Function to remove dependencies from the fat directory
 remove_web_dependencies() {
   local res_dir="$1"
-  # remove tools jar
-  rm -rf "${res_dir:?}"/"$TOOLS_RESOURCE_FOLDER"
-  # remove folder recursively
+  log_info "Cleaning-up the generated-core files and prepackaged CSPs"
+  # remove all subdirectories and files from generated_files core
+  rm -rf "${res_dir:?}"/"${GENERATED_RES_REL_PATH}/*"
+  # remove csp resources recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
   rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
-  # remove core folder containing qualOutputTable.yaml
-  rm -rf "${res_dir:?}"/core/generated_files
 }
 
-# Function to copy qualOutputTable.yaml from core module to resources/core/generated_files folder
-copy_qual_output_table_yaml() {
-  local res_dir="$1"
-  local yaml_source="$CORE_DIR/src/main/resources/configs/qualOutputTable.yaml"
-  local core_res_dir="$res_dir/core/generated_files"
-  local yaml_dest="$core_res_dir/qualOutputTable.yaml"
+# Function to copy rports configurations from core module to generated_files folder
+copy_reports_from_core() {
+  local wrapper_res_dir="$1"
+  local src_core_reports="${CORE_RESOURCES_DIR}/${SRC_CORE_REPORTS_REL_PATH}"
+  local wrapper_gen_dir="${wrapper_res_dir}/$GENERATED_RES_REL_PATH"
 
-  if [ -f "$yaml_source" ]; then
-    echo "Copying qualOutputTable.yaml from core module to resources/core/generated_files"
-    # Create core/generated_files directory if it doesn't exist
-    mkdir -p "$core_res_dir"
-    cp "$yaml_source" "$yaml_dest"
-    if [ $? -ne 0 ]; then
-      echo "Failed to copy qualOutputTable.yaml"
-      exit 1
+  if [ -d "$src_core_reports" ]; then
+    log_debug "Copying core reports to the wrapper module"
+    mkdir -p "${wrapper_gen_dir}"
+    cp -r "${src_core_reports}" "${wrapper_gen_dir}"
+    cp_exit_code=$?
+    if [ $cp_exit_code -ne 0 ]; then
+      bail "Failed to copy report files"
     fi
-    echo "Successfully copied qualOutputTable.yaml to $yaml_dest"
+    log_info "Finished copying report files to generated files directory"
   else
-    echo "Warning: qualOutputTable.yaml not found at $yaml_source"
-    exit 1
+    bail "directories were not found ${src_core_reports}"
   fi
 }
 
 # Pre-build setup
 pre_build() {
-  echo "upgrade pip"
+  log_info "upgrade pip"
   pip install --upgrade pip
-  echo "rm previous build and dist directories"
+  log_debug "rm previous build and dist directories"
   rm -rf build/ dist/
-  echo "install build dependencies using pip"
-  pip install build .[qualx,test]
+  log_info "install build dependencies using pip"
+  pip install build
   # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
+  if ! pip install ".[qualx,test]"; then
+    bail "Failed to download the package with dependencies"
+  fi
 }
 
 # Build process
 build() {
   # Deletes pre-existing csp-resources.tgz folder
-  remove_web_dependencies "$RESOURCE_DIR"
+  remove_web_dependencies "$WRAPPER_RESOURCES_DIR"
   # Build the tools jar from source
+  log_section "Building the tools jar...."
   if [ -n "$jar_url" ]; then
-      echo "Using provided JAR URL instead of building from source"
-      download_jar_from_url "$jar_url" "$BUILD_DIR"
-    else
-      echo "Building JAR from source"
-      build_jar_from_source
+    log_info "Using provided JAR URL"
+    download_jar_from_url "$jar_url" "$BUILD_DIR"
+  else
+    log_info "Building JAR from source"
+    build_jar_from_source
   fi
   if [ "$build_mode" = "fat" ]; then
-    echo "Building in fat mode"
+    log_info "Building in fat mode"
     # This will download the dependencies and create the csp-resources
     # and copy the dependencies into the csp-resources folder
     # Tools resources are copied into the tools-resources folder
-    download_web_dependencies "$RESOURCE_DIR" "True"
+    download_web_dependencies "$WRAPPER_RESOURCES_DIR" "True"
   else
-    echo "Building in non-fat mode"
+    log_info "Building in non-fat mode"
     # This will just copy the tools jar built from source into the tools-resources folder
-    download_web_dependencies "$RESOURCE_DIR" "False"
+    download_web_dependencies "$WRAPPER_RESOURCES_DIR" "False"
   fi
   # Copy qualOutputTable.yaml from core module
-  copy_qual_output_table_yaml "$RESOURCE_DIR"
+  copy_reports_from_core "$WRAPPER_RESOURCES_DIR"
   # Builds the python wheel file
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
   clean_up_build_jars
 }
 
-# Main script execution
+
+# Main Script execution starts here
+echo
+log_msg "$CYAN" " Product                   : ${PRODUCT_NAME}"
+log_msg "$CYAN" " Build Mode                : ${build_mode}"
+log_msg "$CYAN" " Build Dir                 : ${BUILD_DIR}"
+log_msg "$CYAN" " Jar URL                   : ${jar_url}"
+log_msg "$CYAN" " Wrapper ResourceS Dir     : ${WRAPPER_RESOURCES_DIR}"
+echo
+
 pre_build
 build
-
-# Check build status
-if [ $? -eq 0 ]; then
-  echo "Build successful. To install, use: pip install dist/<wheel-file>"
+build_exit_code=$?
+if [ $build_exit_code -eq 0 ]; then
+  echo
+  log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
+  echo
+  log_msg "$GREEN" " Product                   : ${PRODUCT_NAME}"
+  log_msg "$GREEN" " Jar URL                   : ${jar_url}"
+  log_msg "$GREEN" " Build Mode                : ${build_mode}"
+  log_msg "$GREEN" " Tools Jar                 : ${TOOLS_JAR_FILE}"
+  log_msg "$GREEN" " Wrapper generated reports : ${DEST_CORE_REPORTS_REL_PATH}"
+  echo
 else
-  echo "Build failed."
-  exit 1
+  bail "Build failed."
 fi

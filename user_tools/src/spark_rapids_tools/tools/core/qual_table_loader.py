@@ -32,7 +32,7 @@ class QualCoreTableLoader:
     def __post_init__(self):
         """Initialize the loader with proper yaml_file_path and convert to Path object."""
         if self.yaml_file_path is None:
-            self.yaml_file_path = Utils.resource_path('core/generated_files/qualOutputTable.yaml')
+            self.yaml_file_path = Utils.resource_path('generated_files/core/reports/qualOutputTable.yaml')
         self.yaml_file_path = Path(self.yaml_file_path)
 
     def load_table_definitions(self) -> List[QualCoreTableDef]:
