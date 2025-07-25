@@ -75,7 +75,7 @@ reportDefinitions:
           - name: totalCoreSeconds
             dataType: Long
             description: >-
-              TBD\
+              TBD
       # AppLogPathProfileResults
       - label: coreRawApplicationLogPathMappingCSV
         description: >-

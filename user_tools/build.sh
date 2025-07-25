@@ -125,17 +125,14 @@ download_jar_from_url() {
   fi
 
   log_debug "Downloading JAR from $url to ${output_path}"
-  curl -L -f -o "${output_path}" "$url"
 
   curl_exit_code=$(curl -L -f -o "${output_path}" "$url"; echo $?)
-  log_debug "Downloading JAR from $url to ${output_path}"
-
   if [ "$curl_exit_code" -ne 0 ]; then
     bail "Failed to download JAR from URL: $url"
   fi
 
   TOOLS_JAR_FILE="${output_path}"
-  log_info "Downloaded JAR file: ${TOOLS_JAR_FILE}"
+  log_info "Tools JAR download complete from url into: ${TOOLS_JAR_FILE}"
 }
 
 clean_up_build_jars() {
