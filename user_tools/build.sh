@@ -203,14 +203,14 @@ remove_web_dependencies() {
   local res_dir="$1"
   log_info "Cleaning-up the generated-core files and prepackaged CSPs"
   # remove all subdirectories and files from generated_files core
-  rm -rf "${res_dir:?}"/"${GENERATED_RES_REL_PATH}/*"
+  rm -rf "${res_dir:?}"/"${GENERATED_RES_REL_PATH}"/*
   # remove csp resources recursively
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
   rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
 }
 
-# Function to copy rports configurations from core module to generated_files folder
+# Function to copy reports configurations from core module to generated_files folder
 copy_reports_from_core() {
   local wrapper_res_dir="$1"
   local src_core_reports="${CORE_RESOURCES_DIR}/${SRC_CORE_REPORTS_REL_PATH}"
