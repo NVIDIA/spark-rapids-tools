@@ -1,0 +1,1327 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file is used to define the output files of the raw metrics.
+# Note that all the output files in this list should be considered internal-use only.
+
+reportDefinitions:
+  - reportId: coreRawMetrics
+    description: >-
+      TBD
+    scope: per-app
+    tableDefinitions:
+      # AppInfoProfileResults
+      - label: coreRawApplicationInformationCSV
+        description: >-
+          TBD
+        fileName: application_information.csv
+        scope: per-app
+        columns:
+          - name: appName
+            dataType: String
+            description: >-
+              TBD
+          - name: appId
+            dataType: String
+            description: >-
+              TBD
+          - name: attemptId
+            dataType: Int
+            description: >-
+              TBD
+          - name: sparkUser
+            dataType: String
+            description: >-
+              TBD
+          - name: startTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: endTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: durationStr
+            dataType: String
+            description: >-
+              TBD
+          - name: sparkRuntime
+            dataType: String
+            description: >-
+              TBD
+          - name: sparkVersion
+            dataType: String
+            description: >-
+              TBD
+          - name: pluginEnabled
+            dataType: Boolean
+            description: >-
+              TBD
+          - name: totalCoreSeconds
+            dataType: Long
+            description: >-
+              TBD
+      # AppLogPathProfileResults
+      - label: coreRawApplicationLogPathMappingCSV
+        description: >-
+          TBD
+        fileName: application_log_path_mapping.csv
+        scope: per-app
+        columns:
+          - name: appName
+            dataType: String
+            description: >-
+              TBD
+          - name: appId
+            dataType: String
+            description: >-
+              TBD
+          - name: eventLogPath
+            dataType: String
+            description: >-
+              TBD
+      # DataSourceProfileResult
+      - label: coreRawDataSourceInformationCSV
+        description: >-
+          TBD
+        fileName: data_source_information.csv
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: sql_plan_version
+            dataType: Int
+            description: >-
+              TBD
+          - name: nodeId
+            dataType: Long
+            description: >-
+              TBD
+          - name: format
+            dataType: String
+            description: >-
+              TBD
+          - name: buffer_time
+            dataType: Long
+            description: >-
+              TBD
+          - name: scan_time
+            dataType: Long
+            description: >-
+              TBD
+          - name: data_size
+            dataType: Long
+            description: >-
+              TBD
+          - name: decode_time
+            dataType: Long
+            description: >-
+              TBD
+          - name: location
+            dataType: String
+            description: >-
+              TBD
+          - name: pushedFilters
+            dataType: String
+            description: >-
+              TBD
+          - name: schema
+            dataType: String
+            description: >-
+              TBD
+          - name: data_filters
+            dataType: String
+            description: >-
+              TBD
+          - name: partition_filters
+            dataType: String
+            description: >-
+              TBD
+          - name: from_final_plan
+            dataType: Boolean
+            description: >-
+              TBD
+      # ExecutorInfoProfileResult
+      - label: coreRawExecutorInformationCSV
+        description: >-
+          TBD
+        fileName: executor_information.csv
+        scope: per-app
+        columns:
+          - name: resourceProfileId
+            dataType: Int
+            description: >-
+              TBD
+          - name: numExecutors
+            dataType: Int
+            description: >-
+              TBD
+          - name: executorCores
+            dataType: Int
+            description: >-
+              TBD
+          - name: maxMem
+            dataType: Long
+            description: >-
+              TBD
+          - name: maxOnHeapMem
+            dataType: Long
+            description: >-
+              TBD
+          - name: maxOffHeapMem
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorMemory
+            dataType: Long
+            description: >-
+              TBD
+          - name: numGpusPerExecutor
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorOffHeap
+            dataType: Long
+            description: >-
+              TBD
+          - name: taskCpu
+            dataType: Double
+            description: >-
+              TBD
+          - name: taskGpu
+            dataType: Double
+            description: >-
+              TBD
+      # IOAnalysisProfileResult
+      - label: coreRawIoMetricsCSV
+        description: >-
+          TBD
+        fileName: io_metrics.csv
+        scope: per-app
+        columns:
+          - name: appID
+            dataType: String
+            description: >-
+              The app ID associated with the IO metrics.
+          - name: sqlID
+            dataType: Long
+            description: >-
+              The sql ID associated with the IO metrics.
+          - name: input_bytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_recordsRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: diskBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: memoryBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_totalBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+      # JobInfoProfileResult
+      - label: coreRawJobInformationCSV
+        description: >-
+          TBD
+        fileName: job_information.csv
+        scope: per-app
+        columns:
+          - name: jobID
+            dataType: Int
+            description: >-
+              TBD
+          - name: stageIds
+            dataType: String
+            description: >-
+              TBD
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: startTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: endTime
+            dataType: Long
+            description: >-
+              TBD
+      # JobAggTaskMetricsProfileResult
+      - label: coreRawJobLevelAggregatedTaskMetricsCSV
+        description: >-
+          TBD
+        fileName: job_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: jobId
+            dataType: Int
+            description: >-
+              TBD
+          - name: numTasks
+            dataType: Int
+            description: >-
+              TBD
+          - name: Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: diskBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_min
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_avg
+            dataType: Double
+            description: >-
+              TBD
+          - name: executorCPUTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorDeserializeCPUTime_sum
+            dataType: Long
+            description: >-
+              time in milliseconds
+          - name: executorDeserializeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorRunTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_bytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_recordsRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: jvmGCTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: memoryBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: peakExecutionMemory_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSerializationTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSize_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_fetchWaitTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesReadToDisk_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_totalBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_writeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+      # RapidsPropertyProfileResult
+      - label: coreRawSparkPropertiesCSV
+        description: >-
+          TBD
+        fileName: spark_properties.csv
+        scope: per-app
+        columns:
+          - name: propertyName
+            dataType: String
+            description: >-
+              TBD
+          - name: propertyValue
+            dataType: String
+            description: >-
+              TBD
+      # SQLDurationExecutorTimeProfileResult
+      - label: coreRawSqlDurationAndExecutorCpuTimePercentCSV
+        description: >-
+          TBD
+        fileName: sql_duration_and_executor_cpu_time_percent.csv
+        scope: per-app
+        columns:
+          - name: App ID
+            dataType: String
+            description: >-
+              TBD
+          - name: RootSqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: SQL Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: Contains Dataset or RDD Op
+            dataType: Boolean
+            description: >-
+              TBD
+          - name: App Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: Potential Problems
+            dataType: String
+            description: >-
+              TBD
+          - name: Executor CPU Time Percent
+            dataType: Double
+            description: >-
+              TBD
+      # SQLTaskAggMetricsProfileResult
+      - label: coreRawSqlLevelAggregatedTaskMetricsCSV
+        description: >-
+          TBD
+        fileName: sql_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: appID
+            dataType: String
+            description: >-
+              TBD
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: description
+            dataType: String
+            description: >-
+              TBD
+          - name: numTasks
+            dataType: Int
+            description: >-
+              TBD
+          - name: Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorCPURatio
+            dataType: Double
+            description: >-
+              TBD
+          - name: diskBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_min
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_avg
+            dataType: Double
+            description: >-
+              TBD
+          - name: executorCPUTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorDeserializeCPUTime_sum
+            dataType: Long
+            description: >-
+              time in milliseconds
+          - name: executorDeserializeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorRunTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_bytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_recordsRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: jvmGCTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: memoryBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: peakExecutionMemory_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSerializationTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSize_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_fetchWaitTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesReadToDisk_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_totalBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_writeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+      # SQLAccumProfileResults
+      - label: coreRawSqlPlanMetricsForApplicationCSV
+        description: >-
+          TBD
+        fileName: sql_plan_metrics_for_application.csv
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: nodeID
+            dataType: Long
+            description: >-
+              TBD
+          - name: nodeName
+            dataType: String
+            description: >-
+              TBD
+          - name: accumulatorId
+            dataType: Long
+            description: >-
+              TBD
+          - name: name
+            dataType: String
+            description: >-
+              TBD
+          - name: min
+            dataType: Long
+            description: >-
+              TBD
+          - name: median
+            dataType: Long
+            description: >-
+              TBD
+          - name: max
+            dataType: Long
+            description: >-
+              TBD
+          - name: total
+            dataType: Long
+            description: >-
+              TBD
+          - name: metricType
+            dataType: String
+            description: >-
+              TBD
+          - name: stageIds
+            dataType: String
+            description: >-
+              TBD
+      # SQLStageInfoProfileResult
+      - label: coreRawSqlToStageInformationCSV
+        description: >-
+          TBD
+        fileName: sql_to_stage_information.csv
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: jobID
+            dataType: Int
+            description: >-
+              TBD
+          - name: stageId
+            dataType: Int
+            description: >-
+              TBD
+          - name: stageAttemptId
+            dataType: Int
+            description: >-
+              TBD
+          - name: Stage Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: SQL Nodes(IDs)
+            dataType: String
+            description: >-
+              TBD
+      # StageAggTaskMetricsProfileResult
+      - label: coreRawStageLevelAggregatedTaskMetricsCSV
+        description: >-
+          TBD
+        fileName: stage_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Int
+            description: >-
+              TBD
+          - name: numTasks
+            dataType: Int
+            description: >-
+              TBD
+          - name: Duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: diskBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_min
+            dataType: Long
+            description: >-
+              TBD
+          - name: duration_avg
+            dataType: Double
+            description: >-
+              TBD
+          - name: executorCPUTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorDeserializeCPUTime_sum
+            dataType: Long
+            description: >-
+              time in milliseconds
+          - name: executorDeserializeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorRunTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_bytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_recordsRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: jvmGCTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: memoryBytesSpilled_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: peakExecutionMemory_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSerializationTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSize_max
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_fetchWaitTime_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBlocksFetched_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesReadToDisk_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_totalBytesRead_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_bytesWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_recordsWritten_sum
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_writeTime_sum
+            dataType: Long
+            description: >-
+              TBD
+      # AccumProfileResults
+      - label: coreRawStageLevelAllMetricsCSV
+        description: >-
+          TBD
+        fileName: stage_level_all_metrics.csv
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Int
+            description: >-
+              TBD
+          - name: accumulatorId
+            dataType: Long
+            description: >-
+              TBD
+          - name: name
+            dataType: String
+            description: >-
+              TBD
+          - name: min
+            dataType: Long
+            description: >-
+              TBD
+          - name: median
+            dataType: Long
+            description: >-
+              TBD
+          - name: max
+            dataType: Long
+            description: >-
+              TBD
+          - name: total
+            dataType: Long
+            description: >-
+              TBD
+      # RapidsPropertyProfileResult
+      - label: coreRawSystemPropertiesCSV
+        description: >-
+          TBD
+        fileName: system_properties.csv
+        scope: per-app
+        columns:
+          - name: propertyName
+            dataType: String
+            description: >-
+              TBD
+          - name: propertyValue
+            dataType: String
+            description: >-
+              TBD
+      # RapidsJarProfileResult
+      - label: coreRawRapidsJarsCSV
+        description: >-
+          TBD
+        fileName: rapids_accelerator_jar_and_cudf_jar.csv
+        scope: per-app
+        columns:
+          - name: Rapids4Spark jars
+            dataType: String
+            description: >-
+              TBD
+      # RapidsPropertyProfileResult
+      - label: coreRawRapidsPropsCSV
+        description: >-
+          TBD
+        fileName: spark_rapids_parameters_set_explicitly.csv
+        scope: per-app
+        columns:
+          - name: propertyName
+            dataType: String
+            description: >-
+              TBD
+          - name: propertyValue
+            dataType: String
+            description: >-
+              TBD
+      # SQLPlanInfoProfileResult
+      # TODO Revisit that this would work fine
+      - label: coreRawSqlPlanPreAQEJson
+        description: >-
+          TBD
+        fileName: sql_plan_info_pre_aqe.json
+        fileFormat: JSON
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: SparkPlanInfoTruncated
+            dataType: String
+            description: >-
+              TBD
+      # DriverLogUnsupportedOperators
+      - label: coreRawDriverLogUnsupportedOperatorsCSV
+        description: >-
+          TBD
+        fileName: unsupported_operators_in_driver_log.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: operatorName
+            dataType: String
+            description: >-
+              TBD
+          - name: count
+            dataType: Int
+            description: >-
+              TBD
+          - name: reason
+            dataType: String
+            description: >-
+              TBD
+      # BlockManagerRemovedProfileResult
+      - label: coreRawBlockManagerRemovedCSV
+        description: >-
+          TBD
+        fileName: removed_blockmanagers.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: executorId
+            dataType: String
+            description: >-
+              TBD
+          - name: time
+            dataType: Long
+            description: >-
+              TBD
+      # ExecutorsRemovedProfileResult
+      - label: coreRawExecutorRemovedCSV
+        description: >-
+          TBD
+        fileName: removed_executors.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: executorId
+            dataType: String
+            description: >-
+              TBD
+          - name: time
+            dataType: Long
+            description: >-
+              TBD
+          - name: reason
+            dataType: String
+            description: >-
+              TBD
+      # UnsupportedOpsProfileResult
+      - label: coreRawUnsupportedOpsCSV
+        description: >-
+          TBD
+        fileName: unsupported_sql_plan.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: nodeID
+            dataType: Long
+            description: >-
+              TBD
+          - name: nodeName
+            dataType: String
+            description: >-
+              TBD
+          - name: nodeDescription
+            dataType: String
+            description: >-
+              TBD
+          - name: reason
+            dataType: String
+            description: >-
+              TBD
+      # FailedTaskProfileResults
+      - label: coreRawFailedTasksCSV
+        description: >-
+          TBD
+        fileName: failed_tasks.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Int
+            description: >-
+              TBD
+          - name: stageAttemptId
+            dataType: Int
+            description: >-
+              TBD
+          - name: taskId
+            dataType: Long
+            description: >-
+              TBD
+          - name: attempt
+            dataType: Int
+            description: >-
+              TBD
+          - name: failureReason
+            dataType: String
+            description: >-
+              TBD
+          - name: taskStatus
+            dataType: String
+            description: >-
+              TBD
+          - name: taskType
+            dataType: String
+            description: >-
+              TBD
+          - name: speculative
+            dataType: Boolean
+            description: >-
+              TBD
+          - name: duration
+            dataType: Long
+            description: >-
+              TBD
+          - name: diskBytesSpilled
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorCPUTimeNS
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorDeserializeCPUTimeNS
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorDeserializeTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: executorRunTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_bytesRead
+            dataType: Long
+            description: >-
+              TBD
+          - name: input_recordsRead
+            dataType: Long
+            description: >-
+              TBD
+          - name: jvmGCTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: memoryBytesSpilled
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_bytesWritten
+            dataType: Long
+            description: >-
+              TBD
+          - name: output_recordsWritten
+            dataType: Long
+            description: >-
+              TBD
+          - name: peakExecutionMemory
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSerializationTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: resultSize
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_fetchWaitTime
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBlocksFetched
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_localBytesRead
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBlocksFetched
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesRead
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_remoteBytesReadToDisk
+            dataType: Long
+            description: >-
+              TBD
+          - name: sr_totalBytesRead
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_bytesWritten
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_recordsWritten
+            dataType: Long
+            description: >-
+              TBD
+          - name: sw_writeTimeNS
+            dataType: Long
+            description: >-
+              TBD
+      # FailedStagesProfileResults
+      - label: coreRawFailedStagesCSV
+        description: >-
+          TBD
+        fileName: failed_stages.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Int
+            description: >-
+              TBD
+          - name: attemptId
+            dataType: Int
+            description: >-
+              TBD
+          - name: numTasks
+            dataType: Int
+            description: >-
+              TBD
+          - name: endReason
+            dataType: String
+            description: >-
+              TBD
+      # FailedJobsProfileResults
+      - label: coreRawFailedJobsCSV
+        description: >-
+          TBD
+        fileName: failed_jobs.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: jobID
+            dataType: Int
+            description: >-
+              TBD
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: jobResult
+            dataType: String
+            description: >-
+              TBD
+          - name: endReason
+            dataType: String
+            description: >-
+              TBD
+      # ShuffleSkewProfileResult
+      - label: coreRawShuffleSkewCSV
+        description: >-
+          TBD
+        fileName: shuffle_skew_check.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Long
+            description: >-
+              TBD
+          - name: stageAttemptId
+            dataType: Long
+            description: >-
+              TBD
+          - name: taskId
+            dataType: Long
+            description: >-
+              TBD
+          - name: attempt
+            dataType: Long
+            description: >-
+              TBD
+          - name: taskDurationSec
+            dataType: Long
+            description: >-
+              TBD
+          - name: avgDurationSec
+            dataType: Double
+            description: >-
+              TBD
+          - name: taskShuffleReadMB
+            dataType: Long
+            description: >-
+              TBD
+          - name: avgShuffleReadMB
+            dataType: Double
+            description: >-
+              TBD
+          - name: taskPeakMemoryMB
+            dataType: Long
+            description: >-
+              TBD
+          - name: successful
+            dataType: Boolean
+            description: >-
+              TBD
+          - name: reason
+            dataType: String
+            description: >-
+              TBD
+      # WholeStageCodeGenResults
+      - label: coreRawWholeStageCSV
+        description: >-
+          TBD
+        fileName: wholeStagecodegen_mapping.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: nodeID
+            dataType: Long
+            description: >-
+              TBD
+          - name: SQL Node
+            dataType: String
+            description: >-
+              TBD
+          - name: Child Node
+            dataType: String
+            description: >-
+              TBD
+          - name: Child NodeID
+            dataType: Long
+            description: >-
+              TBD
+      # WriteOpProfileResult
+      - label: coreRawWriteOpsCSV
+        description: >-
+          TBD
+        fileName: write_operations.csv
+        fileFormat: CSV
+        scope: per-app
+        columns:
+          - name: sqlID
+            dataType: Long
+            description: >-
+              TBD
+          - name: sqlPlanVersion
+            dataType: Int
+            description: >-
+              TBD
+          - name: fromFinalPlan
+            dataType: Boolean
+            description: >-
+              TBD
+          - name: execName
+            dataType: String
+            description: >-
+              TBD
+          - name: format
+            dataType: String
+            description: >-
+              TBD
+          - name: location
+            dataType: String
+            description: >-
+              TBD
+          - name: tableName
+            dataType: String
+            description: >-
+              TBD
+          - name: dataBase
+            dataType: String
+            description: >-
+              TBD
+          - name: outputColumns
+            dataType: String
+            description: >-
+              TBD
+          - name: writeMode
+            dataType: String
+            description: >-
+              TBD
+          - name: partitionColumns
+            dataType: String
+            description: >-
+              TBD
+          - name: fullDescription
+            dataType: String
+            description: >-
+              TBD

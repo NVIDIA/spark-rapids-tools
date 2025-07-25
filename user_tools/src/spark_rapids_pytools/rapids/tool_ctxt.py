@@ -46,7 +46,7 @@ class ToolContext(YAMLPropertiesContainer):
         Utils.resource_path('csp-resources')
     ]
     tools_resource_path: ClassVar[List[str]] = [
-        Utils.resource_path('tools-resources')
+        Utils.resource_path('generated_files/core/jars')
     ]
 
     @classmethod
