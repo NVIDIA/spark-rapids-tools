@@ -1298,15 +1298,17 @@ abstract class AutoTuner(
     val pluginAdded = recommendClassNameProperty("spark.plugins",
       autoTunerHelper.rapidsPluginClassName)
     if (pluginAdded) {
+      // Set GPU discovery script for YARN and Kubernetes
+      // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
       sparkMaster match {
-        case Some(Yarn) | Some(Kubernetes) =>
-          // scalastyle:off line.size.limit
-          // Set GPU discovery script for YARN and Kubernetes
-          // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          // scalastyle:on line.size.limit
+        case Some(Yarn) =>
           appendRecommendation("spark.executor.resource.gpu.discoveryScript",
-            "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh"
-          )
+            autoTunerHelper.defaultGpuDiscoveryScript)
+        case Some(Kubernetes) =>
+          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
+            autoTunerHelper.defaultGpuDiscoveryScript)
+          appendRecommendation("spark.executor.resource.gpu.vendor",
+            autoTunerHelper.kubernetesGpuVendor)
         case _ =>
         // No discovery script needed for other cluster managers
       }
@@ -1616,6 +1618,9 @@ trait AutoTunerHelper extends Logging {
   lazy val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
   lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
   lazy val rapidsPluginClassName = "com.nvidia.spark.SQLPlugin"
+  lazy val kubernetesGpuVendor = "nvidia.com"
+  lazy val defaultGpuDiscoveryScript =
+    "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh"
 
   // Recommended values for specific unsupported configurations
   lazy val unsupportedOperatorRecommendations: Map[String, String] = Map(

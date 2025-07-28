@@ -349,7 +349,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
       sourceClusterInfoOpt)
     val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+      sparkMaster = Some(Yarn), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -406,51 +406,52 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Test to validate that AutoTuner sets the executor resource properties and discovery script
-  // on YARN.
-  // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-  test("test AutoTuner for Qualification sets 'spark.executor.resource.gpu.amount' and " +
-    "'spark.executor.resource.gpu.discoveryScript' for Yarn") {
-    val workerInfo = buildCpuWorkerInfoAsString()
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
-    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      defaultSparkProps, Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-    val autoTuner = buildAutoTunerForTests(workerInfo,
-      infoProvider, platform, sparkMaster = Some(Yarn))
-    val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
-      QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults = Seq(
-      "--conf spark.executor.resource.gpu.amount=1.0",
-      "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
-      "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
-      "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
-    )
-    // scalastyle:on line.size.limit
-    assertExpectedLinesExist(expectedResults, autoTunerOutput)
-  }
+  // Test to validate that Bootstrap sets the appropriate GPU resource properties for the different
+  // Spark cluster managers.
+  // scalastyle:off line.size.limit
+  val gpuResourcePropertiesTestData: TableFor3[String, SparkMaster, Seq[String]] = Table(
+    ("testName", "sparkMaster", "expectedResults"),
+    ("Standalone",
+      Standalone,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources."
+      )),
+    ("Yarn",
+      Yarn,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
+      )),
+    ("Kubernetes",
+      Kubernetes,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "--conf spark.executor.resource.gpu.vendor=nvidia.com",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.",
+        "- 'spark.executor.resource.gpu.vendor' should be set to \"nvidia.com\" for NVIDIA GPUs in k8s clusters."
+      ))
+  )
+  // scalastyle:on line.size.limit
 
-  // Test to validate that AutoTuner only sets the executor resource properties on Standalone.
-  test("test AutoTuner for Qualification sets 'spark.executor.resource.gpu.amount' " +
-    "for Standalone") {
-    val workerInfo = buildCpuWorkerInfoAsString()
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
-    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      defaultSparkProps, Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-    val autoTuner = buildAutoTunerForTests(workerInfo,
-      infoProvider, platform, sparkMaster = Some(Standalone))
-    val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
-      QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults = Seq(
-      "--conf spark.executor.resource.gpu.amount=1.0",
-      "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources."
-    )
-    // scalastyle:on line.size.limit
-    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  forAll(gpuResourcePropertiesTestData) {
+    (testName: String, sparkMaster: SparkMaster, expectedResults: Seq[String]) =>
+      test(s"test AutoTuner for Qualification sets GPU resource properties for $testName") {
+        val workerInfo = buildCpuWorkerInfoAsString()
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+        val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+          defaultSparkProps, Some(testSparkVersion))
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+        val autoTuner = buildAutoTunerForTests(workerInfo,
+          infoProvider, platform, sparkMaster = Some(sparkMaster))
+        val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+          QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
+        val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+        assertExpectedLinesExist(expectedResults, autoTunerOutput)
+      }
   }
 }

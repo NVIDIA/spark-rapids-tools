@@ -367,6 +367,20 @@ tuningDefinitions:
       name: string
     comments:
       missing: should be set to allow Spark to discover GPU resources.
+  - label: spark.executor.resource.gpu.vendor
+    description: >-
+      The vendor of the GPU resource. This is needed for k8s clusters.
+      For NVIDIA GPUs, this should be set to "nvidia.com".
+      Reference:
+       - https://spark.apache.org/docs/latest/running-on-kubernetes.html
+       - https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/kubernetes.html
+    enabled: true
+    level: cluster
+    category: functionality
+    confType:
+      name: string
+    comments:
+      missing: should be set to "nvidia.com" for NVIDIA GPUs in k8s clusters.
   - label: spark.plugins
     description: >-
       A comma-separated list of plugin class names to be loaded by Spark.
