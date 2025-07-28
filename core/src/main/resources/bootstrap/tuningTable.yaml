@@ -356,7 +356,10 @@ tuningDefinitions:
     description: >-
       The absolute path to a discovery script that Spark will run on each executor to determine available GPU resources.
       This is needed for YARN and K8s clusters.
-      Reference: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+      Defaults to '${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh'
+      Reference:
+       - https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+       - https://github.com/apache/spark/blob/master/examples/src/main/scripts/getGpusResources.sh
     enabled: true
     level: cluster
     category: functionality
@@ -367,11 +370,11 @@ tuningDefinitions:
   - label: spark.plugins
     description: >-
       A comma-separated list of plugin class names to be loaded by Spark.
-      Setting this to com.nvidia.spark.SQLPlugin enables the RAPIDS Accelerator SQL plugin for GPU acceleration.
+      Setting this to "com.nvidia.spark.SQLPlugin" enables the RAPIDS Accelerator plugin.
     enabled: true
     level: cluster
     category: functionality
     confType:
       name: string
     comments:
-      missing: should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator SQL plugin.
+      missing: should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
