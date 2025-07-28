@@ -100,7 +100,8 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
   protected def getGpuAppMockInfoProvider: AppInfoProviderMockTest = {
     getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"),
       Some(testSparkVersion), Seq())
   }
 
@@ -159,8 +160,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
   test("verify 3.2.0+ auto conf setting") {
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32), Some("122880MiB"), Some(0))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      mutable.Map("spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin"),
+      mutable.Map(
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
+        "spark.executor.resource.gpu.amount" -> "1"),
       Some("3.2.0"), Seq())
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, clusterPropsOpt)
@@ -1080,6 +1083,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  // This test verifies that AutoTuner sets the correct value for
+  // "spark.plugins" property when the existing values are invalid.
   test("plugin set to the wrong values") {
     val customProps = mutable.LinkedHashMap(
       "spark.executor.cores" -> "8",
@@ -1098,7 +1103,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.task.resource.gpu.amount" -> "0.001",
         "spark.plugins" -> "com.nvidia.spark.WrongPlugin0, com.nvidia.spark.WrongPlugin1",
         "spark.rapids.memory.pinnedPool.size" -> "5g",
-        "spark.rapids.sql.concurrentGpuTasks" -> "4")
+        "spark.rapids.sql.concurrentGpuTasks" -> "4",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh")
     val dataprocWorkerInfo = buildGpuWorkerInfoAsString(Some(customProps), Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
     val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(dataprocWorkerInfo)
@@ -1118,6 +1125,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=15564m
           |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.WrongPlugin0,com.nvidia.spark.WrongPlugin1,com.nvidia.spark.SQLPlugin
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
@@ -2546,7 +2554,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
-        "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer"
+        "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2603,7 +2614,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -2621,7 +2631,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.executor.instances" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
-        "spark.kryo.registrator" -> "org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator"
+        "spark.kryo.registrator" -> "org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2678,7 +2691,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -2694,9 +2706,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
-        "spark.kryo.registrator" -> ""
+        "spark.kryo.registrator" -> "",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2753,7 +2767,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -2769,7 +2782,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1"
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val emrWorkerInfo = buildGpuWorkerInfoAsString(None, Some(32),
       Some("212992MiB"), Some(5), Some(4), Some(T4Gpu.getMemory), Some(T4Gpu.toString))
@@ -2823,7 +2838,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
@@ -2838,7 +2852,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1"
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2891,7 +2907,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -2907,8 +2922,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.executor.instances" -> "1",
         "spark.executor.memory" -> "80g",
         "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.instances" -> "1",
-        "spark.dataproc.enhanced.execution.enabled" -> "false"
+        "spark.dataproc.enhanced.execution.enabled" -> "false",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -2958,7 +2975,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin

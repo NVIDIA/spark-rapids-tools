@@ -334,7 +334,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" ->
-          "org.apache.SomeRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator"
+          "org.apache.SomeRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -389,7 +392,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
@@ -409,7 +411,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
         "spark.kryo.registrator" ->
-          "org.apache.SomeRegistrator,, org.apache.OtherRegistrator,org.apache.SomeRegistrator"
+          "org.apache.SomeRegistrator,, org.apache.OtherRegistrator,org.apache.SomeRegistrator",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
     val autoTuner = buildDefaultDataprocAutoTuner(logEventsProps)
     val (properties, comments) = autoTuner.getRecommendedProperties()
@@ -466,7 +471,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin

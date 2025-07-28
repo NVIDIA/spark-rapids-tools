@@ -69,7 +69,7 @@ tuningDefinitions:
     description: >-
       Amount of additional memory to be allocated per executor process, in MiB unless otherwise specified.
       This is memory that accounts for things like VM overheads, interned strings, other native overheads, etc.
-      This tends to grow with the executor size. 
+      This tends to grow with the executor size.
       Note: memoryOverheadFactor is not recommended as specifying the overhead explicitly is sufficient.
     enabled: true
     level: cluster
@@ -341,3 +341,37 @@ tuningDefinitions:
     category: tuning
     confType:
       name: double
+  - label: spark.executor.resource.gpu.amount
+    description: >-
+      The GPU resource amount per executor when Spark schedules GPU resources.
+      This should typically be set to 1 to allocate one GPU per executor.
+    enabled: true
+    level: cluster
+    category: functionality
+    confType:
+      name: double
+    comments:
+      missing: should be set to allow Spark to schedule GPU resources.
+  - label: spark.executor.resource.gpu.discoveryScript
+    description: >-
+      The absolute path to a discovery script that Spark will run on each executor to determine available GPU resources.
+      This is needed for YARN and K8s clusters.
+      Reference: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+    enabled: true
+    level: cluster
+    category: functionality
+    confType:
+      name: string
+    comments:
+      missing: should be set to allow Spark to discover GPU resources.
+  - label: spark.plugins
+    description: >-
+      A comma-separated list of plugin class names to be loaded by Spark.
+      Setting this to com.nvidia.spark.SQLPlugin enables the RAPIDS Accelerator SQL plugin for GPU acceleration.
+    enabled: true
+    level: cluster
+    category: functionality
+    confType:
+      name: string
+    comments:
+      missing: should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator SQL plugin.

@@ -822,13 +822,16 @@ abstract class AutoTuner(
     // only if we were able to figure out a node type to recommend do we make
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
-      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
+       // Recommend executor GPU resource amount
+      appendRecommendation("spark.executor.resource.gpu.amount",
+        tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toDouble)
       // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
       // by `spark.executor.cores`.
       appendRecommendation("spark.task.resource.gpu.amount",
         tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
+      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
       val availableMemPerExec =
         platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
       val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
@@ -909,22 +912,9 @@ abstract class AutoTuner(
   def recommendKryoSerializerSetting(): Unit = {
     getPropertyValue("spark.serializer")
       .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
-      // Logic:
-      // - Trim whitespace, filter out empty entries and remove duplicates.
-      // - Finally, append the GPU Kryo registrator to the existing set of registrators
-      // Note:
-      //  - ListSet preserves the original order of registrators
-      // Example:
-      //  property: "spark.kryo.registrator=reg1, reg2,, reg1"
-      //  existingRegistrators: ListSet("reg1", "reg2")
-      //  recommendation: "spark.kryo.registrator=reg1,reg2,GpuKryoRegistrator"
-      val existingRegistrators = getPropertyValue("spark.kryo.registrator")
-        .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
-        .getOrElse(Array.empty)
-        .to[scala.collection.immutable.ListSet]
-      appendRecommendation("spark.kryo.registrator",
-        (existingRegistrators + autoTunerHelper.gpuKryoRegistratorClassName).mkString(",")
-      )
+      // Recommend adding the GPU Kryo registrator if not already present
+      recommendClassNameProperty("spark.kryo.registrator",
+        autoTunerHelper.gpuKryoRegistratorClassName)
       // set the kryo serializer buffer size to prevent OOMs
       val desiredBufferMaxMB =
         tuningConfigs.getEntry("KRYO_SERIALIZER_BUFFER").getMaxAsMemory(ByteUnit.MiB)
@@ -1301,13 +1291,25 @@ abstract class AutoTuner(
   }
 
   private def recommendPluginProps(): Unit = {
-    val isPluginLoaded = getPropertyValue("spark.plugins") match {
-      case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
-      case None => false
-    }
     // Set the plugin to True without need to check if it is already set.
     appendRecommendation("spark.rapids.sql.enabled", "true")
-    if (!isPluginLoaded) {
+
+    // Recommend adding the RAPIDS SQLPlugin if not already present
+    val pluginAdded = recommendClassNameProperty("spark.plugins",
+      autoTunerHelper.rapidsPluginClassName)
+    if (pluginAdded) {
+      sparkMaster match {
+        case Some(Yarn) | Some(Kubernetes) =>
+          // scalastyle:off line.size.limit
+          // Set GPU discovery script for YARN and Kubernetes
+          // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          // scalastyle:on line.size.limit
+          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
+            "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh"
+          )
+        case _ =>
+        // No discovery script needed for other cluster managers
+      }
       appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
         "Please refer to " +
         "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
@@ -1317,6 +1319,32 @@ abstract class AutoTuner(
   def appendOptionalComment(lookup: String, comment: String): Unit = {
     if (!skippedRecommendations.contains(lookup)) {
       appendComment(comment)
+    }
+  }
+
+  /**
+   * Recommend class name properties (like spark.plugins, spark.kryo.registrator).
+   * Logic:
+   * - Trim whitespace, filter out empty entries and remove duplicates.
+   * - Finally, append the specified class name to the existing set if not already present
+   * Note:
+   *  - ListSet preserves the original order of class names
+   *
+   * @param propertyKey The Spark property key to update
+   * @param className The class name to add if missing
+   * @return True if a recommendation was made, false if the class name was already present
+   */
+  private def recommendClassNameProperty(propertyKey: String, className: String): Boolean = {
+    val existingClasses = getPropertyValue(propertyKey)
+      .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
+      .getOrElse(Array.empty)
+      .to[scala.collection.immutable.ListSet]
+
+    if (!existingClasses.contains(className)) {
+      appendRecommendation(propertyKey, (existingClasses + className).mkString(","))
+      true
+    } else {
+      false
     }
   }
 
@@ -1587,6 +1615,7 @@ trait AutoTunerHelper extends Logging {
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   lazy val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
   lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
+  lazy val rapidsPluginClassName = "com.nvidia.spark.SQLPlugin"
 
   // Recommended values for specific unsupported configurations
   lazy val unsupportedOperatorRecommendations: Map[String, String] = Map(
