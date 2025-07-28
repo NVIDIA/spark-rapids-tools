@@ -822,9 +822,13 @@ abstract class AutoTuner(
     // only if we were able to figure out a node type to recommend do we make
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
-       // Recommend executor GPU resource amount
-      appendRecommendation("spark.executor.resource.gpu.amount",
-        tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toDouble)
+      // Since executor. executor level property, we only recommend it if it is not set.
+      val currentExecutorGpuResourceAmount = getPropertyValue("spark.executor.resource.gpu.amount")
+      if (currentExecutorGpuResourceAmount.isEmpty) {
+        appendRecommendation("spark.executor.resource.gpu.amount",
+          tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toDouble)
+      }
+      // However, for task GPU resources, always recommend.
       // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
       // by `spark.executor.cores`.
       appendRecommendation("spark.task.resource.gpu.amount",
