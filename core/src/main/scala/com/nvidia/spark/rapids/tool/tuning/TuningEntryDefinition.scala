@@ -126,6 +126,10 @@ class TuningEntryDefinition(
     confTypeInfo.defaultUnit
   }
 
+  def getConfTypeAsEnum: ConfTypeEnum.Value = {
+    confTypeInfo.name
+  }
+
   /**
    * Indicates if the property has a default value in Spark. This implies that the default value
    * can be used to set the original value of the property.

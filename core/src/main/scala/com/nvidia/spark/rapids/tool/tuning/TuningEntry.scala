@@ -90,6 +90,30 @@ class TuningEntry(
     definition: Option[TuningEntryDefinition] = None)
   extends TuningEntryBase(name, originalValueRaw, tunedValueRaw, definition) {
 
+  /**
+   * Normalize the value based on the configuration data type defined in the tuning definition.
+   * This ensures consistent formatting for comparison, as users may provide values in different
+   * units or formats. For example, if a property is defined as a double, a user provided value
+   * of "1" will be normalized to "1.0".
+   */
+  override def normalizeValue(propValue: String): String = {
+    definition.map { defn =>
+      defn.getConfTypeAsEnum match {
+        case ConfTypeEnum.Int => propValue.toInt.toString
+        case ConfTypeEnum.Long => propValue.toLong.toString
+        case ConfTypeEnum.Double => propValue.toDouble.toString
+        case ConfTypeEnum.Boolean => propValue.toBoolean.toString
+        case ConfTypeEnum.Time =>
+          // TODO: Implement time normalization if needed (Ref: JavaUtils.timeStringAs())
+          propValue
+        case ConfTypeEnum.String => propValue
+        case _ => throw new IllegalArgumentException(
+          s"Unsupported configuration type: ${defn.getConfTypeAsEnum}. " +
+            s"Valid types are: ${ConfTypeEnum.values.mkString(", ")}")
+      }
+    }.getOrElse(propValue)
+  }
+
   init()
 }
 
