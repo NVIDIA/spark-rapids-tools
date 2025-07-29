@@ -273,7 +273,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-            |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark353.RapidsShuffleManager
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
             |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
             |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
@@ -371,7 +370,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.concurrentGpuTasks=6
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -453,5 +451,71 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
         assertExpectedLinesExist(expectedResults, autoTunerOutput)
       }
+  }
+
+  /**
+   * Test to validate that enforced properties from target cluster info are included in bootstrap.
+   * This tests that properties specified in sparkProperties.enforced section appear in both
+   * the .log file and the -bootstrap.conf file (regardless of whether they are in tuning table).
+   */
+  test("test enforced properties are included in bootstrap config") {
+    val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
+    // Include both tuning table properties and non-tuning table properties
+    val testEnforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",              // In tuning table
+      "spark.sql.shuffle.partitions" -> "400",    // In tuning table
+      "spark.custom.property" -> "customValue",   // Not in tuning table
+      "spark.app.name" -> "TestApp"               // Not in tuning table
+    )
+
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        driverNodeInstanceType = Some("n1-standard-8"),
+        workerNodeInstanceType = Some("g2-standard-8"),
+        enforcedSparkProperties = testEnforcedSparkProperties)
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--auto-tuner",
+        testEventLog
+      ))
+
+      val result = QualificationMain.mainInternal(appArgs)
+      assert(!result.isFailed)
+      val appId = result.appSummaries.headOption.map(_.appId)
+        .getOrElse(throw new TestFailedException("No appId found in the result", 0))
+
+      // 1. Verify that enforced properties appear in the main tuning log
+      val tuningResultPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId.log"
+      ).toString
+      val actualTuningResults = FSUtils.readFileContentAsUTF8(tuningResultPath)
+
+      testEnforcedSparkProperties.keys.foreach { propertyName =>
+        assert(actualTuningResults.contains(s"--conf $propertyName="),
+          s"Property $propertyName should appear in tuning log")
+        assert(actualTuningResults.contains(getEnforcedPropertyComment(propertyName)),
+          s"Enforced property comment for $propertyName should appear in tuning log")
+      }
+
+      // 2. Verify that ALL enforced properties also appear in the bootstrap config
+      val bootstrapConfigPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId-bootstrap.conf"
+      ).toString
+      val bootstrapConfigContent = FSUtils.readFileContentAsUTF8(bootstrapConfigPath)
+
+      testEnforcedSparkProperties.foreach { case (propertyName, propertyValue) =>
+        assert(bootstrapConfigContent.contains(s"--conf $propertyName=$propertyValue"),
+          s"Enforced property $propertyName=$propertyValue should appear in bootstrap config")
+      }
+    }
   }
 }

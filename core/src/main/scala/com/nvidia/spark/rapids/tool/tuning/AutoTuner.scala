@@ -366,6 +366,22 @@ abstract class AutoTuner(
   }
 
   /**
+   * Determines whether a tuning entry should be included in the final recommendations
+   * returned to the user.
+   * Subclasses can override this method to implement tool-specific filtering logic.
+   *
+   * @param tuningEntry the tuning entry to evaluate for inclusion
+   * @return true if the entry should be included in the final recommendations, false otherwise
+   */
+  def shouldIncludeInFinalRecommendations(tuningEntry: TuningEntryTrait): Boolean = {
+    if (filterByUpdatedPropertiesEnabled) {
+      tuningEntry.isTuned()
+    } else {
+      tuningEntry.isEnabled()
+    }
+  }
+
+  /**
    * Used to get the property value from the source properties
    * (i.e. from app info and cluster properties)
    */
@@ -393,11 +409,25 @@ abstract class AutoTuner(
 
   /**
    * Combined tuning table that merges the default tuning definitions with user-defined ones.
+   * Mutable to allow adding new definitions at runtime.
    */
-  private lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
-    platform.targetCluster
-      .map(_.getSparkProperties.tuningDefinitionsMap)
-      .getOrElse(Map.empty[String, TuningEntryDefinition])
+  private lazy val finalTuningTable: Map[String, TuningEntryDefinition] = {
+    // Start with the base tuning table and any tuning definitions from the target cluster
+    val baseMap = scala.collection.mutable.Map.empty[String, TuningEntryDefinition] ++
+      TuningEntryDefinition.TUNING_TABLE ++
+      platform.targetCluster
+        .map(_.getSparkProperties.tuningDefinitionsMap)
+        .getOrElse(Map.empty[String, TuningEntryDefinition])
+
+    // Add or update tuning definitions for user-enforced properties
+    platform.userEnforcedRecommendations.keys.foreach { key =>
+      // All user-enforced properties should be enabled and have bootstrap entries.
+      val tuningDefn = baseMap.getOrElseUpdate(key, TuningEntryDefinition(key))
+      tuningDefn.setEnabled(true)
+      tuningDefn.setBootstrapEntry(true)
+    }
+    baseMap.toMap
+  }
 
   def initRecommendations(): Unit = {
     finalTuningTable.keys.foreach { key =>
@@ -1407,12 +1437,7 @@ abstract class AutoTuner(
   }
 
   private def toRecommendationsProfileResult: Seq[TuningEntryTrait] = {
-    val recommendationEntries = if (filterByUpdatedPropertiesEnabled) {
-      recommendations.values.filter(_.isTuned())
-    } else {
-      recommendations.values.filter(_.isEnabled())
-    }
-    recommendationEntries.toSeq.sortBy(_.name)
+    recommendations.values.filter(shouldIncludeInFinalRecommendations).toSeq.sortBy(_.name)
   }
 
   protected def finalizeTuning(): Unit = {

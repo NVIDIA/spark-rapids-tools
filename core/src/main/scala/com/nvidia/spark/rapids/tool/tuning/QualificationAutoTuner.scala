@@ -41,6 +41,16 @@ class QualificationAutoTuner(
   override protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet(
     "spark.sql.shuffle.partitions"
   )
+
+  /**
+   * Determines whether a tuning entry should be included in the final recommendations
+   * for the Qualification Tool. Applies the base status filtering and additionally
+   * only includes entries that are bootstrap-enabled and not marked as removed.
+   */
+  override def shouldIncludeInFinalRecommendations(tuningEntry: TuningEntryTrait): Boolean = {
+    super.shouldIncludeInFinalRecommendations(tuningEntry) &&
+      tuningEntry.isBootstrap() && !tuningEntry.isRemoved()
+  }
 }
 
 /**

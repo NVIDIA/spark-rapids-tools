@@ -18,9 +18,9 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.util.{Failure, Success, Try}
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform, ToolTextFileWriter}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, Profiler}
+import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -36,32 +36,13 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
 
   private def writeTuningReport(tuningResult: TuningResult,
       outputDir: String, hadoopConf: Configuration): Unit = {
-    // First, write down the recommendations and the comments
-    val textFileWriter = new ToolTextFileWriter(outputDir,
-      s"${tuningResult.appID}.log", s"Tuning Qual App - ${tuningResult.appID}", Option(hadoopConf))
-    try {
-      textFileWriter.write(
-        s"### Recommended SPARK Configuration on GPU Cluster for App: ${tuningResult.appID} ###\n")
-      textFileWriter.write(Profiler.getAutoTunerResultsAsString(
-        tuningResult.recommendations, tuningResult.comments))
-    } finally {
-      textFileWriter.close()
-    }
-    // Write down the recommended properties
-    val bootstrapReport = new BootstrapReport(tuningResult, outputDir, hadoopConf)
-    bootstrapReport.generateReport()
-    // Write down the combined configurations
-    tuningResult.combinedProps.collect {
-      case combinedProps =>
-        val textFileWriter = new ToolTextFileWriter(outputDir,
-          s"${tuningResult.appID}.conf",
-          s"Qual combined configurations for App - ${tuningResult.appID}", Option(hadoopConf))
-        try {
-          textFileWriter.write(combinedProps.map(_.toString).reduce(_ + "\n" + _))
-        } finally {
-          textFileWriter.close()
-        }
-    }
+    val reportGenerator = new BootstrapReportGenerator(tuningResult, outputDir, hadoopConf)
+    // Generates <app-id>-tuning.conf
+    reportGenerator.generateRecommendedPropertiesReport()
+    // Generates <app-id>.log
+    reportGenerator.generateRecommendedPropertiesWithCommentsReport()
+    // Generates <app-id>.conf if combinedProps exist
+    reportGenerator.generateCombinedReport()
   }
 
   def runAutoTuner(platform: Platform,
