@@ -686,22 +686,17 @@ abstract class AutoTuner(
     val actualMemForExec = {
       totalMemForExecExpr.apply() * platform.fractionOfSystemMemoryForExecutors
     }.toLong
-    
     // Calculate off-heap memory size using new hybrid scan detection logic
     val sparkOffHeapMemMB = calculateOffHeapMemorySize(numExecutorCores)
     val pySparkMemMB = platform.getPySparkMemoryMB(
       AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)).getOrElse(0L)
-    
     // Calculate executor memory overhead using new formula
     val calculatedExecutorMemOverhead = calculateExecutorMemoryOverhead(
       actualMemForExec, executorHeapMB, sparkOffHeapMemMB)
-    
     val execMemLeft = actualMemForExec - executorHeapMB - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
-    
     val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val defaultSpillMem = tuningConfigs.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
-
     val minOverhead = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
       calculatedExecutorMemOverhead + defaultPinnedMem + defaultSpillMem
     }
@@ -718,20 +713,20 @@ abstract class AutoTuner(
             defaultPinnedMem + defaultSpillMem) {
         setMaxBytesInFlight = true
       }
-      // Calculate host off-heap limit size for pinned memory calculation
-      val hostOffHeapLimitSizeMB = calculatedExecutorMemOverhead + sparkOffHeapMemMB - (5 * 1024L)
-      
-      // Pinned memory uses the new formula: min (2 * executor cores * GPU batch size, 1/4 * host.offHeapLimit.Size)
+      // Calculate host off-heap limit size for pinned memory calculation (only for onPrem)
+      val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP) {
+        calculatedExecutorMemOverhead + sparkOffHeapMemMB - (5 * 1024L)
+      } else {
+        0L // Not used for CSP platforms
+      }
+
+      // Pinned memory calculation - use new formula for onPrem, original logic for CSP
       var pinnedMem = userEnforcedMemorySettings.pinnedMem.getOrElse {
-        if (hostOffHeapLimitSizeMB > 0) {
-          val calculatedPinnedMem = calculatePinnedMemorySize(numExecutorCores, hostOffHeapLimitSizeMB)
-          // Ensure pinned memory doesn't exceed available memory and maximum limit
-          Math.min(
-            Math.min(calculatedPinnedMem, tuningConfigs.getEntry("PINNED_MEMORY").getMaxAsMemory(ByteUnit.MiB)),
-            (execMemLeft - calculatedExecutorMemOverhead) / 2
-          )
+        if (!platform.isPlatformCSP && hostOffHeapLimitSizeMB > 0) {
+          // Use new formula for onPrem platform
+          calculatePinnedMemorySize(numExecutorCores, hostOffHeapLimitSizeMB)
         } else {
-          // Fallback to original logic if host off-heap limit calculation fails
+          // Use original logic for CSP platforms or when host off-heap limit calculation fails
           Math.min(tuningConfigs.getEntry("PINNED_MEMORY").getMaxAsMemory(ByteUnit.MiB),
             (execMemLeft - calculatedExecutorMemOverhead) / 2)
         }
@@ -864,21 +859,22 @@ abstract class AutoTuner(
             }
             appendRecommendationForMemoryMB("spark.executor.memory",
               s"${recomMemorySettings.executorHeap.get}")
-            
+
             // Add off-heap memory recommendation based on hybrid scan detection
             val offHeapSizeMB = calculateOffHeapMemorySize(execCores)
             if (offHeapSizeMB > 0) {
               appendRecommendationForMemoryMB("spark.memory.offHeap.size", s"$offHeapSizeMB")
               // Enable off-heap memory if we're recommending a size
               appendRecommendation("spark.memory.offHeap.enabled", "true")
-              
-              // Calculate host off-heap limit size: executor memory overhead + off-heap size - 5GB
-              val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get + offHeapSizeMB - (5 * 1024L)
-              if (hostOffHeapLimitSizeMB > 0) {
-                appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size", s"$hostOffHeapLimitSizeMB")
+
+              // Calculate host off-heap limit size for onPrem platform only
+              if (!platform.isPlatformCSP) {
+                val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get + offHeapSizeMB - (5 * 1024L)
+                if (hostOffHeapLimitSizeMB > 0) {
+                  appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size", s"$hostOffHeapLimitSizeMB")
+                }
               }
             }
-            
             setMaxBytesInFlight
           case Left(notEnoughMemComment) =>
             // Not enough memory available, add warning comments
@@ -897,9 +893,12 @@ abstract class AutoTuner(
             appendComment("spark.memory.offHeap.size",
               notEnoughMemCommentForKey(
                 "spark.memory.offHeap.size"))
-            appendComment("spark.rapids.memory.host.offHeapLimit.size",
-              notEnoughMemCommentForKey(
-                "spark.rapids.memory.host.offHeapLimit.size"))
+            // Add host off-heap limit size comment for onPrem platform only
+            if (!platform.isPlatformCSP) {
+              appendComment("spark.rapids.memory.host.offHeapLimit.size",
+                notEnoughMemCommentForKey(
+                  "spark.rapids.memory.host.offHeapLimit.size"))
+            }
             false
         }
       } else {
@@ -1536,26 +1535,26 @@ abstract class AutoTuner(
     val useV1SourceList = sparkPropertiesFn("spark.sql.sources.useV1SourceList").getOrElse("")
     val hybridParquetEnabled = sparkPropertiesFn("spark.rapids.sql.hybrid.parquet.enabled").getOrElse("false")
     val hybridLoadBackend = sparkPropertiesFn("spark.rapids.sql.hybrid.loadBackend").getOrElse("true")
-    
-    useV1SourceList.contains("parquet") && 
-    hybridParquetEnabled.toLowerCase == "true" && 
+
+    useV1SourceList.contains("parquet") &&
+    hybridParquetEnabled.toLowerCase == "true" &&
     hybridLoadBackend.toLowerCase == "false"
   }
 
   /**
    * Calculate recommended off-heap memory size based on hybrid scan detection.
-   * If hybrid scan is enabled, set off-heap size to HEAP_PER_CORE * executor cores.
+   * If hybrid scan is enabled and platform is onPrem, set off-heap size to HEAP_PER_CORE * executor cores.
    * Otherwise, use the existing logic from platform.getSparkOffHeapMemoryMB.
    *
    * @param numExecutorCores Number of executor cores
    * @return Recommended off-heap memory size in MB
    */
   private def calculateOffHeapMemorySize(numExecutorCores: Int): Long = {
-    if (isHybridScanEnabled()) {
-      // For hybrid scan, set off-heap size to HEAP_PER_CORE * executor cores
+    if (!platform.isPlatformCSP && isHybridScanEnabled()) {
+      // For onPrem platform with hybrid scan, set off-heap size to HEAP_PER_CORE * executor cores
       tuningConfigs.getEntry("HEAP_PER_CORE").getDefaultAsMemory(ByteUnit.MiB) * numExecutorCores
     } else {
-      // Use existing logic for non-hybrid scan
+      // Use existing logic for CSP platforms or non-hybrid scan
       val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)
       platform.getSparkOffHeapMemoryMB(sparkPropertiesFn).getOrElse(0L)
     }
@@ -1565,28 +1564,37 @@ abstract class AutoTuner(
    * Calculate recommended pinned memory size using the new formula:
    * min (2 * spark executor cores * GPU batch size, 1/4 * host.offHeapLimit.Size)
    *
+   * Note: This new formula is only used for onPrem platform.
+   * For CSP platforms, the original calculation is used.
+   *
    * @param numExecutorCores Number of executor cores
    * @param hostOffHeapLimitSizeMB Host off-heap limit size in MB
    * @return Recommended pinned memory size in MB
    */
   private def calculatePinnedMemorySize(numExecutorCores: Int, hostOffHeapLimitSizeMB: Long): Long = {
-    // Get GPU batch size in MB
-    val gpuBatchSizeMB = StringUtils.convertToMB(
-      tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefault, Some(ByteUnit.BYTE))
-    
-    // Calculate 2 * executor cores * GPU batch size
-    val coresBatchSizeMB = 2L * numExecutorCores * gpuBatchSizeMB
-    
-    // Calculate 1/4 * host.offHeapLimit.Size
-    val quarterHostOffHeapLimitMB = hostOffHeapLimitSizeMB / 4
-    
-    // Return the minimum of the two values
-    Math.min(coresBatchSizeMB, quarterHostOffHeapLimitMB)
+    // Use new formula only for onPrem platform
+    if (!platform.isPlatformCSP) {
+      // Get GPU batch size in MB
+      val gpuBatchSizeMB = StringUtils.convertToMB(
+        tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefault, Some(ByteUnit.BYTE))
+      // Calculate 2 * executor cores * GPU batch size
+      val coresBatchSizeMB = 2L * numExecutorCores * gpuBatchSizeMB
+      // Calculate 1/4 * host.offHeapLimit.Size
+      val quarterHostOffHeapLimitMB = hostOffHeapLimitSizeMB / 4
+      // Return the minimum of the two values
+      Math.min(coresBatchSizeMB, quarterHostOffHeapLimitMB)
+    } else {
+      // For CSP platforms, return a default value (this will be overridden by the original logic)
+      tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
+    }
   }
 
   /**
    * Calculate recommended executor memory overhead using the new formula:
    * totalMemoryForExecutor - executor heap memory - offHeap.size - safeReserveMemory(5GB)
+   *
+   * Note: This new formula is only used for onPrem platform.
+   * For CSP platforms, the original calculation is used.
    *
    * @param totalMemoryForExecutor Total memory available for executor in MB
    * @param executorHeapMB Executor heap memory in MB
@@ -1597,14 +1605,21 @@ abstract class AutoTuner(
       totalMemoryForExecutor: Long,
       executorHeapMB: Long,
       offHeapMB: Long): Long = {
-    val safeReserveMemoryMB = 5 * 1024L // 5GB safe reserve memory
-    val calculatedOverhead = totalMemoryForExecutor - executorHeapMB - offHeapMB - safeReserveMemoryMB
-    
-    // Ensure the overhead is not negative and has a minimum value
-    val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
-    Math.max(calculatedOverhead, minOverhead.toLong)
-  }
 
+    // Use new formula only for onPrem platform
+    if (!platform.isPlatformCSP) {
+      val safeReserveMemoryMB = 5 * 1024L // 5GB safe reserve memory
+      val calculatedOverhead = totalMemoryForExecutor - executorHeapMB - offHeapMB - safeReserveMemoryMB
+
+      // Ensure the overhead is not negative and has a minimum value
+      val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
+      Math.max(calculatedOverhead, minOverhead.toLong)
+    } else {
+      // Use original calculation for CSP platforms
+      val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
+      minOverhead.toLong
+    }
+  }
 }
 
 object AutoTuner {
