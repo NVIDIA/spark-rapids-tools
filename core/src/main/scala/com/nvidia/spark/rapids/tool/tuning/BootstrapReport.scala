@@ -30,11 +30,11 @@ class BootstrapReport(tuningResult: TuningResult,
 
   /**
    * Loads the bootstrap entries from the tuning result. This applies for any entry that is
-   * not removed.
+   * not removed. This is consistent with writeTuningReport() which includes all recommendations.
    * @return the list of bootstrap entries
    */
   private def loadBootstrapEntries(): Seq[TuningEntryTrait] = {
-    tuningResult.recommendations.filter(e => e.isEnabled() && e.isBootstrap() && !e.isRemoved())
+    tuningResult.recommendations.filter(e => e.isEnabled() && !e.isRemoved())
   }
 
   def generateReport(): Unit = {
