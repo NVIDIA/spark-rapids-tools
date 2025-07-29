@@ -44,7 +44,7 @@ from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import untar_file
-from spark_rapids_tools.utils import Utilities
+from spark_rapids_tools.utils import Utilities, AbstractPropContainer
 from spark_rapids_tools.utils.net_utils import DownloadTask
 
 
@@ -530,7 +530,10 @@ class RapidsJarTool(RapidsTool):
         # This is used later to determine if the Speed up calculation should be skipped if
         # running the Qualification Tool.
         target_cluster_info_file = self.rapids_options.get('target_cluster_info')
-        target_cluster_info = YAMLPropertiesContainer(target_cluster_info_file) if target_cluster_info_file else None
+        target_cluster_info = (
+            AbstractPropContainer.load_from_file(target_cluster_info_file)
+            if target_cluster_info_file else None
+        )
         # workerInfo may or may not be present in the target cluster info.
         worker_info = target_cluster_info.get_value_silent('workerInfo') if target_cluster_info else None
         if worker_info:
