@@ -262,7 +262,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.executor.instances=4
             |--conf spark.executor.memory=16g
             |--conf spark.executor.memoryOverhead=9830m
+            |--conf spark.executor.resource.gpu.amount=1.0
+            |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
             |--conf spark.locality.wait=0
+            |--conf spark.plugins=com.nvidia.spark.SQLPlugin
             |--conf spark.rapids.memory.pinnedPool.size=4g
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
@@ -282,6 +285,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |Comments:
             |- ${getEnforcedPropertyComment("spark.executor.cores")}
             |- ${getEnforcedPropertyComment("spark.executor.instances")}
+            |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+            |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
+            |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -343,7 +349,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
       sourceClusterInfoOpt)
     val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+      sparkMaster = Some(Yarn), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -354,7 +360,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=19648m
           |--conf spark.executor.memoryOverhead=10156m
+          |--conf spark.executor.resource.gpu.amount=1.0
+          |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
           |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -370,6 +379,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
+          |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -392,5 +404,54 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test to validate that Bootstrap sets the appropriate GPU resource properties for the different
+  // Spark cluster managers.
+  // scalastyle:off line.size.limit
+  val gpuResourcePropertiesTestData: TableFor3[String, SparkMaster, Seq[String]] = Table(
+    ("testName", "sparkMaster", "expectedResults"),
+    ("Standalone",
+      Standalone,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources."
+      )),
+    ("Yarn",
+      Yarn,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
+      )),
+    ("Kubernetes",
+      Kubernetes,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "--conf spark.executor.resource.gpu.vendor=nvidia.com",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.",
+        "- 'spark.executor.resource.gpu.vendor' should be set to \"nvidia.com\" for NVIDIA GPUs in k8s clusters."
+      ))
+  )
+  // scalastyle:on line.size.limit
+
+  forAll(gpuResourcePropertiesTestData) {
+    (testName: String, sparkMaster: SparkMaster, expectedResults: Seq[String]) =>
+      test(s"test AutoTuner for Qualification sets GPU resource properties for $testName") {
+        val workerInfo = buildCpuWorkerInfoAsString()
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+        val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+          defaultSparkProps, Some(testSparkVersion))
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+        val autoTuner = buildAutoTunerForTests(workerInfo,
+          infoProvider, platform, sparkMaster = Some(sparkMaster))
+        val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+          QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
+        val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+        assertExpectedLinesExist(expectedResults, autoTunerOutput)
+      }
   }
 }
