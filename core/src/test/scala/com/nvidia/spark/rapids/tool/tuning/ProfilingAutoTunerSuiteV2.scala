@@ -1019,20 +1019,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   private def createMaxNumPostShufflePartitionsTuningDefinition():
     java.util.List[TuningEntryDefinition] = {
     import scala.collection.JavaConverters._
-    // Create a custom tuning definition for testing
-    val customTuningDef = new TuningEntryDefinition()
-    customTuningDef.setLabel("spark.sql.adaptive.maxNumPostShufflePartitions")
-    customTuningDef.setDescription("Custom tuning definition for testing alias feature")
-    customTuningDef.setEnabled(true)
-    customTuningDef.setLevel("job")
-    customTuningDef.setCategory("tuning")
-    customTuningDef.setBootstrapEntry(true)
-
-    // Set confType
-    val confType = new java.util.LinkedHashMap[String, String]()
-    confType.put("name", "int")
-    customTuningDef.setConfType(confType)
-    List(customTuningDef).asJava
+    List(TuningEntryDefinition(
+      label = "spark.sql.adaptive.maxNumPostShufflePartitions",
+      description = "Custom tuning definition for testing alias feature",
+      confType = ConfTypeEnum.Int)).asJava
   }
 
   // This test validates that user-provided tuning configurations are honored by AutoTuner.

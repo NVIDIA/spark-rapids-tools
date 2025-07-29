@@ -234,6 +234,10 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
+    # The shuffle manager is not included in bootstrap configurations by default because
+    # it depends on the Spark version on the GPU cluster. This property can still be included
+    # if explicitly specified in target-cluster-info enforced properties.
+    bootstrapEntry: false
     confType:
       name: string
   - label: spark.sql.adaptive.enabled

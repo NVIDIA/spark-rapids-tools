@@ -273,7 +273,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-            |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark353.RapidsShuffleManager
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
             |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
             |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
@@ -371,7 +370,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.concurrentGpuTasks=6
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -458,7 +456,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   /**
    * Test to validate that enforced properties from target cluster info are included in bootstrap.
    * This tests that properties specified in sparkProperties.enforced section appear in both
-   * the .log file and the -bootstrap.conf file, regardless of whether they're in the tuning table.
+   * the .log file and the -bootstrap.conf file (regardless of whether they are in tuning table).
    */
   test("test enforced properties are included in bootstrap config") {
     val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
