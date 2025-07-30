@@ -48,7 +48,7 @@ default:
   - name: EXECUTOR_GPU_RESOURCE_AMT
     description: >-
       Amount of GPU resource each executor requires (fraction of GPU)
-    default: 1.0
+    default: 1
     usedBy: spark.executor.resource.gpu.amount
 
   - name: TASK_GPU_RESOURCE_AMT

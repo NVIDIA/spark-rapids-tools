@@ -1180,7 +1180,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.rapids.memory.pinnedPool.size" -> "5g",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.executor.resource.gpu.amount" -> "0.8"
+        "spark.executor.resource.gpu.amount" -> "2"
       )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
