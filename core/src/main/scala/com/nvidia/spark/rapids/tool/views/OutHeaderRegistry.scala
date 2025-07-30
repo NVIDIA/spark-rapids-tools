@@ -55,7 +55,7 @@ object OutHeaderRegistry {
     "DriverLogUnsupportedOperators" ->
       Array("operatorName", "count", "reason"),
     "AppStatusResult" ->
-      Array("Event Log", "Status", "AppID", "Description"),
+      Array("Event Log", "Status", "App ID", "Attempt ID", "App Name", "Description"),
     "SQLAccumProfileResults" ->
       Array("sqlID", "nodeID", "nodeName", "accumulatorId", "name", "min", "median", "max",
         "total", "metricType", "stageIds"),

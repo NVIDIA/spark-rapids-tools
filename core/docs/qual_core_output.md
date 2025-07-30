@@ -83,6 +83,8 @@ The output files are defined in the following format:
 | Event Log | Path to the eventlog file |
 | Status | Results of the processing of the eventlog. It can be: success the tool successfully processed the entire events failure an exception was thrown by the tool skipped the eventlog is not supported by the tool (i.e., streaming and GPU eventlogs) unknown an unexpected kind of failure happened |
 | App ID | ID of the app associated with the eventlog. If the eventlog failed to be processed, this value is empty. |
+| Attempt ID | Attempt ID of the app associated with the eventlog. For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID. |
+| App Name | Name of application associated with the eventlog. |
 | Description | Contains the details of the failure reason for a given eventlog. If the eventlog succeeded, this value contains the total processing time of that file. |
 
 ### qualCoreCSVSummary
