@@ -357,7 +357,8 @@ abstract class AutoTuner(
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
   // OS reserved memory for system processes, configurable via tuning configs
-  private lazy val osReservedMemory = tuningConfigs.getEntry("OS_RESERVED_MEM").getDefaultAsMemory(ByteUnit.MiB)
+  private lazy val osReservedMemory = tuningConfigs.getEntry("OS_RESERVED_MEM")
+    .getDefaultAsMemory(ByteUnit.MiB)
 
   private lazy val sparkMaster: Option[SparkMaster] = {
     SparkMaster(appInfoProvider.getProperty("spark.master"))
@@ -690,10 +691,13 @@ abstract class AutoTuner(
     }.toLong
     // Calculate off-heap memory size using new hybrid scan detection logic
     val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)
-    val sparkOffHeapMemMB = calculateOffHeapMemorySize(numExecutorCores)
+    val sparkOffHeapMemMB: Long = platform.getUserEnforcedSparkProperty("spark.memory.offHeap.size")
+      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE))).getOrElse(
+        calculateOffHeapMemorySize(numExecutorCores)
+      )
     val pySparkMemMB = platform.getPySparkMemoryMB(sparkPropertiesFn).getOrElse(0L)
     // Calculate executor memory overhead using new formula if OffHeapLimit.enabled=true
-    val offHeapLimitEnabled = platform.getUserEnforcedSparkProperty(
+    val offHeapLimitEnabled: String = platform.getUserEnforcedSparkProperty(
       "spark.rapids.memory.host.offHeapLimit.enabled").getOrElse("false")
     var executorMemOverhead = if (offHeapLimitEnabled.contains("true")) {
       calculateExecutorMemoryOverhead(
@@ -706,7 +710,7 @@ abstract class AutoTuner(
     var setMaxBytesInFlight = false
     val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val defaultSpillMem = tuningConfigs.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
-    val minOverhead = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
+    val minOverhead: Long = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
       if (offHeapLimitEnabled.contains("true")) {
         executorMemOverhead
       } else {
@@ -885,7 +889,9 @@ abstract class AutoTuner(
               s"${recomMemorySettings.executorHeap.get}")
 
             // Add off-heap memory recommendation based on hybrid scan detection
-            val offHeapSizeMB = calculateOffHeapMemorySize(execCores)
+            val offHeapSizeMB = platform.getUserEnforcedSparkProperty("spark.memory.offHeap.size")
+              .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
+              .getOrElse(calculateOffHeapMemorySize(execCores))
             if (offHeapSizeMB > 0) {
               appendRecommendationForMemoryMB("spark.memory.offHeap.size", s"$offHeapSizeMB")
               // Enable off-heap memory if we're recommending a size
