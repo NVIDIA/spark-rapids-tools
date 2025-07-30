@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import com.nvidia.spark.rapids.tool.views.qualification.{QualPerAppReportGenerator, QualReportGenConfProvider, QualToolReportGenerator}
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.sql.rapids.tool.FailureApp
+import org.apache.spark.sql.rapids.tool.{AppBase, FailureApp}
 import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
@@ -119,7 +119,6 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
           return
         case _ => // No action needed for other cases
       }
-      val startTime = System.currentTimeMillis()
       // we need a platform per application because it's storing cluster information which could
       // vary between applications, especially when using dynamic allocation
       val platform = {
@@ -180,9 +179,7 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
               // generate report for the current QualApp.
               QualPerAppReportGenerator.build(
                 newQualSummary, outputDir, Option(hadoopConf), qualAppReportOptions)
-              val endTime = System.currentTimeMillis()
-              SuccessAppResult(pathStr, app.appId, app.attemptId,
-                s"Took ${endTime - startTime}ms to process")
+              AppBase.toSuccessAppResult(app)
             } match {
               case Some(successfulResult) => successfulResult
               case _ =>

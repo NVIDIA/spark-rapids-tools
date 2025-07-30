@@ -117,9 +117,11 @@ object AppMetaData {
   def apply(
       evtLogPath: String,
       appStartEv: SparkListenerApplicationStart): AppMetaData = {
-    new AppMetaData(Some(evtLogPath),
+    new AppMetaData(
+      Some(evtLogPath),
       appStartEv.appName,
-      appStartEv.appId, appStartEv.sparkUser,
+      appStartEv.appId,
+      appStartEv.sparkUser,
       appStartEv.time)
   }
 }
