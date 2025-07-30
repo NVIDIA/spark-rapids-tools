@@ -259,6 +259,14 @@ default:
     default: 2
     usedBy: spark.rapids.sql.multiThreadedRead.numThreads
 
+  - name: OS_RESERVED_MEM
+    description: >-
+      Amount of memory reserved for the operating system and other system processes.
+      This is subtracted from the total available memory when calculating executor memory overhead.
+    default: 0g
+    usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
+
+
 # Qualification tool specific tuning configs
 qualification:
   - name: BATCH_SIZE_BYTES

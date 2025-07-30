@@ -356,7 +356,8 @@ abstract class AutoTuner(
   protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  private lazy val safeReserveMemoryMB = 5 * 1024L
+  // OS reserved memory for system processes, configurable via tuning configs
+  private lazy val osReservedMemory = tuningConfigs.getEntry("OS_RESERVED_MEM").getDefaultAsMemory(ByteUnit.MiB)
 
   private lazy val sparkMaster: Option[SparkMaster] = {
     SparkMaster(appInfoProvider.getProperty("spark.master"))
@@ -691,9 +692,16 @@ abstract class AutoTuner(
     val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)
     val sparkOffHeapMemMB = calculateOffHeapMemorySize(numExecutorCores)
     val pySparkMemMB = platform.getPySparkMemoryMB(sparkPropertiesFn).getOrElse(0L)
-    // Calculate executor memory overhead using new formula
-    var executorMemOverhead = calculateExecutorMemoryOverhead(
-      actualMemForExec, executorHeapMB, sparkOffHeapMemMB)
+    // Calculate executor memory overhead using new formula if OffHeapLimit.enabled=true
+    val offHeapLimitEnabled = platform.getUserEnforcedSparkProperty(
+      "spark.rapids.memory.host.offHeapLimit.enabled")
+    var executorMemOverhead = if (offHeapLimitEnabled.contains("true")) {
+      calculateExecutorMemoryOverhead(
+        actualMemForExec, executorHeapMB, sparkOffHeapMemMB)
+    } else {
+      // If OffHeapLimit.enabled=false, use the old formula
+      executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
+    }.toLong
     val execMemLeft = actualMemForExec - executorHeapMB - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
     val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
@@ -715,11 +723,13 @@ abstract class AutoTuner(
         executorMemOverhead += recommendedMaxBytesInFlightMB
         setMaxBytesInFlight = true
       }
-      // Calculate host off-heap limit size for pinned memory calculation (only for onPrem)
-      val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP) {
-        executorMemOverhead + sparkOffHeapMemMB - safeReserveMemoryMB
+      // Calculate host off-heap limit size for pinned memory calculation
+      // (only for onPrem when offHeapLimit is enabled)
+      val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
+        offHeapLimitEnabled.contains("true")) {
+        executorMemOverhead + sparkOffHeapMemMB - osReservedMemory
       } else {
-        0L // Not used for CSP platforms
+        0L // Not used for CSP platforms or when offHeapLimit is disabled
       }
 
       // Pinned memory calculation - use new formula for onPrem, original logic for CSP
@@ -869,10 +879,13 @@ abstract class AutoTuner(
               // Enable off-heap memory if we're recommending a size
               appendRecommendation("spark.memory.offHeap.enabled", "true")
 
-              // Calculate host off-heap limit size for onPrem platform only
-              if (!platform.isPlatformCSP) {
+              // Calculate host off-heap limit size for onPrem platform only when
+              // offHeapLimit is enabled
+              val offHeapLimitEnabled = platform.getUserEnforcedSparkProperty(
+                "spark.rapids.memory.host.offHeapLimit.enabled").getOrElse("false")
+              if (!platform.isPlatformCSP && offHeapLimitEnabled.contains("true")) {
                 val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
-                  offHeapSizeMB - safeReserveMemoryMB
+                  offHeapSizeMB - osReservedMemory
                 if (hostOffHeapLimitSizeMB > 0) {
                   appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size",
                     s"$hostOffHeapLimitSizeMB")
@@ -1602,8 +1615,8 @@ abstract class AutoTuner(
    * Calculate recommended executor memory overhead using the new formula:
    * totalMemoryForExecutor - executor heap memory - offHeap.size - safeReserveMemory(5GB)
    *
-   * Note: This new formula is only used for onPrem platform.
-   * For CSP platforms, the original calculation is used.
+   * Note: This new formula is only used for onPrem platform when offHeapLimit is enabled.
+   * For CSP platforms or when offHeapLimit is disabled, the original calculation is used.
    *
    * @param totalMemoryForExecutor Total memory available for executor in MB
    * @param executorHeapMB Executor heap memory in MB
@@ -1615,17 +1628,20 @@ abstract class AutoTuner(
       executorHeapMB: Long,
       offHeapMB: Long): Long = {
 
-    // Use new formula only for onPrem platform
-    if (!platform.isPlatformCSP) {
+    // Check if offHeapLimit is enabled
+    val offHeapLimitEnabled = platform.getUserEnforcedSparkProperty(
+      "spark.rapids.memory.host.offHeapLimit.enabled")
+    // Use new formula only for onPrem platform when offHeapLimit is enabled
+    if (!platform.isPlatformCSP && offHeapLimitEnabled.contains("true")) {
       val calculatedOverhead = totalMemoryForExecutor - executorHeapMB - offHeapMB -
-        safeReserveMemoryMB
+        osReservedMemory
 
       // Ensure the overhead is not negative and has a minimum value
       val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION")
         .getDefault.toDouble
-      Math.max(calculatedOverhead, minOverhead.toLong)
+      Math.max(calculatedOverhead.toLong, minOverhead.toLong)
     } else {
-      // Use original calculation for CSP platforms
+      // Use original calculation for CSP platforms or when offHeapLimit is disabled
       val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION")
         .getDefault.toDouble
       minOverhead.toLong
