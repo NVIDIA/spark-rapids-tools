@@ -53,14 +53,13 @@ class Profiling(ProfilingCore):
         1. the worker_info argument
         2. the clusters
         """
-        super()._process_custom_args()
-
         self._process_worker_info_arg()
         # if the workerInfo is not set, then we need to use the gpu_cluster
         if not self.ctxt.get_ctxt('autoTunerFilePath'):
             self._process_offline_cluster_args()
         else:
             self.logger.info('Skipping building of GPU_CLUSTER because WorkerInfo is defined')
+        super()._process_custom_args()
 
     def _process_offline_cluster_args(self):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})

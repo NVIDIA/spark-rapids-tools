@@ -172,8 +172,6 @@ class Qualification(QualificationCore):
         3. gpu_per_machine: number of gpu installed on a worker node.
         4. cuda version
         """
-        super()._process_custom_args()
-
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
         gpu_device_arg = self.wrapper_options.get('gpuDevice')
         if gpu_device_arg is not None:
@@ -196,6 +194,7 @@ class Qualification(QualificationCore):
         self._process_submission_mode_arg()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
+        super()._process_custom_args()
 
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
