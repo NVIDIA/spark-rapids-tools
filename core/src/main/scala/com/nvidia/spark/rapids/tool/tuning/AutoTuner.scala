@@ -853,8 +853,10 @@ abstract class AutoTuner(
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
       // Since executor. executor level property, we only recommend it if it is not set.
-      val currentExecutorGpuResourceAmount = getPropertyValue("spark.executor.resource.gpu.amount")
-      if (currentExecutorGpuResourceAmount.isEmpty) {
+      val isUnsetOrZero = getPropertyValue("spark.executor.resource.gpu.amount").forall { v =>
+        v.trim.isEmpty || scala.util.Try(v.toDouble).toOption.contains(0.0)
+      }
+      if (isUnsetOrZero) {
         appendRecommendation("spark.executor.resource.gpu.amount",
           tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toDouble)
       }
