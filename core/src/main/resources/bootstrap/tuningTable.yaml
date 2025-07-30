@@ -341,8 +341,8 @@ tuningDefinitions:
       The GPU resource amount per task when Apache Spark schedules GPU resources.
       For example, setting the value to 1 means that only one task will run concurrently per executor.
       Note:
-      - It supports fractional values (e.g., 0.25)
-      - https://github.com/apache/spark/blob/master/core/src/main/scala/org/apache/spark/resource/TaskResourceRequest.scala
+      - This value should be a fraction (e.g. 0.25, 1.0, etc.).
+      - https://github.com/apache/spark/blob/6a7a3debda0748d7e72445de27ecc6ebfe01078b/core/src/main/scala/org/apache/spark/resource/TaskResourceRequest.scala#L37
     enabled: true
     level: cluster
     category: tuning
@@ -353,8 +353,8 @@ tuningDefinitions:
       The GPU resource amount per executor when Spark schedules GPU resources.
       This should typically be set to 1 to allocate one GPU per executor.
       Note:
-      - It only support numeric values (unlike task resource amount which can be a fraction).
-      - https://github.com/apache/spark/blob/master/core/src/main/scala/org/apache/spark/resource/ExecutorResourceRequest.scala
+      - This value should be an integer (e.g. 1, 2, etc.).
+      - https://github.com/apache/spark/blob/6a7a3debda0748d7e72445de27ecc6ebfe01078b/core/src/main/scala/org/apache/spark/resource/ExecutorResourceRequest.scala#L56
     enabled: true
     level: cluster
     category: functionality
