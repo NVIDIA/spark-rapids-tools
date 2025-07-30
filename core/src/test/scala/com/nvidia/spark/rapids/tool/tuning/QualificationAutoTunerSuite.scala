@@ -262,7 +262,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.executor.instances=4
             |--conf spark.executor.memory=16g
             |--conf spark.executor.memoryOverhead=9830m
-            |--conf spark.executor.resource.gpu.amount=1.0
+            |--conf spark.executor.resource.gpu.amount=1
             |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
             |--conf spark.locality.wait=0
             |--conf spark.plugins=com.nvidia.spark.SQLPlugin
@@ -359,7 +359,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=19648m
           |--conf spark.executor.memoryOverhead=10156m
-          |--conf spark.executor.resource.gpu.amount=1.0
+          |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
@@ -412,13 +412,13 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     ("Standalone",
       Standalone,
       Seq(
-        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.amount=1",
         "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources."
       )),
     ("Yarn",
       Yarn,
       Seq(
-        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.amount=1",
         "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
         "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
@@ -426,7 +426,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     ("Kubernetes",
       Kubernetes,
       Seq(
-        "--conf spark.executor.resource.gpu.amount=1.0",
+        "--conf spark.executor.resource.gpu.amount=1",
         "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "--conf spark.executor.resource.gpu.vendor=nvidia.com",
         "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",

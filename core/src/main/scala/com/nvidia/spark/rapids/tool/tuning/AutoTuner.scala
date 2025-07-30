@@ -520,8 +520,8 @@ abstract class AutoTuner(
    * Safely appends the recommendation to the given key.
    * It skips if the value is 0.
    */
-  def appendRecommendation(key: String, value: Int): Unit = {
-    if (value > 0) {
+  def appendRecommendation(key: String, value: Long): Unit = {
+    if (value > 0L) {
       appendRecommendation(key: String, s"$value")
     }
   }
@@ -854,11 +854,11 @@ abstract class AutoTuner(
     if (platform.recommendedClusterInfo.isDefined) {
       // Since executor. executor level property, we only recommend it if it is not set.
       val isUnsetOrZero = getPropertyValue("spark.executor.resource.gpu.amount").forall { v =>
-        v.trim.isEmpty || scala.util.Try(v.toDouble).toOption.contains(0.0)
+        v.trim.isEmpty || scala.util.Try(v.toLong).toOption.contains(0L)
       }
       if (isUnsetOrZero) {
         appendRecommendation("spark.executor.resource.gpu.amount",
-          tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toDouble)
+          tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toLong)
       }
       // However, for task GPU resources, always recommend.
       // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
