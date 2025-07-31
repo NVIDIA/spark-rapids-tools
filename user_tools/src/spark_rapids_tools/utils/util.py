@@ -417,3 +417,29 @@ class Utilities:
             'yes': True,
             'no': False
         }.get(s.lower(), False)
+
+    @staticmethod
+    def scala_to_pandas_type(scala_type: str) -> str:
+        """
+        Converts a Scala data type string to its corresponding Pandas-compatible type.
+        Note that it is important to use Pandas Nullable type in order to support null data
+        passed from the core-tools. For example, Pandas cannot use 'int64' for an integer column if
+        it has missing values. It always expect it to be a NaN which might not be the case for
+        Scala.
+
+        :param scala_type: The Scala data type string (e.g., 'Int', 'String', 'Double').
+        :return: (str) The Pandas-compatible data type string (e.g., 'int64', 'object', 'float64').
+        """
+        scala_to_pandas_map = {
+            'Int': 'Int64',         # Nullable integer
+            'Long': 'Int64',        # Both Scala Int and Long map to int64 in Pandas for typical usage.
+            'Float': 'float32',     # Float is already nullable (supports NaN)
+            'Double': 'float64',    # Float is already nullable (supports NaN)
+            'String': 'string',     # Pandas nullable string dtype
+            'Boolean': 'boolean',   # Pandas nullable boolean dtype
+            'Timestamp': 'datetime64[ns]',
+            'Date': 'datetime64[ns]',  # Pandas represents both Date and Timestamp as datetime64[ns].
+            'Decimal': 'object',  # Pandas may not have a direct equivalent for Decimal, so 'object' is used.
+            # Add more mappings for other Scala types as needed
+        }
+        return scala_to_pandas_map.get(scala_type, 'object')  # Default to object for unknown types.

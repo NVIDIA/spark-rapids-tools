@@ -62,7 +62,7 @@ class TestDataUtils(unittest.TestCase):
             self.assertTrue(result.success)
             self.assertFalse(result.fallen_back)
             self.assertIsNone(result.load_error)
-            pd.testing.assert_frame_equal(result.df, expected_df)
+            pd.testing.assert_frame_equal(result.data, expected_df)
 
     def test_load_pd_df_fallback(self):
         def default_df_cb():
@@ -74,7 +74,7 @@ class TestDataUtils(unittest.TestCase):
             self.assertTrue(result.fallen_back)
             # check that the load-error has the correct cause for exception.
             self.assertIsInstance(result.get_fail_cause(), FileNotFoundError)
-            pd.testing.assert_frame_equal(result.df, default_df_cb())
+            pd.testing.assert_frame_equal(result.data, default_df_cb())
 
     def test_load_pd_df_with_mapping_and_kwargs(self):
         csv_data = 'col1;col2\n1;2\n3;4'
@@ -87,4 +87,4 @@ class TestDataUtils(unittest.TestCase):
                 map_columns={'col1': 'a', 'col2': 'b'},
                 read_csv_kwargs={'sep': ';'}
             )
-            pd.testing.assert_frame_equal(result.df, expected_df)
+            pd.testing.assert_frame_equal(result.data, expected_df)
