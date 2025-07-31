@@ -15,8 +15,8 @@
 """Module that contains the definition of the profiling Result handler for the core module."""
 
 from dataclasses import dataclass
-from typing import override
 
+from spark_rapids_tools import override
 from spark_rapids_tools.api_v1 import register_result_class, ResultHandler
 from spark_rapids_tools.api_v1.report_reader import ToolReportReader
 

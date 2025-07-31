@@ -17,10 +17,11 @@ Prof/Qual Readers."""
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Dict, override
+from typing import Dict
 
 import pandas as pd
 
+from spark_rapids_tools import override
 from spark_rapids_tools.api_v1 import AppHandler
 from spark_rapids_tools.api_v1.report_reader import ToolReportReader
 from spark_rapids_tools.utils.data_utils import LoadDFResult

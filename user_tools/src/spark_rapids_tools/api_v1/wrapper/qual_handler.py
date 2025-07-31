@@ -17,8 +17,8 @@ Module that contains the definition of the Qualification wrapper result handler.
 """
 
 from dataclasses import dataclass
-from typing import override
 
+from spark_rapids_tools import override
 from spark_rapids_tools.api_v1.report_reader import ToolReportReader
 from spark_rapids_tools.api_v1.result_handler import register_result_class, ResultHandler
 

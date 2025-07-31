@@ -15,8 +15,8 @@
 """Module that contains the definition of the Profiling core reader."""
 
 from dataclasses import dataclass
-from typing import override
 
+from spark_rapids_tools import override
 from spark_rapids_tools.api_v1.core.core_reader import CoreReaderBase
 from spark_rapids_tools.api_v1.report_reader import register_report_class
 

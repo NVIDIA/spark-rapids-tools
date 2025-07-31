@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
 
 """init file of the utils package for the Accelerated Spark tools"""
 
+from .compat import (
+    override
+)
+
 from .util import (
     get_elem_from_dict, get_elem_non_safe, is_http_file, Utilities
 )
@@ -24,6 +28,7 @@ from .propmanager import (
 )
 
 __all__ = [
+    'override',
     'get_elem_from_dict',
     'get_elem_non_safe',
     'AbstractPropContainer',

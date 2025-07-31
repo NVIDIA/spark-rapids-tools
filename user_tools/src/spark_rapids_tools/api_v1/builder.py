@@ -15,10 +15,11 @@
 """Module that contains the entry for the API v1 builder."""
 
 from dataclasses import dataclass, field
-from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, override
+from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable
 
 import pandas as pd
 
+from spark_rapids_tools import override
 from spark_rapids_tools.api_v1 import ToolResultHandlerT
 from spark_rapids_tools.api_v1 import AppHandler
 from spark_rapids_tools.api_v1.report_loader import ReportLoader
