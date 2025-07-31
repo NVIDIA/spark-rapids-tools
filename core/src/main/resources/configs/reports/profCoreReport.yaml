@@ -45,11 +45,20 @@ reportDefinitions:
               failure an exception was thrown by the tool
               skipped the eventlog is not supported by the tool (i.e., streaming and GPU eventlogs)
               unknown an unexpected kind of failure happened
-          - name: AppID
+          - name: App ID
             dataType: String
             description: >-
               ID of the app associated with the eventlog.
               If the eventlog failed to be processed, this value is empty.
+          - name: Attempt ID
+            dataType: Int
+            description: >-
+              Attempt ID of the app associated with the eventlog.
+              For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID.
+          - name: App Name
+            dataType: String
+            description: >-
+              Name of application associated with the eventlog.
           - name: Description
             dataType: String
             description: >-

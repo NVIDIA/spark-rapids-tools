@@ -19,10 +19,11 @@ from dataclasses import field, dataclass
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Union
+from typing_extensions import deprecated
 
 import yaml
 from pyaml_env import parse_config
-from typing_extensions import deprecated
+
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 

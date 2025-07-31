@@ -246,3 +246,51 @@ class SubmissionMode(EnumeratedType):
     @classmethod
     def get_default(cls) -> 'SubmissionMode':
         return cls.LOCAL
+
+
+#################
+# Tools API ENUMS
+#################
+
+
+class ReportTableFormat(EnumeratedType):
+    """Values used to define the format of the report tables"""
+    CSV = 'csv'
+    CONF = 'conf'
+    JSON = 'json'
+    LOG = 'log'
+    PROPERTIES = 'properties'
+    TXT = 'txt'
+
+    @classmethod
+    def get_default(cls) -> 'ReportTableFormat':
+        return cls.CSV
+
+    @classmethod
+    def is_valid_format(cls, value: str) -> bool:
+        """Check if the given value is a valid report table format."""
+        try:
+            cls.fromstring(value)
+            return True
+        except ValueError:
+            return False
+
+    def compatible(self, candidate: Union[str, 'ReportTableFormat']) -> bool:
+        """
+        Check if the current format is acceptable for reading tables.
+        For example, a CSV format can be read as TXT but not the other way around.
+        :param candidate: The candidate format to check against the current format.
+        :return: True if the candidate format is acceptable, False otherwise.
+        """
+        acceptable_map = {
+            self.CSV: [self.TXT],
+            self.JSON: [self.TXT],
+            self.CONF: [self.PROPERTIES],
+            self.PROPERTIES: [self.TXT],
+            self.TXT: []
+        }
+        if isinstance(candidate, str):
+            candidate = ReportTableFormat.fromstring(candidate)
+        if candidate == self:
+            return True
+        return candidate in acceptable_map.get(self, [])

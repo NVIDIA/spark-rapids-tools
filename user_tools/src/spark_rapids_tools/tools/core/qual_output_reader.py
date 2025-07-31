@@ -72,10 +72,10 @@ class QualOutputFileReader:
                 map_columns = self._get_cluster_info_json_to_csv_mapping()
 
             result = DataUtils.load_pd_df_from_json(report_file_path, map_columns=map_columns)
-            return result.df if result.success else pd.DataFrame()
+            return result.data if result.success else pd.DataFrame()
         try:
             result = DataUtils.load_pd_df(report_file_path, read_csv_kwargs=read_csv_kwargs)
-            return result.df if result.success else pd.DataFrame()
+            return result.data if result.success else pd.DataFrame()
         except Exception:  # pylint: disable=broad-except
             return pd.DataFrame()
 
@@ -110,13 +110,13 @@ class QualOutputFileReader:
                                 if table_def.label == 'clusterInfoJSONReport':
                                     map_columns = self._get_cluster_info_json_to_csv_mapping()
                                 result = DataUtils.load_pd_df_from_json(str(app_file_path), map_columns=map_columns)
-                                if result.success and not result.df.empty:
-                                    app_df = result.df
+                                if result.success and not result.data.empty:
+                                    app_df = result.data
                                     combined_dfs.append(app_df)
                             else:
                                 result = DataUtils.load_pd_df(str(app_file_path), read_csv_kwargs=read_csv_kwargs)
                                 if result.success:
-                                    app_df = result.df
+                                    app_df = result.data
                                     # Add App ID column as the first column to maintain conformity
                                     app_df.insert(0, 'App ID', app_id)
                                     combined_dfs.append(app_df)
@@ -154,7 +154,7 @@ class QualOutputFileReader:
                         if metric_file_path.exists():
                             result = DataUtils.load_pd_df(str(metric_file_path), read_csv_kwargs=read_csv_kwargs)
                             if result.success:
-                                metrics[app_id_str] = result.df
+                                metrics[app_id_str] = result.data
                             else:
                                 metrics[app_id_str] = pd.DataFrame()
                         else:
