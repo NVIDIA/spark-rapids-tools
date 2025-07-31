@@ -216,7 +216,7 @@ class JPropsReport(APIReport[JPropsResult]):
 
     @override
     def _load_per_app(self) -> Dict[str, JPropsResult]:
-        return self.rep_reader.load_apps_jprops(
+        return self.rep_reader.load_apps_jprop(
             self._tbl,
             apps=self._apps)
 
