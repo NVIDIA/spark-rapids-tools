@@ -3432,6 +3432,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=9420m
           |--conf spark.locality.wait=0
+          |--conf spark.memory.offHeap.size=10240m
           |--conf spark.rapids.memory.pinnedPool.size=3g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
