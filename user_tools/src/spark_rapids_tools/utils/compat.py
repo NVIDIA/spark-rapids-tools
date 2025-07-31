@@ -14,7 +14,10 @@
 
 """A module to resolve compatibilities across Python releases."""
 
+# pylint: disable=unused-import
+
 try:
     from typing import override  # Python 3.12+
 except ImportError:
-    from typing_extensions import override  # Older versions
+    # Older python versions
+    from typing_extensions import override
