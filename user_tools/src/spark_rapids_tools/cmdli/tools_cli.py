@@ -49,6 +49,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       tools_config_file: str = None,
                       submission_mode: str = None,
                       target_cluster_info: str = None,
+                      tuning_configs: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -96,6 +97,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
+        :param tuning_configs: Path to a YAML file that contains the tuning configurations.
+                For sample tuning configs files, please visit
+                https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
@@ -127,7 +131,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          estimation_model_args=estimation_model_args,
                                                          tools_config_path=tools_config_file,
                                                          submission_mode=submission_mode,
-                                                         target_cluster_info=target_cluster_info)
+                                                         target_cluster_info=target_cluster_info,
+                                                         tuning_configs=tuning_configs)
         if qual_args:
             rapids_options.update(qual_args['rapidOptions'])
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
@@ -149,6 +154,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   verbose: bool = None,
                   tools_config_file: str = None,
                   target_cluster_info: str = None,
+                  tuning_configs: str = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on GPU accelerated clusters.
@@ -187,6 +193,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 multiple "spark-property" arguments.
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options
+        :param tuning_configs: Path to a YAML file that contains the tuning configurations.
+                For sample tuning configs files, please visit
+                https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
@@ -207,7 +216,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
                                                          tools_config_path=tools_config_file,
-                                                         target_cluster_info=target_cluster_info)
+                                                         target_cluster_info=target_cluster_info,
+                                                         tuning_configs=tuning_configs)
         if prof_args:
             rapids_options.update(prof_args['rapidOptions'])
             tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],

@@ -355,6 +355,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_threads: Optional[int] = None
     tools_config_path: Optional[str] = None
     target_cluster_info: Optional[str] = None
+    tuning_configs: Optional[str] = None
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -412,6 +413,17 @@ class ToolUserArgModel(AbsToolUserArgModel):
             # Using `_` instead of `-` as a later step appropriately converts the arguments for the JAR.
             # See: `spark_rapids_pytools.rapids.rapids_tool.RapidsJarTool._process_tool_args_from_input`
             rapids_options['target_cluster_info'] = self.target_cluster_info
+
+    def process_tuning_configs(self, rapids_options: dict) -> None:
+        if self.tuning_configs is not None:
+            if not CspPath.is_file_path(self.tuning_configs,
+                                        extensions=['yaml'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'tuning_configs',
+                    f'Tuning configs file path {self.tuning_configs} is not valid. '
+                    'It is expected to be a valid YAML file.')
+            rapids_options['tuning_configs'] = self.tuning_configs
 
     def init_extra_arg_cases(self) -> list:
         if self.eventlogs is None:
@@ -547,7 +559,8 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
-
+        # process tuning configs
+        self.process_tuning_configs(rapids_options)
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -674,6 +687,8 @@ class ProfileUserArgModel(ToolUserArgModel):
         self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
+        # process tuning configs
+        self.process_tuning_configs(rapids_options)
 
         # finally generate the final values
         wrapped_args = {

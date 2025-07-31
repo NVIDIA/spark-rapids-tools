@@ -39,7 +39,7 @@ import org.apache.spark.sql.rapids.tool.util.{FSUtils, PropertiesLoader}
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
   val qualLogDir: String = ToolTestUtils.getTestResourcePath("spark-events-qualification")
-  val autoTunerConfigsProvider: AutoTunerConfigsProvider = QualificationAutoTunerConfigsProvider
+  val autoTunerHelper: AutoTunerHelper = QualificationAutoTunerHelper
 
   /**
    * Default Spark properties to be used when building the Qualification AutoTuner
@@ -134,10 +134,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "--conf spark.executor.memory=[FILL_IN_VALUE]",
         "--conf spark.executor.memoryOverhead=[FILL_IN_VALUE]",
         "--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]",
-        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memory")}",
-        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.executor.memoryOverhead")}",
-        s"- ${ProfilingAutoTunerConfigsProvider.notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
-        s"- ${QualificationAutoTunerConfigsProvider.notEnoughMemComment(40140)}"
+        s"- ${notEnoughMemCommentForKey("spark.executor.memory")}",
+        s"- ${notEnoughMemCommentForKey("spark.executor.memoryOverhead")}",
+        s"- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}",
+        s"- ${notEnoughMemComment(40140)}"
       )),
     ("sufficient memory available for executors",
       "44g",
@@ -262,7 +262,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.executor.instances=4
             |--conf spark.executor.memory=16g
             |--conf spark.executor.memoryOverhead=9830m
+            |--conf spark.executor.resource.gpu.amount=1
+            |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
             |--conf spark.locality.wait=0
+            |--conf spark.plugins=com.nvidia.spark.SQLPlugin
             |--conf spark.rapids.memory.pinnedPool.size=4g
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
@@ -270,7 +273,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
-            |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark353.RapidsShuffleManager
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
             |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
             |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
@@ -280,12 +282,15 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.task.resource.gpu.amount=0.001
             |
             |Comments:
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.cores")}
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.executor.instances")}
+            |- ${getEnforcedPropertyComment("spark.executor.cores")}
+            |- ${getEnforcedPropertyComment("spark.executor.instances")}
+            |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+            |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
+            |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
-            |- ${ProfilingAutoTunerConfigsProvider.getEnforcedPropertyComment("spark.rapids.sql.batchSizeBytes")}
+            |- ${getEnforcedPropertyComment("spark.rapids.sql.batchSizeBytes")}
             |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.shuffle.manager' was not set.
@@ -293,11 +298,224 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.sql.files.maxPartitionBytes' was not set.
             |- 'spark.task.resource.gpu.amount' was not set.
             |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.jars.missing")}
-            |- ${ProfilingAutoTunerConfigsProvider.classPathComments("rapids.shuffle.jars")}
+            |- ${classPathComments("rapids.jars.missing")}
+            |- ${classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualTuningResults)
+    }
+  }
+
+  // This test validates that user-provided tuning configurations specific to Qualification
+  // are honored by the AutoTuner.
+  // AutoTuner is expected to:
+  // - Recommend `spark.executor.memory` to a value:
+  //     1.2g/core * 16cores = 19648m
+  // - Recommend `spark.rapids.sql.concurrentGpuTasks` to a value:
+  //     max(CONC_GPU_TASKS (8), gpuMemory (24g) / GPU_MEM_PER_TASK (4g) = 6
+  test("AutoTuner honours user provided tuning configurations specific to Qualification") {
+    // 1. Mock source cluster info for OnPrem
+    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("32g"), Some(2))
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "4",
+        "spark.executor.memory" -> "8g",
+        "spark.executor.memoryOverhead" -> "2g"
+      )
+    // 2. Mock the user-provided tuning configurations. Equivalent YAML snippet:
+    // tuningConfigs:
+    //   default:
+    //   - name: GPU_MEM_PER_TASK
+    //     default: 4g
+    //   - name: CONC_GPU_TASKS
+    //     max: 8
+    //   qualification:
+    //   - name: HEAP_PER_CORE
+    //     default: 1.2g
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "GPU_MEM_PER_TASK", default = "4g"),
+      TuningConfigEntry(name = "CONC_GPU_TASKS", max = "8")
+    )
+    val qualificationTuningConfigEntries = List(
+      TuningConfigEntry(name = "HEAP_PER_CORE", default = "1.2g")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries, qualification = qualificationTuningConfigEntries)
+    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+      sourceClusterInfoOpt)
+    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+      sparkMaster = Some(Yarn), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.instances=2
+          |--conf spark.executor.memory=19648m
+          |--conf spark.executor.memoryOverhead=10156m
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.executor.resource.gpu.discoveryScript=$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=6
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
+          |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- GPU count is missing. Setting default to 1.
+          |- GPU device is missing. Setting default to l4.
+          |- GPU memory is missing. Setting default to 24576m.
+          |- RAPIDS Accelerator for Apache Spark jar is missing in "spark.plugins". Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- ${classPathComments("rapids.jars.missing")}
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test to validate that Bootstrap sets the appropriate GPU resource properties for the different
+  // Spark cluster managers.
+  // scalastyle:off line.size.limit
+  val gpuResourcePropertiesTestData: TableFor3[String, SparkMaster, Seq[String]] = Table(
+    ("testName", "sparkMaster", "expectedResults"),
+    ("Standalone",
+      Standalone,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources."
+      )),
+    ("Yarn",
+      Yarn,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
+      )),
+    ("Kubernetes",
+      Kubernetes,
+      Seq(
+        "--conf spark.executor.resource.gpu.amount=1",
+        "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
+        "--conf spark.executor.resource.gpu.vendor=nvidia.com",
+        "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
+        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.",
+        "- 'spark.executor.resource.gpu.vendor' should be set to \"nvidia.com\" for NVIDIA GPUs in k8s clusters."
+      ))
+  )
+  // scalastyle:on line.size.limit
+
+  forAll(gpuResourcePropertiesTestData) {
+    (testName: String, sparkMaster: SparkMaster, expectedResults: Seq[String]) =>
+      test(s"test AutoTuner for Qualification sets GPU resource properties for $testName") {
+        val workerInfo = buildCpuWorkerInfoAsString()
+        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+        val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+          defaultSparkProps, Some(testSparkVersion))
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
+        val autoTuner = buildAutoTunerForTests(workerInfo,
+          infoProvider, platform, sparkMaster = Some(sparkMaster))
+        val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
+          QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
+        val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+        assertExpectedLinesExist(expectedResults, autoTunerOutput)
+      }
+  }
+
+  /**
+   * Test to validate that enforced properties from target cluster info are included in bootstrap.
+   * This tests that properties specified in sparkProperties.enforced section appear in both
+   * the .log file and the -bootstrap.conf file (regardless of whether they are in tuning table).
+   */
+  test("test enforced properties are included in bootstrap config") {
+    val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
+    // Include both tuning table properties and non-tuning table properties
+    val testEnforcedSparkProperties = Map(
+      "spark.executor.cores" -> "8",              // In tuning table
+      "spark.sql.shuffle.partitions" -> "400",    // In tuning table
+      "spark.custom.property" -> "customValue",   // Not in tuning table
+      "spark.app.name" -> "TestApp"               // Not in tuning table
+    )
+
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        driverNodeInstanceType = Some("n1-standard-8"),
+        workerNodeInstanceType = Some("g2-standard-8"),
+        enforcedSparkProperties = testEnforcedSparkProperties)
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--auto-tuner",
+        testEventLog
+      ))
+
+      val result = QualificationMain.mainInternal(appArgs)
+      assert(!result.isFailed)
+      val appId = result.appSummaries.headOption.map(_.appId)
+        .getOrElse(throw new TestFailedException("No appId found in the result", 0))
+
+      // 1. Verify that enforced properties appear in the main tuning log
+      val tuningResultPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId.log"
+      ).toString
+      val actualTuningResults = FSUtils.readFileContentAsUTF8(tuningResultPath)
+
+      testEnforcedSparkProperties.keys.foreach { propertyName =>
+        assert(actualTuningResults.contains(s"--conf $propertyName="),
+          s"Property $propertyName should appear in tuning log")
+        assert(actualTuningResults.contains(getEnforcedPropertyComment(propertyName)),
+          s"Enforced property comment for $propertyName should appear in tuning log")
+      }
+
+      // 2. Verify that ALL enforced properties also appear in the bootstrap config
+      val bootstrapConfigPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId-bootstrap.conf"
+      ).toString
+      val bootstrapConfigContent = FSUtils.readFileContentAsUTF8(bootstrapConfigPath)
+
+      testEnforcedSparkProperties.foreach { case (propertyName, propertyValue) =>
+        assert(bootstrapConfigContent.contains(s"--conf $propertyName=$propertyValue"),
+          s"Enforced property $propertyName=$propertyValue should appear in bootstrap config")
+      }
     }
   }
 }

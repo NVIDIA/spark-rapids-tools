@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerConfigsProvider, TargetClusterProps, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerHelper, TargetClusterProps, TuningConfigsProvider, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -56,6 +56,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
   private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
+  private val userProvidedTuningConfigs = appArgs.tuningConfigs.toOption.flatMap(
+    PropertiesLoader[TuningConfigsProvider].loadFromFile)
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -84,7 +86,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     // Write status reports for all event logs to a CSV file
     logOutputPath()
-    val reportResults = generateStatusResults(appStatusReporter.asScala.values.toSeq)
+    val reportResults =
+      generateStatusResults(appStatusReporter.asScala.values.toSeq)
+        // sort the status by eventlog path and app meta if possible
+        .sortBy { status =>
+          (status.path, status.appId, status.attemptId)
+        }
     ProfileOutputWriter.writeCSVTable("Profiling Status", reportResults, outputDir)
   }
 
@@ -105,7 +112,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
         // We need to run it here explicitly.
-        val (properties, comments) = runAutoTuner(None, driverLogProcessor)
+        val (properties, comments) = runAutoTuner(None, driverLogProcessor,
+          userProvidedTuningConfigs)
         profileOutputWriter.writeText("\n### A. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
@@ -129,7 +137,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           return
         case _ => // No action needed for other cases
       }
-      val startTime = System.currentTimeMillis()
       val appOpt = createApp(path, hadoopConf)
       val profAppResult = appOpt match {
         case Left(FailureApp("skipped", errorMessage)) =>
@@ -144,9 +151,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
           // Case with successful creation of ApplicationInfo
           processSuccessApp(app)
           progressBar.foreach(_.reportSuccessfulProcess())
-          val endTime = System.currentTimeMillis()
-          SuccessAppResult(pathStr, app.appId, app.attemptId,
-            s"Took ${endTime - startTime}ms to process")
+          AppBase.toSuccessAppResult(app)
       }
       // Log the information to the console
       profAppResult.logMessage()
@@ -318,7 +323,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
    */
   private def runAutoTuner(
       profilerResult: Option[ProfilerResult],
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog)
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider])
   : (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     // only run the auto tuner on GPU event logs for profiling tool right now. There are
     // assumptions made in the code
@@ -329,8 +335,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         throw new IllegalStateException("Profiling AutoTuner requires a platform. " +
           "Please provide a valid platform using --platform option.")
       }
-      val autoTuner: AutoTuner = ProfilingAutoTunerConfigsProvider.buildAutoTuner(appInfoProvider,
-        platform, driverInfoProvider)
+      val autoTuner: AutoTuner = ProfilingAutoTunerHelper.buildAutoTuner(appInfoProvider,
+        platform, driverInfoProvider, userProvidedTuningConfigs)
 
       // The autotuner allows skipping some properties,
       // e.g., getRecommendedProperties(Some(Seq("spark.executor.instances"))) skips the
@@ -400,7 +406,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
         Some(ProfSQLPlanAlignedView.getDescription))
     }
     if (useAutoTuner) {
-      val (properties, comments) = runAutoTuner(Some(profilerResult))
+      val (properties, comments) = runAutoTuner(Some(profilerResult),
+        userProvidedTuningConfigs = userProvidedTuningConfigs)
       profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }

@@ -56,9 +56,9 @@ class QualToolResultBuilder {
   /**
    * This method is used to generate a QualToolResult from the builder.
    * It will return a QualToolResult which contains the main summary information
-   * of the apps and the cluster status.
+   * of the app analysis status.
    *
-   * @param appStatuses the cluster status
+   * @param appStatuses app analysis status.
    * @return a QualToolResult which contains the main summary information
    *         of the apps and the cluster status
    */
@@ -67,7 +67,11 @@ class QualToolResultBuilder {
     val appSummaryList = appSummaries.values().asScala.toSeq.sortBy { rec =>
       (rec.estimatedInfo.gpuOpportunity, rec.startTime + rec.estimatedInfo.appDur)
     }.reverse
-    QualToolResult(0, appSummaryList, appStatuses, None)
+    // sort statuses by eventlogpath and appMeta if possible
+    val sortedAppStatus = appStatuses.sortBy { status =>
+      (status.path, status.appId, status.attemptId)
+    }
+    QualToolResult(0, appSummaryList, sortedAppStatus, None)
   }
 }
 

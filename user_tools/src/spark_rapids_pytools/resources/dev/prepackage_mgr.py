@@ -37,7 +37,8 @@ prepackage_conf = {
     '_configs_suffix': '-configs.json',
     '_mvn_base_url': 'https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark-tools_2.12',
     '_folder_name': 'csp-resources',
-    '_tools_folder_name': 'tools-resources'
+    # define relative path of the core jars
+    '_tools_folder_name': 'generated_files/core/jars'
 }
 
 

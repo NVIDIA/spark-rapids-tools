@@ -29,9 +29,10 @@ class QualificationAutoTuner(
     clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider)
+    driverInfoProvider: DriverLogInfoProvider,
+    userProvidedTuningConfigs: Option[TuningConfigsProvider])
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-    QualificationAutoTunerConfigsProvider) {
+    userProvidedTuningConfigs, QualificationAutoTunerHelper) {
 
   /**
    * List of recommendations for which the Qualification AutoTuner skips calculations and only
@@ -40,17 +41,22 @@ class QualificationAutoTuner(
   override protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet(
     "spark.sql.shuffle.partitions"
   )
+
+  /**
+   * Determines whether a tuning entry should be included in the final recommendations
+   * for the Qualification Tool. Applies the base status filtering and additionally
+   * only includes entries that are bootstrap-enabled and not marked as removed.
+   */
+  override def shouldIncludeInFinalRecommendations(tuningEntry: TuningEntryTrait): Boolean = {
+    super.shouldIncludeInFinalRecommendations(tuningEntry) &&
+      tuningEntry.isBootstrap() && !tuningEntry.isRemoved()
+  }
 }
 
 /**
  * Provides configuration settings for the Qualification Tool's AutoTuner
  */
-object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
-
-  // For qualification tool's auto-tuner, the batch size to be recommended is 1GB
-  // See https://github.com/NVIDIA/spark-rapids-tools/issues/1399
-  override val BATCH_SIZE_BYTES = 1073741824
-
+object QualificationAutoTunerHelper extends AutoTunerHelper {
   /**
    * For the Qualification Tool's recommendation for cluster sizing, we want to keep
    * the total number of CPU cores between the source and target clusters constant.
@@ -62,10 +68,11 @@ object QualificationAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
       clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
     // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
     //       passed to the `QualificationAutoTuner` instance.
     new QualificationAutoTuner(
-      clusterProps, appInfoProvider, platform, driverInfoProvider)
+      clusterProps, appInfoProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
   }
 }

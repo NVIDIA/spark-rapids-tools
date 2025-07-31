@@ -38,7 +38,7 @@ import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModel, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, SuccessAppResult, ToolsPlanGraph, UTF8Source}
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -737,5 +737,14 @@ object AppBase {
     }
 
     FailureApp(status, s"${e.getClass.getSimpleName}: $message")
+  }
+
+  def toSuccessAppResult(app: AppBase): SuccessAppResult = {
+    SuccessAppResult(
+      path = app.getEventLogPath,
+      appId = app.appId,
+      attemptId = app.attemptId,
+      appName = app.getAppName,
+      message = s"appDuration(ms): ${app.calculateAppDuration().getOrElse(0)}")
   }
 }

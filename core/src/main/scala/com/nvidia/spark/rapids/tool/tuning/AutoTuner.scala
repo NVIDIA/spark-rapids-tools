@@ -31,7 +31,7 @@ import org.yaml.snakeyaml.constructor.ConstructorException
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, ValidatableProperties, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, StringUtils, UTF8Source, ValidatableProperties, WebCrawlerUtil}
 
 /**
  * A wrapper class that stores all the GPU properties.
@@ -86,10 +86,10 @@ class GpuWorkerProps(
    *
    * @return true if the value has been updated.
    */
-  def setDefaultGpuCountIfMissing(autoTunerConfigsProvider: AutoTunerConfigsProvider): Boolean = {
+  def setDefaultGpuCountIfMissing(tuningConfigs: TuningConfigsProvider): Boolean = {
     // TODO - do we want to recommend 1 or base it on core count?  32 cores to 1 gpu may be to much.
     if (count == 0) {
-      count = autoTunerConfigsProvider.DEF_WORKER_GPU_COUNT
+      count = tuningConfigs.getEntry("WORKER_GPU_COUNT").getDefault.toInt
       true
     } else {
       false
@@ -129,9 +129,9 @@ class GpuWorkerProps(
    *         used to initialize the field.
    */
   def setMissingFields(platform: Platform,
-      autoTunerConfigsProvider: AutoTunerConfigsProvider): Seq[String] = {
+      tuningConfigs: TuningConfigsProvider): Seq[String] = {
     val res = new mutable.ListBuffer[String]()
-    if (setDefaultGpuCountIfMissing(autoTunerConfigsProvider)) {
+    if (setDefaultGpuCountIfMissing(tuningConfigs)) {
       res += s"GPU count is missing. Setting default to $getCount."
     }
     if (setDefaultGpuNameIfMissing(platform)) {
@@ -167,9 +167,10 @@ class SystemClusterProps(
     // consider the object incorrect if either numCores or memory are not set.
     memory == null || memory.isEmpty || numCores <= 0 || memory.startsWith("0")
   }
-  def setDefaultNumWorkersIfMissing(autoTunerConfigsProvider: AutoTunerConfigsProvider): Boolean = {
+  private def setDefaultNumWorkersIfMissing(tuningConfigs: TuningConfigsProvider)
+  : Boolean = {
     if (numWorkers <= 0) {
-      numWorkers = autoTunerConfigsProvider.DEF_NUM_WORKERS
+      numWorkers = tuningConfigs.getEntry("NUM_WORKERS").getMin.toInt
       true
     } else {
       false
@@ -180,9 +181,9 @@ class SystemClusterProps(
    * @return a list containing information of what was missing and the default value that has been
    *         used to initialize the field.
    */
-  def setMissingFields(autoTunerConfigsProvider: AutoTunerConfigsProvider): Seq[String] = {
+  def setMissingFields(tuningConfigs: TuningConfigsProvider): Seq[String] = {
     val res = new mutable.ListBuffer[String]()
-    if (setDefaultNumWorkersIfMissing(autoTunerConfigsProvider)) {
+    if (setDefaultNumWorkersIfMissing(tuningConfigs)) {
       res += s"Number of workers is missing. Setting default to $getNumWorkers."
     }
     res
@@ -323,12 +324,27 @@ object SparkMaster {
  *                     (see [[ClusterProperties]]).
  * @param appInfoProvider the container holding the profiling result.
  */
-class AutoTuner(
+abstract class AutoTuner(
     val clusterProps: ClusterProperties,
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
-    val autoTunerConfigsProvider: AutoTunerConfigsProvider) extends Logging {
+    val userProvidedTuningConfigs: Option[TuningConfigsProvider],
+    val autoTunerHelper: AutoTunerHelper)
+  extends Logging with AutoTunerCommentsWithTuningConfigs with AutoTunerStaticComments {
+
+  lazy val tuningConfigs: TuningConfigsProvider = {
+    // Load the default configs from the resource file (including tool-specific overrides).
+    val baseConfigs = PropertiesLoader[TuningConfigsProvider].loadFromContent(
+        UTF8Source.fromResource(TuningConfigsProvider.DEFAULT_CONFIGS_FILE).mkString
+      ).getOrElse {
+        throw new RuntimeException(
+          "Failed to load default value for tuning config: " +
+            "The file is missing or has invalid format.")
+      }.withAutoTuner(Some(this))
+    // Merge with user provided configs if any.
+    userProvidedTuningConfigs.map(baseConfigs.merge).getOrElse(baseConfigs)
+  }
 
   var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
@@ -347,6 +363,22 @@ class AutoTuner(
 
   private def isCalculationEnabled(prop: String) : Boolean = {
     !limitedLogicRecommendations.contains(prop)
+  }
+
+  /**
+   * Determines whether a tuning entry should be included in the final recommendations
+   * returned to the user.
+   * Subclasses can override this method to implement tool-specific filtering logic.
+   *
+   * @param tuningEntry the tuning entry to evaluate for inclusion
+   * @return true if the entry should be included in the final recommendations, false otherwise
+   */
+  def shouldIncludeInFinalRecommendations(tuningEntry: TuningEntryTrait): Boolean = {
+    if (filterByUpdatedPropertiesEnabled) {
+      tuningEntry.isTuned()
+    } else {
+      tuningEntry.isEnabled()
+    }
   }
 
   /**
@@ -377,11 +409,25 @@ class AutoTuner(
 
   /**
    * Combined tuning table that merges the default tuning definitions with user-defined ones.
+   * Mutable to allow adding new definitions at runtime.
    */
-  private lazy val finalTuningTable = TuningEntryDefinition.TUNING_TABLE ++
-    platform.targetCluster
-      .map(_.getSparkProperties.tuningDefinitionsMap)
-      .getOrElse(Map.empty[String, TuningEntryDefinition])
+  private lazy val finalTuningTable: Map[String, TuningEntryDefinition] = {
+    // Start with the base tuning table and any tuning definitions from the target cluster
+    val baseMap = scala.collection.mutable.Map.empty[String, TuningEntryDefinition] ++
+      TuningEntryDefinition.TUNING_TABLE ++
+      platform.targetCluster
+        .map(_.getSparkProperties.tuningDefinitionsMap)
+        .getOrElse(Map.empty[String, TuningEntryDefinition])
+
+    // Add or update tuning definitions for user-enforced properties
+    platform.userEnforcedRecommendations.keys.foreach { key =>
+      // All user-enforced properties should be enabled and have bootstrap entries.
+      val tuningDefn = baseMap.getOrElseUpdate(key, TuningEntryDefinition(key))
+      tuningDefn.setEnabled(true)
+      tuningDefn.setBootstrapEntry(true)
+    }
+    baseMap.toMap
+  }
 
   def initRecommendations(): Unit = {
     finalTuningTable.keys.foreach { key =>
@@ -398,7 +444,7 @@ class AutoTuner(
         val recomRecord = recommendations.getOrElseUpdate(key,
           TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
         recomRecord.setRecommendedValue(value)
-        appendComment(autoTunerConfigsProvider.getEnforcedPropertyComment(key))
+        appendComment(getEnforcedPropertyComment(key))
     }
   }
 
@@ -474,8 +520,8 @@ class AutoTuner(
    * Safely appends the recommendation to the given key.
    * It skips if the value is 0.
    */
-  def appendRecommendation(key: String, value: Int): Unit = {
-    if (value > 0) {
+  def appendRecommendation(key: String, value: Long): Unit = {
+    if (value > 0L) {
       appendRecommendation(key: String, s"$value")
     }
   }
@@ -506,7 +552,7 @@ class AutoTuner(
    */
   private def configureGPURecommendedInstanceType(): Unit = {
     platform.createRecommendedGpuClusterInfo(recommendations, getAllSourceProperties,
-      autoTunerConfigsProvider.recommendedClusterSizingStrategy)
+      autoTunerHelper.recommendedClusterSizingStrategy)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
       // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
@@ -526,20 +572,22 @@ class AutoTuner(
    * Assumption - cluster properties were updated to have a default values if missing.
    */
   private def calcGpuConcTasks(): Long = {
-    Math.min(autoTunerConfigsProvider.MAX_CONC_GPU_TASKS,
-      platform.recommendedGpuDevice.getGpuConcTasks)
+    Math.min(tuningConfigs.getEntry("CONC_GPU_TASKS").getMax.toLong,
+      platform.recommendedGpuDevice.getGpuConcTasks(
+        tuningConfigs.getEntry("GPU_MEM_PER_TASK").getDefaultAsMemory(ByteUnit.MiB)))
   }
 
   /**
    * Recommendation for initial heap size based on certain amount of memory per core.
    * Note that we will later reduce this if needed for off heap memory.
    */
-  def calcInitialExecutorHeap(executorContainerMemCalculator: () => Double,
+  def calcInitialExecutorHeapInMB(executorContainerMemCalculator: () => Double,
       numExecCores: Int): Long = {
     val maxExecutorHeap = Math.max(0, executorContainerMemCalculator()).toInt
     // give up to 2GB of heap to each executor core
     // TODO - revisit this in future as we could let heap be bigger
-    Math.min(maxExecutorHeap, autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecCores)
+    Math.min(maxExecutorHeap,
+      tuningConfigs.getEntry("HEAP_PER_CORE").getDefaultAsMemory(ByteUnit.MiB) * numExecCores)
   }
 
   /**
@@ -547,12 +595,16 @@ class AutoTuner(
    *
    * TODO: To be removed in the future https://github.com/NVIDIA/spark-rapids-tools/issues/1710
    */
-  private lazy val recommendedMaxBytesInFlight: Long = {
-    platform.getUserEnforcedSparkProperty("spark.rapids.shuffle.multiThreaded.maxBytesInFlight")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-      .getOrElse(autoTunerConfigsProvider.DEF_MAX_BYTES_IN_FLIGHT_MB)
+  private lazy val recommendedMaxBytesInFlightMB: Long = {
+    val valueStr =
+      platform.getUserEnforcedSparkProperty("spark.rapids.shuffle.multiThreaded.maxBytesInFlight")
+      .getOrElse(tuningConfigs.getEntry("MAX_BYTES_IN_FLIGHT").getDefault)
+    StringUtils.convertToMB(valueStr, Some(ByteUnit.BYTE))
   }
 
+  /**
+   * Note: All memory values are in MB.
+   */
   private case class MemorySettings(
     executorHeap: Option[Long],
     executorMemOverhead: Option[Long],
@@ -587,7 +639,7 @@ class AutoTuner(
       (executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB) /
         platform.fractionOfSystemMemoryForExecutors
       ).toLong
-    autoTunerConfigsProvider.notEnoughMemComment(minTotalExecMemRequired)
+    notEnoughMemComment(minTotalExecMemRequired)
   }
 
   // scalastyle:off line.size.limit
@@ -654,9 +706,9 @@ class AutoTuner(
       totalMemForExecExpr: () => Double): Either[String, (MemorySettings, Boolean)] = {
 
     // Set executor heap using user enforced value or max of calculator result and 2GB/core
-    val executorHeap = userEnforcedMemorySettings.executorHeap.getOrElse {
+    val executorHeapMB = userEnforcedMemorySettings.executorHeap.getOrElse {
       Math.max(execHeapCalculator(),
-        autoTunerConfigsProvider.DEF_HEAP_PER_CORE_MB * numExecutorCores)
+        tuningConfigs.getEntry("HEAP_PER_CORE").getDefaultAsMemory(ByteUnit.MiB) * numExecutorCores)
     }
     // Our CSP instance map stores full node memory, but container managers
     // (e.g., YARN) may reserve a portion. Adjust to get the memory
@@ -669,18 +721,20 @@ class AutoTuner(
     val sparkPropertiesFn = AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)
     val sparkOffHeapMemMB = platform.getSparkOffHeapMemoryMB(sparkPropertiesFn).getOrElse(0L)
     val pySparkMemMB = platform.getPySparkMemoryMB(sparkPropertiesFn).getOrElse(0L)
-    val execMemLeft = actualMemForExec - executorHeap - sparkOffHeapMemMB - pySparkMemMB
+    val execMemLeft = actualMemForExec - executorHeapMB - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
     // reserve 10% of heap as memory overhead
     var executorMemOverhead = (
-      executorHeap * autoTunerConfigsProvider.DEF_HEAP_OVERHEAD_FRACTION
+      executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
     ).toLong
+    val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
+    val defaultSpillMem = tuningConfigs.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
+
     val minOverhead = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
-      executorMemOverhead + autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
-        autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
+      executorMemOverhead + defaultPinnedMem + defaultSpillMem
     }
     logDebug(s"Memory calculations:  actualMemForExec=$actualMemForExec MB, " +
-      s"executorHeap=$executorHeap MB, sparkOffHeapMem=$sparkOffHeapMemMB MB, " +
+      s"executorHeap=$executorHeapMB MB, sparkOffHeapMem=$sparkOffHeapMemMB MB, " +
       s"pySparkMem=$pySparkMemMB MB minOverhead=$minOverhead MB")
     if (execMemLeft >= minOverhead) {
       // this is hopefully path in the majority of cases because CSPs generally have a good
@@ -688,15 +742,14 @@ class AutoTuner(
       // Account for the setting of `maxBytesInFlight`
       if (numExecutorCores >= 16 && platform.isPlatformCSP &&
         execMemLeft >
-          executorMemOverhead + recommendedMaxBytesInFlight +
-            autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB +
-            autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB) {
-        executorMemOverhead += recommendedMaxBytesInFlight
+          executorMemOverhead + recommendedMaxBytesInFlightMB +
+            defaultPinnedMem + defaultSpillMem) {
+        executorMemOverhead += recommendedMaxBytesInFlightMB
         setMaxBytesInFlight = true
       }
       // Pinned memory uses any unused space up to 4GB. Spill memory is same size as pinned.
       var pinnedMem = userEnforcedMemorySettings.pinnedMem.getOrElse {
-        Math.min(autoTunerConfigsProvider.MAX_PINNED_MEMORY_MB,
+        Math.min(tuningConfigs.getEntry("PINNED_MEMORY").getMaxAsMemory(ByteUnit.MiB),
           (execMemLeft - executorMemOverhead) / 2)
       }
       // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
@@ -713,22 +766,22 @@ class AutoTuner(
         // indicating that the current setup is not optimal and no memory-related
         // tunings are recommended.
         if (userEnforcedMemorySettings.hasAnyMemorySettings) {
-          return Left(generateInsufficientMemoryComment(executorHeap, finalExecutorMemOverhead,
+          return Left(generateInsufficientMemoryComment(executorHeapMB, finalExecutorMemOverhead,
             sparkOffHeapMemMB, pySparkMemMB))
         }
         // Else update pinned and spill memory to use default values
-        pinnedMem = autoTunerConfigsProvider.DEF_PINNED_MEMORY_MB
-        spillMem = autoTunerConfigsProvider.DEF_SPILL_MEMORY_MB
-        finalExecutorMemOverhead = executorMemOverhead + pinnedMem + spillMem
+        pinnedMem = defaultPinnedMem
+        spillMem = defaultSpillMem
+        finalExecutorMemOverhead = executorMemOverhead + defaultPinnedMem + defaultSpillMem
       }
       // Add recommendations for executor memory settings and a boolean for maxBytesInFlight
-      Right((MemorySettings(Some(executorHeap), Some(finalExecutorMemOverhead), Some(pinnedMem),
+      Right((MemorySettings(Some(executorHeapMB), Some(finalExecutorMemOverhead), Some(pinnedMem),
         Some(spillMem)), setMaxBytesInFlight))
     } else {
       // Add a warning comment indicating that the current setup is not optimal
       // and no memory-related tunings are recommended.
       // TODO: For CSPs, we should recommend a different instance type.
-      Left(generateInsufficientMemoryComment(executorHeap, minOverhead,
+      Left(generateInsufficientMemoryComment(executorHeapMB, minOverhead,
         sparkOffHeapMemMB, pySparkMemMB))
     }
   }
@@ -769,22 +822,27 @@ class AutoTuner(
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(80, numExecutorCores))
       if (setMaxBytesInFlight) {
-        appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
+        appendRecommendationForMemoryMB("spark.rapids.shuffle.multiThreaded.maxBytesInFlight",
+          recommendedMaxBytesInFlightMB.toString)
       }
       appendRecommendation("spark.rapids.sql.reader.multithreaded.combine.sizeBytes",
-        10 * 1024 * 1024)
-      appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
+        tuningConfigs.getEntry("READER_MULTITHREADED_COMBINE_THRESHOLD").getDefault)
+      appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime",
+        tuningConfigs.getEntry("READER_MULTITHREADED_COMBINE_WAIT_TIME").getDefault)
     } else {
-      val numThreads = (numExecutorCores * 2).toInt
+      val numThreads = numExecutorCores * tuningConfigs
+        .getEntry("MULTITHREAD_READ_CORE_MULTIPLIER").getDefault.toInt
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
-        Math.max(20, numThreads).toInt)
+        Math.max(tuningConfigs.getEntry("MULTITHREAD_READ_NUM_THREADS").getMax.toInt, numThreads))
       if (platform.isPlatformCSP) {
         if (setMaxBytesInFlight) {
-          appendRecommendation("spark.rapids.shuffle.multiThreaded.maxBytesInFlight", "4g")
+          appendRecommendationForMemoryMB("spark.rapids.shuffle.multiThreaded.maxBytesInFlight",
+            recommendedMaxBytesInFlightMB.toString)
         }
         appendRecommendation("spark.rapids.sql.reader.multithreaded.combine.sizeBytes",
-          10 * 1024 * 1024)
-        appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime", 1000)
+          tuningConfigs.getEntry("READER_MULTITHREADED_COMBINE_THRESHOLD").getDefault)
+        appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime",
+          tuningConfigs.getEntry("READER_MULTITHREADED_COMBINE_WAIT_TIME").getDefault)
       }
     }
   }
@@ -794,19 +852,28 @@ class AutoTuner(
     // only if we were able to figure out a node type to recommend do we make
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
-      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
+      // Since executor. executor level property, we only recommend it if it is not set.
+      val isUnsetOrZero = getPropertyValue("spark.executor.resource.gpu.amount").forall { v =>
+        v.trim.isEmpty || scala.util.Try(v.toLong).toOption.contains(0L)
+      }
+      if (isUnsetOrZero) {
+        appendRecommendation("spark.executor.resource.gpu.amount",
+          tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toLong)
+      }
+      // However, for task GPU resources, always recommend.
       // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
       // by `spark.executor.cores`.
       appendRecommendation("spark.task.resource.gpu.amount",
-        autoTunerConfigsProvider.DEF_TASK_GPU_RESOURCE_AMT)
+        tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
         calcGpuConcTasks().toInt)
+      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
       val availableMemPerExec =
         platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
       val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
         val availableMemPerExecExpr = () => availableMemPerExec
-        val executorHeap = calcInitialExecutorHeap(availableMemPerExecExpr, execCores)
-        val executorHeapExpr = () => executorHeap
+        val executorHeapInMB = calcInitialExecutorHeapInMB(availableMemPerExecExpr, execCores)
+        val executorHeapExpr = () => executorHeapInMB
         calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
           case Right((recomMemorySettings: MemorySettings, setMaxBytesInFlight)) =>
             // Sufficient memory available, proceed with recommendations
@@ -827,15 +894,15 @@ class AutoTuner(
             // Not enough memory available, add warning comments
             appendComment(notEnoughMemComment)
             appendComment("spark.rapids.memory.pinnedPool.size",
-              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+              notEnoughMemCommentForKey(
                 "spark.rapids.memory.pinnedPool.size"))
             if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
               appendComment("spark.executor.memoryOverhead",
-                autoTunerConfigsProvider.notEnoughMemCommentForKey(
+                notEnoughMemCommentForKey(
                   "spark.executor.memoryOverhead"))
             }
             appendComment("spark.executor.memory",
-              autoTunerConfigsProvider.notEnoughMemCommentForKey(
+              notEnoughMemCommentForKey(
                 "spark.executor.memory"))
             false
         }
@@ -852,8 +919,9 @@ class AutoTuner(
       addDefaultComments()
     }
     appendRecommendation("spark.rapids.sql.batchSizeBytes",
-      autoTunerConfigsProvider.BATCH_SIZE_BYTES)
-    appendRecommendation("spark.locality.wait", "0")
+      tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefault)
+    appendRecommendation("spark.locality.wait",
+      tuningConfigs.getEntry("LOCALITY_WAIT").getDefault)
   }
 
   def calculateJobLevelRecommendations(): Unit = {
@@ -863,7 +931,7 @@ class AutoTuner(
       case Right(smClassName) => appendRecommendation("spark.shuffle.manager", smClassName)
       case Left(comment) => appendComment("spark.shuffle.manager", comment)
     }
-    appendComment(autoTunerConfigsProvider.classPathComments("rapids.shuffle.jars"))
+    appendComment(classPathComments("rapids.shuffle.jars"))
     recommendFileCache()
     recommendMaxPartitionBytes()
     recommendShufflePartitions()
@@ -880,29 +948,17 @@ class AutoTuner(
   def recommendKryoSerializerSetting(): Unit = {
     getPropertyValue("spark.serializer")
       .filter(_.contains("org.apache.spark.serializer.KryoSerializer")).foreach { _ =>
-      // Logic:
-      // - Trim whitespace, filter out empty entries and remove duplicates.
-      // - Finally, append the GPU Kryo registrator to the existing set of registrators
-      // Note:
-      //  - ListSet preserves the original order of registrators
-      // Example:
-      //  property: "spark.kryo.registrator=reg1, reg2,, reg1"
-      //  existingRegistrators: ListSet("reg1", "reg2")
-      //  recommendation: "spark.kryo.registrator=reg1,reg2,GpuKryoRegistrator"
-      val existingRegistrators = getPropertyValue("spark.kryo.registrator")
-        .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
-        .getOrElse(Array.empty)
-        .to[scala.collection.immutable.ListSet]
-      appendRecommendation("spark.kryo.registrator",
-        (existingRegistrators + autoTunerConfigsProvider.GPU_KRYO_SERIALIZER_CLASS).mkString(",")
-      )
+      // Recommend adding the GPU Kryo registrator if not already present
+      recommendClassNameProperty("spark.kryo.registrator",
+        autoTunerHelper.gpuKryoRegistratorClassName)
       // set the kryo serializer buffer size to prevent OOMs
-      val desiredBufferMax = autoTunerConfigsProvider.KRYO_SERIALIZER_BUFFER_MAX_MB
-      val currentBufferMaxMb = getPropertyValue("spark.kryoserializer.buffer.max")
+      val desiredBufferMaxMB =
+        tuningConfigs.getEntry("KRYO_SERIALIZER_BUFFER").getMaxAsMemory(ByteUnit.MiB)
+      val currentBufferMaxMB = getPropertyValue("spark.kryoserializer.buffer.max")
         .map(StringUtils.convertToMB(_, Some(ByteUnit.MiB)))
         .getOrElse(0L)
-      if (currentBufferMaxMb < desiredBufferMax) {
-        appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMax")
+      if (currentBufferMaxMB < desiredBufferMaxMB) {
+        appendRecommendationForMemoryMB("spark.kryoserializer.buffer.max", s"$desiredBufferMaxMB")
       }
     }
   }
@@ -925,13 +981,13 @@ class AutoTuner(
       case Some(sparkVersion) =>
         platform.getShuffleManagerVersion(sparkVersion) match {
           case Some(smVersion) =>
-            Right(autoTunerConfigsProvider.buildShuffleManagerClassName(smVersion))
+            Right(autoTunerHelper.buildShuffleManagerClassName(smVersion))
           case None =>
-            Left(autoTunerConfigsProvider.shuffleManagerCommentForUnsupportedVersion(
+            Left(shuffleManagerCommentForUnsupportedVersion(
               sparkVersion, platform))
         }
       case None =>
-        Left(autoTunerConfigsProvider.shuffleManagerCommentForMissingVersion)
+        Left(shuffleManagerCommentForMissingVersion)
     }
   }
 
@@ -942,11 +998,11 @@ class AutoTuner(
   def configureClusterPropDefaults: Unit = {
     if (!clusterProps.system.isEmpty) {
       if (clusterProps.system.isMissingInfo) {
-        clusterProps.system.setMissingFields(autoTunerConfigsProvider)
+        clusterProps.system.setMissingFields(tuningConfigs)
           .foreach(m => appendComment(m))
       }
       if (clusterProps.gpu.isMissingInfo) {
-        clusterProps.gpu.setMissingFields(platform, autoTunerConfigsProvider)
+        clusterProps.gpu.setMissingFields(platform, tuningConfigs)
           .foreach(m => appendComment(m))
       }
     }
@@ -956,7 +1012,7 @@ class AutoTuner(
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
       if ((jvmGCFraction.sum / jvmGCFraction.size) >
-        autoTunerConfigsProvider.MAX_JVM_GCTIME_FRACTION) {
+        tuningConfigs.getEntry("JVM_GCTIME_FRACTION").getMax.toDouble) {
         // TODO - or other cores/memory ratio
         appendComment("Average JVM GC time is very high. " +
           "Other Garbage Collectors can be used for better performance.")
@@ -970,16 +1026,15 @@ class AutoTuner(
       .getOrElse("false").toLowerCase
     if (aqeEnabled == "false") {
       // TODO: Should we recommend enabling AQE if not set?
-      appendComment(autoTunerConfigsProvider.commentsForMissingProps("spark.sql.adaptive.enabled"))
+      appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
     appInfoProvider.getSparkVersion match {
       case Some(version) =>
         if (ToolUtils.isSpark320OrLater(version)) {
           // AQE configs changed in 3.2.0
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionSize").isEmpty) {
-            // the default is 1m, but 4m is slightly better for the GPU as we have a higher
-            // per task overhead
-            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize", "4m")
+            appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionSize",
+              tuningConfigs.getEntry("AQE_MIN_PARTITION_SIZE").getDefault)
           }
         } else {
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
@@ -998,34 +1053,33 @@ class AutoTuner(
       case None =>
     }
 
+    val aqeInputSizeThresholdBytes = tuningConfigs.getEntry("AQE_INPUT_SIZE_THRESHOLD")
+      .getDefaultAsMemory(ByteUnit.BYTE)
     val advisoryPartitionSizeProperty =
       getPropertyValue("spark.sql.adaptive.advisoryPartitionSizeInBytes")
-    if (appInfoProvider.getMeanInput <
-      autoTunerConfigsProvider.AQE_INPUT_SIZE_BYTES_THRESHOLD) {
+    if (appInfoProvider.getMeanInput < aqeInputSizeThresholdBytes) {
       if (advisoryPartitionSizeProperty.isEmpty) {
-        // The default is 64m, but 128m is slightly better for the GPU as the GPU has sub-linear
-        // scaling until it is full and 128m makes the GPU more full, but too large can be
-        // slightly problematic because this is the compressed shuffle size
-        appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", "128m")
+        // get the default advisory partition size from the tuning config
+        appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes",
+          tuningConfigs.getEntry("AQE_ADVISORY_PARTITION_SIZE").getDefault)
       }
     }
     var recInitialPartitionNum = 0
-    if (appInfoProvider.getMeanInput > autoTunerConfigsProvider.AQE_INPUT_SIZE_BYTES_THRESHOLD &&
-      appInfoProvider.getMeanShuffleRead >
-        autoTunerConfigsProvider.AQE_SHUFFLE_READ_BYTES_THRESHOLD) {
+    val aqeShuffleReadBytesThresholdBytes = tuningConfigs.getEntry("AQE_SHUFFLE_READ_THRESHOLD")
+      .getDefaultAsMemory(ByteUnit.BYTE)
+    if (appInfoProvider.getMeanInput > aqeInputSizeThresholdBytes &&
+      appInfoProvider.getMeanShuffleRead > aqeShuffleReadBytesThresholdBytes) {
       // AQE Recommendations for large input and large shuffle reads
       platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
       val initialPartitionNumValue = getInitialPartitionNumValue.map(_.toInt)
       if (initialPartitionNumValue.getOrElse(0) <=
-            autoTunerConfigsProvider.AQE_MIN_INITIAL_PARTITION_NUM) {
+            tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
-      // We need to set this to false, else Spark ignores the target size specified by
-      // spark.sql.adaptive.advisoryPartitionSizeInBytes.
-      // Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html
-      appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst", "false")
+      appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst",
+        tuningConfigs.getEntry("AQE_COALESCE_PARALLELISM_FIRST").getDefault)
     }
 
     val recShufflePartitions = recommendations.get("spark.sql.shuffle.partitions")
@@ -1051,15 +1105,15 @@ class AutoTuner(
 
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
-    val autoBroadcastJoinThresholdProperty =
+    val autoBroadcastJoinThresholdPropertyMB =
       getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-    if (autoBroadcastJoinThresholdProperty.isEmpty) {
+    val autoBroadcastJoinThresholdDefaultMB =
+      tuningConfigs.getEntry("AQE_AUTO_BROADCAST_JOIN_THRESHOLD").getDefaultAsMemory(ByteUnit.MiB)
+    if (autoBroadcastJoinThresholdPropertyMB.isEmpty) {
       appendComment(autoBroadcastJoinKey, s"'$autoBroadcastJoinKey' was not set.")
-    } else if (autoBroadcastJoinThresholdProperty.get >
-        StringUtils.convertToMB(autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD, None)) {
-      appendComment(s"Setting '$autoBroadcastJoinKey' > " +
-        s"${autoTunerConfigsProvider.AQE_AUTOBROADCAST_JOIN_THRESHOLD} could " +
-        s"lead to performance\n" +
+    } else if (autoBroadcastJoinThresholdPropertyMB.get > autoBroadcastJoinThresholdDefaultMB) {
+      appendComment(s"Setting '$autoBroadcastJoinKey' > ${autoBroadcastJoinThresholdDefaultMB}m" +
+        s" could lead to performance\n" +
         "  regression. Should be set to a lower number.")
     }
   }
@@ -1086,8 +1140,8 @@ class AutoTuner(
    * 4- If there is a new release recommend that to the user
    */
   private def recommendClassPathEntries(): Unit = {
-    val missingRapidsJarsEntry = autoTunerConfigsProvider.classPathComments("rapids.jars.missing")
-    val multipleRapidsJarsEntry = autoTunerConfigsProvider.classPathComments("rapids.jars.multiple")
+    val missingRapidsJarsEntry = classPathComments("rapids.jars.missing")
+    val multipleRapidsJarsEntry = classPathComments("rapids.jars.multiple")
 
     appInfoProvider.getRapidsJars match {
       case Seq() =>
@@ -1095,7 +1149,7 @@ class AutoTuner(
         appendComment(missingRapidsJarsEntry)
       case s: Seq[String] =>
         s.flatMap(e =>
-          autoTunerConfigsProvider.pluginJarRegEx.findAllMatchIn(e).map(_.group(1))) match {
+          autoTunerHelper.pluginJarRegEx.findAllMatchIn(e).map(_.group(1))) match {
             case Seq() => appendComment(missingRapidsJarsEntry)
             case v: Seq[String] if v.length > 1 =>
               val comment = s"$multipleRapidsJarsEntry [${v.mkString(", ")}]"
@@ -1131,38 +1185,44 @@ class AutoTuner(
    * The max bytes here does not distinguish between GPU and CPU reads so we could
    * improve that in the future.
    * Eg,
-   * MIN_PARTITION_BYTES_RANGE = 128m, MAX_PARTITION_BYTES_RANGE = 256m
-   * (1) Input:  maxPartitionBytes = 512m
-   *             taskInputSize = 12m
-   *     Output: newMaxPartitionBytes = 512m * (128m/12m) = 4g (hit max value)
-   * (2) Input:  maxPartitionBytes = 2g
-   *             taskInputSize = 512m,
-   *     Output: newMaxPartitionBytes = 2g / (512m/128m) = 512m
+   * TASK_INPUT_SIZE_THRESHOLD = {min: 128m, max: 256m}
+   * (1) Input:  currentMaxPartitionBytes = 512m
+   *             actualTaskInputSizeMB = 12m (below min threshold -> increase maxPartitionBytes)
+   *     Output: recommendedMaxPartitionBytes = 512m * (128m/12m) = 4g (hit max value)
+   * (2) Input:  currentMaxPartitionBytes = 2g
+   *             actualTaskInputSizeMB = 512m (above max threshold -> decrease maxPartitionBytes)
+   *     Output: recommendedMaxPartitionBytes = 2g / (512m/128m) = 512m
    */
-  protected def calculateMaxPartitionBytesInMB(maxPartitionBytes: String): Option[Long] = {
+  protected def calculateMaxPartitionBytesInMB(currentMaxPartitionBytes: String): Option[Long] = {
     // AutoTuner only supports a single app right now, so we get whatever value is here
-    val inputBytesMax = appInfoProvider.getMaxInput / 1024 / 1024
-    val maxPartitionBytesNum = StringUtils.convertToMB(maxPartitionBytes, Some(ByteUnit.BYTE))
-    if (inputBytesMax == 0.0) {
-      Some(maxPartitionBytesNum)
+    val actualTaskInputSizeMB = appInfoProvider.getMaxInput / 1024 / 1024
+    val currentMaxPartitionBytesMB = StringUtils.convertToMB(
+      currentMaxPartitionBytes, Some(ByteUnit.BYTE))
+    // Get the min and max thresholds for the task input size
+    val taskInputSizeThreshold = tuningConfigs.getEntry("TASK_INPUT_SIZE_THRESHOLD")
+    val minTaskInputSizeThresholdMB = taskInputSizeThreshold.getMinAsMemory(ByteUnit.MiB)
+    val maxTaskInputSizeThresholdMB = taskInputSizeThreshold.getMaxAsMemory(ByteUnit.MiB)
+    // Get the upper bound for the max partition bytes
+    val maxAllowedPartitionBytesMB =
+      tuningConfigs.getEntry("MAX_PARTITION_BYTES").getMaxAsMemory(ByteUnit.MiB)
+
+    if (actualTaskInputSizeMB == 0.0) {
+      Some(currentMaxPartitionBytesMB)
     } else {
-      if (inputBytesMax > 0 &&
-        inputBytesMax < autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB) {
-        // Increase partition size
-        val calculatedMaxPartitionBytes = Math.min(
-          maxPartitionBytesNum *
-            (autoTunerConfigsProvider.MIN_PARTITION_BYTES_RANGE_MB / inputBytesMax),
-          autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        Some(calculatedMaxPartitionBytes.toLong)
-      } else if (inputBytesMax > autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB) {
-        // Decrease partition size
-        val calculatedMaxPartitionBytes = Math.min(
-          maxPartitionBytesNum /
-            (inputBytesMax / autoTunerConfigsProvider.MAX_PARTITION_BYTES_RANGE_MB),
-          autoTunerConfigsProvider.MAX_PARTITION_BYTES_BOUND_MB)
-        Some(calculatedMaxPartitionBytes.toLong)
+      if (actualTaskInputSizeMB > 0 && actualTaskInputSizeMB < minTaskInputSizeThresholdMB) {
+        // If task input too small (< min threshold): increase partition size to get bigger tasks
+        val recommendedMaxPartitionBytesMB = Math.min(
+          currentMaxPartitionBytesMB * (minTaskInputSizeThresholdMB / actualTaskInputSizeMB),
+          maxAllowedPartitionBytesMB)
+        Some(recommendedMaxPartitionBytesMB.toLong)
+      } else if (actualTaskInputSizeMB > maxTaskInputSizeThresholdMB) {
+        //  If task input too large (> max threshold): decrease partition size to get smaller tasks
+        val recommendedMaxPartitionBytesMB = Math.min(
+          currentMaxPartitionBytesMB / (actualTaskInputSizeMB / maxTaskInputSizeThresholdMB),
+          maxAllowedPartitionBytesMB)
+        Some(recommendedMaxPartitionBytesMB.toLong)
       } else {
-        // Do not recommend maxPartitionBytes
+        // If task input within range: no adjustment needed
         None
       }
     }
@@ -1173,10 +1233,11 @@ class AutoTuner(
    */
   private def recommendFileCache(): Unit = {
     if (appInfoProvider.getDistinctLocationPct <
-      autoTunerConfigsProvider.DEF_DISTINCT_READ_THRESHOLD &&
+        tuningConfigs.getEntry("DISTINCT_READ_THRESHOLD").getDefault.toDouble &&
       appInfoProvider.getRedundantReadSize >
-        autoTunerConfigsProvider.DEF_READ_SIZE_THRESHOLD) {
-      appendRecommendation("spark.rapids.filecache.enabled", "true")
+        tuningConfigs.getEntry("READ_SIZE_THRESHOLD").getDefaultAsMemory(ByteUnit.BYTE)) {
+      appendRecommendation("spark.rapids.filecache.enabled",
+        tuningConfigs.getEntry("FILE_CACHE_ENABLED").getDefault)
       appendComment("Enable file cache only if Spark local disks bandwidth is > 1 GB/s" +
         " and you have sufficient disk space available to fit both cache and normal Spark" +
         " temporary data.")
@@ -1191,7 +1252,7 @@ class AutoTuner(
   private def recommendMaxPartitionBytes(): Unit = {
     val maxPartitionProp =
       getPropertyValue("spark.sql.files.maxPartitionBytes")
-        .getOrElse(autoTunerConfigsProvider.MAX_PARTITION_BYTES)
+        .getOrElse(tuningConfigs.getEntry("MAX_PARTITION_BYTES").getDefault)
     val recommended =
       if (isCalculationEnabled("spark.sql.files.maxPartitionBytes")) {
         calculateMaxPartitionBytesInMB(maxPartitionProp).map(_.toString).orNull
@@ -1217,7 +1278,8 @@ class AutoTuner(
             s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
             s"  case since keys will still hash to the same task.")
       } else {
-        shufflePartitions *= autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
+        shufflePartitions *=
+          tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
         // Could be memory instead of partitions
         appendOptionalComment(lookup,
           s"'$lookup' should be increased since spilling occurred in shuffle stages.")
@@ -1233,18 +1295,19 @@ class AutoTuner(
    */
   private def recommendShufflePartitions(): Unit = {
     val lookup = "spark.sql.shuffle.partitions"
-    var shufflePartitions =
-      getPropertyValue(lookup).getOrElse(autoTunerConfigsProvider.DEF_SHUFFLE_PARTITIONS).toInt
+    var shufflePartitions = getPropertyValue(lookup).getOrElse(
+      tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault).toInt
 
     // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
     if (isCalculationEnabled(lookup)) {
       shufflePartitions = recommendShufflePartitionsInternal(shufflePartitions)
     }
-    // If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
-    // feature before recommending shuffle partitions.
     val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
-    if (!aqeAutoShuffle.isEmpty) {
-      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled", "false")
+    if (aqeAutoShuffle.isDefined) {
+      // If the user has enabled AQE auto shuffle, override with the default
+      // recommendation for that property.
+      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled",
+        tuningConfigs.getEntry("DATABRICKS_AUTO_OPTIMIZE_SHUFFLE_ENABLED").getDefault)
     }
     appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
@@ -1255,22 +1318,36 @@ class AutoTuner(
   private def recommendFromDriverLogs(): Unit = {
     // Iterate through unsupported operators' reasons and check for matching properties
     driverInfoProvider.getUnsupportedOperators.map(_.reason).foreach { operatorReason =>
-      autoTunerConfigsProvider.recommendationsFromDriverLogs.collect {
+      autoTunerHelper.unsupportedOperatorRecommendations.collect {
         case (config, recommendedValue) if operatorReason.contains(config) =>
           appendRecommendation(config, recommendedValue)
-          appendComment(autoTunerConfigsProvider.commentForExperimentalConfig(config))
+          appendComment(commentForExperimentalConfig(config))
       }
     }
   }
 
   private def recommendPluginProps(): Unit = {
-    val isPluginLoaded = getPropertyValue("spark.plugins") match {
-      case Some(f) => f.contains("com.nvidia.spark.SQLPlugin")
-      case None => false
-    }
     // Set the plugin to True without need to check if it is already set.
     appendRecommendation("spark.rapids.sql.enabled", "true")
-    if (!isPluginLoaded) {
+
+    // Recommend adding the RAPIDS SQLPlugin if not already present
+    val pluginAdded = recommendClassNameProperty("spark.plugins",
+      autoTunerHelper.rapidsPluginClassName)
+    if (pluginAdded) {
+      // Set GPU discovery script for YARN and Kubernetes
+      // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+      sparkMaster match {
+        case Some(Yarn) =>
+          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
+            autoTunerHelper.defaultGpuDiscoveryScript)
+        case Some(Kubernetes) =>
+          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
+            autoTunerHelper.defaultGpuDiscoveryScript)
+          appendRecommendation("spark.executor.resource.gpu.vendor",
+            autoTunerHelper.kubernetesGpuVendor)
+        case _ =>
+        // No discovery script needed for other cluster managers
+      }
       appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
         "Please refer to " +
         "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
@@ -1280,6 +1357,32 @@ class AutoTuner(
   def appendOptionalComment(lookup: String, comment: String): Unit = {
     if (!skippedRecommendations.contains(lookup)) {
       appendComment(comment)
+    }
+  }
+
+  /**
+   * Recommend class name properties (like spark.plugins, spark.kryo.registrator).
+   * Logic:
+   * - Trim whitespace, filter out empty entries and remove duplicates.
+   * - Finally, append the specified class name to the existing set if not already present
+   * Note:
+   *  - ListSet preserves the original order of class names
+   *
+   * @param propertyKey The Spark property key to update
+   * @param className The class name to add if missing
+   * @return True if a recommendation was made, false if the class name was already present
+   */
+  private def recommendClassNameProperty(propertyKey: String, className: String): Boolean = {
+    val existingClasses = getPropertyValue(propertyKey)
+      .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
+      .getOrElse(Array.empty)
+      .to[scala.collection.immutable.ListSet]
+
+    if (!existingClasses.contains(className)) {
+      appendRecommendation(propertyKey, (existingClasses + className).mkString(","))
+      true
+    } else {
+      false
     }
   }
 
@@ -1314,7 +1417,7 @@ class AutoTuner(
   private def addDefaultComments(): Unit = {
     appendComment("Could not infer the cluster configuration, recommendations " +
       "are generated using default values!")
-    autoTunerConfigsProvider.commentsForMissingProps.foreach {
+    commentsForMissingProps.foreach {
       case (key, value) =>
         if (!skippedRecommendations.contains(key)) {
           appendComment(value)
@@ -1323,7 +1426,7 @@ class AutoTuner(
   }
 
   private def addMissingMemoryComments(): Unit = {
-    autoTunerConfigsProvider.commentsForMissingMemoryProps.foreach {
+    commentsForMissingMemoryProps.foreach {
       case (key, value) =>
         if (!skippedRecommendations.contains(key)) {
           appendComment(value)
@@ -1336,12 +1439,7 @@ class AutoTuner(
   }
 
   private def toRecommendationsProfileResult: Seq[TuningEntryTrait] = {
-    val recommendationEntries = if (filterByUpdatedPropertiesEnabled) {
-      recommendations.values.filter(_.isTuned())
-    } else {
-      recommendations.values.filter(_.isEnabled())
-    }
-    recommendationEntries.toSeq.sortBy(_.name)
+    recommendations.values.filter(shouldIncludeInFinalRecommendations).toSeq.sortBy(_.name)
   }
 
   protected def finalizeTuning(): Unit = {
@@ -1410,7 +1508,7 @@ class AutoTuner(
   // - make sure that we exclude the skipped list
   private def processPropKeys(
       srcMap: collection.Map[String, String]): collection.Map[String, String] = {
-    (srcMap -- skippedRecommendations) -- autoTunerConfigsProvider.filteredPropKeys
+    srcMap -- skippedRecommendations
   }
 
   // Combines the original Spark properties with the recommended ones.
@@ -1432,11 +1530,11 @@ class AutoTuner(
    * @return the property key to use for initial partition number
    */
   private def getInitialPartitionNumProperty: String = {
-    val minShufflePartitionsKey = "spark.sql.adaptive.shuffle.minNumPostShufflePartitions"
+    val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
     val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
-    // check if minShufflePartitionsKey is in final tuning table
-    if (finalTuningTable.contains(minShufflePartitionsKey)) {
-      minShufflePartitionsKey
+    // check if maxNumPostShufflePartitions is in final tuning table
+    if (finalTuningTable.contains(maxNumPostShufflePartitions)) {
+      maxNumPostShufflePartitions
     } else {
       initialPartitionNumKey
     }
@@ -1481,9 +1579,10 @@ class ProfilingAutoTuner(
     clusterProps: ClusterProperties,
     appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider)
+    driverInfoProvider: DriverLogInfoProvider,
+    userProvidedTuningConfigs: Option[TuningConfigsProvider])
   extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
-    ProfilingAutoTunerConfigsProvider) {
+    userProvidedTuningConfigs, ProfilingAutoTunerHelper) {
 
   /**
    * Overrides the calculation for 'spark.sql.files.maxPartitionBytes'.
@@ -1522,11 +1621,11 @@ class ProfilingAutoTuner(
     val calculatedValue = super.recommendShufflePartitionsInternal(inputShufflePartitions)
     val lookup = "spark.sql.shuffle.partitions"
     val currentValue = getPropertyValue(lookup).getOrElse(
-      autoTunerConfigsProvider.DEF_SHUFFLE_PARTITIONS).toInt
+      tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault).toInt
     if (appInfoProvider.hasShuffleStagesWithOom) {
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
       val recShufflePartitions = currentValue *
-        autoTunerConfigsProvider.DEF_SHUFFLE_PARTITION_MULTIPLIER
+        tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
       appendOptionalComment(lookup,
         s"'$lookup' should be increased since task OOM occurred in shuffle stages.")
       math.max(calculatedValue, recShufflePartitions)
@@ -1538,133 +1637,26 @@ class ProfilingAutoTuner(
 }
 
 /**
- * Trait defining configuration defaults and parameters for the AutoTuner.
+ * Helper trait for the AutoTuner
  */
-trait AutoTunerConfigsProvider extends Logging {
-  // Maximum number of concurrent tasks to run on the GPU
-  val MAX_CONC_GPU_TASKS = 4L
-  // Default cores per executor to be recommended for Spark RAPIDS
-  val DEF_CORES_PER_EXECUTOR = 16
-  // Default amount of a GPU memory allocated for each task.
-  // This is set to a low value for Spark RAPIDS as task parallelism will be
-  // honoured by `spark.executor.cores`.
-  val DEF_TASK_GPU_RESOURCE_AMT = 0.001
-  // Fraction of the executor JVM heap size that should be additionally reserved
-  // for JVM off-heap overhead (thread stacks, native libraries, etc.)
-  val DEF_HEAP_OVERHEAD_FRACTION = 0.1
-  val MAX_JVM_GCTIME_FRACTION = 0.3
-  // Minimum amount of JVM heap memory to request per CPU core in megabytes
-  val MIN_HEAP_PER_CORE_MB: Long = 750L
-  // Ideal amount of JVM heap memory to request per CPU core in megabytes
-  val DEF_HEAP_PER_CORE_MB: Long = 2 * 1024L
-  // Maximum amount of pinned memory to use per executor in MB
-  val MAX_PINNED_MEMORY_MB: Long = 4 * 1024L
-  // Default pinned memory to use per executor in MB
-  val DEF_PINNED_MEMORY_MB: Long = 2 * 1024L
-  val DEF_SPILL_MEMORY_MB: Long = DEF_PINNED_MEMORY_MB
-  // the pageable pool doesn't exist anymore but by default we don't have any hard limits so
-  // leave this for now to account for off heap memory usage.
-  // TODO: Should we remove this as its unused by the plugin?
-  // val DEF_PAGEABLE_POOL_MB: Long = 2 * 1024L
-  // value in MB
-  val MIN_PARTITION_BYTES_RANGE_MB = 128L
-  // value in MB
-  val MAX_PARTITION_BYTES_RANGE_MB = 256L
-  // value in MB
-  val MAX_PARTITION_BYTES_BOUND_MB: Int = 4 * 1024
-  val MAX_PARTITION_BYTES: String = "512m"
-  val DEF_SHUFFLE_PARTITIONS = "200"
-  val DEF_SHUFFLE_PARTITION_MULTIPLIER: Int = 2
-  // GPU count defaults to 1 if it is missing.
-  val DEF_WORKER_GPU_COUNT = 1
-  // Default Number of Workers 1
-  val DEF_NUM_WORKERS = 1
-  // Default distinct read location thresholds is 50%
-  val DEF_DISTINCT_READ_THRESHOLD = 50.0
-  // Default file cache size minimum is 100 GB
-  val DEF_READ_SIZE_THRESHOLD = 100 * 1024L * 1024L * 1024L
-  // TODO: Recommendation for maxBytesInFlight should be removed
-  val DEF_MAX_BYTES_IN_FLIGHT_MB: Long = 4 * 1024L
-  val SUPPORTED_SIZE_UNITS: Seq[String] = Seq("b", "k", "m", "g", "t", "p")
-  private val DOC_URL: String = "https://nvidia.github.io/spark-rapids/docs/" +
-    "additional-functionality/advanced_configs.html#advanced-configuration"
-  // Value of batchSizeBytes that performs best overall
-  val BATCH_SIZE_BYTES = 2147483647
-  val AQE_INPUT_SIZE_BYTES_THRESHOLD = 35000
-  val AQE_SHUFFLE_READ_BYTES_THRESHOLD = 50000
-  val AQE_MIN_INITIAL_PARTITION_NUM = 200
-  val AQE_AUTOBROADCAST_JOIN_THRESHOLD = "100m"
-  val GPU_KRYO_SERIALIZER_CLASS = "com.nvidia.spark.rapids.GpuKryoRegistrator"
-  // Desired Kryo serializer buffer size to prevent OOMs. Spark sets the default to 64MB.
-  val KRYO_SERIALIZER_BUFFER_MAX_MB = 512L
-  // Set of spark properties to be filtered out from the combined Spark properties.
-  val filteredPropKeys: Set[String] = Set(
-    "spark.app.id"
-  )
-
+trait AutoTunerHelper extends Logging {
   /**
    * Default strategy for cluster shape recommendation.
    * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
    */
   lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = ConstantGpuCountStrategy
-
-  val commentsForMissingMemoryProps: Map[String, String] = Map(
-    "spark.executor.memory" ->
-      "'spark.executor.memory' should be set to at least 2GB/core.",
-    "spark.rapids.memory.pinnedPool.size" ->
-      s"'spark.rapids.memory.pinnedPool.size' should be set to ${DEF_PINNED_MEMORY_MB}m.")
-
-  // scalastyle:off line.size.limit
-  val commentsForMissingProps: Map[String, String] = Map(
-    "spark.executor.cores" ->
-      // TODO: This could be extended later to be platform specific.
-      s"'spark.executor.cores' should be set to $DEF_CORES_PER_EXECUTOR.",
-    "spark.executor.instances" ->
-      "'spark.executor.instances' should be set to (cpuCoresPerNode * numWorkers) / 'spark.executor.cores'.",
-    "spark.task.resource.gpu.amount" ->
-      s"'spark.task.resource.gpu.amount' should be set to $DEF_TASK_GPU_RESOURCE_AMT.",
-    "spark.rapids.sql.concurrentGpuTasks" ->
-      s"'spark.rapids.sql.concurrentGpuTasks' should be set to Min(4, (gpuMemory / 7.5G)).",
-    "spark.rapids.sql.enabled" ->
-      "'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.",
-    "spark.sql.adaptive.enabled" ->
-      "'spark.sql.adaptive.enabled' should be enabled for better performance."
-  ) ++ commentsForMissingMemoryProps
-  // scalastyle:off line.size.limit
-
-  val classPathComments: Map[String, String] = Map(
-    "rapids.jars.missing" ->
-      ("RAPIDS Accelerator for Apache Spark plugin jar is missing\n" +
-        "  from the classpath entries.\n" +
-        "  If the Spark RAPIDS jar is being bundled with your\n" +
-        "  Spark distribution, this step is not needed."),
-    "rapids.jars.multiple" ->
-      ("Multiple RAPIDS Accelerator for Apache Spark plugin jar\n" +
-        "  exist on the classpath.\n" +
-        "  Make sure to keep only a single jar."),
-    "rapids.shuffle.jars" ->
-      ("The RAPIDS Shuffle Manager requires spark.driver.extraClassPath\n" +
-        "  and spark.executor.extraClassPath settings to include the\n" +
-        "  path to the Spark RAPIDS plugin jar.\n" +
-        "  If the Spark RAPIDS jar is being bundled with your Spark\n" +
-        "  distribution, this step is not needed.")
-  )
+  // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
+  lazy val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
+  lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
+  lazy val rapidsPluginClassName = "com.nvidia.spark.SQLPlugin"
+  lazy val kubernetesGpuVendor = "nvidia.com"
+  lazy val defaultGpuDiscoveryScript =
+    "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh"
 
   // Recommended values for specific unsupported configurations
-  val recommendationsFromDriverLogs: Map[String, String] = Map(
+  lazy val unsupportedOperatorRecommendations: Map[String, String] = Map(
     "spark.rapids.sql.incompatibleDateFormats.enabled" -> "true"
   )
-
-  def commentForExperimentalConfig(config: String): String = {
-    s"Using $config does not guarantee to produce the same results as CPU. " +
-      s"Please refer to $DOC_URL."
-  }
-
-  // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
-  val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
-
-  private val shuffleManagerDocUrl = "https://docs.nvidia.com/spark-rapids/user-guide/latest/" +
-    "additional-functionality/rapids-shuffle.html#rapids-shuffle-manager"
 
   /**
    * Abstract method to create an instance of the AutoTuner.
@@ -1673,16 +1665,18 @@ trait AutoTunerConfigsProvider extends Logging {
     clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
-    driverInfoProvider: DriverLogInfoProvider): AutoTuner
+    driverInfoProvider: DriverLogInfoProvider,
+    userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner
 
   def handleException(
       ex: Throwable,
       appInfo: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
+      driverInfoProvider: DriverLogInfoProvider,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
     val tuning = createAutoTunerInstance(new ClusterProperties(), appInfo,
-      platform, driverInfoProvider)
+      platform, driverInfoProvider, userProvidedTuningConfigs)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
       case _ => if (ex.getCause != null) ex.getCause.toString else ex.toString
@@ -1706,50 +1700,102 @@ trait AutoTunerConfigsProvider extends Logging {
       clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
   ): AutoTuner = {
     try {
       val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
       createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider)
+        singleAppProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider,
+          userProvidedTuningConfigs)
     }
   }
 
   def buildAutoTuner(
       singleAppProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog
+      driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
   ): AutoTuner = {
     try {
       val autoT = createAutoTunerInstance(
         platform.clusterProperties.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider)
+        singleAppProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
       autoT
     } catch {
       case NonFatal(e) =>
-        handleException(e, singleAppProvider, platform, driverInfoProvider)
+        handleException(e, singleAppProvider, platform, driverInfoProvider,
+          userProvidedTuningConfigs)
     }
   }
 
   def buildShuffleManagerClassName(smVersion: String): String = {
     s"com.nvidia.spark.rapids.spark$smVersion.RapidsShuffleManager"
   }
+}
 
-  def shuffleManagerCommentForUnsupportedVersion(
-      sparkVersion: String, platform: Platform): String = {
+/**
+ * Provides configuration settings for the Profiling Tool's AutoTuner. This object is as a concrete
+ * implementation of the `AutoTunerHelper` interface.
+ */
+object ProfilingAutoTunerHelper extends AutoTunerHelper {
+  def createAutoTunerInstance(
+      clusterProps: ClusterProperties,
+      appInfoProvider: AppSummaryInfoBaseProvider,
+      platform: Platform,
+      driverInfoProvider: DriverLogInfoProvider,
+      userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
+    appInfoProvider match {
+      case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
+        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform,
+          driverInfoProvider, userProvidedTuningConfigs)
+      case _ =>
+        throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
+          s"${classOf[BaseProfilingAppSummaryInfoProvider]}")
+    }
+  }
+}
+
+/**
+ * Trait providing static comments for the AutoTuner.
+ * The static comments are used in unit tests as well.
+ */
+trait AutoTunerStaticComments {
+  // scalastyle:off line.size.limit
+  private lazy val advancedConfigDocUrl = "https://nvidia.github.io/spark-rapids/docs/additional-functionality/advanced_configs.html#advanced-configuration"
+  private lazy val shuffleManagerDocUrl = "https://docs.nvidia.com/spark-rapids/user-guide/latest/additional-functionality/rapids-shuffle.html#rapids-shuffle-manager"
+
+  val classPathComments: Map[String, String] = Map(
+    "rapids.jars.missing" ->
+      ("RAPIDS Accelerator for Apache Spark plugin jar is missing\n" +
+        "  from the classpath entries.\n" +
+        "  If the Spark RAPIDS jar is being bundled with your\n" +
+        "  Spark distribution, this step is not needed."),
+    "rapids.jars.multiple" ->
+      ("Multiple RAPIDS Accelerator for Apache Spark plugin jar\n" +
+        "  exist on the classpath.\n" +
+        "  Make sure to keep only a single jar."),
+    "rapids.shuffle.jars" ->
+      ("The RAPIDS Shuffle Manager requires spark.driver.extraClassPath\n" +
+        "  and spark.executor.extraClassPath settings to include the\n" +
+        "  path to the Spark RAPIDS plugin jar.\n" +
+        "  If the Spark RAPIDS jar is being bundled with your Spark\n" +
+        "  distribution, this step is not needed.")
+  )
+
+  def shuffleManagerCommentForUnsupportedVersion(sparkVersion: String, platform: Platform): String = {
     val (latestSparkVersion, latestSmVersion) = platform.latestSupportedShuffleManagerInfo
-    // scalastyle:off line.size.limit
     s"""
        |Cannot recommend RAPIDS Shuffle Manager for unsupported ${platform.sparkVersionLabel}: '$sparkVersion'.
        |To enable RAPIDS Shuffle Manager, use a supported ${platform.sparkVersionLabel} (e.g., '$latestSparkVersion')
        |and set: '--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$latestSmVersion.RapidsShuffleManager'.
        |See supported versions: $shuffleManagerDocUrl.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
-    // scalastyle:on line.size.limit
   }
+  // scalastyle:on line.size.limit
 
   def shuffleManagerCommentForMissingVersion: String = {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
@@ -1784,24 +1830,56 @@ trait AutoTunerConfigsProvider extends Logging {
   def getEnforcedPropertyComment(key: String): String = {
     s"'$key' was user-enforced in the target cluster properties."
   }
+
+  def commentForExperimentalConfig(config: String): String = {
+    s"Using $config does not guarantee to produce the same results as CPU. " +
+      s"Please refer to $advancedConfigDocUrl."
+  }
 }
 
 /**
- * Provides configuration settings for the Profiling Tool's AutoTuner. This object is as a concrete
- * implementation of the `AutoTunerConfigsProvider` interface.
+ * Trait providing default comments for missing or recommended Spark properties,
+ * using values from the provided tuning configuration.
+ * Class mixing in this trait must provide a `tuningConfigs` instance.
  */
-object ProfilingAutoTunerConfigsProvider extends AutoTunerConfigsProvider {
-  def createAutoTunerInstance(
-      clusterProps: ClusterProperties,
-      appInfoProvider: AppSummaryInfoBaseProvider,
-      platform: Platform,
-      driverInfoProvider: DriverLogInfoProvider): AutoTuner = {
-    appInfoProvider match {
-      case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
-        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform, driverInfoProvider)
-      case _ =>
-        throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +
-          s"${classOf[BaseProfilingAppSummaryInfoProvider]}")
-    }
+trait AutoTunerCommentsWithTuningConfigs {
+  val tuningConfigs: TuningConfigsProvider
+
+  /**
+   * Helper function to generate a comment for a missing property.
+   */
+  private def generateMissingComment(property: String, recommendation: String): String = {
+    s"'$property' should be set to $recommendation."
   }
+
+  // scalastyle:off line.size.limit
+  protected val commentsForMissingMemoryProps: Map[String, String] = Map(
+    "spark.executor.memory" ->
+      generateMissingComment("spark.executor.memory",
+        s"${tuningConfigs.getEntry("HEAP_PER_CORE").getDefault}/core"),
+    "spark.rapids.memory.pinnedPool.size" ->
+      generateMissingComment("spark.rapids.memory.pinnedPool.size",
+        tuningConfigs.getEntry("PINNED_MEMORY").getDefault))
+
+  protected val commentsForMissingProps: Map[String, String] = Map(
+    "spark.executor.cores" ->
+      // TODO: This could be extended later to be platform specific.
+      generateMissingComment("spark.executor.cores",
+        tuningConfigs.getEntry("CORES_PER_EXECUTOR").getDefault),
+    "spark.executor.instances" ->
+      generateMissingComment("spark.executor.instances",
+        "(cpuCoresPerNode * numWorkers) / 'spark.executor.cores'"),
+    "spark.task.resource.gpu.amount" ->
+      generateMissingComment("spark.task.resource.gpu.amount",
+        tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault),
+    "spark.rapids.sql.concurrentGpuTasks" ->
+      generateMissingComment("spark.rapids.sql.concurrentGpuTasks",
+        s"Min(${tuningConfigs.getEntry("CONC_GPU_TASKS").getMax.toLong}, " +
+          s"(gpuMemory / ${tuningConfigs.getEntry("GPU_MEM_PER_TASK").getDefault}))"),
+    "spark.rapids.sql.enabled" ->
+      "'spark.rapids.sql.enabled' should be true to enable SQL operations on the GPU.",
+    "spark.sql.adaptive.enabled" ->
+      "'spark.sql.adaptive.enabled' should be enabled for better performance."
+  ) ++ commentsForMissingMemoryProps
+  // scalastyle:off line.size.limit
 }

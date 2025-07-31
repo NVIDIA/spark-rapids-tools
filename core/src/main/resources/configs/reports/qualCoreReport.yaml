@@ -1,0 +1,466 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file is used to define the output files of the qualification tool.
+# Note that all the output files in this list should be considered internal-use only.
+#
+# The output files are defined in the following format:
+# - label: the unique identification of the report.
+#   description: Includes a brief description of what the report contains and how it is consumed
+#                if necessary.
+#   fileName: the file name of the report (include the extension)
+#   scope: the scope of the report (global or per-app)
+#   columns: the columns of the report in the following format:
+#     - name: the name of the column
+#       dataType: the data type of the column
+#       description: the description of the column
+#
+# The directory structure of the generated output files is as follows:
+#
+# qual_core_output
+# ├── apps_summary.csv
+# ├── status.csv
+# ├── runtime.properties
+# ├── tuning (per-app tuning subfolder)
+# ├── raw_metrics (per-app raw metrics sub-folder)
+# └── qual_metrics (per-app qualification sub-folder)
+#    ├── app-001-0001
+#        ├── cluster_information.json
+#        ├── execs.csv
+#        ├── operators_stats.csv
+#        ├── persql.csv
+#        ├── stages.csv
+#        ├── unsupported_operators.csv
+
+reportDefinitions:
+  - reportId: qualCoreOutput
+    subDirectory: qual_core_output
+    description: >-
+      TBD
+    scope: global
+    nestedReports:
+      - reportId: qualCoreMetrics
+        relativePath: qual_metrics
+      - reportId: coreRawMetrics
+        relativePath: raw_metrics
+    tableDefinitions:
+      - label: runtimeProperties
+        description: >-
+          Contains the runtime properties of the qualification tool.
+          It includes the version of the tool, the Spark version, and the Spark RAPIDS plugin version.
+        fileName: runtime.properties
+        fileFormat: PROPERTIES
+        scope: global
+        columns:
+          - name: Property Name
+            dataType: String
+            description: >-
+              The name of the property
+          - name: Property Value
+            dataType: String
+            description: >-
+              The value of the property
+      - label: qualCoreCSVStatus
+        description: >-
+          Status of each eventlog passed to the qualification tool.
+          The status is either success, failure, skipped, or unknown (failure).
+          Some rows in that file might not contain App ID depending on the status of the parser.
+        fileName: status.csv
+        scope: global
+        columns:
+          - name: Event Log
+            dataType: String
+            description: >-
+              Path to the eventlog file
+          - name: Status
+            dataType: String
+            description: >-
+              Results of the processing of the eventlog. It can be:
+              success the tool successfully processed the entire events
+              failure an exception was thrown by the tool
+              skipped the eventlog is not supported by the tool (i.e., streaming and GPU eventlogs)
+              unknown an unexpected kind of failure happened
+          - name: App ID
+            dataType: String
+            description: >-
+              ID of the app associated with the eventlog.
+              If the eventlog failed to be processed, this value is empty.
+          - name: Attempt ID
+            dataType: Int
+            description: >-
+              Attempt ID of the app associated with the eventlog.
+              For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID.
+          - name: App Name
+            dataType: String
+            description: >-
+              Name of application associated with the eventlog.
+          - name: Description
+            dataType: String
+            description: >-
+              Contains the details of the failure reason for a given eventlog.
+              If the eventlog succeeded, this value contains the total processing time of that file.
+      - label: qualCoreCSVSummary
+        description: >-
+          Summary of each eventlog successfully processed by the tool.
+        fileName: apps_summary.csv
+        scope: global
+        columns:
+          - name: App Name
+            dataType: String
+            description: >-
+              Name of application associated with the eventlog.
+          - name: App ID
+            dataType: String
+            description: >-
+              ID of the app associated with the eventlog
+          - name: Attempt ID
+            dataType: Int
+            description: >-
+              Attempt ID of the app associated with the eventlog.
+              For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID.
+          - name: App Duration
+            dataType: Long
+            description: >-
+              Wall-Clock time in milliseconds measured since the application starts until it's completed.
+              If an app isn't completed an estimated completion time would be computed. The estimated completion
+              is based on the last event being processed by the tool.
+          - name: Executor CPU Time Percent
+            dataType: Float
+            description: >-
+              This is an estimate at how much time the tasks spent doing processing on the CPU versus
+              waiting on IO. This isn’t always a good indicator because sometimes the IO that’s encrypted
+              and the CPU has to do work to decrypt it, so the environment you are running on needs to
+              be taken into account.
+          - name: SQL Ids with Failures
+            dataType: String
+            description: >-
+              A list SQL Ids of comma separated query Ids with failed jobs.
+          - name: Unsupported Read File Formats and Types
+            dataType: String
+            description: >-
+              A list of semi-colon separated file formats and types.
+              Each item reports the file formats along with types that may not be fully supported.
+          - name: Unsupported Write Data Format
+            dataType: String
+            description: >-
+              A list of semi-colon separated strings. Format of the data that is not supported for writing.
+          - name: Complex Types
+            dataType: String
+            description: >-
+              A list of semi-colon separated strings. It reports the types of data complex types that
+              are not supported for reading (array, struct, or maps).
+          - name: Nested Complex Types
+            dataType: String
+            description: >-
+              A list of semi-colon separated strings.
+              Nested complex types are complex types that contain other complex types (i.e, array<struct<string,string>>).
+              It can read all the schemas for DataSource V1.
+              The Data Source V2 truncates the schema, so if you see “...”, then the full schema isn’t available. For
+              such schemas we read until '...' and report if there are any complex types and nested complex types in that.
+          - name: Potential Problems
+            dataType: String
+            description: >-
+              A list of semi-colon separated strings. Some UDFs and nested complex types.
+              Keep in mind that the tool is only able to detect certain issues.
+          - name: Longest SQL Duration
+            dataType: Long
+            description: >-
+              The maximum amount of time spent in a single task of SQL Dataframe operations.
+          - name: SQL Stage Durations Sum
+            dataType: Long
+            description: >-
+              The total wallClockDuration of all the stages in the app. The wallClockDuration is calculated as
+              (submissionTime - completionTime) of the given stage
+          - name: App Duration Estimated
+            dataType: Boolean
+            description: >-
+              Whether the app duration is estimated or not(true/false).
+              If we had to estimate it, the value will be 'True' and it means the eventlog was missing
+              the application finished event, so we will use the last job or sql execution time we find
+              as the end time used to calculate the duration.
+          - name: Total Core Seconds
+            dataType: Long
+            description: >-
+              Sums the execution time for all executors multiplied by the number of cores in each executor
+              to get total core seconds for the application.
+  - reportId: qualCoreMetrics
+    description: >-
+      TBD
+    scope: per-app
+    tableDefinitions:
+      # the following table seems to be useless
+      - label: perSqlCSVReport
+        description: >-
+          Report containing the details of each SQL in the app
+        fileName: persql.csv
+        scope: per-app
+        columns:
+          - name: Root SQL ID
+            dataType: Long
+            description: >-
+              The root SQL ID for each triggered SQL
+          - name: SQL ID
+            dataType: Long
+            description: >-
+              The SQL ID for each triggered SQL(root SQL ID is the parent SQL ID)
+          - name: SQL Description
+            dataType: String
+            description: >-
+              The description of the SQL
+          - name: SQL DF Duration
+            dataType: Long
+            description: >-
+              The duration of the SQL
+          - name: GPU Opportunity
+            dataType: Long
+            description: >-
+              The expected duration of the SQL on GPU
+      - label: execCSVReport
+        description: >-
+          Report containing the details of each executor in the SQL
+        fileName: execs.csv
+        scope: per-app
+        columns:
+          - name: SQL ID
+            dataType: Long
+            description: >-
+              The associated SQL ID for the executor
+          - name: Exec Name
+            dataType: String
+            description: >-
+              The name of the executor
+          - name: Expression Name
+            dataType: String
+            description: >-
+              The name of the expression in the executor
+          - name: Exec Duration
+            dataType: Long
+            description: >-
+              The duration of the executor
+          - name: SQL Node Id
+            dataType: Long
+            description: >-
+              The Node ID of the associated SQL with the exec
+          - name: Exec Is Supported
+            dataType: Boolean
+            description: >-
+              Whether the executor is supported or not(true/false)
+          - name: Exec Stages
+            dataType: String
+            description: >-
+              The stages of the executor
+          - name: Exec Children
+            dataType: String
+            description: >-
+              The children of the executor
+          - name: Exec Children Node Ids
+            dataType: String
+            description: >-
+              The Node IDs of the children of the executor
+          - name: Exec Should Remove
+            dataType: Boolean
+            description: >-
+              Whether the executor should be removed or not(true/false).
+              The value is 'True' when the Exec is removed from the GPU migrated plan.
+          - name: Exec Should Ignore
+            dataType: Boolean
+            description: >-
+              Whether the executor should be ignored or not(true/false)
+          - name: Action
+            dataType: String
+            description: >-
+              The action to be taken for Exec. It can be one of the following:
+              NONE if the Exec is supported,
+              IgnoreNoPerf if the Exec is removed from the migrated plan,
+              IgnorePerf if the Exec has an impact on performance but it is not likely to be handled by the RAPIDS plugin, or
+              Triage if the Exec has an impact on performance and it is likely to be handled by the RAPIDS plugin.
+      - label: unsupportedOpsCSVReport
+        description: >-
+          Report containing the details of each unsupported operator in the SQL
+        fileName: unsupported_operators.csv
+        scope: per-app
+        columns:
+          - name: SQL ID
+            dataType: Long
+            description: >-
+              The associated SQL ID for the unsupported operator
+          - name: Stage ID
+            dataType: Long
+            description: >-
+              The associated stage ID for the unsupported operator
+          - name: ExecId
+            dataType: Long
+            description: >-
+              The associated executor ID for the unsupported operator
+          - name: Unsupported Type
+            dataType: String
+            description: >-
+              The type of the unsupported operator (i.e., Exec or Expression)
+          - name: Unsupported Operator
+            dataType: String
+            description: >-
+              The details of the unsupported operator
+          - name: Details
+            dataType: String
+            description: >-
+              The details of the unsupported operator
+          - name: Stage Duration
+            dataType: Long
+            description: >-
+              The duration of the stage in milliseconds.
+              It is calculated as the difference between submission and completion times
+          - name: App Duration
+            dataType: Long
+            description: >-
+              The duration of the app
+          - name: Action
+            dataType: String
+            description: >-
+              The action to be taken for the unsupported operator. It can be one of the following:
+              IgnoreNoPerf if the Exec is removed from the migrated plan,
+              IgnorePerf if the Exec has an impact on performance but it is not likely to be handled by the RAPIDS plugin, or
+              Triage if the Exec has an impact on performance and it is likely to be handled by the RAPIDS plugin.
+      - label: operatorsStatsCSVReport
+        description: >-
+          Report containing the details of each operator in the SQL
+        fileName: operators_stats.csv
+        scope: per-app
+        columns:
+          - name: SQL ID
+            dataType: Long
+            description: >-
+              The associated SQL ID for the operator
+          - name: Operator Type
+            dataType: String
+            description: >-
+              The type of the operator (expression or exec)
+          - name: Operator Name
+            dataType: String
+            description: >-
+              The name of the operator
+          - name: Count
+            dataType: Long
+            description: >-
+              The total count of the operator in the given SQL ID. Note that this count is scoped by (un/-supported) flag.
+          - name: Supported
+            dataType: Boolean
+            description: >-
+              Whether the operator is supported or not(true/false)
+          - name: Stages
+            dataType: String
+            description: >-
+              Colon separated list of the stages of the operator
+      - label: stagesCSVReport
+        description: >-
+          Report containing the details of each stage in the SQL
+        fileName: stages.csv
+        scope: per-app
+        columns:
+          - name: Stage ID
+            dataType: Long
+            description: >-
+              The associated stage ID for the stage
+          - name: Stage Task Duration
+            dataType: Long
+            description: >-
+              Calculated as the total of all the task durations for that stage
+          - name: Unsupported Task Duration
+            dataType: Long
+            description: >-
+              Part of the stage task duration that is not supported
+          - name: Stage Estimated
+            dataType: Boolean
+            description: >-
+              Whether the stage runtime is estimated or not(true/false)
+      - label: clusterInfoJSONReport
+        description: >-
+          Report containing the details of the cluster
+        fileName: cluster_information.json
+        fileFormat: JSON
+        scope: per-app
+        columns:
+          - name: appName
+            dataType: String
+            description: >-
+              The name of the app for the associated eventlog
+          - name: appId
+            dataType: String
+            description: >-
+              The ID of the app for the associated eventlog
+          - name: eventLogPath
+            dataType: String
+            description: >-
+              The path of the eventlog for the associated app
+          - name: sourceClusterInfo
+            dataType: Dict
+            description: >-
+              The source cluster information for the associated app (dictionary containing the cluster information)
+          - name: recommendedClusterInfo
+            dataType: Dict
+            description: >-
+              The recommended cluster information for the associated app (dictionary containing the cluster information).
+              This field is only enabled when the AutoTuner argument is added to the tool's argument
+      # the following table is databricks specific table
+      - label: clusterTagsCSVReport
+        description: >-
+          Report containing the details of the cluster tags
+        fileName: clusters_tags.csv
+        scope: per-app
+        columns:
+          - name: Property Name
+            dataType: String
+            description: >-
+              The name of the property
+          - name: Property Value
+            dataType: String
+            description: >-
+              The value of the property
+      # the following table is enabled only when ml-functions argument is added to the arguments.
+      - label: mlFunctionsCSVReport
+        description: >-
+          Report containing the details of the ML functions
+        fileName: ml_functions.csv
+        scope: per-app
+        columns:
+          - name: Stage ID
+            dataType: Long
+            description: >-
+              The stage IDs of the ML functions
+          - name: ML Functions
+            dataType: String
+            description: >-
+              The ML functions in the stage
+          - name: Stage WallClock Duration (ms)
+            dataType: Long
+            description: >-
+              Calculated as (submissionTime - completionTime) of the given stage
+      # the following table is enabled only when ml-functions argument is added to the arguments.
+      - label: mlFunctionsDurationsCSVReport
+        description: >-
+          Report containing the details of the ML functions durations
+        fileName: ml_functions_durations.csv
+        scope: per-app
+        columns:
+          - name: Stage Ids
+            dataType: String
+            description: >-
+              The stage IDs of the ML functions
+          - name: ML Function Name
+            dataType: String
+            description: >-
+              The ML functions name in the stage
+          - name: Total Duration
+            dataType: Long
+            description: >-
+              The total duration of the ML functions

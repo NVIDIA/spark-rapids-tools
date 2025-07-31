@@ -1,0 +1,29 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Example custom tuning configuration file for use with the Tools AutoTuner and Bootstrap.
+#
+# Notes:
+# - Default values for all configuration parameters are available in `tuningConfigs.yaml`.
+# - Custom configurations only need to specify parameters that need to be changed from the defaults.
+# - It is not necessary to include description or usedBy fields; only name, default, min, and/or max as required.
+#
+# Usage: To use a custom tuning configuration, specify the file with:
+# - `--tuning-configs /path/to/custom/file.YAML` when running the Tools JAR
+# - `--tuning_configs /path/to/custom/file.YAML` when running the Tools CLI
+default:
+  - name: CONC_GPU_TASKS
+    max: 1
+  - name: HEAP_PER_CORE
+    default: 0.8g

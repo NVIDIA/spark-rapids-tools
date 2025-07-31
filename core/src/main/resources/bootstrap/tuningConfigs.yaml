@@ -1,0 +1,285 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This YAML file defines tunable configuration constants for RAPIDS Accelerator for Apache Spark tools.
+#
+# Structure:
+# - 'default': Base configuration values used by both Bootstrap (Qualification Tool) and AutoTuner (Profiling Tool)
+# - 'qualification': Tool-specific overrides for the Qualification Tool
+# - 'profiling': Tool-specific overrides for the Profiling Tool
+#
+# Each configuration entry contains:
+# - name: The configuration parameter name/key
+# - description: Human-readable description of the configuration parameter
+# - default: The default value to use
+# - min: The minimum allowed value (optional)
+# - max: The maximum allowed value (optional)
+# - usedBy: Comma-separated list of Spark configurations this constant affects
+#
+# Usage: Users can override these default values by specifying custom tuning configurations via:
+# - `--tuning-configs /path/to/custom/file.YAML` argument when running the Tools JAR
+# - `--tuning_configs /path/to/custom/file.YAML` argument when running the Tools CLI
+
+# Default tuning configs used by both Qualification and Profiling tools
+default:
+  - name: CONC_GPU_TASKS
+    description: >-
+      Maximum number of concurrent GPU tasks that can run simultaneously on a single GPU
+    max: 4
+    usedBy: spark.rapids.sql.concurrentGpuTasks
+
+  - name: CORES_PER_EXECUTOR
+    description: >-
+      Default number of CPU cores per executor
+    default: 16
+    usedBy: spark.executor.cores
+
+  - name: EXECUTOR_GPU_RESOURCE_AMT
+    description: >-
+      Amount of GPU resource each executor requires (fraction of GPU)
+      Note:
+      - This value should be an integer (e.g. 1, 2, etc.).
+      - https://github.com/apache/spark/blob/6a7a3debda0748d7e72445de27ecc6ebfe01078b/core/src/main/scala/org/apache/spark/resource/ExecutorResourceRequest.scala#L56
+    default: 1
+    usedBy: spark.executor.resource.gpu.amount
+
+  - name: TASK_GPU_RESOURCE_AMT
+    description: >-
+      Amount of GPU resource each task requires (fraction of GPU)
+    default: 0.001
+    usedBy: spark.task.resource.gpu.amount
+
+  - name: HEAP_OVERHEAD_FRACTION
+    description: >-
+      Fraction of executor memory reserved for JVM overhead
+    default: 0.1
+    usedBy: spark.executor.memoryOverhead
+
+  - name: JVM_GCTIME_FRACTION
+    description: >-
+      Maximum acceptable fraction of time spent in JVM garbage collection
+    max: 0.3
+    usedBy: N/A
+
+  - name: HEAP_PER_CORE
+    description: >-
+      Amount of heap memory allocated per CPU core
+    default: 2g
+    min: 750m
+    usedBy: spark.executor.memory
+
+  - name: PINNED_MEMORY
+    description: >-
+      Amount of pinned memory for GPU operations
+    default: 2g
+    max: 4g
+    usedBy: spark.rapids.memory.pinnedPool.size
+
+  - name: SPILL_MEMORY
+    description: >-
+      Amount of memory reserved for spilling operations.
+    default: 2g
+    usedBy: spark.rapids.memory.spillPool.size
+
+  - name: GPU_MEM_PER_TASK
+    description: >-
+      Amount of GPU memory to use per concurrent task (on a single GPU).
+      This estimate is based on T4s. This will be used to calculate the number of
+      concurrent GPU tasks.
+    default: 7500m
+    usedBy: spark.rapids.sql.concurrentGpuTasks
+
+  - name: TASK_INPUT_SIZE_THRESHOLD
+    description: >-
+      Threshold range for task input size used to determine when to adjust maxPartitionBytes.
+      If actual task input size is below min threshold, maxPartitionBytes is increased.
+      If actual task input size is above max threshold, maxPartitionBytes is decreased.
+    min: 128m
+    max: 256m
+    usedBy: spark.sql.files.maxPartitionBytes
+
+  - name: MAX_PARTITION_BYTES
+    description: >-
+      Maximum partition size for file reads
+    default: 512m
+    max: 4g
+    usedBy: spark.sql.files.maxPartitionBytes
+
+  - name: SHUFFLE_PARTITIONS
+    description: >-
+      Default number of partitions for shuffle operations
+    default: 200
+    usedBy: spark.sql.shuffle.partitions
+
+  - name: SHUFFLE_PARTITION_MULTIPLIER
+    description: >-
+      Multiplier used to increase shuffle partitions when spilling is detected
+    default: 2
+    usedBy: spark.sql.shuffle.partitions
+
+  - name: WORKER_GPU_COUNT
+    description: >-
+      Default number of GPUs per worker node
+    default: 1
+    usedBy: N/A
+
+  - name: NUM_WORKERS
+    description: >-
+      Default number of worker nodes in the cluster
+    min: 1
+    usedBy: spark.executor.instances
+
+  - name: DISTINCT_READ_THRESHOLD
+    description: >-
+      Threshold percentage for distinct read locations to enable file caching
+    default: 50.0
+    usedBy: spark.rapids.filecache.enabled
+
+  - name: READ_SIZE_THRESHOLD
+    description: >-
+      Minimum redundant read size in bytes to enable file caching
+    default: 100g
+    min: 1g
+    usedBy: spark.rapids.filecache.enabled
+
+  - name: MAX_BYTES_IN_FLIGHT
+    description: >-
+      Maximum bytes in flight for shuffle operations
+    default: 4g
+    usedBy: spark.rapids.shuffle.multiThreaded.maxBytesInFlight
+
+  - name: BATCH_SIZE_BYTES
+    description: >-
+      Batch size for GPU operations in bytes
+    default: 2g
+    usedBy: spark.rapids.sql.batchSizeBytes
+
+  - name: AQE_INPUT_SIZE_THRESHOLD
+    description: >-
+      Input size threshold for AQE optimization recommendations
+    default: 35000b
+    usedBy: spark.sql.adaptive.advisoryPartitionSizeInBytes
+
+  - name: AQE_SHUFFLE_READ_THRESHOLD
+    description: >-
+      Shuffle read size threshold for AQE optimization recommendations
+    default: 50000b
+    usedBy: spark.sql.adaptive.advisoryPartitionSizeInBytes
+
+  - name: AQE_MIN_INITIAL_PARTITION_NUM
+    description: >-
+      Minimum initial partition number for AQE coalescing
+    default: 200
+    usedBy: spark.sql.adaptive.coalescePartitions.minPartitionNum, spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+
+  - name: AQE_AUTO_BROADCAST_JOIN_THRESHOLD
+    description: >-
+      Threshold for automatic broadcast join optimization
+    default: 100m
+    usedBy: spark.sql.adaptive.autoBroadcastJoinThreshold
+
+  - name: AQE_MIN_PARTITION_SIZE
+    description: >-
+      Minimum size of shuffle partitions after coalescing. Spark default is 1m, but 4m
+      is slightly better for the GPU as we have a higher per task overhead
+    default: 4m
+    usedBy: spark.sql.adaptive.coalescePartitions.minPartitionSize
+
+  - name: AQE_ADVISORY_PARTITION_SIZE
+    description: >-
+      Advisory partition size for AQE coalescing recommendations. Spark default is 64m,
+      but 128m is slightly better for the GPU as the GPU has sub-linear scaling until
+      it is full and 128m makes the GPU more full, but too large can be slightly problematic
+      because this is the compressed shuffle size.
+    default: 128m
+    usedBy: spark.sql.adaptive.advisoryPartitionSizeInBytes
+
+  - name: AQE_COALESCE_PARALLELISM_FIRST
+    description: >-
+      We need to set this to false, else Spark ignores the target size specified by
+      spark.sql.adaptive.advisoryPartitionSizeInBytes.
+      Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html
+    default: false
+    usedBy: spark.sql.adaptive.coalescePartitions.parallelismFirst
+
+  - name: KRYO_SERIALIZER_BUFFER
+    description: >-
+      Buffer size for Kryo serializer
+    max: 512m
+    usedBy: spark.kryoserializer.buffer.max
+
+  - name: LOCALITY_WAIT
+    description: >-
+      Time to wait to launch a data-local task before giving up and launching
+      it on a less-local node.
+    default: 0
+    usedBy: spark.locality.wait
+
+  - name: FILE_CACHE_ENABLED
+    description: >-
+      Used for enabling or disabling file caching based on read patterns.
+      By default, this is disabled and can be enabled if the bandwidth > 1GB/s
+      and sufficient disk space is available.
+    default: false
+    usedBy: spark.rapids.filecache.enabled
+
+  - name: DATABRICKS_AUTO_OPTIMIZE_SHUFFLE_ENABLED
+    description: >-
+      If the user has enabled AQE auto shuffle, the auto-tuner should recommend to disable this
+      feature before recommending shuffle partitions.
+      Reference: https://github.com/NVIDIA/spark-rapids-tools/pull/710
+    default: false
+    usedBy: spark.databricks.adaptive.autoOptimizeShuffle.enabled
+
+  - name: READER_MULTITHREADED_COMBINE_THRESHOLD
+    description: >-
+      The target size in bytes to combine multiple small files together when using the MULTITHREADED
+      parquet or orc reader.
+    default: 10m
+    usedBy: spark.rapids.sql.reader.multithreaded.combine.sizeBytes
+
+  - name: READER_MULTITHREADED_COMBINE_WAIT_TIME
+    description: >-
+      When using the multithreaded parquet reader with combine mode, how long to wait, in milliseconds,
+      for more files to finish if haven't met the size threshold.
+    default: 1000
+    usedBy: spark.rapids.sql.format.parquet.multithreaded.combine.waitTime
+
+  - name: MULTITHREAD_READ_NUM_THREADS
+    description: >-
+      The maximum number of threads on each executor to use for reading small files in parallel.
+    max: 20
+    usedBy: spark.rapids.sql.multiThreadedRead.numThreads
+
+  - name: MULTITHREAD_READ_CORE_MULTIPLIER
+    description: >-
+      Multiplier for executor cores to calculate threads for parallel small file reads.
+    default: 2
+    usedBy: spark.rapids.sql.multiThreadedRead.numThreads
+
+# Qualification tool specific tuning configs
+qualification:
+  - name: BATCH_SIZE_BYTES
+    description: >-
+      Batch size for GPU operations optimized for qualification workloads
+    default: 1g
+    usedBy: spark.rapids.sql.batchSizeBytes
+
+# Profiling tool specific tuning configs
+profiling:
+  - name: BATCH_SIZE_BYTES
+    description: >-
+      Batch size for GPU operations optimized for profiling workloads
+    default: 2147483647 # same as "2g - 1"
+    usedBy: spark.rapids.sql.batchSizeBytes
