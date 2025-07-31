@@ -932,11 +932,11 @@ abstract class AutoTuner(
             appendComment("spark.executor.memory",
               notEnoughMemCommentForKey(
                 "spark.executor.memory"))
-            appendComment("spark.memory.offHeap.size",
-              notEnoughMemCommentForKey(
-                "spark.memory.offHeap.size"))
-            // Add host off-heap limit size comment for onPrem platform only
-            if (!platform.isPlatformCSP) {
+            // Skip off-heap related comments when offHeapLimit is enabled
+            if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+              appendComment("spark.memory.offHeap.size",
+                notEnoughMemCommentForKey(
+                  "spark.memory.offHeap.size"))
               appendComment("spark.rapids.memory.host.offHeapLimit.size",
                 notEnoughMemCommentForKey(
                   "spark.rapids.memory.host.offHeapLimit.size"))
@@ -1586,7 +1586,7 @@ abstract class AutoTuner(
 
   /**
    * Calculate recommended off-heap memory size based on hybrid scan detection.
-   * If hybrid scan is enabled and platform is onPrem, set off-heap size to HEAP_PER_CORE *
+   * If hybrid scan is enabled and platform is onPrem, set off-heap size to OFFHEAP_PER_CORE *
    * executor cores.
    * Otherwise, use the existing logic from platform.getSparkOffHeapMemoryMB.
    *
@@ -1595,9 +1595,11 @@ abstract class AutoTuner(
    */
   private def calculateOffHeapMemorySize(numExecutorCores: Int): Long = {
     if (!platform.isPlatformCSP && isHybridScanEnabled()) {
-      // For onPrem platform with hybrid scan, set off-heap size to HEAP_PER_CORE * executor cores
+      // For onPrem platform with hybrid scan, set off-heap size to
+      // OFFHEAP_PER_CORE * executor cores
       // Hybrid scan will require more off-heap memory than the default value.
-      tuningConfigs.getEntry("HEAP_PER_CORE").getDefaultAsMemory(ByteUnit.MiB) * numExecutorCores
+      tuningConfigs.getEntry("OFFHEAP_PER_CORE")
+        .getDefaultAsMemory(ByteUnit.MiB) * numExecutorCores
     } else {
       // Use existing logic for CSP platforms or non-hybrid scan
       platform.getSparkOffHeapMemoryMB(getPropertyValue).getOrElse(0L)

@@ -70,6 +70,13 @@ default:
     min: 750m
     usedBy: spark.executor.memory
 
+  - name: OFFHEAP_PER_CORE
+    description: >-
+      Amount of off-heap memory allocated per CPU core for hybrid scan operations
+    default: 2g
+    min: 750m
+    usedBy: spark.memory.offHeap.size
+
   - name: PINNED_MEMORY
     description: >-
       Amount of pinned memory for GPU operations
