@@ -1,6 +1,33 @@
 
 <br/>
 
+## Release [v25.06.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.1)
+Generated on 2025-07-31
+### User Tools
+
+- Implement python API to access report output files ([#1833](https://github.com/NVIDIA/spark-rapids-tools/pull/1833))
+- Enforce precedence of processing cluster arguments over eventlogs ([#1830](https://github.com/NVIDIA/spark-rapids-tools/pull/1830))
+- Support URI-prefixed file paths for target cluster info and handle zero GPU resource amount in AutoTuner ([#1822](https://github.com/NVIDIA/spark-rapids-tools/pull/1822))
+- Add report yaml configurations for core output ([#1815](https://github.com/NVIDIA/spark-rapids-tools/pull/1815))
+- Externalize AutoTuner constants via YAML and support user-defined tuning ([#1804](https://github.com/NVIDIA/spark-rapids-tools/pull/1804))
+- Updates to setup_env and build script to remove redundant installations ([#1808](https://github.com/NVIDIA/spark-rapids-tools/pull/1808))
+- Fix the core log file to qual_core_stderr.log ([#1801](https://github.com/NVIDIA/spark-rapids-tools/pull/1801))
+
+### Core
+
+- Implement python API to access report output files ([#1833](https://github.com/NVIDIA/spark-rapids-tools/pull/1833))
+- Fix: Change spark.executor.resource.gpu.amount Datatype from Double to Long ([#1829](https://github.com/NVIDIA/spark-rapids-tools/pull/1829))
+- Add attempt-id to core app status report ([#1824](https://github.com/NVIDIA/spark-rapids-tools/pull/1824))
+- Support URI-prefixed file paths for target cluster info and handle zero GPU resource amount in AutoTuner ([#1822](https://github.com/NVIDIA/spark-rapids-tools/pull/1822))
+- Bootstrap: Include enforced properties from target cluster info in bootstrap config file ([#1819](https://github.com/NVIDIA/spark-rapids-tools/pull/1819))
+- AutoTuner: Add spark.executor.resource.gpu.amount and spark.plugins support ([#1818](https://github.com/NVIDIA/spark-rapids-tools/pull/1818))
+- Add report yaml configurations for core output ([#1815](https://github.com/NVIDIA/spark-rapids-tools/pull/1815))
+- Rename for specific alias use case ([#1806](https://github.com/NVIDIA/spark-rapids-tools/pull/1806))
+- Externalize AutoTuner constants via YAML and support user-defined tuning ([#1804](https://github.com/NVIDIA/spark-rapids-tools/pull/1804))
+
+
+<br/>
+
 ## Release [v25.06.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.0)
 Generated on 2025-07-16
 ### User Tools
