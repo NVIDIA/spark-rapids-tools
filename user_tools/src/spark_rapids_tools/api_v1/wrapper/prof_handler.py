@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Module that contains the definition of the Qualification wrapper result handler.
+Module that contains the definition of the Profiling wrapper result handler.
 """
 
 from dataclasses import dataclass
