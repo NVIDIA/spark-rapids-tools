@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,28 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""init file of the Accelerated Spark python implementations"""
+"""A module to resolve compatibilities across Python releases."""
 
+# pylint: disable=unused-import
 
-from .enums import (
-    EnumeratedType, CspEnv
-)
-
-from .utils import (
-    override, get_elem_from_dict, get_elem_non_safe
-)
-
-from .storagelib.csppath import (
-    CspPath, path_impl_registry, CspPathT
-)
-
-__all__ = [
-    'override',
-    'EnumeratedType',
-    'CspEnv',
-    'get_elem_from_dict',
-    'get_elem_non_safe',
-    'CspPathT',
-    'path_impl_registry',
-    'CspPath'
-]
+try:
+    from typing import override  # Python 3.12+
+except ImportError:
+    # Older python versions
+    from typing_extensions import override
