@@ -363,7 +363,7 @@ abstract class AutoTuner(
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
   private lazy val isOffHeapLimitEnabled: Boolean = {
     platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
-      .getOrElse("false").contains("true")
+      .exists(_.trim.equalsIgnoreCase("true"))
   }
 
   private lazy val sparkMaster: Option[SparkMaster] = {
@@ -693,7 +693,7 @@ abstract class AutoTuner(
     // - If osReservedMemory > 0: use absolute subtraction (for on-prem environments)
     // - If osReservedMemory = 0: use platform fraction (for CSPs with container managers)
     val totalMemForExecutors = totalMemForExecExpr.apply().toLong
-    val actualMemForExec: Long = if (osReservedMemory > 0) {
+    val totalMemMinusReserved: Long = if (osReservedMemory > 0) {
       totalMemForExecutors - osReservedMemory
     } else {
       // Our CSP instance map stores full node memory, but container managers
@@ -710,12 +710,12 @@ abstract class AutoTuner(
     // Calculate executor memory overhead using new formula if OffHeapLimit.enabled=true
     var executorMemOverhead = if (isOffHeapLimitEnabled) {
       calculateExecutorMemoryOverhead(
-        actualMemForExec, executorHeapMB, sparkOffHeapMemMB)
+        totalMemMinusReserved, executorHeapMB, sparkOffHeapMemMB)
     } else {
       // If OffHeapLimit.enabled=false, use the old formula
       executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION").getDefault.toDouble
     }.toLong
-    val execMemLeft = actualMemForExec - executorHeapMB - sparkOffHeapMemMB - pySparkMemMB
+    val execMemLeft = totalMemMinusReserved - executorHeapMB - sparkOffHeapMemMB - pySparkMemMB
     var setMaxBytesInFlight = false
     val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val defaultSpillMem = tuningConfigs.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
@@ -726,7 +726,7 @@ abstract class AutoTuner(
         executorMemOverhead + defaultPinnedMem + defaultSpillMem
       }
     }
-    logDebug(s"Memory calculations:  actualMemForExec=$actualMemForExec MB, " +
+    logDebug(s"Memory calculations:  totalMemMinusReserved=$totalMemMinusReserved MB, " +
       s"executorHeap=$executorHeapMB MB, sparkOffHeapMem=$sparkOffHeapMemMB MB, " +
       s"pySparkMem=$pySparkMemMB MB minOverhead=$minOverhead MB")
     if (execMemLeft >= minOverhead) {
@@ -744,7 +744,7 @@ abstract class AutoTuner(
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
         isOffHeapLimitEnabled) {
-        executorMemOverhead + sparkOffHeapMemMB - osReservedMemory
+        executorMemOverhead + sparkOffHeapMemMB
       } else {
         0L // Not used for CSP platforms or when offHeapLimit is disabled
       }
@@ -1643,20 +1643,19 @@ abstract class AutoTuner(
    * Note: This new formula is only used for onPrem platform when offHeapLimit is enabled.
    * For CSP platforms or when offHeapLimit is disabled, the original calculation is used.
    *
-   * @param totalMemoryForExecutor Total memory available for executor in MB
+   * @param totalMemMinusReserved Total memory available for executor in MB
    * @param executorHeapMB Executor heap memory in MB
    * @param offHeapMB Off-heap memory size in MB
    * @return Recommended executor memory overhead in MB
    */
   private def calculateExecutorMemoryOverhead(
-      totalMemoryForExecutor: Long,
-      executorHeapMB: Long,
-      offHeapMB: Long): Long = {
+    totalMemMinusReserved: Long,
+    executorHeapMB: Long,
+    offHeapMB: Long): Long = {
 
     // Use new formula only for onPrem platform when offHeapLimit is enabled
     if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
-      val calculatedOverhead = totalMemoryForExecutor - executorHeapMB - offHeapMB -
-        osReservedMemory
+      val calculatedOverhead = totalMemMinusReserved - executorHeapMB - offHeapMB
 
       // Ensure the overhead is not negative and has a minimum value
       val minOverhead = executorHeapMB * tuningConfigs.getEntry("HEAP_OVERHEAD_FRACTION")
