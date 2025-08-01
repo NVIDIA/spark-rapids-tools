@@ -24,6 +24,24 @@ from spark_rapids_tools.configuration.common import BaseConfig
 from spark_rapids_tools.utils import AbstractPropContainer
 
 
+class ToolsConfig(BaseConfig):
+    """Configuration for tools execution parameters."""
+    jvm_heap_size: Optional[int] = Field(
+        default=None,
+        description='The maximum heap size of the JVM in gigabytes.',
+        examples=[16, 32])
+
+    jvm_threads: Optional[int] = Field(
+        default=None,
+        description='Number of threads to use for parallel processing on the eventlogs batch.',
+        examples=[4, 8])
+
+    config: Optional[str] = Field(
+        default=None,
+        description='Path to tools configuration file for Profiler and Qualification tools.',
+        examples=['tools-config.yaml'])
+
+
 class QualxConfig(BaseConfig):
     """Main container for Qualx configuration."""
     # path to the config file, for internal use only
@@ -95,10 +113,14 @@ class QualxConfig(BaseConfig):
         description='OPTIONAL: Path to alignment directory.',
         examples=['alignment'])
 
-    tools_config: Optional[str] = Field(
-        default=None,
-        description='OPTIONAL: Path to tools configuration file for Profiler and Qualification tools.',
-        examples=['tools-config.yaml'])
+    tools: Optional[ToolsConfig] = Field(
+        default_factory=ToolsConfig,
+        description='Tools execution configuration including JVM parameters and config file path.',
+        examples=[{
+            'jvm_heap_size': 16,
+            'jvm_threads': 4,
+            'config': 'tools-config.yaml'
+        }])
 
     @model_validator(mode='after')
     def check_env_overrides(self):
