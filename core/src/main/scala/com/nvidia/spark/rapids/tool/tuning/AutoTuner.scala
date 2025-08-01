@@ -592,7 +592,10 @@ abstract class AutoTuner(
     sparkOffHeapMem: Option[Long]
   ) {
     def hasAnyMemorySettings: Boolean = {
-      executorMemOverhead.isDefined || pinnedMem.isDefined || spillMem.isDefined || sparkOffHeapMem.isDefined
+      executorMemOverhead.isDefined ||
+        pinnedMem.isDefined ||
+        spillMem.isDefined ||
+        sparkOffHeapMem.isDefined
     }
   }
 
@@ -746,7 +749,7 @@ abstract class AutoTuner(
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
         isOffHeapLimitEnabled) {
-        executorMemOverhead + sparkOffHeapMemMB - osReservedMemory
+        executorMemOverhead + sparkOffHeapMemMB
       } else {
         0L // Not used for CSP platforms or when offHeapLimit is disabled
       }
