@@ -29,6 +29,7 @@ from spark_rapids_tools.tools.qualx.model import (
     extract_model_features,
     predict,
     train,
+    calibrate,
     compute_shapley_values,
 )
 from spark_rapids_tools.tools.qualx.util import get_abs_path, load_plugin
@@ -209,3 +210,40 @@ class TestModel(SparkRapidsToolsUT):
         positive_mask = features[label_col] > 1.0
         positive_diff = weighted_results.loc[positive_mask, 'y_pred'] - default_results.loc[positive_mask, 'y_pred']
         assert positive_diff.mean() > 0, 'Weighted model should predict higher values for positive samples'
+
+    def test_train_with_calib(self, monkeypatch) -> None:
+        """Test training models with and without calibration"""
+        # Create test data
+        df = self.generate_test_data('Duration')  # Use default label
+        plugin = load_plugin(get_abs_path('split_random.py', 'split_functions'))
+        features, feature_cols, label_col = extract_model_features(
+            df, split_functions={'default': plugin.split_function}
+        )
+
+        # Mock config for default config without calibration
+        default_config = get_config(reload=True)
+        default_config.calib = False
+        monkeypatch.setattr('spark_rapids_tools.tools.qualx.config.get_config', lambda: default_config)
+
+        # Train model with default config without calibration
+        default_model = train(features, feature_cols, label_col, n_trials=5)
+
+        # Make predictions with default model without calibration
+        default_results = predict(default_model, features, feature_cols, label_col)
+
+        # Mock config with calibration enabled
+        config_with_calib = get_config(reload=True)
+        config_with_calib.calib = True
+        monkeypatch.setattr('spark_rapids_tools.tools.qualx.config.get_config', lambda: config_with_calib)
+
+        # Train model with custom weights
+        precalib_model = train(features, feature_cols, label_col, n_trials=5)
+        calib_params = calibrate(features, feature_cols, label_col, precalib_model)
+
+        # Make predictions with weighted model
+        calib_results = predict(precalib_model, features, feature_cols, label_col, calib_params)
+
+        # The calibrated model should generally predict higher values for positive samples
+        positive_mask = features[label_col] > features[label_col].mean()
+        positive_diff = calib_results.loc[positive_mask, 'y_pred'] - default_results.loc[positive_mask, 'y_pred']
+        assert positive_diff.mean() > 0, 'Calib model should predict higher values for positive samples'
