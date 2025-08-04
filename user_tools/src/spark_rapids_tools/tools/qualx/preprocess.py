@@ -460,14 +460,14 @@ def load_qtool_execs(exec_info: pd.DataFrame) -> Optional[pd.DataFrame]:
             | node_level_supp['Action'].apply(_is_ignore_no_perf)
             | node_level_supp['Exec Name']
             .astype(str)
+            # TODO: revisit the need to check for 'WholeStageCodegen' in Exec Name.
+            #  Ideally, we want to remove those execs that should be dropped from the analysis (
+            #  e.g. WholeStageCodegen, WholeStageCodegenExec, etc.)
             .apply(lambda x: x.startswith('WholeStageCodegen'))
         )
-        node_level_supp = (
-            node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
-            .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
-            .agg('all')
-            .reset_index(level=[0, 1, 2])
-        )
+        # in previous version we used to group by 'App ID', 'SQL ID', 'SQL Node Id', but this is not
+        # needed since the 3 keys form an uuid for each row.
+        node_level_supp = node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
     return node_level_supp
 
 

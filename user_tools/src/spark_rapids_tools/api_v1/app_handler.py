@@ -16,7 +16,7 @@
 
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
 
@@ -57,17 +57,32 @@ class AppHandler(object):
         """
         return self._app_id
 
-    def patch_into_df(self, df: pd.DataFrame) -> pd.DataFrame:
+    def patch_into_df(self,
+                      df: pd.DataFrame,
+                      col_names: Optional[List[str]] = None) -> pd.DataFrame:
         """
         Given a dataframe, this method will stitch the app_id and app-name to the dataframe.
         This can be useful in automatically adding the app-id/app-name to the data-frame
         :param df: the dataframe that we want to modify.
+        :param col_names: optional list of column names that defines the app_id and app_name to the
+                          dataframe. It is assumed that the list comes in the order it is inserted in
+                          the column names.
         :return: the resulting dataframe from adding the columns.
         """
+        # TODO: We should consider add UUID as well, and use that for the joins instead.
+        # append attempt_id to support multiple attempts
+        col_values = [self.app_id]
+        if col_names is None:
+            # append attemptId to support multi-attempts
+            col_names = ['appId']
         if not df.empty:
-            # TODO: We should consider add UUID as well, and use that for the joins instead.
-            df.insert(0, 'attemptId', self._attempt_id)
-            df.insert(0, 'appId', self._app_id)
+            for col_k, col_v in zip(reversed(col_names), reversed(col_values)):
+                if col_k not in df.columns:
+                    df.insert(0, col_k, col_v)
+                else:
+                    # if the column already exists, we should not overwrite it
+                    # this is useful when we want to patch the app_id/app_name to an existing dataframe
+                    df[col_k] = col_v
         return df
 
     @property

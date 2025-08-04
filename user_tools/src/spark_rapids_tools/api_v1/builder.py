@@ -93,6 +93,11 @@ class APIReport(Generic[RepDataT]):
         return reader
 
     @property
+    def tbl(self) -> str:
+        """Get the table id."""
+        return self._tbl
+
+    @property
     def is_per_app_tbl(self) -> bool:
         if self._tbl is None:
             return False
@@ -204,6 +209,118 @@ class CSVReport(APIReport[LoadDFResult]):
             map_cols=self._map_cols,
             pd_args=self._pd_args
         )
+
+
+@dataclass
+class CSVCombiner(object):
+    """A class that combines multiple CSV reports into a single report."""
+    rep_builder: CSVReport
+    _failed_app_processor: Optional[Callable[[str, LoadDFResult], None]] = field(default=None, init=False)
+    _success_app_processor: Optional[Callable[[ToolResultHandlerT, str, pd.DataFrame, dict], pd.DataFrame]] = (
+        field(default=None, init=False))
+    _combine_args: Optional[dict] = field(default=None, init=False)
+
+    @property
+    def result_handler(self) -> ToolResultHandlerT:
+        """Get the result handler associated with this combiner."""
+        return self.rep_builder.handler
+
+    @staticmethod
+    def default_success_app_processor(result_handler: ToolResultHandlerT,
+                                      app_id: str,
+                                      df: pd.DataFrame,
+                                      combine_args: dict) -> pd.DataFrame:
+        """Default processor for successful applications."""
+        col_names = None
+        app_entry = result_handler.app_handlers.get(app_id)
+        if not app_entry:
+            raise ValueError(f'App entry not found for ID: {app_id}')
+        if combine_args:
+            # check if the col_names are provided to stitch the app_ids
+            col_names = combine_args.get('col_names', None)
+        if col_names:
+            # patch the app_uuid and if the columns are defined.
+            return app_entry.patch_into_df(df, col_names=col_names)
+        return df
+
+    def _evaluate_args(self) -> None:
+        """Evaluate the arguments to ensure they are set correctly."""
+
+        if self._success_app_processor is None:
+            # set the default processor for successful applications
+            self._success_app_processor = self.default_success_app_processor
+        # TODO: we should fail if the the combiner is built for AppIds but columns are not defined.
+
+    ################################
+    # Setters/Getters for processors
+    ################################
+
+    def process_failed(self,
+                       processor: Callable[[str, LoadDFResult], None]) -> 'CSVCombiner':
+        """Set the processor for failed applications."""
+        self._failed_app_processor = processor
+        return self
+
+    def process_success(self,
+                        cb_fn: Callable[[ToolResultHandlerT, str, pd.DataFrame, dict], pd.DataFrame]) -> 'CSVCombiner':
+        """Set the processor for successful applications."""
+        self._success_app_processor = cb_fn
+        return self
+
+    def combine_args(self, args: dict) -> 'CSVCombiner':
+        """Set the arguments for combining the reports."""
+        self._combine_args = args
+        return self
+
+    def on_apps(self) -> 'CSVCombiner':
+        """specify that the combiner should append IDs to the individual results before the concatenation."""
+        self.process_success(self.default_success_app_processor)
+        return self
+
+    #########################
+    # Public Interfaces
+    #########################
+
+    def build(self) -> LoadDFResult:
+        """Build the combined CSV report."""
+        # process teh arguments to ensure they are set correctly
+        self._evaluate_args()
+
+        load_error = None
+        final_df = None
+        success = False
+        try:
+            per_app_res = self.rep_builder.load()
+            # this is a dictionary and we should loop on it one by one to combine it
+            combined_dfs = []
+            for app_id, app_res in per_app_res.items():
+                # we need to patch the app_id to the dataframe
+                if app_res.load_error or app_res.data.empty:
+                    # process entry with failed results or skip them if no handlder is defined.
+                    if self._failed_app_processor:
+                        self._failed_app_processor(app_id, app_res)
+                    else:
+                        # default behavior is to skip the app
+                        continue
+                else:
+                    # process entry with successful results
+                    app_df = self._success_app_processor(self.result_handler,
+                                                         app_id,
+                                                         app_res.data,
+                                                         self._combine_args)
+                    # Q: Should we ignore or skip the empty dataframes?
+                    combined_dfs.append(app_df)
+            final_df = pd.concat(combined_dfs, ignore_index=True)
+            success = True
+        except Exception as e:  # pylint: disable=broad-except
+            # handle any exceptions that occur during the combination phase
+            load_error = e
+        return LoadDFResult(
+            f_path='combination of multiple path for table: ' + self.rep_builder.tbl,
+            data=final_df,
+            success=success,
+            fallen_back=False,
+            load_error=load_error)
 
 
 @dataclass

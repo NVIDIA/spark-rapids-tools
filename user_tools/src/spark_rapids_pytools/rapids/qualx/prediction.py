@@ -18,7 +18,8 @@ from dataclasses import dataclass
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.qualx.qualx_tool import QualXTool
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
+from spark_rapids_tools.api_v1 import QualCoreResultHandler
+from spark_rapids_tools.api_v1.builder import APIResultHandler
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualx.util import print_summary, print_speedup_summary
 
@@ -26,25 +27,16 @@ from spark_rapids_tools.tools.qualx.util import print_summary, print_speedup_sum
 @dataclass
 class Prediction(QualXTool):
     """
-    Wrapper layer around Prediction Tool.
-
-    Attributes
-    ----------
-    qual_output: str
-        Path to a directory containing qualification tool output.
-    qual_handler: QualCoreHandler
-        Handler for reading qualification core tool results.
+    A wrapper to run the QualX prediction stage on an existing Qual's output.
+    :param qual_output: Path to the directory containing the qualification tool output.
     """
     qual_output: str = None
-    qual_handler: QualCoreHandler = None
 
     name = 'prediction'
 
-    def __post_init__(self):
-        """Initialize the QualCoreHandler from qual_output."""
-        super().__post_init__()
-        if self.qual_output is not None:
-            self.qual_handler = QualCoreHandler(result_path=self.qual_output)
+    @property
+    def qual_handler(self) -> QualCoreResultHandler:
+        return APIResultHandler().qual_core().with_path(self.qual_output).build()
 
     def __prepare_prediction_output_info(self) -> dict:
         """

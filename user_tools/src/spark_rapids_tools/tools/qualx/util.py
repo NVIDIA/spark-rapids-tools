@@ -31,8 +31,9 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
+from spark_rapids_tools.api_v1 import QualCoreResultHandler
+from spark_rapids_tools.api_v1.builder import APIResultHandler
 from spark_rapids_tools.cmdli.dev_cli import DevCLI
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
 
 
@@ -366,8 +367,11 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
     run_commands(eventlogs, run_profiling_core)
 
 
-def run_qualification_tool(platform: str, eventlogs: List[str],
-                           output_dir: str, skip_run: bool = False, tools_config: str = None) -> List[QualCoreHandler]:
+def run_qualification_tool(platform: str,
+                           eventlogs: List[str],
+                           output_dir: str,
+                           skip_run: bool = False,
+                           tools_config: str = None) -> List[QualCoreResultHandler]:
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
@@ -396,7 +400,7 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
     qual_handlers = []
     for output_path in output_dirs:
         try:
-            handler = QualCoreHandler(result_path=output_path)
+            handler = APIResultHandler().qual_core().with_path(output_path).build()
             qual_handlers.append(handler)
         except Exception as e:  # pylint: disable=broad-except
             logger.warning('Failed to create QualCoreHandler for %s: %s', output_path, e)
