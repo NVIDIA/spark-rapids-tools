@@ -154,6 +154,7 @@ def _get_model(platform: str,
     xgb_model.load_model(model_path)
     return xgb_model
 
+
 def _get_calib_params(platform: str,
                       model: Optional[str] = None,
                       variant: Optional[str] = None) -> Dict[str, float]:
@@ -194,6 +195,7 @@ def _get_calib_params(platform: str,
         logger.debug('Calib params file not found: %s', calib_path)
     return calib_params
 
+
 def _get_qual_data(qual_handler: QualCoreResultHandler) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame]]:
     # extract the ['App Name', App ID', 'App Duration'] columns from the qualification summary.
     q_sum_res = (CSVReport(qual_handler)
@@ -211,15 +213,18 @@ def _get_qual_data(qual_handler: QualCoreResultHandler) -> Tuple[Optional[pd.Dat
     # 1- uses the default combination method which is dedicated to use the appHanlder to combine the results.
     # 2- ignore the failed execs. i.e., apps that has no execs. Otherwise, it is possible to add a call-back to handle
     # the apps that had no execs.
-    execs_combiner = CSVCombiner(
-        rep_builder=CSVReport(qual_handler).table('execCSVReport')  # create the csvLoader
-    ).combine_args({'col_names': ['App ID']})  # tells the combiner to use those column names to insert the App uuid
-    q_execs_res = execs_combiner.build()
+    q_execs_res = (
+        CSVCombiner(rep_builder=CSVReport(qual_handler).table('execCSVReport'))  # use ExecsCSV report
+        .on_apps()                                                               # combine DFs on apps
+        .combine_args({'col_names': ['App ID']})                                 # inject cols when combining on apps
+        .build()                                                                 # combine the results
+    )
     if not q_execs_res.success:
         raise q_execs_res.load_error
     node_level_supp = load_qtool_execs(q_execs_res.data)
 
     return node_level_supp, qualtool_summary
+
 
 def _get_combined_qual_data(qual_handlers: List[QualCoreResultHandler]) -> Tuple[
     Optional[pd.DataFrame],

@@ -273,7 +273,7 @@ class CSVCombiner(object):
         return self
 
     def on_apps(self) -> 'CSVCombiner':
-        """specify that the combiner should append IDs to the individual results before the concatenation."""
+        """specify that the combiner inject AP UUID to the individual results before the concatenation."""
         self.process_success(self.default_success_app_processor)
         return self
 
