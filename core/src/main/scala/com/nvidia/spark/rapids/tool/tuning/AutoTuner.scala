@@ -1405,11 +1405,11 @@ abstract class AutoTuner(
   protected def recommendPluginPropsInternal(): Unit
 
   private def recommendPluginProps(): Unit = {
-    val isPluginLoaded = getPropertyValue("spark.plugins") match {
+    val isRapidsPluginConfigured = getPropertyValue("spark.plugins") match {
       case Some(f) => f.contains(autoTunerHelper.rapidsPluginClassName)
       case None => false
     }
-    if (!isPluginLoaded) {
+    if (!isRapidsPluginConfigured) {
       recommendPluginPropsInternal()
     }
     // Always recommend enabling the plugin, regardless of current setting.
