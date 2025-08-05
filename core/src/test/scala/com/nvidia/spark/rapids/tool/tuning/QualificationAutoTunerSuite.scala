@@ -518,4 +518,156 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       }
     }
   }
+
+  /**
+   * Test to validate onPrem platform with offHeapLimit enabled and hybrid scan configuration.
+   * This tests the new memory calculation logic with OFFHEAP_PER_CORE and offHeapLimit features.
+   */
+  test("test onPrem platform with offHeapLimit enabled and hybrid scan configuration") {
+    // Log events properties
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "4",
+      "spark.executor.memory" -> "6144M",
+      "spark.executor.instances" -> "20",
+    )
+
+    // Enforced Spark properties
+    val enforcedSparkProps = Map(
+      "spark.executor.cores" -> "20",
+      "spark.shuffle.manager" -> "org.apache.spark.shuffle.celeborn.SparkShuffleManager",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "250",
+      "spark.vcore.boost.ratio" -> "4",
+      "spark.memory.offHeap.enabled" -> "true",
+      "spark.memory.offHeap.size" -> "45g",
+      "spark.executor.resource.gpu.amount" -> "1",
+      "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+      "spark.rapids.memory.host.offHeapLimit.enabled" -> "true",
+      "spark.rapids.memory.host.offHeapLimit.size" -> "80g",
+      "spark.sql.adaptive.enabled" -> "true"
+    )
+
+      // Build target cluster info with worker configuration and enforced properties
+      val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+        cpuCores = Some(20),
+        memoryGB = Some(120L), // 120g = 120GB
+        gpuCount = Some(1),
+        gpuMemory = Some("48g"),
+        gpuDevice = Some("l20"),
+        enforcedSparkProperties = enforcedSparkProps
+      )
+
+      // Build worker info with GPU configuration (for source cluster)
+      val workerInfo = buildWorkerInfoAsString(
+        customProps = None,
+        numCores = Some(20),
+        systemMemory = Some("8g"),
+        numWorkers = Some(1),
+      )
+
+      // Create cluster properties
+      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+      val infoProvider = getMockInfoProvider(
+        maxInput = 0.0,
+        spilledMetrics = Seq(0),
+        jvmGCFractions = Seq(0.0),
+        propsFromLog = logEventsProps,
+        sparkVersion = Some(testSparkVersion)
+      )
+
+    // tuningConfigs:
+    //   default:
+    //   - name: HEAP_PER_CORE
+    //     default: 1g
+    //   - name: CONC_GPU_TASKS
+    //     max: 2
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "HEAP_PER_CORE", default = "1g"),
+      TuningConfigEntry(name = "CONC_GPU_TASKS", max = "2"),
+      TuningConfigEntry(name = "OS_RESERVED_MEM", default = "5g"),
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+      // Create platform with target cluster info
+      val platform = PlatformFactory.createInstance(
+        PlatformNames.ONPREM,
+        clusterPropsOpt,
+        Some(targetClusterInfo)
+      )
+
+      // Build AutoTuner
+      val autoTuner = buildAutoTunerForTests(workerInfo, infoProvider, platform,
+        sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+      val (properties, comments) = autoTuner.getRecommendedProperties()
+      val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+      // Per memory tune logic when offHeapLimit is enabled:
+      // totalMemoryMinusReserved = 120(enforced) - 5 = 115g
+      // sparkOffHeapMemMB = 45g(enforced)
+      // overhead = 115g - 20g - 45g = 50g
+      // pinned = min( (45(sparkOffHeapMemMB) + 50(overhead) / 4), 20 * 2(OFFHEAP_PER_CORE))
+      //        = 24320m
+      // Expected results for onPrem with offHeapLimit enabled
+      val expectedResults =
+        s"""|
+            |Spark Properties:
+            |--conf spark.executor.cores=20
+            |--conf spark.executor.instances=4
+            |--conf spark.executor.memory=20g
+            |--conf spark.executor.memoryOverhead=50g
+            |--conf spark.executor.resource.gpu.amount=1
+            |--conf spark.locality.wait=0
+            |--conf spark.memory.offHeap.enabled=true
+            |--conf spark.memory.offHeap.size=45g
+            |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+            |--conf spark.rapids.memory.host.offHeapLimit.enabled=true
+            |--conf spark.rapids.memory.host.offHeapLimit.size=80g
+            |--conf spark.rapids.memory.pinnedPool.size=24320m
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=30
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=30
+            |--conf spark.rapids.sql.batchSizeBytes=1g
+            |--conf spark.rapids.sql.concurrentGpuTasks=2
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=250
+            |--conf spark.shuffle.manager=org.apache.spark.shuffle.celeborn.SparkShuffleManager
+            |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+            |--conf spark.sql.files.maxPartitionBytes=512m
+            |--conf spark.task.resource.gpu.amount=0.001
+            |--conf spark.vcore.boost.ratio=4
+            |
+            |Comments:
+            |- ${getEnforcedPropertyComment("spark.executor.cores")}
+            |- 'spark.executor.memoryOverhead' was not set.
+            |- ${getEnforcedPropertyComment("spark.executor.resource.gpu.amount")}
+            |- ${getEnforcedPropertyComment("spark.memory.offHeap.enabled")}
+            |- ${getEnforcedPropertyComment("spark.memory.offHeap.size")}
+            |- ${getEnforcedPropertyComment("spark.plugins")}
+            |- ${getEnforcedPropertyComment("spark.rapids.memory.host.offHeapLimit.enabled")}
+            |- ${getEnforcedPropertyComment("spark.rapids.memory.host.offHeapLimit.size")}
+            |- 'spark.rapids.memory.pinnedPool.size' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+            |- 'spark.rapids.sql.enabled' was not set.
+            |- ${getEnforcedPropertyComment("spark.rapids.sql.multiThreadedRead.numThreads")}
+            |- ${getEnforcedPropertyComment("spark.shuffle.manager")}
+            |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- ${getEnforcedPropertyComment("spark.sql.adaptive.enabled")}
+            |- 'spark.sql.files.maxPartitionBytes' was not set.
+            |- 'spark.task.resource.gpu.amount' was not set.
+            |- ${getEnforcedPropertyComment("spark.vcore.boost.ratio")}
+            |- GPU count is missing. Setting default to 1.
+            |- GPU device is missing. Setting default to l4.
+            |- GPU memory is missing. Setting default to 24576m.
+            |- ${classPathComments("rapids.jars.missing")}
+            |- ${classPathComments("rapids.shuffle.jars")}
+            |""".stripMargin
+
+      // Verify expected results match output
+      compareOutput(expectedResults, autoTunerOutput)
+  }
 }
