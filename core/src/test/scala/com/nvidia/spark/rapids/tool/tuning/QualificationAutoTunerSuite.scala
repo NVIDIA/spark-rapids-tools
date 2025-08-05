@@ -520,10 +520,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   /**
-   * Test to validate onPrem platform with offHeapLimit enabled and hybrid scan configuration.
+   * Test to validate onPrem platform with offHeapLimit enabled.
    * This tests the new memory calculation logic with OS_RESERVED_MEM and offHeapLimit features.
    */
-  test("test onPrem platform with offHeapLimit enabled and hybrid scan configuration") {
+  test("test onPrem platform with offHeapLimit enabled") {
     // Log events properties
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "4",
