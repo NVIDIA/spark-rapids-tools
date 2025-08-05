@@ -521,7 +521,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
   /**
    * Test to validate onPrem platform with offHeapLimit enabled and hybrid scan configuration.
-   * This tests the new memory calculation logic with OFFHEAP_PER_CORE and offHeapLimit features.
+   * This tests the new memory calculation logic with OS_RESERVED_MEM and offHeapLimit features.
    */
   test("test onPrem platform with offHeapLimit enabled and hybrid scan configuration") {
     // Log events properties
