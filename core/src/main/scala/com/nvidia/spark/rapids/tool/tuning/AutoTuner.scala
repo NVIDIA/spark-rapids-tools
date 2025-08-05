@@ -1412,7 +1412,7 @@ abstract class AutoTuner(
     if (!isRapidsPluginConfigured) {
       recommendPluginPropsInternal()
     }
-    // Always recommend enabling the plugin, regardless of current setting.
+    // Always recommend setting 'spark.rapids.sql.enabled=true', regardless of current setting.
     appendRecommendation("spark.rapids.sql.enabled", "true")
   }
 
