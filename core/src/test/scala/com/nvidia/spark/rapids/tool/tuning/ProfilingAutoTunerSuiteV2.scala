@@ -546,6 +546,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |Spark Properties:
           |--conf spark.executor.memory=16g
           |--conf spark.executor.memoryOverhead=9830m
+          |--conf spark.executor.resource.gpu.vendor=nvidia.com
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
@@ -564,6 +565,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.vendor' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -579,6 +581,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -648,6 +651,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=11468m
+          |--conf spark.executor.resource.gpu.vendor=nvidia.com
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
@@ -666,6 +670,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.vendor' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -680,6 +685,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -745,6 +751,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=8
           |--conf spark.executor.memory=[FILL_IN_VALUE]
           |--conf spark.executor.memoryOverhead=[FILL_IN_VALUE]
+          |--conf spark.executor.resource.gpu.vendor=nvidia.com
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
@@ -763,6 +770,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- ${getEnforcedPropertyComment("spark.executor.cores")}
           |- ${getEnforcedPropertyComment("spark.executor.memory")}
+          |- 'spark.executor.resource.gpu.vendor' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -781,6 +789,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- ${notEnoughMemComment(24371)}
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -893,6 +902,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=11468m
+          |--conf spark.executor.resource.gpu.vendor=nvidia.com
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
@@ -910,6 +920,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |Comments:
           |- 'spark.executor.memory' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.vendor' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
           |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -923,6 +934,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
