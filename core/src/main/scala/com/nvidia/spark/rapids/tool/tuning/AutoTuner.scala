@@ -1439,8 +1439,15 @@ abstract class AutoTuner(
     if (!platform.isPlatformCSP) {
       // If YARN,Kubernetes or Standalone, recommend GPU discovery script
       // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-      if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes) ||
-        sparkMaster.contains(Standalone)) {
+      val isYarnK8sOrStandalone = sparkMaster.exists {
+        case Yarn | Kubernetes | Standalone => true
+        case _ => false
+      }
+      // If the GPU discovery script is not set or is empty
+      val gpuDiscoveryScriptIsMissing =
+        getPropertyValue("spark.executor.resource.gpu.discoveryScript")
+        .forall(_.trim.isEmpty)
+      if (isYarnK8sOrStandalone && gpuDiscoveryScriptIsMissing) {
         appendComment(missingGpuDiscoveryScriptComment)
       }
 
