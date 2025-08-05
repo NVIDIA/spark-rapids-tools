@@ -51,6 +51,21 @@ class QualificationAutoTuner(
     super.shouldIncludeInFinalRecommendations(tuningEntry) &&
       tuningEntry.isBootstrap() && !tuningEntry.isRemoved()
   }
+
+  /**
+   * Qualification Bootstrap ignores existing "spark.plugins" property and
+   * RAPIDS plugin is added.
+   * Reference: https://github.com/NVIDIA/spark-rapids-tools/issues/1825#issuecomment-3138122418
+   */
+  override def recommendPluginPropsInternal(): Unit = {
+    appendRecommendation("spark.plugins", autoTunerHelper.rapidsPluginClassName)
+    // If the user has not explicitly enforced any 'spark.plugins',
+    // add a comment to inform them about how to specify additional plugins
+    // using the target cluster's 'sparkProperties.enforced' section.
+    if (!platform.userEnforcedRecommendations.contains("spark.plugins")) {
+      appendComment(additionalSparkPluginsComment)
+    }
+  }
 }
 
 /**
