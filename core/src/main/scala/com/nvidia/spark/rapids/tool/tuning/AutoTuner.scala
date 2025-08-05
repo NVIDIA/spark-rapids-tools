@@ -1684,16 +1684,12 @@ abstract class AutoTuner(
   private def calculatePinnedMemorySize(numExecutorCores: Int,
                                         hostOffHeapLimitSizeMB: Long): Long = {
     // Use new formula only for onPrem platform
-    if (!platform.isPlatformCSP) {
-      // Get GPU batch size in MB
-      val gpuBatchSizeMB = StringUtils.convertToMB(
-        tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefault, Some(ByteUnit.BYTE))
-      // Calculate 2 * executor cores * GPU batch size
-      val coresBatchSizeMB = 2L * numExecutorCores * gpuBatchSizeMB
-      // Calculate 1/4 * host.offHeapLimit.Size
-      val quarterHostOffHeapLimitMB = hostOffHeapLimitSizeMB / 4
+    if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+      // Calculate pinned pool-offHeap ratio * host.offHeapLimit.Size
+      val ratioPinnedPoolSize = hostOffHeapLimitSizeMB *
+        tuningConfigs.getEntry("PINNED_MEM_OFFHEAP_RATIO").getDefault.toDouble
       // Return the minimum of the two values
-      Math.min(coresBatchSizeMB, quarterHostOffHeapLimitMB)
+      ratioPinnedPoolSize.toLong
     } else {
       // For CSP platforms, return a default value (this will be overridden by the original logic)
       tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
