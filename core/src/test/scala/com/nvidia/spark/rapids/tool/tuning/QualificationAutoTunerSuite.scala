@@ -528,7 +528,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "4",
       "spark.executor.memory" -> "6144M",
-      "spark.executor.instances" -> "20",
+      "spark.executor.instances" -> "20"
     )
 
     // Enforced Spark properties
@@ -561,7 +561,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         customProps = None,
         numCores = Some(20),
         systemMemory = Some("8g"),
-        numWorkers = Some(1),
+        numWorkers = Some(1)
       )
 
       // Create cluster properties
@@ -583,7 +583,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val defaultTuningConfigsEntries = List(
       TuningConfigEntry(name = "HEAP_PER_CORE", default = "1g"),
       TuningConfigEntry(name = "CONC_GPU_TASKS", max = "2"),
-      TuningConfigEntry(name = "OS_RESERVED_MEM", default = "5g"),
+      TuningConfigEntry(name = "OS_RESERVED_MEM", default = "5g")
     )
     val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
       default = defaultTuningConfigsEntries)
