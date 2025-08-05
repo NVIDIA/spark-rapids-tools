@@ -251,6 +251,18 @@ class CSVCombiner(object):
             self._success_app_processor = self.default_success_app_processor
         # TODO: we should fail if the the combiner is built for AppIds but columns are not defined.
 
+    def _create_empty_df(self) -> pd.DataFrame:
+        """
+        creates an empty DataFrame with the columns defined in the report builder.
+        :return: an empty dataframe.
+        """
+        empty_df = self.result_handler.create_empty_df(self.rep_builder.tbl)
+        if self._combine_args and 'use_cols' in self._combine_args:
+            # make sure that we insert the columns to the empty dataframe
+            injected_cols = pd.DataFrame(columns=self._combine_args['use_cols'])
+            return pd.concat([injected_cols, empty_df], axis=1)
+        return empty_df
+
     ################################
     # Setters/Getters for processors
     ################################
@@ -310,7 +322,12 @@ class CSVCombiner(object):
                                                          self._combine_args)
                     # Q: Should we ignore or skip the empty dataframes?
                     combined_dfs.append(app_df)
-            final_df = pd.concat(combined_dfs, ignore_index=True)
+            if combined_dfs:
+                # only concatenate if we have any dataframes to combine
+                final_df = pd.concat(combined_dfs, ignore_index=True)
+            else:
+                # create an empty DataFrame if no data was collected. uses the table schema.
+                final_df = self._create_empty_df()
             success = True
         except Exception as e:  # pylint: disable=broad-except
             # handle any exceptions that occur during the combination phase

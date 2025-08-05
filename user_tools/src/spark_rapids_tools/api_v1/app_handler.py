@@ -75,6 +75,11 @@ class AppHandler(object):
         if col_names is None:
             # append attemptId to support multi-attempts
             col_names = ['appId']
+        # Ensure col_values matches col_names in length
+        if len(col_values) == 1 and len(col_names) > 1:
+            col_values = col_values * len(col_names)
+        elif len(col_values) != len(col_names):
+            raise ValueError('Length of col_values must be 1 or match length of col_names')
         if not df.empty:
             for col_k, col_v in zip(reversed(col_names), reversed(col_values)):
                 if col_k not in df.columns:

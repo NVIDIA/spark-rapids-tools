@@ -205,7 +205,7 @@ def _get_qual_data(qual_handler: QualCoreResultHandler) -> Tuple[Optional[pd.Dat
     if not q_sum_res.success:
         # That should not happen unless there is something terribly wrong because the caller
         # has checked that the result is not empty. Therefore, the summary must exist
-        raise q_sum_res.load_error
+        raise RuntimeError(f'Failed to load qualCoreCSVSummary {q_sum_res.load_error}') from q_sum_res.load_error
     qualtool_summary = q_sum_res.data
     # Extracting the execsCSVReport should return a dictionary of results.
     # Combine that dictionary into a single DF.
@@ -220,7 +220,7 @@ def _get_qual_data(qual_handler: QualCoreResultHandler) -> Tuple[Optional[pd.Dat
         .build()                                                                 # combine the results
     )
     if not q_execs_res.success:
-        raise q_execs_res.load_error
+        raise RuntimeError(f'Failed to load execution CSV report: {q_execs_res.load_error}') from q_execs_res.load_error
     node_level_supp = load_qtool_execs(q_execs_res.data)
 
     return node_level_supp, qualtool_summary
@@ -238,20 +238,20 @@ def _get_combined_qual_data(qual_handlers: List[QualCoreResultHandler]) -> Tuple
         return None, None, []
 
     combined_node_level_supp = []
-    combined_qualtool_output = []
+    combined_q_core_sum = []       # summary of the Qualification core (Id, Name, Duration)
     combined_qual_metrics = []
 
     for handler in qual_handlers:
         if handler.is_empty():
             # skip the handler that has no apps
             continue
-        node_level_supp, qualtool_output = _get_qual_data(handler)
+        node_level_supp, q_core_summary = _get_qual_data(handler)
 
         if node_level_supp is not None:
             combined_node_level_supp.append(node_level_supp)
 
-        if qualtool_output is not None:
-            combined_qualtool_output.append(qualtool_output)
+        if q_core_summary is not None:
+            combined_q_core_sum.append(q_core_summary)
         # Add the raw_metrics folder if it is not None
         raw_metrics_path = handler.get_raw_metrics_path()
         if raw_metrics_path:
@@ -264,11 +264,11 @@ def _get_combined_qual_data(qual_handlers: List[QualCoreResultHandler]) -> Tuple
     if combined_node_level_supp:
         final_node_level_supp = pd.concat(combined_node_level_supp, ignore_index=True)
 
-    final_qualtool_output = None
-    if combined_qualtool_output:
-        final_qualtool_output = pd.concat(combined_qualtool_output, ignore_index=True)
+    final_q_core_sum = None
+    if combined_q_core_sum:
+        final_q_core_sum = pd.concat(combined_q_core_sum, ignore_index=True)
 
-    return final_node_level_supp, final_qualtool_output, combined_qual_metrics
+    return final_node_level_supp, final_q_core_sum, combined_qual_metrics
 
 
 def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.DataFrame]:
