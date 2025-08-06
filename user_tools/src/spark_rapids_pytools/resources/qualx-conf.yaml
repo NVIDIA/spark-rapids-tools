@@ -32,4 +32,3 @@ xgboost:
   model_name: xgb_model.json
   n_trials: 200
   qual_tool_filter: stage
-#calib: false

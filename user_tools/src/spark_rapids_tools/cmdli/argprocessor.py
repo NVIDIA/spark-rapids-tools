@@ -34,7 +34,7 @@ from ..configuration.submission.local_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
-from ..tools.autotuner import AutoTunerPropMgr
+
 from ..utils.util import dump_tool_usage, Utilities
 
 
@@ -603,16 +603,6 @@ class ProfileUserArgModel(ToolUserArgModel):
     """
     driverlog: Optional[str] = None
 
-    def determine_cluster_arg_type(self) -> ArgValueCase:
-        cluster_case = super().determine_cluster_arg_type()
-        if cluster_case == ArgValueCase.VALUE_B:
-            # determine is this an autotuner file or not
-            auto_tuner_prop_obj = AutoTunerPropMgr.load_from_file(self.cluster, raise_on_error=False)
-            if auto_tuner_prop_obj:
-                cluster_case = ArgValueCase.VALUE_C
-                self.p_args['toolArgs']['autotuner'] = self.cluster
-        return cluster_case
-
     def init_driverlog_argument(self) -> None:
         if self.driverlog is None:
             self.p_args['toolArgs']['driverlog'] = None
@@ -632,30 +622,15 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
-        self.p_args['toolArgs']['autotuner'] = None
         self.init_driverlog_argument()
 
     def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
-        self.rejected['Autotuner requires eventlogs'] = {
-            'valid': False,
-            'callable': partial(self.raise_validation_exception,
-                                'Cannot run tool cmd. AutoTuner requires eventlogs argument'),
-            'cases': [
-                [ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED]
-            ]
-        }
 
     def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
 
-    def define_detection_cases(self) -> None:
-        super().define_detection_cases()
-        # append the case when the autotuner input
-        self.detected['Define Platform based on Eventlogs prefix']['cases'].append(
-            [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A]
-        )
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'ProfileUserArgModel':
@@ -665,13 +640,7 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        # check if the cluster infor was autotuner_input
-        if self.p_args['toolArgs']['autotuner']:
-            # this is an autotuner input
-            self.p_args['toolArgs']['cluster'] = None
-        else:
-            # this is an actual cluster argument
-            self.p_args['toolArgs']['cluster'] = self.cluster
+        self.p_args['toolArgs']['cluster'] = self.cluster
         if self.p_args['toolArgs']['driverlog'] is None:
             requires_event_logs = True
             rapids_options = {}
@@ -714,8 +683,7 @@ class ProfileUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapids_options,
-            'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
+            'toolsJar': self.p_args['toolArgs']['toolsJar']
         }
 
         return wrapped_args

@@ -17,16 +17,13 @@
 package com.nvidia.spark.rapids.tool.tuning
 
 import java.io.File
-import java.util
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 import org.scalatest.exceptions.TestFailedException
-import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
@@ -120,34 +117,34 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
     )
   }
 
-  protected final def buildWorkerInfoAsString(
-      customProps: Option[mutable.Map[String, String]] = None,
-      numCores: Option[Int] = Some(32),
-      systemMemory: Option[String] = Some("122880MiB"),
-      numWorkers: Option[Int] = Some(4),
-      gpuCount: Option[Int] = None,
-      gpuMemory: Option[String] = None,
-      gpuDevice: Option[String] = None): String = {
-    val gpuWorkerProps = new GpuWorkerProps(
-      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-    val cpuSystem = new SystemClusterProps(
-      numCores.getOrElse(0), systemMemory.getOrElse(""), numWorkers.getOrElse(0))
-    val systemProperties = customProps match {
-      case None => mutable.Map[String, String]()
-      case Some(newProps) => newProps
-    }
-    val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
-    val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
-    // set the options to convert the object into formatted yaml content
-    val options = new DumperOptions()
-    options.setIndent(2)
-    options.setPrettyFlow(true)
-    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-    val yaml = new Yaml(options)
-    val rawString = yaml.dump(clusterProps)
-    // Skip the first line as it contains "the name of the class"
-    rawString.split("\n").drop(1).mkString("\n")
-  }
+//  protected final def buildWorkerInfoAsString(
+//      customProps: Option[mutable.Map[String, String]] = None,
+//      numCores: Option[Int] = Some(32),
+//      systemMemory: Option[String] = Some("122880MiB"),
+//      numWorkers: Option[Int] = Some(4),
+//      gpuCount: Option[Int] = None,
+//      gpuMemory: Option[String] = None,
+//      gpuDevice: Option[String] = None): String = {
+//    val gpuWorkerProps = new GpuWorkerProps(
+//      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
+//    val cpuSystem = new SystemClusterProps(
+//      numCores.getOrElse(0), systemMemory.getOrElse(""), numWorkers.getOrElse(0))
+//    val systemProperties = customProps match {
+//      case None => mutable.Map[String, String]()
+//      case Some(newProps) => newProps
+//    }
+//    val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
+//    val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
+//    // set the options to convert the object into formatted yaml content
+//    val options = new DumperOptions()
+//    options.setIndent(2)
+//    options.setPrettyFlow(true)
+//    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
+//    val yaml = new Yaml(options)
+//    val rawString = yaml.dump(clusterProps)
+//    // Skip the first line as it contains "the name of the class"
+//    rawString.split("\n").drop(1).mkString("\n")
+//  }
 
   protected def getMockInfoProvider(maxInput: Double,
       spilledMetrics: Seq[Long],
@@ -202,9 +199,8 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
    * the default based on the platform.
    */
   final def buildAutoTunerForTests(
-    clusterProps: String,
     mockInfoProvider: AppInfoProviderMockTest,
-    platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
+    platform: Platform = PlatformFactory.createInstance(),
     sparkMaster: Option[SparkMaster] = None,
     userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
   ): AutoTuner = {
@@ -229,8 +225,7 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
     mockInfoProvider.setSparkMaster(mockSparkMasterStr)
 
     // Build and return the AutoTuner
-    autoTunerHelper.buildAutoTunerFromProps(
-      clusterProps, mockInfoProvider, platform,
+    autoTunerHelper.buildAutoTunerFromProps(mockInfoProvider, platform,
       userProvidedTuningConfigs = userProvidedTuningConfigs)
   }
 

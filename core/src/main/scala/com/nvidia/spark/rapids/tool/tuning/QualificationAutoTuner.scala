@@ -26,12 +26,11 @@ import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
  * implement the logic to recommend AutoTuner configurations by the Qualification Tool.
  */
 class QualificationAutoTuner(
-    clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider,
     userProvidedTuningConfigs: Option[TuningConfigsProvider])
-  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+  extends AutoTuner(appInfoProvider, platform, driverInfoProvider,
     userProvidedTuningConfigs, QualificationAutoTunerHelper) {
 
   /**
@@ -51,21 +50,6 @@ class QualificationAutoTuner(
     super.shouldIncludeInFinalRecommendations(tuningEntry) &&
       tuningEntry.isBootstrap() && !tuningEntry.isRemoved()
   }
-
-  /**
-   * Qualification Bootstrap ignores existing "spark.plugins" property and
-   * RAPIDS plugin is added.
-   * Reference: https://github.com/NVIDIA/spark-rapids-tools/issues/1825#issuecomment-3138122418
-   */
-  override def recommendPluginPropsInternal(): Unit = {
-    appendRecommendation("spark.plugins", autoTunerHelper.rapidsPluginClassName)
-    // If the user has not explicitly enforced any 'spark.plugins',
-    // add a comment to inform them about how to specify additional plugins
-    // using the target cluster's 'sparkProperties.enforced' section.
-    if (!platform.userEnforcedRecommendations.contains("spark.plugins")) {
-      appendComment(additionalSparkPluginsComment)
-    }
-  }
 }
 
 /**
@@ -80,7 +64,6 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
     ConstantTotalCoresStrategy
 
   override def createAutoTunerInstance(
-      clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider,
@@ -88,6 +71,6 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
     // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
     //       passed to the `QualificationAutoTuner` instance.
     new QualificationAutoTuner(
-      clusterProps, appInfoProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
+      appInfoProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
   }
 }
