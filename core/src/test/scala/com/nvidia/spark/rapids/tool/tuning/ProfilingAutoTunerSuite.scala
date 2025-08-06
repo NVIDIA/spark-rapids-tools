@@ -304,7 +304,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -429,7 +429,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -563,7 +563,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.locality.wait=0
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
           |Comments:
@@ -635,7 +635,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1123,7 +1123,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1218,7 +1218,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -1308,7 +1308,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -2248,7 +2248,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark350.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -3840,6 +3840,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=9420m
           |--conf spark.locality.wait=0
+          |--conf spark.memory.offHeap.size=10240m
           |--conf spark.rapids.memory.pinnedPool.size=3g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
