@@ -70,35 +70,6 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
     }
   }
 
-  // /**
-  //  * Helper method to build a worker info string with GPU properties
-  //  */
-  // protected def buildGpuWorkerInfoAsString(
-  //     customProps: Option[mutable.Map[String, String]] = None,
-  //     numCores: Option[Int] = Some(32),
-  //     systemMemory: Option[String] = Some("122880MiB"),
-  //     numWorkers: Option[Int] = Some(4),
-  //     gpuCount: Option[Int] = Some(2),
-  //     gpuMemory: Option[String] = Some(GpuDevice.DEFAULT.getMemory),
-  //     gpuDevice: Option[String] = Some(GpuDevice.DEFAULT.toString)): String = {
-  //   buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers,
-  //     gpuCount, gpuMemory, gpuDevice)
-  // }
-
-  // protected def buildGpuWorkerInfoFromInstanceType(
-  //   instanceInfo: InstanceInfo,
-  //   numWorkers: Option[Int] = Some(4),
-  //   customProps: Option[mutable.Map[String, String]] = None): String = {
-  //   buildGpuWorkerInfoAsString(
-  //     customProps,
-  //     Some(instanceInfo.cores),
-  //     Some(instanceInfo.memoryMB.toString),
-  //     numWorkers,
-  //     Some(instanceInfo.numGpus),
-  //     Some(instanceInfo.gpuDevice.getMemory),
-  //     Some(instanceInfo.gpuDevice.toString))
-  // }
-
   protected def getGpuAppMockInfoProvider(
       maxInput: Double = 0,
       spilledMetrics: Seq[Long] = Seq(0),

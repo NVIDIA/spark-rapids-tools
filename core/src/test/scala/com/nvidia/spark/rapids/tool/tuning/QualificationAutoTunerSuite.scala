@@ -53,17 +53,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
   }
 
-  // /**
-  //  * Helper method to build a worker info string with CPU properties
-  //  */
-  // protected def buildCpuWorkerInfoAsString(
-  //      customProps: Option[mutable.Map[String, String]] = None,
-  //      numCores: Option[Int] = Some(32),
-  //      systemMemory: Option[String] = Some("122880MiB"),
-  //      numWorkers: Option[Int] = Some(4)): String = {
-  //   buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers)
-  // }
-
   /**
    * Helper method to return an instance of the Qualification AutoTuner with default properties
    */

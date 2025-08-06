@@ -117,35 +117,6 @@ abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
     )
   }
 
-//  protected final def buildWorkerInfoAsString(
-//      customProps: Option[mutable.Map[String, String]] = None,
-//      numCores: Option[Int] = Some(32),
-//      systemMemory: Option[String] = Some("122880MiB"),
-//      numWorkers: Option[Int] = Some(4),
-//      gpuCount: Option[Int] = None,
-//      gpuMemory: Option[String] = None,
-//      gpuDevice: Option[String] = None): String = {
-//    val gpuWorkerProps = new GpuWorkerProps(
-//      gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-//    val cpuSystem = new SystemClusterProps(
-//      numCores.getOrElse(0), systemMemory.getOrElse(""), numWorkers.getOrElse(0))
-//    val systemProperties = customProps match {
-//      case None => mutable.Map[String, String]()
-//      case Some(newProps) => newProps
-//    }
-//    val convertedMap = new util.LinkedHashMap[String, String](systemProperties.asJava)
-//    val clusterProps = new ClusterProperties(cpuSystem, gpuWorkerProps, convertedMap)
-//    // set the options to convert the object into formatted yaml content
-//    val options = new DumperOptions()
-//    options.setIndent(2)
-//    options.setPrettyFlow(true)
-//    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-//    val yaml = new Yaml(options)
-//    val rawString = yaml.dump(clusterProps)
-//    // Skip the first line as it contains "the name of the class"
-//    rawString.split("\n").drop(1).mkString("\n")
-//  }
-
   protected def getMockInfoProvider(maxInput: Double,
       spilledMetrics: Seq[Long],
       jvmGCFractions: Seq[Double],
