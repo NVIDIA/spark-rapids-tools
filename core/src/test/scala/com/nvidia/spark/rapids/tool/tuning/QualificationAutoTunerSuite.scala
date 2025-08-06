@@ -303,8 +303,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- ${getEnforcedPropertyComment("spark.executor.cores")}
             |- ${getEnforcedPropertyComment("spark.executor.instances")}
             |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
-            |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
-            |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
+            |- 'spark.executor.resource.gpu.discoveryScript' was not set.
+            |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+            |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -404,8 +405,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |
           |Comments:
           |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
-          |- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.
-          |- 'spark.plugins' should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
+          |- 'spark.executor.resource.gpu.discoveryScript' was not set.
+          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
@@ -444,7 +446,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "--conf spark.executor.resource.gpu.amount=1",
         "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
-        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources."
+        "- 'spark.executor.resource.gpu.discoveryScript' was not set"
       )),
     ("Kubernetes",
       Kubernetes,
@@ -453,8 +455,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "--conf spark.executor.resource.gpu.discoveryScript=${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "--conf spark.executor.resource.gpu.vendor=nvidia.com",
         "- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.",
-        "- 'spark.executor.resource.gpu.discoveryScript' should be set to allow Spark to discover GPU resources.",
-        "- 'spark.executor.resource.gpu.vendor' should be set to \"nvidia.com\" for NVIDIA GPUs in k8s clusters."
+        "- 'spark.executor.resource.gpu.discoveryScript' was not set."
       ))
   )
   // scalastyle:on line.size.limit

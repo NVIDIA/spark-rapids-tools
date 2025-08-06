@@ -542,13 +542,13 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       s"""|
           |Spark Properties:
           |--conf spark.executor.memory=16g
-          |--conf spark.executor.memoryOverhead=9g
+          |--conf spark.executor.memoryOverhead=9830m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=3789m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m

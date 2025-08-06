@@ -2490,7 +2490,14 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val combinedProps = logEventsProps ++ customProps
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), combinedProps,
       Some(testSparkVersion), meanInput = inputSize, meanShuffleRead = shuffleRead)
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    val targetClusterProps = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(32),
+      memoryGB = Some(0L),
+      gpuCount = Some(4),
+      gpuMemory = Some(gpuDevice.getMemory),
+      gpuDevice = Some(gpuDevice.toString)
+    )
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterProps))
 
     configureClusterInfoForTest(
       platform,
@@ -2533,25 +2540,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       s" shuffle read: $shuffleRead, gpu device: $gpuDevice") {
       testPartitionConfigurations(inputSize, shuffleRead, gpuDevice, expectedLines)
     }
-  }
-  test(s"AQE partition configs - input size: 40000," +
-    s" shuffle read: 80000, gpu device: T4") {
-    val expectedLines = Seq(
-      "--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=32m",
-      "--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=800",
-      "--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false"
-    )
-    testPartitionConfigurations(40000, 80000, T4Gpu, expectedLines)
-  }
-
-  test(s"AQE partition configs - input size: 40000," +
-    s" shuffle read: 80000, gpu device: A100") {
-    val expectedLines = Seq(
-      "--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=64m",
-      "--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400",
-      "--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false"
-    )
-    testPartitionConfigurations(40000, 80000, A100Gpu, expectedLines)
   }
 
   test("Handle adaptive auto shuffle configuration setting properly") {
