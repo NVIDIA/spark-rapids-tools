@@ -27,7 +27,8 @@ jobs:
         java-version: [8, 11]
         spark-version: ['324', '334', '350']
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: NVIDIA/spark-rapids-common/checkout@main
 
     - name: Setup Java
       uses: actions/setup-java@v4

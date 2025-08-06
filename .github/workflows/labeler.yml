@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: NVIDIA/spark-rapids-common/checkout@main
       - name: Label PR
         uses: actions/labeler@v5
         with:
