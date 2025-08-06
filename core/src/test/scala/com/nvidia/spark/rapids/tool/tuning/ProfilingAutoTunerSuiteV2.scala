@@ -81,7 +81,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -178,7 +179,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -273,7 +275,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -974,7 +977,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -1091,7 +1095,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -1099,7 +1104,12 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       gpuCount = gpuInstance.numGpus,
       sparkProperties = sparkPropsWithMemory.toMap
     )
-    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes), Some(userProvidedTuningConfigs))
+    val autoTuner =
+      buildAutoTunerForTests(
+        infoProvider,
+        platform,
+        Some(Kubernetes),
+        Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1186,7 +1196,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
@@ -1197,7 +1208,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     // AutoTuner should throw IllegalArgumentException due to invalid tuning config name
     assertThrows[IllegalArgumentException] {
-      val autoTuner = buildAutoTunerForTests(infoProvider, platform, None, Some(userProvidedTuningConfigs))
+      val autoTuner =
+        buildAutoTunerForTests(infoProvider, platform, None, Some(userProvidedTuningConfigs))
       autoTuner.getRecommendedProperties()
     }
   }
@@ -1222,7 +1234,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
-    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
     configureClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,

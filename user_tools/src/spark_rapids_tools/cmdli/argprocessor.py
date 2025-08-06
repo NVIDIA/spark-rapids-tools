@@ -624,9 +624,6 @@ class ProfileUserArgModel(ToolUserArgModel):
         self.p_args['toolArgs']['platform'] = self.platform
         self.init_driverlog_argument()
 
-    def define_invalid_arg_cases(self) -> None:
-        super().define_invalid_arg_cases()
-
     def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()

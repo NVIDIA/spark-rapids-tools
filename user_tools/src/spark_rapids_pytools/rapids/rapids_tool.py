@@ -26,8 +26,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional
 
-import yaml
-
 import spark_rapids_pytools
 from spark_rapids_pytools import get_spark_dep_version
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
@@ -884,7 +882,7 @@ class RapidsJarTool(RapidsTool):
     def _create_autotuner_rapids_args(self) -> list:
         # Add the autotuner argument, also add worker-info if the autotunerPath exists
         if self.ctxt.get_rapids_auto_tuner_enabled():
-                return ['--auto-tuner']
+            return ['--auto-tuner']
         return []
 
     def _get_job_submission_resources(self, tool_name: str) -> dict:
