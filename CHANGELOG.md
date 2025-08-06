@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v25.06.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.2)
+Generated on 2025-08-06
+### User Tools
+
+- QualX model calibration functionality ([#1802](https://github.com/NVIDIA/spark-rapids-tools/pull/1802))
+
+### Core
+
+- Fix 'spark.plugin' logic and GPU discovery script recommendations  ([#1843](https://github.com/NVIDIA/spark-rapids-tools/pull/1843))
+- New memory tuning logic ([#1820](https://github.com/NVIDIA/spark-rapids-tools/pull/1820))
+
+
+<br/>
+
 ## Release [v25.06.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.1)
 Generated on 2025-07-31
 ### User Tools
