@@ -628,7 +628,6 @@ class ProfileUserArgModel(ToolUserArgModel):
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
 
-
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'ProfileUserArgModel':
         # shortcircuit to fail early

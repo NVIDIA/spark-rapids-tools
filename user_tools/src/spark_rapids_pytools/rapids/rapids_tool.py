@@ -880,7 +880,7 @@ class RapidsJarTool(RapidsTool):
         return platform_args
 
     def _create_autotuner_rapids_args(self) -> list:
-        # Add the autotuner argument, also add worker-info if the autotunerPath exists
+        # Add the autotuner argument
         if self.ctxt.get_rapids_auto_tuner_enabled():
             return ['--auto-tuner']
         return []

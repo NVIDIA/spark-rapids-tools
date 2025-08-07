@@ -213,7 +213,6 @@ object SparkMaster {
  *      Cannot recommend properties. See Comments.
  *
  *      Comments:
- *      - java.io.FileNotFoundException: File worker_info.yaml does not exist
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
  *      - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
