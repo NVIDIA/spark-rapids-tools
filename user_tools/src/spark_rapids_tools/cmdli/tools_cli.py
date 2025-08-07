@@ -50,6 +50,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       submission_mode: str = None,
                       target_cluster_info: str = None,
                       tuning_configs: str = None,
+                      config: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -100,6 +101,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tuning_configs: Path to a YAML file that contains the tuning configurations.
                 For sample tuning configs files, please visit
                 https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
+        :param config: Path to a qualx-conf.yaml file to use for configuration.
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
@@ -116,7 +118,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         }
         estimation_model_args = AbsToolUserArgModel.create_tool_args(estimation_arg_valid,
                                                                      estimation_model=None,
-                                                                     custom_model_file=custom_model_file)
+                                                                     custom_model_file=custom_model_file,
+                                                                     config=config)
         if estimation_model_args is None:
             return None
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
