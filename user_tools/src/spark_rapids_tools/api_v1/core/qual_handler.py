@@ -15,10 +15,12 @@
 """Module that contains the definition of the qualification Result handler for the core module."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 from spark_rapids_tools import override
 from spark_rapids_tools.api_v1 import register_result_class, ResultHandler
 from spark_rapids_tools.api_v1.report_reader import ToolReportReader
+from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
 
 
 @register_result_class('qualCoreOutput')
@@ -29,3 +31,6 @@ class QualCoreResultHandler(ResultHandler):
     @property
     def alpha_reader(self) -> ToolReportReader:
         return self.readers.get(self.report_id)
+
+    def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
+        return self.get_reader_path('coreRawMetrics')
