@@ -83,7 +83,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -181,7 +181,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -277,7 +277,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -530,7 +530,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "50g")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 8,
       numWorkers = 1,
@@ -634,7 +634,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 8, // from eventLog
       numWorkers = 2,
@@ -734,7 +734,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 16, // from eventLog
       numWorkers = 2,
@@ -885,7 +885,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 8, // from eventLog
       numWorkers = 2,
@@ -991,7 +991,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -1109,7 +1109,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -1210,7 +1210,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -1248,7 +1248,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,

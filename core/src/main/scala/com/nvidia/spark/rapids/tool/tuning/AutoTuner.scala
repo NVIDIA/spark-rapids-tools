@@ -863,6 +863,15 @@ abstract class AutoTuner(
             appendComment("spark.executor.memory",
               notEnoughMemCommentForKey(
                 "spark.executor.memory"))
+            // Skip off-heap related comments when offHeapLimit is enabled
+            if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+              appendComment("spark.memory.offHeap.size",
+                notEnoughMemCommentForKey(
+                  "spark.memory.offHeap.size"))
+              appendComment("spark.rapids.memory.host.offHeapLimit.size",
+                notEnoughMemCommentForKey(
+                  "spark.rapids.memory.host.offHeapLimit.size"))
+            }
             false
         }
       } else {
@@ -980,6 +989,8 @@ abstract class AutoTuner(
           }
         } else {
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
+            // TODO: Should this be based on the recommended
+            //  cluster instead of the cluster info from the event log
             // The ideal setting is same as the parallelism of the cluster
             platform.clusterInfoFromEventLog match {
               case Some(clusterInfo) =>
@@ -1598,9 +1609,9 @@ abstract class AutoTuner(
    * @return Recommended executor memory overhead in MB
    */
   private def calculateExecutorMemoryOverhead(
-                                               totalMemMinusReserved: Long,
-                                               executorHeapMB: Long,
-                                               offHeapMB: Long): Long = {
+    totalMemMinusReserved: Long,
+    executorHeapMB: Long,
+    offHeapMB: Long): Long = {
 
     // Use new formula only for onPrem platform when offHeapLimit is enabled
     if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
@@ -1617,8 +1628,6 @@ abstract class AutoTuner(
       minOverhead.toLong
     }
   }
-
-
 }
 
 object AutoTuner {

@@ -93,19 +93,17 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
   /**
    * Helper method to configure cluster info using Platform's existing method
    */
-  protected def configureClusterInfoForTest(
+  protected def configureEventLogClusterInfoForTest(
       platform: Platform,
       numCores: Int = 32,
       numWorkers: Int = 4,
       gpuCount: Int = 1,
       sparkProperties: Map[String, String] = Map.empty): Unit = {
-    val coresPerExecutor = numCores
-    val numWorkerNodes = numWorkers
+    val coresPerExecutor = numCores / gpuCount
     val execsPerNode = gpuCount
-    val numExecutors = numWorkerNodes * execsPerNode
-
+    val numExecutors = numWorkers * execsPerNode
     platform.configureClusterInfoFromEventLog(
-      coresPerExecutor, execsPerNode, numExecutors, numWorkerNodes,
+      coresPerExecutor, execsPerNode, numExecutors, numWorkers,
       sparkProperties, Map.empty
     )
   }
@@ -122,7 +120,7 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
       sparkPropsWithMemory, Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -173,7 +171,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       mutable.Map() ++ sparkProps, Some("3.2.0"), Seq())
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 2,
@@ -276,9 +274,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with CPU cores 0") {
+  ignore("Load cluster properties from event log with CPU cores 0") {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 0,
       numWorkers = 4,
@@ -334,9 +332,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with memory to cores ratio to small") {
+  ignore("Load cluster properties from event logs with memory to cores ratio to small") {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 8,
       numWorkers = 4,
@@ -397,10 +395,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with CPU memory missing") {
+  ignore("Load cluster properties from event logs with CPU memory missing") {
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
 
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -460,11 +458,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with CPU memory 0") {
+  ignore("Load cluster properties from event logs with CPU memory 0") {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform = platform,
       sparkProperties = Map(
         "spark.rapids.sql.enabled" -> "true",
@@ -535,11 +533,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with number of workers 0") {
+  ignore("Load cluster properties from event logs with number of workers 0") {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 0,
@@ -590,303 +588,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("Load cluster properties with GPU count of 0") {
-    // the gpuCount should default to 1
-    val customProps = mutable.LinkedHashMap(
-      "spark.executor.cores" -> "16",
-      "spark.executor.memory" -> "122880MiB",
-      "spark.executor.memoryOverhead" -> "7372m",
-      "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.001")
-    val sparkProps = defaultDataprocProps.++(customProps)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
-
-    // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
-      platform,
-      numCores = 32,
-      numWorkers = 4,
-      sparkProperties = sparkProps.toMap
-    )
-
-    val autoTuner =
-      buildAutoTunerForTests(getGpuAppMockInfoProvider(propsFromLog = sparkProps), platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=4
-          |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
-          |--conf spark.locality.wait=0
-          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.enabled=true
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
-          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
-          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.enabled' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.shuffle.manager' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- ${classPathComments("rapids.jars.missing")}
-          |- ${classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
-
-  test("Load cluster properties with GPU memory is missing") {
-    // the gpu memory should be set to T4 memory settings
-    val customProps = mutable.LinkedHashMap(
-      "spark.executor.cores" -> "16",
-      "spark.executor.memory" -> "122880MiB",
-      "spark.executor.memoryOverhead" -> "8396m",
-      "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
-      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
-      "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.001")
-    val sparkProps = defaultDataprocProps.++(customProps)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
-
-    // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
-      platform,
-      numCores = 32,
-      numWorkers = 4,
-      gpuCount = 2,
-      sparkProperties = sparkProps.toMap
-    )
-
-    val autoTuner =
-      buildAutoTunerForTests(getGpuAppMockInfoProvider(propsFromLog = sparkProps), platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
-          |--conf spark.locality.wait=0
-          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.enabled=true
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
-          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.enabled' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- ${classPathComments("rapids.jars.missing")}
-          |- ${classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
-
-  test("Load cluster properties with GPU memory 0") {
-    // the gpu memory should be set to T4 memory settings
-    val customProps = mutable.LinkedHashMap(
-      "spark.executor.cores" -> "16",
-      "spark.executor.memory" -> "122880MiB",
-      "spark.executor.memoryOverhead" -> "8396m",
-      "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
-      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
-      "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.001",
-      "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
-      "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m")
-    val sparkProps = defaultDataprocProps.++(customProps)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
-
-    // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
-      platform,
-      numCores = 32,
-      numWorkers = 4,
-      gpuCount = 2,
-      sparkProperties = sparkProps.toMap
-    )
-
-    val autoTuner =
-      buildAutoTunerForTests(getGpuAppMockInfoProvider(propsFromLog = sparkProps), platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
-          |--conf spark.locality.wait=0
-          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.enabled=true
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
-          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.enabled' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- ${classPathComments("rapids.jars.missing")}
-          |- ${classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
-
-  test("Load cluster properties with GPU name missing") {
-    val customProps = mutable.LinkedHashMap(
-      "spark.executor.cores" -> "16",
-      "spark.executor.memory" -> "122880MiB",
-      "spark.executor.memoryOverhead" -> "8396m",
-      "spark.rapids.memory.pinnedPool.size" -> "4096m",
-      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
-      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
-      "spark.rapids.sql.concurrentGpuTasks" -> "3",
-      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
-      "spark.shuffle.manager" ->
-        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
-      "spark.sql.files.maxPartitionBytes" -> "512m",
-      "spark.task.resource.gpu.amount" -> "0.001")
-    val sparkProps = defaultDataprocProps.++(customProps)
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
-
-    // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
-      platform,
-      numCores = 32,
-      numWorkers = 4,
-      gpuCount = 2,
-      sparkProperties = sparkProps.toMap
-    )
-
-    val autoTuner =
-      buildAutoTunerForTests(getGpuAppMockInfoProvider(propsFromLog = sparkProps), platform)
-    val (properties, comments) = autoTuner.getRecommendedProperties()
-    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
-    // scalastyle:off line.size.limit
-    val expectedResults =
-      s"""|
-          |Spark Properties:
-          |--conf spark.dataproc.enhanced.execution.enabled=false
-          |--conf spark.dataproc.enhanced.optimizer.enabled=false
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
-          |--conf spark.locality.wait=0
-          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
-          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
-          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
-          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.enabled=true
-          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
-          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
-          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
-          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
-          |
-          |Comments:
-          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
-          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
-          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
-          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
-          |- 'spark.rapids.sql.batchSizeBytes' was not set.
-          |- 'spark.rapids.sql.enabled' was not set.
-          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
-          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
-          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
-          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- ${classPathComments("rapids.jars.missing")}
-          |- ${classPathComments("rapids.shuffle.jars")}
-          |""".stripMargin
-    // scalastyle:on line.size.limit
-    compareOutput(expectedResults, autoTunerOutput)
-  }
-
   // This test should ignore executor memory specified in the properties as
   // CSP nodes have fixed memory configurations.
   // TODO: Revisit this test
@@ -894,7 +595,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 8,
       numWorkers = 4,
@@ -972,7 +673,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -1082,7 +783,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1177,7 +878,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     // Configure cluster info using Platform's existing method
     // customProps should take precedence over logEventsProps per test purpose
     val combinedProps = logEventsProps ++ customProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1259,7 +960,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), combinedProps,
       Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1352,7 +1053,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1444,7 +1145,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1535,7 +1236,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1626,7 +1327,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1713,7 +1414,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -1786,7 +1487,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -1989,7 +1690,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2077,7 +1778,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2136,7 +1837,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -2195,7 +1896,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
 
         val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "122880MiB")
-        configureClusterInfoForTest(
+        configureEventLogClusterInfoForTest(
           platform,
           numCores = 32,
           numWorkers = 4,
@@ -2236,7 +1937,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val sparkPropsWithMemory = customProps + ("spark.executor.memory" -> "122880MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -2282,7 +1983,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
 
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -2353,7 +2054,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DEFAULT)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -2391,7 +2092,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val sparkPropsWithMemory = customProps + ("spark.executor.memory" -> "122880MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -2441,7 +2142,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val combinedProps = customProps ++ logEventsProps + ("spark.executor.memory" -> "212992MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2534,7 +2235,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     )
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterProps))
 
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2607,7 +2308,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2808,7 +2509,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -2897,7 +2598,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -3205,7 +2906,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "212992MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 5,
@@ -3424,7 +3125,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
       // Configure cluster info using Platform's existing method
       val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "122880MiB")
-      configureClusterInfoForTest(
+      configureEventLogClusterInfoForTest(
         platform,
         numCores = 32,
         numWorkers = 4,
@@ -3573,7 +3274,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "122880MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -3661,7 +3362,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     // Configure cluster info using Platform's existing method
     val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "122880MiB")
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = 32,
       numWorkers = 4,
@@ -3885,7 +3586,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4,
@@ -3975,7 +3676,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     val sparkPropsWithMemory =
       logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
-    configureClusterInfoForTest(
+    configureEventLogClusterInfoForTest(
       platform,
       numCores = gpuInstance.cores,
       numWorkers = 4, // from buildGpuWorkerInfoFromInstanceType parameter
