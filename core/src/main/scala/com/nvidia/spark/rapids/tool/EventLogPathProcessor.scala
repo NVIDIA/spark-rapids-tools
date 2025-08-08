@@ -85,6 +85,60 @@ object EventLogPathProcessor extends Logging {
   private val EXCLUDED_EVENTLOG_NAME_KEYWORDS = Set("stdout", "stderr", "log4j", ".log.")
 
   /**
+   * Expand event log inputs from text files containing paths or return direct event log paths.
+   * If the path ends with .txt, it reads and expands the file to get event log paths.
+   * Otherwise, it treats the path as a direct event log path.
+   * Each non-empty line in txt files can optionally be a comma-separated list of paths.
+   */
+  private def expandEventLogsList(
+     eventLogsPaths: List[String], hadoopConf: Configuration): List[String] = {
+    val expandedPaths = eventLogsPaths.flatMap { pathString =>
+      if (pathString.toLowerCase.endsWith(".txt")) {
+        expandTextFile(pathString, hadoopConf)
+      } else {
+        // In case of a non-txt file, we accept it as an event log path
+        List(pathString)
+      }
+    }
+
+    if (expandedPaths.isEmpty && eventLogsPaths.nonEmpty) {
+      logWarning("No valid event log paths found. Ensure .txt files contain valid event log paths.")
+    }
+
+    expandedPaths
+  }
+
+  /**
+   * Read a text file (local or remote) and extract event log paths from it.
+   */
+  private def expandTextFile(filePath: String, hadoopConf: Configuration): List[String] = {
+    try {
+      val content = FSUtils.readFileContentAsUTF8(filePath, hadoopConf)
+      val tokens = content
+        .split("\n")
+        .toList
+        .flatMap(_.split(","))
+        .map(_.trim)
+        .filter(_.nonEmpty)
+        .filter { token =>
+          val isListFile = token.toLowerCase.endsWith(".txt") || token.toLowerCase.endsWith(".csv")
+          if (isListFile) {
+            logWarning(s"Skipping nested list file in $filePath: $token")
+          }
+          !isListFile
+        }
+      if (tokens.isEmpty) {
+        logWarning(s"No valid event log paths found in file: $filePath")
+      }
+      tokens
+    } catch {
+      case NonFatal(e) =>
+        logWarning(s"Failed to read event log list file: $filePath. Skipping file.", e)
+        List.empty
+    }
+  }
+
+  /**
    * Filter to identify valid event log files based on the criteria:
    *  - File should either not have any suffix or have a supported compression codec suffix
    *  - File should not contain any of the EXCLUDED_EVENTLOG_NAME_KEYWORDS keywords in its name
@@ -268,7 +322,8 @@ object EventLogPathProcessor extends Logging {
       minEventLogSize: Option[String] = None,
       fsStartTime: Option[String] = None,
       fsEndTime: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
-    val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
+    val expandedPaths = expandEventLogsList(eventLogsPaths, hadoopConf)
+    val logsPathNoWildCards = processWildcardsLogs(expandedPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
         // If no event logs are found in the path after wildcard expansion, return a failed event
