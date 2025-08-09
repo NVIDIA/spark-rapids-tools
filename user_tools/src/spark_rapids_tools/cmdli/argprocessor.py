@@ -218,11 +218,7 @@ class AbsToolUserArgModel:
             content = content.decode('utf-8', errors='ignore')
         for line in str(content).splitlines():
             candidate = line.strip()
-            if candidate:
-                return candidate
-        # This should not happen due to validation in determine_eventlogs_arg_type(),
-        # but handle the edge case where no valid lines are found
-        raise ValueError(f'No valid eventlog paths found in TXT file: {file_path}')
+            return candidate
 
     def get_processed_eventlogs(self) -> str:
         """

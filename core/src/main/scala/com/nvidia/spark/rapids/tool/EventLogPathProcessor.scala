@@ -96,7 +96,8 @@ object EventLogPathProcessor extends Logging {
       if (pathString.toLowerCase.endsWith(".txt")) {
         expandTextFile(pathString, hadoopConf)
       } else {
-        // In case of a non-txt file, we accept it as an event log path
+        // In case of a non-txt file, we assume it is a valid event log path
+        // This can later be expanded to support other file types
         List(pathString)
       }
     }
@@ -120,13 +121,6 @@ object EventLogPathProcessor extends Logging {
         .flatMap(_.split(","))
         .map(_.trim)
         .filter(_.nonEmpty)
-        .filter { token =>
-          val isListFile = token.toLowerCase.endsWith(".txt") || token.toLowerCase.endsWith(".csv")
-          if (isListFile) {
-            logWarning(s"Skipping nested list file in $filePath: $token")
-          }
-          !isListFile
-        }
       if (tokens.isEmpty) {
         logWarning(s"No valid event log paths found in file: $filePath")
       }
