@@ -176,7 +176,7 @@ def _get_calib_params(platform: str,
         is located under the resources directory.
     variant: str
         Value of the `sparkRuntime` column from the `application_information.csv` file from the profiler tool.
-        If set, will be used to load a pre-trained model matching the platform and variant.
+        If set, it will be used to load a pre-trained model matching the platform and variant.
 
     Returns
     -------

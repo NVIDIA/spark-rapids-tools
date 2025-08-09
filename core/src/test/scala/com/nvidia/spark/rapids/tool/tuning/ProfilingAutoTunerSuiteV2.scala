@@ -23,7 +23,7 @@ import com.nvidia.spark.rapids.tool.profiling.Profiler
 
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.annotation.Since
-import org.apache.spark.sql.rapids.tool.util.PropertiesLoader
+
 
 /**
  * Test suite for the Profiling AutoTuner that uses the new target cluster properties format.
@@ -52,9 +52,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -82,9 +79,18 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -150,9 +156,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -174,9 +177,18 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -241,9 +253,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -264,9 +273,18 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -484,10 +502,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // AutoTuner is expected to:
   // - Include the enforced Spark properties in the final configuration.
   test("Target cluster properties for OnPrem with enforced spark properties") {
-    // 1. Mock source cluster info for OnPrem
-    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("50g"))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -513,10 +527,17 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "50g")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 1,
+      gpuCount = 2, // default for OnPrem
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -524,14 +545,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       s"""|
           |Spark Properties:
           |--conf spark.executor.memory=16g
-          |--conf spark.executor.memoryOverhead=9g
+          |--conf spark.executor.memoryOverhead=9830m
           |--conf spark.executor.resource.gpu.vendor=nvidia.com
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=3789m
+          |--conf spark.rapids.memory.pinnedPool.size=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
-          |--conf spark.rapids.sql.concurrentGpuTasks=2
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
@@ -560,7 +581,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- $missingGpuDiscoveryScriptComment
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -574,10 +595,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // - Calculate overhead using the max pinned pool size (4g),
   // - Include the enforced Spark properties in the final configuration.
   test("Target cluster properties for OnPrem with workerInfo and enforced spark properties") {
-    // 1. Mock source cluster info for OnPrem
-    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -614,10 +631,17 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8, // from eventLog
+      numWorkers = 2,
+      gpuCount = 1, // target cluster has 1 L4
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -661,7 +685,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- $missingGpuDiscoveryScriptComment
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -673,10 +697,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // AutoTuner is expected to warn about the insufficient executor memory configuration.
   test("Target cluster properties for OnPrem with total executor memory " +
     "exceeding available worker memory") {
-    // 1. Mock source cluster info for OnPrem
-    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -711,10 +731,17 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 16, // from eventLog
+      numWorkers = 2,
+      gpuCount = 2, // target cluster has 2 L4s
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -762,7 +789,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- ${notEnoughMemComment(24371)}
-          |- $missingGpuDiscoveryScriptComment
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -833,10 +860,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // - Recommend `spark.rapids.sql.concurrentGpuTasks` to a value of 4 since L20
   //   has high memory.
   test("Target cluster properties for OnPrem with worker having L20 GPU") {
-    // 1. Mock source cluster info for OnPrem
-    val sourceWorkerInfo = buildGpuWorkerInfoAsString(None, Some(8), Some("14000MiB"))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -859,10 +882,17 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "14000MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8, // from eventLog
+      numWorkers = 2,
+      gpuCount = 1, // target cluster has 1 L20
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -904,7 +934,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- $missingGpuDiscoveryScriptComment
+          |- ${missingGpuDiscoveryScriptComment}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -918,9 +948,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("n1-standard-16", Option(1))
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
 
     // 2. Mock the properties loaded from eventLog with the aliased property
     val logEventsProps: mutable.Map[String, String] =
@@ -960,10 +987,18 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       meanInput = 60000.0,  // > 35000 (AQE_INPUT_SIZE_BYTES_THRESHOLD)
       meanShuffleRead = 70000.0  // > 50000 (AQE_SHUFFLE_READ_BYTES_THRESHOLD)
     )
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(
-      sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
 
@@ -1045,9 +1080,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1073,10 +1105,23 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       default = defaultTuningConfigsEntries)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt)
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner =
+      buildAutoTunerForTests(
+        infoProvider,
+        platform,
+        Some(Kubernetes),
+        Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -1139,9 +1184,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1164,13 +1206,22 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       default = defaultTuningConfigsEntries)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt)
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
 
     // AutoTuner should throw IllegalArgumentException due to invalid tuning config name
     assertThrows[IllegalArgumentException] {
-      val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-        userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+      val autoTuner =
+        buildAutoTunerForTests(infoProvider, platform, None, Some(userProvidedTuningConfigs))
       autoTuner.getRecommendedProperties()
     }
   }
@@ -1181,9 +1232,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // 1. Mock source cluster info for dataproc
     val instanceMapKey = NodeInstanceMapKey("g2-standard-16")
     val gpuInstance = PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME(instanceMapKey)
-    val sourceWorkerInfo = buildGpuWorkerInfoFromInstanceType(gpuInstance, Some(4))
-    val sourceClusterInfoOpt =
-      PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     // 2. Mock the properties loaded from eventLog
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -1196,10 +1244,18 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
       Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC,
-      sourceClusterInfoOpt)
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Yarn))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    val sparkPropsWithMemory =
+      logEventsProps + ("spark.executor.memory" -> (gpuInstance.memoryMB.toString + "MiB"))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = gpuInstance.cores,
+      numWorkers = 4,
+      gpuCount = gpuInstance.numGpus,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit

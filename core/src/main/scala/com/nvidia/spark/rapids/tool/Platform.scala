@@ -19,7 +19,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
+import com.nvidia.spark.rapids.tool.tuning.{SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -239,11 +239,9 @@ object PlatformInstanceTypes {
  * Represents a platform and its associated recommendations.
  *
  * @param gpuDevice Gpu Device present in the platform
- * @param clusterProperties Cluster Properties passed into the tool as worker info
  * @param targetCluster Target cluster information (e.g. instance type, GPU type)
  */
 abstract class Platform(var gpuDevice: Option[GpuDevice],
-    val clusterProperties: Option[ClusterProperties],
     val targetCluster: Option[TargetClusterProps]) extends Logging {
   def platformName: String
   private def defaultRecommendedWorkerNode: Option[NodeInstanceMapKey] = {
@@ -717,9 +715,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 }
 
 abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends Platform(gpuDevice, clusterProperties, targetCluster) {
+  extends Platform(gpuDevice, targetCluster) {
   override val sparkVersionLabel: String = "Databricks runtime"
   override def isPlatformCSP: Boolean = true
 
@@ -765,9 +762,8 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
 }
 
 class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster)
+  extends DatabricksPlatform(gpuDevice, targetCluster)
   with Logging {
   override def platformName: String = PlatformNames.DATABRICKS_AWS
 
@@ -783,9 +779,8 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends DatabricksPlatform(gpuDevice, clusterProperties, targetCluster) {
+  extends DatabricksPlatform(gpuDevice, targetCluster) {
   override def platformName: String = PlatformNames.DATABRICKS_AZURE
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
@@ -800,9 +795,8 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
 }
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends Platform(gpuDevice, clusterProperties, targetCluster) {
+  extends Platform(gpuDevice, targetCluster) {
   override def platformName: String = PlatformNames.DATAPROC
 
   // scalastyle:off line.size.limit
@@ -829,9 +823,8 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 }
 
 class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends DataprocPlatform(gpuDevice, clusterProperties, targetCluster) {
+  extends DataprocPlatform(gpuDevice, targetCluster) {
 
   override def platformName: String = PlatformNames.DATAPROC_SL
   override def defaultGpuDevice: GpuDevice = L4Gpu
@@ -839,18 +832,16 @@ class DataprocServerlessPlatform(gpuDevice: Option[GpuDevice],
 }
 
 class DataprocGkePlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends DataprocPlatform(gpuDevice, clusterProperties, targetCluster) {
+  extends DataprocPlatform(gpuDevice, targetCluster) {
 
   override def platformName: String = PlatformNames.DATAPROC_GKE
   override def isPlatformCSP: Boolean = true
 }
 
 class EmrPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends Platform(gpuDevice, clusterProperties, targetCluster) {
+  extends Platform(gpuDevice, targetCluster) {
   override def platformName: String = PlatformNames.EMR
 
   // scalastyle:off line.size.limit
@@ -889,9 +880,8 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 }
 
 class OnPremPlatform(gpuDevice: Option[GpuDevice],
-    clusterProperties: Option[ClusterProperties],
     targetCluster: Option[TargetClusterProps])
-  extends Platform(gpuDevice, clusterProperties, targetCluster) {
+  extends Platform(gpuDevice, targetCluster) {
 
   override def platformName: String = PlatformNames.ONPREM
   override def defaultGpuDevice: GpuDevice = L4Gpu
@@ -988,25 +978,24 @@ object PlatformFactory extends Logging {
   @tailrec
   private def createPlatformInstance(platformName: String,
       gpuDevice: Option[GpuDevice],
-      clusterProperties: Option[ClusterProperties],
       targetCluster: Option[TargetClusterProps]): Platform = platformName match {
     case PlatformNames.DATABRICKS_AWS =>
-      new DatabricksAwsPlatform(gpuDevice, clusterProperties, targetCluster)
+      new DatabricksAwsPlatform(gpuDevice, targetCluster)
     case PlatformNames.DATABRICKS_AZURE =>
-      new DatabricksAzurePlatform(gpuDevice, clusterProperties, targetCluster)
+      new DatabricksAzurePlatform(gpuDevice, targetCluster)
     case PlatformNames.DATAPROC =>
-      new DataprocPlatform(gpuDevice, clusterProperties, targetCluster)
+      new DataprocPlatform(gpuDevice, targetCluster)
     case PlatformNames.DATAPROC_GKE =>
-      new DataprocGkePlatform(gpuDevice, clusterProperties, targetCluster)
+      new DataprocGkePlatform(gpuDevice, targetCluster)
     case PlatformNames.DATAPROC_SL =>
-      new DataprocServerlessPlatform(gpuDevice, clusterProperties, targetCluster)
+      new DataprocServerlessPlatform(gpuDevice, targetCluster)
     case PlatformNames.EMR =>
-      new EmrPlatform(gpuDevice, clusterProperties, targetCluster)
+      new EmrPlatform(gpuDevice, targetCluster)
     case PlatformNames.ONPREM =>
-      new OnPremPlatform(gpuDevice, clusterProperties, targetCluster)
+      new OnPremPlatform(gpuDevice, targetCluster)
     case p if p.isEmpty =>
       logInfo(s"Platform is not specified. Using ${PlatformNames.DEFAULT} as default.")
-      createPlatformInstance(PlatformNames.DEFAULT, gpuDevice, clusterProperties, targetCluster)
+      createPlatformInstance(PlatformNames.DEFAULT, gpuDevice, targetCluster)
     case _ =>
       throw new IllegalArgumentException(s"Unsupported platform: $platformName. " +
         s"Options include ${PlatformNames.getAllNames.mkString(", ")}.")
@@ -1016,11 +1005,9 @@ object PlatformFactory extends Logging {
    * Creates an instance of `Platform` based on the specified platform key.
    *
    * @param platformKey The key identifying the platform. Defaults to `PlatformNames.DEFAULT`.
-   * @param clusterProperties Optional cluster properties if the user specified them.
    * @param targetClusterProps Optional target cluster properties if the user specified them.
    */
   def createInstance(platformKey: String = PlatformNames.DEFAULT,
-      clusterProperties: Option[ClusterProperties] = None,
       targetClusterProps: Option[TargetClusterProps] = None): Platform = {
     // TODO: Remove platformKey containing GPU name
     val (platformName, gpuName) = extractPlatformGpuName(platformKey)
@@ -1035,7 +1022,7 @@ object PlatformFactory extends Logging {
           s"Supported GPU devices are: ${GpuDevice.deviceMap.keys.mkString(", ")}.")
     }
     val platform = createPlatformInstance(platformName, gpuDevice,
-      clusterProperties, targetClusterProps)
+      targetClusterProps)
     logInfo(s"Using platform: $platform")
     platform
   }

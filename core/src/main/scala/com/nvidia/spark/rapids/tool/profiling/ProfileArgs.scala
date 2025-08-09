@@ -111,10 +111,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Output the SQL Ids after being cleaned of delta log metadata operations to " +
         "allow aligning cpu/gpu runs.",
       default = Some(false))
-  val workerInfo: ScallopOption[String] =
-    opt[String](required = false,
-      descr = "File path containing the system information of a worker node. It is assumed " +
-        "that all workers are homogenous. It requires the AutoTuner to be enabled")
   val enableDiagnosticViews: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Toggle diagnostic views generation. Disabled by default.",

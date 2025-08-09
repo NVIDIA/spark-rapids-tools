@@ -26,12 +26,11 @@ import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
  * implement the logic to recommend AutoTuner configurations by the Qualification Tool.
  */
 class QualificationAutoTuner(
-    clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider,
     userProvidedTuningConfigs: Option[TuningConfigsProvider])
-  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+  extends AutoTuner(appInfoProvider, platform, driverInfoProvider,
     userProvidedTuningConfigs, QualificationAutoTunerHelper) {
 
   /**
@@ -80,7 +79,6 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
     ConstantTotalCoresStrategy
 
   override def createAutoTunerInstance(
-      clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider,
@@ -88,6 +86,6 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
     // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
     //       passed to the `QualificationAutoTuner` instance.
     new QualificationAutoTuner(
-      clusterProps, appInfoProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
+      appInfoProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
   }
 }
