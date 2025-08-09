@@ -160,7 +160,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         logEventsProps, Some(testSparkVersion))
       val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
-
       // Configure cluster info: 16 cores, 2 workers, 2 GPUs per worker = 4 total executors
       platform.configureClusterInfoFromEventLog(
         coresPerExecutor = 16,
@@ -170,7 +169,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         sparkProperties = sparkPropsWithMemory.toMap,
         systemProperties = Map.empty
       )
-
       val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
       val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
         QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
