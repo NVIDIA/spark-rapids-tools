@@ -158,11 +158,10 @@ class AbsToolUserArgModel:
         if CspPath.is_file_path(self.get_eventlogs(), extensions=['txt'], raise_on_error=False):
             if self._validate_eventlogs_txt_file(self.get_eventlogs()):
                 return ArgValueCase.VALUE_B
-            else:
-                raise PydanticCustomError(
-                    'eventlogs_file',
-                    f'Invalid eventlogs TXT file: {self.get_eventlogs()}. '
-                    f'File must be a valid text file with at least one non-empty line.\n  Error:')
+            raise PydanticCustomError(
+                'eventlogs_file',
+                f'Invalid eventlogs TXT file: {self.get_eventlogs()}. '
+                f'File must be a valid text file with at least one non-empty line.\n  Error:')
         return ArgValueCase.VALUE_A
 
     def raise_validation_exception(self, validation_err: str):
@@ -221,6 +220,9 @@ class AbsToolUserArgModel:
             candidate = line.strip()
             if candidate:
                 return candidate
+        # This should not happen due to validation in determine_eventlogs_arg_type(),
+        # but handle the edge case where no valid lines are found
+        raise ValueError(f'No valid eventlog paths found in TXT file: {file_path}')
 
     def get_processed_eventlogs(self) -> str:
         """
@@ -229,15 +231,14 @@ class AbsToolUserArgModel:
         For direct paths, returns the original string as-is.
         """
         if self.get_eventlogs() is None:
-            return ""
+            return ''
 
         eventlog_type = self.determine_eventlogs_arg_type()
         if eventlog_type == ArgValueCase.VALUE_B:
             return self.get_eventlogs()
-        elif eventlog_type == ArgValueCase.VALUE_A:
+        if eventlog_type == ArgValueCase.VALUE_A:
             return self.get_eventlogs()
-        else:
-            return ""
+        return ''
 
     def detect_platform_from_eventlogs_prefix(self):
         map_storage_to_platform = {
@@ -249,10 +250,9 @@ class AbsToolUserArgModel:
         }
 
         eventlog_type = self.determine_eventlogs_arg_type()
-
         if eventlog_type == ArgValueCase.VALUE_B:
             first_eventlog = self._get_first_eventlog_from_txt(self.get_eventlogs())
-        elif eventlog_type == ArgValueCase.VALUE_A:
+        else:
             first_eventlog = self.get_eventlogs().split(',')[0]
 
         ev_logs_path = CspPath(first_eventlog)
