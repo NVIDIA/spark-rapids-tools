@@ -677,13 +677,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       platform,
       numCores = 32,
       numWorkers = 4,
-      gpuCount = 2,
-      sparkProperties = Map(
-        "spark.rapids.sql.enabled" -> "true",
-        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
-        "spark.executor.resource.gpu.amount" -> "1",
-        "spark.executor.memory" -> "122880MiB"
-      )
+      gpuCount = 2
     )
     // scalastyle:off line.size.limit
     val expectedResults =
@@ -1993,7 +1987,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
     val autoTuner: AutoTuner = ProfilingAutoTunerHelper
       .buildAutoTunerFromProps(
-        getGpuAppMockInfoProvider( propsFromLog = customProps), platform, driverInfoProvider)
+        getGpuAppMockInfoProvider(propsFromLog = customProps), platform, driverInfoProvider)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -2382,10 +2376,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
           DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
         Some(databricksVersion), Seq())
-      // Do not set the platform as DB to see if it can work correctly irrespective
       val autoTuner = buildAutoTunerForTests(
         infoProvider,
-      PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
+        PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
       // Assert shuffle manager string for given Databricks version
       verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = smVersion)
     }
@@ -2441,7 +2434,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = buildAutoTunerForTests(
       infoProvider,
-    PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
+      PlatformFactory.createInstance(PlatformNames.DATABRICKS_AWS))
     verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
   }
 
@@ -3243,7 +3236,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
             |- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
             |- ${classPathComments("rapids.shuffle.jars")}
             |- ${notEnoughMemComment(40140)}
-            |- ${missingGpuDiscoveryScriptComment}
+            |- $missingGpuDiscoveryScriptComment
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualResults)

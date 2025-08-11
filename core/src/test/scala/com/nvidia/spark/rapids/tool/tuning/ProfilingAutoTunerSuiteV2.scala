@@ -581,7 +581,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- ${missingGpuDiscoveryScriptComment}
+          |- $missingGpuDiscoveryScriptComment
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -685,7 +685,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${getEnforcedPropertyComment("spark.task.resource.gpu.amount")}
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- ${missingGpuDiscoveryScriptComment}
+          |- $missingGpuDiscoveryScriptComment
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -789,7 +789,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- ${notEnoughMemComment(24371)}
-          |- ${missingGpuDiscoveryScriptComment}
+          |- $missingGpuDiscoveryScriptComment
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -934,7 +934,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
-          |- ${missingGpuDiscoveryScriptComment}
+          |- $missingGpuDiscoveryScriptComment
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
