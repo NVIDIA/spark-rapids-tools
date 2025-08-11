@@ -659,16 +659,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         enforcedSparkProperties = enforcedSparkProps
       )
 
-      // Build worker info with GPU configuration (for source cluster)
-      val workerInfo = buildWorkerInfoAsString(
-        customProps = None,
-        numCores = Some(20),
-        systemMemory = Some("8g"),
-        numWorkers = Some(1)
-      )
-
-      // Create cluster properties
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
       val infoProvider = getMockInfoProvider(
         maxInput = 0.0,
         spilledMetrics = Seq(0),
@@ -692,14 +682,18 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       default = defaultTuningConfigsEntries)
 
     // Create platform with target cluster info
-    val platform = PlatformFactory.createInstance(
-      PlatformNames.ONPREM,
-      clusterPropsOpt,
-      Some(targetClusterInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 20,
+      execsPerNode = 1,
+      numExecs = 4,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
     )
 
     // Build AutoTuner
-    val autoTuner = buildAutoTunerForTests(workerInfo, infoProvider, platform,
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform,
       sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -765,9 +759,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${getEnforcedPropertyComment("spark.vcore.boost.ratio")}
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $missingGpuDiscoveryScriptComment
