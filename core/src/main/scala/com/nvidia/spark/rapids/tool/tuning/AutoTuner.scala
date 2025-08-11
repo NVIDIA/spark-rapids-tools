@@ -251,8 +251,10 @@ object SparkMaster {
     master.flatMap {
       case url if url.contains("yarn") => Some(Yarn)
       case url if url.contains("k8s") => Some(Kubernetes)
-      case url if url.contains("local") => Some(Local)
+      // Check for standalone Spark master before local mode as it can also contain "local"
+      // E.g. spark://localhost:7077
       case url if url.contains("spark://") => Some(Standalone)
+      case url if url.contains("local") => Some(Local)
       case _ => None
     }
   }
@@ -903,17 +905,9 @@ abstract class AutoTuner(
     // only if we were able to figure out a node type to recommend do we make
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
-      // Since executor. executor level property, we only recommend it if it is not set.
-      val isUnsetOrZero = getPropertyValue("spark.executor.resource.gpu.amount").forall { v =>
-        v.trim.isEmpty || scala.util.Try(v.toLong).toOption.contains(0L)
-      }
-      if (isUnsetOrZero) {
-        appendRecommendation("spark.executor.resource.gpu.amount",
-          tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault.toLong)
-      }
-      // However, for task GPU resources, always recommend.
       // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
       // by `spark.executor.cores`.
+      recommendExecutorResourceGpuProps()
       appendRecommendation("spark.task.resource.gpu.amount",
         tuningConfigs.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
       appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
@@ -1405,31 +1399,65 @@ abstract class AutoTuner(
     }
   }
 
-  private def recommendPluginProps(): Unit = {
-    // Set the plugin to True without need to check if it is already set.
-    appendRecommendation("spark.rapids.sql.enabled", "true")
+  /**
+   * Internal method to recommend plugin properties based on the Tool.
+   */
+  protected def recommendPluginPropsInternal(): Unit
 
-    // Recommend adding the RAPIDS SQLPlugin if not already present
-    val pluginAdded = recommendClassNameProperty("spark.plugins",
-      autoTunerHelper.rapidsPluginClassName)
-    if (pluginAdded) {
-      // Set GPU discovery script for YARN and Kubernetes
+  private def recommendPluginProps(): Unit = {
+    val isRapidsPluginConfigured = getPropertyValue("spark.plugins") match {
+      case Some(f) => f.contains(autoTunerHelper.rapidsPluginClassName)
+      case None => false
+    }
+    if (!isRapidsPluginConfigured) {
+      recommendPluginPropsInternal()
+    }
+    // Always recommend setting 'spark.rapids.sql.enabled=true', regardless of current setting.
+    appendRecommendation("spark.rapids.sql.enabled", "true")
+  }
+
+  /**
+   * Recommend additional executor resource GPU properties.
+   * - spark.executor.resource.gpu.amount: recommended if unset or set to 0
+   * - spark.executor.resource.gpu.discoveryScript: comment if YARN, k8s or Standalone (On-Prem)
+   * - spark.executor.resource.gpu.vendor: recommended if k8s (On-Prem)
+   */
+  private def recommendExecutorResourceGpuProps(): Unit = {
+    val gpuAmountKey = "spark.executor.resource.gpu.amount"
+    val gpuAmountValueOpt = getPropertyValue(gpuAmountKey)
+    val isUnsetOrZero = gpuAmountValueOpt.forall { v =>
+      v.trim.isEmpty || scala.util.Try(v.toLong).toOption.contains(0L)
+    }
+    if (isUnsetOrZero) {
+      val recommendedGpuAmount =
+        tuningConfigs.getEntry("EXECUTOR_GPU_RESOURCE_AMT").getDefault
+      appendRecommendation(gpuAmountKey, recommendedGpuAmount)
+    }
+
+    // Include additional executor resource GPU properties for On-Prem
+    // Avoid recommending these for CSPs as they are handled by the platform.
+    if (!platform.isPlatformCSP) {
+      // If YARN,Kubernetes or Standalone, recommend GPU discovery script
       // See: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
-      sparkMaster match {
-        case Some(Yarn) =>
-          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
-            autoTunerHelper.defaultGpuDiscoveryScript)
-        case Some(Kubernetes) =>
-          appendRecommendation("spark.executor.resource.gpu.discoveryScript",
-            autoTunerHelper.defaultGpuDiscoveryScript)
-          appendRecommendation("spark.executor.resource.gpu.vendor",
-            autoTunerHelper.kubernetesGpuVendor)
-        case _ =>
-        // No discovery script needed for other cluster managers
+      val isYarnK8sOrStandalone = sparkMaster.exists {
+        case Yarn | Kubernetes | Standalone => true
+        case _ => false
       }
-      appendComment("RAPIDS Accelerator for Apache Spark jar is missing in \"spark.plugins\". " +
-        "Please refer to " +
-        "https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html")
+      // If the GPU discovery script is not set or is empty
+      val gpuDiscoveryScriptIsMissing =
+        getPropertyValue("spark.executor.resource.gpu.discoveryScript")
+        .forall(_.trim.isEmpty)
+      if (isYarnK8sOrStandalone && gpuDiscoveryScriptIsMissing) {
+        appendComment(missingGpuDiscoveryScriptComment)
+      }
+
+      // For Kubernetes, recommend setting the GPU vendor property
+      if (sparkMaster.contains(Kubernetes)) {
+        appendRecommendation(
+          "spark.executor.resource.gpu.vendor",
+          autoTunerHelper.kubernetesGpuVendor
+        )
+      }
     }
   }
 
@@ -1451,7 +1479,7 @@ abstract class AutoTuner(
    * @param className The class name to add if missing
    * @return True if a recommendation was made, false if the class name was already present
    */
-  private def recommendClassNameProperty(propertyKey: String, className: String): Boolean = {
+  protected def recommendClassNameProperty(propertyKey: String, className: String): Boolean = {
     val existingClasses = getPropertyValue(propertyKey)
       .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
       .getOrElse(Array.empty)
@@ -1566,7 +1594,7 @@ abstract class AutoTuner(
       configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
-      recommendPluginProps
+      recommendPluginProps()
       calculateJobLevelRecommendations()
       calculateClusterLevelRecommendations()
 
@@ -1813,6 +1841,14 @@ class ProfilingAutoTuner(
       calculatedValue
     }
   }
+
+  /**
+   * Profiling AutoTuner retains existing "spark.plugins" property and
+   * RAPIDS plugin is added to it.
+   */
+  override def recommendPluginPropsInternal(): Unit = {
+    recommendClassNameProperty("spark.plugins", autoTunerHelper.rapidsPluginClassName)
+  }
 }
 
 /**
@@ -1829,8 +1865,6 @@ trait AutoTunerHelper extends Logging {
   lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
   lazy val rapidsPluginClassName = "com.nvidia.spark.SQLPlugin"
   lazy val kubernetesGpuVendor = "nvidia.com"
-  lazy val defaultGpuDiscoveryScript =
-    "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh"
 
   // Recommended values for specific unsupported configurations
   lazy val unsupportedOperatorRecommendations: Map[String, String] = Map(
@@ -1978,6 +2012,27 @@ trait AutoTunerStaticComments {
 
   def shuffleManagerCommentForMissingVersion: String = {
     "Could not recommend RapidsShuffleManager as Spark version cannot be determined."
+  }
+
+  /**
+   * Comment for missing GPU discovery script.
+   * Since this comment is conditional, it is not included in the
+   * tuningTable yaml.
+   */
+  def missingGpuDiscoveryScriptComment: String = {
+    s"""
+       |To enable Spark to discover and schedule GPU resources, set the
+       |'spark.executor.resource.gpu.discoveryScript' property according to cluster
+       |manager's documentation. Sample discovery script is available at
+       |'$${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh'.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
+
+  def additionalSparkPluginsComment: String = {
+    """
+      |To include additional plugins for the GPU cluster, specify 'spark.plugins' in the
+      |'sparkProperties.enforced' section in '--target_cluster_info'.
+      |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 
   def latestPluginJarComment(latestJarMvnUrl: String, currentJarVer: String): String = {

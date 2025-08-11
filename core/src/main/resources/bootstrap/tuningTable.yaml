@@ -375,8 +375,6 @@ tuningDefinitions:
     category: functionality
     confType:
       name: string
-    comments:
-      missing: should be set to allow Spark to discover GPU resources.
   - label: spark.executor.resource.gpu.vendor
     description: >-
       The vendor of the GPU resource. This is needed for k8s clusters.
@@ -389,8 +387,6 @@ tuningDefinitions:
     category: functionality
     confType:
       name: string
-    comments:
-      missing: should be set to "nvidia.com" for NVIDIA GPUs in k8s clusters.
   - label: spark.plugins
     description: >-
       A comma-separated list of plugin class names to be loaded by Spark.
@@ -401,4 +397,9 @@ tuningDefinitions:
     confType:
       name: string
     comments:
-      missing: should include "com.nvidia.spark.SQLPlugin" to enable the RAPIDS Accelerator plugin.
+      missing: |-
+        should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+      updated: |-
+        should include the class name required for the RAPIDS Accelerator for Apache Spark.
+          Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
