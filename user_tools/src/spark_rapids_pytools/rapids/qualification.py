@@ -543,7 +543,7 @@ class Qualification(QualificationCore):
                                      qual=qual_output_dir,
                                      output_info=output_info,
                                      model=estimation_model_args['customModelFile'],
-                                     config=estimation_model_args['config'],
+                                     config=estimation_model_args['qualxConfig'],
                                      qual_handlers=[qual_handler])
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
