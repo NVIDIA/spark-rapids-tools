@@ -29,7 +29,8 @@ import fire
 
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.api_v1 import QualCoreResultHandler
-from spark_rapids_tools.api_v1.builder import CSVReport, CSVCombiner, APIResultHandler
+from spark_rapids_tools.api_v1.builder import CSVReport, APIResultHandler, APIUtils, LoadRawFilesResult, \
+    CSVReportCombiner
 
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
@@ -213,15 +214,16 @@ def _get_qual_data(qual_handler: QualCoreResultHandler) -> Tuple[Optional[pd.Dat
     # 1- uses the default combination method which is dedicated to use the appHanlder to combine the results.
     # 2- ignore the failed execs. i.e., apps that has no execs. Otherwise, it is possible to add a call-back to handle
     # the apps that had no execs.
-    q_execs_res = (
-        CSVCombiner(rep_builder=CSVReport(qual_handler).table('execCSVReport'))  # use ExecsCSV report
-        .on_apps()                                                               # combine DFs on apps
-        .combine_args({'col_names': ['App ID']})                                 # inject cols when combining on apps
-        .build()                                                                 # combine the results
+    execs_process_res = LoadRawFilesResult(ds_name='QualTool execs')
+    APIUtils.process_res(
+        raw_res=execs_process_res,
+        combiner=CSVReportCombiner(
+            rep_builders=[
+                CSVReport(qual_handler)
+                .table('execCSVReport')]
+        ).on_app_fields({'app_id': 'App ID'})  # use "App ID" to be consistent with the remaining qualx code.
     )
-    if not q_execs_res.success:
-        raise RuntimeError(f'Failed to load execution CSV report: {q_execs_res.load_error}') from q_execs_res.load_error
-    node_level_supp = load_qtool_execs(q_execs_res.data)
+    node_level_supp = load_qtool_execs(execs_process_res.reports.get('execCSVReport'))
 
     return node_level_supp, qualtool_summary
 
@@ -743,15 +745,19 @@ def predict(
 
     if not qual_handlers:
         raise ValueError('qual_handlers list is empty - no qualification data available for prediction')
+    if all(q_handler.is_empty() for q_handler in qual_handlers):
+        logger.warning('All qualification handlers are empty - no apps to predict')
+        return pd.DataFrame()
 
     node_level_supp, qual_tool_output, qual_metrics = _get_combined_qual_data(qual_handlers)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
     default_preds_df = qual_tool_output.apply(create_row_with_default_speedup, axis=1)
 
-    if len(qual_metrics) == 0:
-        logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
-        return pd.DataFrame()
+    # it is too early to decide whether to there are raw metrics or not
+    # if  any(qual_metrics) == 0:
+    #     logger.warning('Qualification tool metrics are missing. Speedup predictions will be skipped.')
+    #     return pd.DataFrame()
 
     # construct mapping of appIds to original appNames
     app_id_name_map = default_preds_df.set_index('appId')['appName'].to_dict()

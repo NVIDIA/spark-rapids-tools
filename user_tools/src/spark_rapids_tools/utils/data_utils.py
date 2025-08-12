@@ -24,6 +24,7 @@ import pandas as pd
 from jproperties import Properties
 
 from spark_rapids_tools import CspPathT
+from spark_rapids_tools.utils import Utilities
 
 ResDataT = TypeVar('ResDataT')
 
@@ -44,9 +45,15 @@ class AbstractReportResult(Generic[ResDataT]):
     load_error: Optional[Exception] = None
 
     def get_fail_cause(self) -> Optional[Exception]:
-        if self.load_error:
-            return self.load_error.__cause__
-        return None
+        """
+        Get the root cause of the failure if any. If the exception was raised from another,
+        return the original exception; otherwise, return the direct exception.
+        :return: the root exception if any
+        """
+        exc = self.load_error
+        while exc and exc.__cause__ is not None:
+            exc = exc.__cause__
+        return exc
 
 
 @dataclass
@@ -117,6 +124,15 @@ class DataUtils:
     """
     Utility functions to use common data handling such as reading an opening CSV files.
     """
+
+    @staticmethod
+    def cols_to_camel_case(col_names: List[str]) -> Dict[str, str]:
+        """
+        Map the column names to camelCase.
+        :param col_names: The list of column names to map.
+        :return: A dictionary mapping the original column names to their camelCase equivalents.
+        """
+        return {col: Utilities.str_to_camel(col) for col in col_names}
 
     @staticmethod
     def convert_df_to_dict(df: pd.DataFrame) -> List[dict[str, str]]:

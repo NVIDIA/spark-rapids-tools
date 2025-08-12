@@ -36,6 +36,7 @@ from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRec
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
+from spark_rapids_tools.tools.qualx.revamp.x_main import predict_x
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -541,10 +542,17 @@ class Qualification(QualificationCore):
         try:
             # Build the QualCore handler object to handle the prediction model output
             q_core_handler = APIResultHandler().qual_core().with_path(qual_output_dir).build()
-            predictions_df = predict(platform=model_name, qual=qual_output_dir,
-                                     output_info=output_info,
-                                     model=estimation_model_args['customModelFile'],
-                                     qual_handlers=[q_core_handler])
+            if Utils.get_rapids_tools_env('QUALX_REVAMP'):
+                predictions_df = predict_x(platform=model_name,
+                                           qual=qual_output_dir,
+                                           output_info=output_info,
+                                           model=estimation_model_args['customModelFile'],
+                                           qual_handlers=[q_core_handler])
+            else:
+                predictions_df = predict(platform=model_name, qual=qual_output_dir,
+                                         output_info=output_info,
+                                         model=estimation_model_args['customModelFile'],
+                                         qual_handlers=[q_core_handler])
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(

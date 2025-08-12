@@ -443,3 +443,18 @@ class Utilities:
             # Add more mappings for other Scala types as needed
         }
         return scala_to_pandas_map.get(scala_type, 'object')  # Default to object for unknown types.
+
+    @staticmethod
+    def str_to_camel(s: str) -> str:
+        """
+        Convert a string to camel case.
+        Adopted from
+        https://www.30secondsofcode.org/python/s/string-capitalize-camel-snake-kebab/#camel-case-string
+        > To convert a string to camel case, you can use re.sub() to replace any - or _ with a space,
+        > using the regexp r"(_|-)+". Then, use str.title() to capitalize every word and convert the
+        > rest to lowercase. Finally, use str.replace() to remove any spaces between words.
+        :param s: The input string.
+        :return: The camel case version of the input string.
+        """
+        s = re.sub(r'([_\-])+', ' ', s).title().replace(' ', '')
+        return ''.join([s[0].lower(), s[1:]])

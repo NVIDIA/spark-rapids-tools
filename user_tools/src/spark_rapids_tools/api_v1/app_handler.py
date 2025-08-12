@@ -13,12 +13,15 @@
 # limitations under the License.
 
 """module that defines the app descriptor for the results loaded by the tools."""
-
+import re
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import pandas as pd
+from pydantic.alias_generators import to_camel
+
+from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
@@ -31,6 +34,56 @@ class AppHandler(object):
     _app_name: Optional[str] = field(default='UNKNOWN_APP')
     # this will be loaded from the core-status csv report
     eventlog_path: Optional[str] = None
+
+    @staticmethod
+    def get_pd_dtypes() -> Dict[str, str]:
+        """
+        Get the pandas data types for the AppHandler attributes.
+        :return: Dictionary mapping attribute names to pandas data types.
+        """
+        return {
+            'app_id': Utilities.scala_to_pandas_type('String'),
+            'attempt_id': Utilities.scala_to_pandas_type('Int'),
+            'app_name': Utilities.scala_to_pandas_type('String'),
+            'eventlog_path': Utilities.scala_to_pandas_type('String')
+        }
+
+    @staticmethod
+    def normalize_attribute(arg_value: str) -> str:
+        """
+        Normalize the attribute name to a plain format.
+        It uses re.sub to replace any '-' or '_' with a space using the regexp 'r"(_|-)+"'.
+        Finally, it uses str.replace() to remove any spaces.
+        :param arg_value: the attribute name to normalize.
+        :return: the actual field name that is used in the AppHandler.
+        """
+        processed_value = re.sub(r'([_\-])+', ' ', arg_value.strip().lower()).replace(' ', '')
+        lookup_map = {
+            'appname': 'app_name',
+            'appid': 'app_id',
+            'attemptid': 'attempt_id',
+            'eventlogpath': 'eventlog_path'
+        }
+        return lookup_map.get(processed_value, arg_value)
+
+    @classmethod
+    def get_key_attributes(cls) -> List[str]:
+        """
+        Get the key attributes that define an AppHandler.
+        :return: List of key attributes.
+        """
+        return ['app_id']
+
+    @classmethod
+    def get_default_key_columns(cls) -> Dict[str, str]:
+        """
+        Get the default key columns for the AppHandler.
+        :return: Dictionary mapping attribute names to column names.
+        """
+        res = {}
+        for attr in cls.get_key_attributes():
+            res[attr] = to_camel(attr)
+        return res
 
     def is_name_defined(self) -> bool:
         """
@@ -141,3 +194,72 @@ class AppHandler(object):
         if self.eventlog_path is None and other.eventlog_path is not None:
             self.eventlog_path = other.eventlog_path
         return self
+
+    ################################
+    # Public Methods
+    ################################
+
+    def convert_to_df(self) -> pd.DataFrame:
+        """
+        Convert the AppHandler attributes to a DataFrame.
+        :return: DataFrame with app_id, app_name, and attempt_id as columns.
+        """
+        data = {
+            'app_id': [self.app_id],
+            'attempt_id': [self.attempt_id],
+            'app_name': [self.app_name],
+            'eventlog_path': [self.eventlog_path]
+        }
+        data_types = AppHandler.get_pd_dtypes()
+        return pd.DataFrame({
+            col: pd.Series(data[col], dtype=dtype) for col, dtype in data_types.items()
+        })
+
+    def add_fields_to_dataframe(self,
+                                df: pd.DataFrame,
+                                field_to_col_map: Dict[str, str]) -> pd.DataFrame:
+        """
+        Insert fields/properties from AppHandler into the DataFrame, with user-specified column names.
+        :param df: Existing DataFrame to append to.
+        :type df: pd.DataFrame
+        :param field_to_col_map: Dictionary mapping AppHandler attributes (keys) to DataFrame column names (values).
+        :type field_to_col_map: Dict[str, str]
+        default: Value to use if attribute/property not found (raises if None).
+        """
+        converted_df = self.convert_to_df()
+        row_data = []
+        for attr, col in field_to_col_map.items():
+            # Normalize the attribute name
+            norm_attr = AppHandler.normalize_attribute(attr)
+            try:
+                value = getattr(self, norm_attr)
+                row_data.append((col, norm_attr, value))
+            except AttributeError as exc:
+                raise AttributeError(f"Attribute '{attr}' not found in AppHandler.") from exc
+        for col, norm_attr, value in reversed(row_data):
+            # Check if the column already exists in the DataFrame
+            if col in df.columns:
+                # If it exists, we should not overwrite it, skip
+                continue
+            # create a new column with the correct type. We do this because we do not want to
+            # to add values to an empty dataframe.
+            df.insert(loc=0, column=col, value=pd.Series(dtype=converted_df[norm_attr].dtype))
+            # set the values in case the dataframe was non-empty.
+            df[col] = pd.Series([value] * len(df), dtype=converted_df[norm_attr].dtype)
+        return df
+
+    @classmethod
+    def inject_into_df(cls,
+                       df: pd.DataFrame,
+                       field_to_col_map: Dict[str, str],
+                       app_h: Optional['AppHandler'] = None) -> pd.DataFrame:
+        """
+        Inject AppHandler fields into a DataFrame using a mapping of field names to column names.
+        :param df:
+        :param field_to_col_map:
+        :param app_h:
+        :return:
+        """
+        if app_h is None:
+            app_h = AppHandler(_app_id='UNKNOWN_APP', _app_name='UNKNOWN_APP', _attempt_id=1)
+        return app_h.add_fields_to_dataframe(df, field_to_col_map)

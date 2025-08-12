@@ -15,7 +15,8 @@
 """Module that contains the entry for the API v1 builder."""
 
 from dataclasses import dataclass, field
-from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable
+from logging import Logger
+from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, Any, Set, Tuple
 
 import pandas as pd
 
@@ -25,7 +26,7 @@ from spark_rapids_tools.api_v1 import AppHandler
 from spark_rapids_tools.api_v1.report_loader import ReportLoader
 from spark_rapids_tools.api_v1.report_reader import ToolReportReaderT
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
-from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult
+from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult, DataUtils
 
 
 @dataclass
@@ -103,6 +104,22 @@ class APIReport(Generic[RepDataT]):
             return False
         return self.rep_reader.is_per_app
 
+    @property
+    def app_handlers(self) -> List[AppHandler]:
+        """
+        Return the list of application handlers associated with this report.
+
+        If no specific apps are set, returns all app handlers from the handler.
+        Otherwise, returns handlers for the specified apps.
+        """
+        if not self._apps:
+            return list(self.handler.app_handlers.values())
+        app_handlers = [
+            self.handler.app_handlers.get(app_e) if isinstance(app_e, str) else app_e
+            for app_e in self._apps
+        ]
+        return [app_h for app_h in app_handlers if app_h is not None]
+
     def _check_apps(self) -> None:
         """Check if applications are properly configured."""
         if not self.is_per_app_tbl:
@@ -164,6 +181,12 @@ class CSVReport(APIReport[LoadDFResult]):
     _fall_cb: Optional[Callable[[], pd.DataFrame]] = field(default=None, init=False)
     _map_cols: Optional[dict] = field(default=None, init=False)
     _pd_args: Optional[dict] = field(default=None, init=False)
+    _col_mapper_cb: Optional[Callable[[List[str]], Dict[str, str]]] = field(default=None, init=False)
+
+    def map_cols_cb(self, cb: Callable[[List[str]], Dict[str, str]]) -> 'CSVReport':
+        """Set the callback for mapping columns when loading data."""
+        self._col_mapper_cb = cb
+        return self
 
     def fall_cb(self, cb: Callable[[], pd.DataFrame]) -> 'CSVReport':
         """Set the fallback callback for loading data."""
@@ -179,6 +202,39 @@ class CSVReport(APIReport[LoadDFResult]):
         """Set the pandas arguments for loading data."""
         self._pd_args = args
         return self
+
+    def _check_map_col_args(self) -> None:
+        """
+        build the final column mapping of the report
+        """
+        temp_map_cols = {}
+        if self._col_mapper_cb:
+            # if the column mapper callback is defined, we need to build the static column.
+            actual_tbl_cols = [col.name for col in self.rep_reader.get_table(self.tbl).columns]
+            # check if the use_cols is defined
+            if self._pd_args and 'usecols' in self._pd_args:
+                # only pick those columns if defined
+                selected_cols = self._pd_args['usecols']
+            else:
+                # if usecols is not defined, we will use all columns
+                selected_cols = actual_tbl_cols
+            # apply the map callback to the columns of the table
+            temp_map_cols = self._col_mapper_cb(selected_cols)
+        if self._map_cols is not None:
+            # if the static map_cols is defined, then it is possible that we want to apply a
+            # dynamic method to rename the columns, but for some reason there is a couple of fields
+            # mapped statically.
+            # overwrite the temp_map_cols keys with the static map_cols, or insert new ones.
+            temp_map_cols.update(self._map_cols)
+        if temp_map_cols:
+            # finally re-assign the _map_cols field with the final column-mapping.
+            self.map_cols(temp_map_cols)
+
+    @override
+    def _check_args(self) -> None:
+        """Check if the required arguments are set."""
+        super()._check_args()
+        self._check_map_col_args()
 
     @override
     def _load_global(self) -> LoadDFResult:
@@ -210,133 +266,263 @@ class CSVReport(APIReport[LoadDFResult]):
             pd_args=self._pd_args
         )
 
+    def create_empty_df(self) -> pd.DataFrame:
+        """
+        Create an empty DataFrame with the columns defined in the report.
+        :return: An empty DataFrame with the columns defined in the report.
+        """
+        tbl_df = self.handler.create_empty_df(self.tbl)
+        # we need to handle if the columns were renamed, or selected
+        if self._pd_args and 'usecols' in self._pd_args:
+            # if usecols is defined, we need to filter the columns
+            use_cols = self._pd_args['usecols']
+            tbl_df = tbl_df[use_cols]
+        if self._map_cols:
+            tbl_df = tbl_df.rename(columns=self._map_cols)
+        return tbl_df
+
 
 @dataclass
-class CSVCombiner(object):
-    """A class that combines multiple CSV reports into a single report."""
-    rep_builder: CSVReport
-    _failed_app_processor: Optional[Callable[[str, LoadDFResult], None]] = field(default=None, init=False)
-    _success_app_processor: Optional[Callable[[ToolResultHandlerT, str, pd.DataFrame, dict], pd.DataFrame]] = (
+class CSVReportCombiner(object):
+    """
+    A class for combining multiple CSVReport instances into a single DataFrame. This implementation
+    assumes that:
+    1. It must be called on a Per-App report (aka, a report that has per app-data).
+    2. All CSVReport instances are associated with the same Table.
+    3. The reports can be loaded independently and combined based on application IDs.
+    4. The reports may have different sets of applications
+
+    This class manages the process of loading, combining, and post-processing data from
+    multiple report builders, handling both successful and failed application loads.
+    It supports injecting application IDs into the resulting DataFrame, custom callbacks
+    for success and failure cases, and fallback to empty DataFrames if needed.
+
+    :param: rep_builders: List[CSVReport]. A list of CSVReport instances to combine.
+    :param: _inject_app_ids_enabled: Bool, default True. Flag to enable/disable injection of
+           application IDs into the combined DataFrame.
+    :param: _app_fields: Optional[Dict[str, str]], default None. A dictionary that specifies the
+           fields of the AppHandlers and how to inject them into the per-app DataFrame before they
+           get combined.
+           The expected structure is [field_name: str, column_name: str] where the normalized
+           value of field_name is a valid field in AppHandler instance.
+           Example of acceptable keys for AppHandler.app_id are: 'app_id', 'App ID', 'appId', 'app ID'.
+    :param: _success_cb: Optional[Callable[[ToolResultHandlerT, str, pd.DataFrame], pd.DataFrame]],
+           default None.
+           A callback function that is called to provide any extra custom processing for each
+           successful application. This cb is applied after injecting the app columns and right-before
+           concatenating the app-dataframe to the combined dataFrame.
+           This is useful in case the caller wants to apply some dataframe operations on the DataFrame.
+           Note, it might be tricky if this cb is changing the shape of the DataFrame, as it might
+           conflict with the expected Dataframe DTypes extracted from the original Table.
+    :param: _failure_cb: Optional[Callable[[ToolResultHandlerT, str, LoadDFResult], Any]], default None.
+           Provides custom handling for failed application loads. If the caller needs more processing
+           than just appending the failures into the failed_apps dictionary, this callback can become
+           handy.
+    """
+    rep_builders: List[CSVReport]
+    _inject_app_ids_enabled: bool = field(default=True, init=False)
+    _app_fields: Optional[Dict[str, str]] = field(default=None, init=False)
+    _success_cb: Optional[Callable[[ToolResultHandlerT, str, pd.DataFrame], pd.DataFrame]] = (
         field(default=None, init=False))
-    _combine_args: Optional[dict] = field(default=None, init=False)
+    _failure_cb: Optional[Callable[[ToolResultHandlerT, str, LoadDFResult], Any]] = (
+        field(default=None, init=False))
+    _fall_back_to_empty_df: bool = field(default=False, init=False)
+    _failed_apps: Dict[str, Exception] = field(default_factory=dict, init=False)
+    _successful_apps: Set[str] = field(default_factory=set, init=False)
 
     @property
-    def result_handler(self) -> ToolResultHandlerT:
-        """Get the result handler associated with this combiner."""
-        return self.rep_builder.handler
+    def failed_apps(self) -> Dict[str, Exception]:
+        """Get the dictionary of failed applications."""
+        return self._failed_apps
+
+    @property
+    def default_rep_builder(self) -> CSVReport:
+        """Get the first report builder."""
+        if not self.rep_builders:
+            raise ValueError('No report builders provided for combination.')
+        return self.rep_builders[0]
+
+    @property
+    def tbl(self) -> str:
+        """Get the table label for the first report builder."""
+        return self.default_rep_builder.tbl
+
+    @property
+    def app_handlers(self) -> List[AppHandler]:
+        """
+        Return the list of application handlers associated with the report builder.
+        If no specific apps are set, returns all app handlers from the handler.
+        Otherwise, returns handlers for the specified apps.
+
+        Note that, it is possible to have duplicate apps if the same app is present in multiple reports.
+        """
+        res = []
+        for rep_b in self.rep_builders:
+            res.extend(rep_b.app_handlers)
+        return res
+
+    def disable_apps_injection(self) -> 'CSVReportCombiner':
+        """Disable the injection of application IDs into the combined DataFrame."""
+        self._inject_app_ids_enabled = False
+        return self
+
+    def on_app_fields(self, combine_on: Dict[str, str]) -> 'CSVReportCombiner':
+        """Set the columns to combine on."""
+        self._app_fields = combine_on
+        return self
+
+    def entry_success_cb(self,
+                         cb: Callable[[ToolResultHandlerT, str, pd.DataFrame], pd.DataFrame]) -> 'CSVReportCombiner':
+        """Set the callback for successful applications."""
+        self._success_cb = cb
+        return self
+
+    def entry_failure_cb(self, cb: Callable[[ToolResultHandlerT, str, LoadDFResult], Any]) -> 'CSVReportCombiner':
+        """Set the callback for failed applications"""
+        self._failure_cb = cb
+        return self
+
+    def empty_df_on_error(self, fall_to_empty: bool = True) -> 'CSVReportCombiner':
+        """Set whether to fall back to an empty DataFrame if no data is available."""
+        self._fall_back_to_empty_df = fall_to_empty
+        return self
 
     @staticmethod
-    def default_success_app_processor(result_handler: ToolResultHandlerT,
-                                      app_id: str,
-                                      df: pd.DataFrame,
-                                      combine_args: dict) -> pd.DataFrame:
-        """Default processor for successful applications."""
-        col_names = None
-        app_entry = result_handler.app_handlers.get(app_id)
-        if not app_entry:
-            raise ValueError(f'App entry not found for ID: {app_id}')
-        if combine_args:
-            # check if the col_names are provided to stitch the app_ids
-            col_names = combine_args.get('col_names', None)
-        if col_names:
-            # patch the app_uuid and if the columns are defined.
-            return app_entry.patch_into_df(df, col_names=col_names)
-        return df
+    def logger(csv_rep: CSVReport) -> Logger:
+        return csv_rep.handler.logger
 
-    def _evaluate_args(self) -> None:
-        """Evaluate the arguments to ensure they are set correctly."""
+    @staticmethod
+    def log_failed_app(app_id: str, csv_rep: CSVReport, failed_load: LoadDFResult) -> None:
+        """Log a failed application."""
+        CSVReportCombiner.logger(csv_rep).debug(
+            f'Failed to load {csv_rep.tbl} for app {app_id}: {failed_load.get_fail_cause()}')
 
-        if self._success_app_processor is None:
-            # set the default processor for successful applications
-            self._success_app_processor = self.default_success_app_processor
-        # TODO: we should fail if the the combiner is built for AppIds but columns are not defined.
+    def _process_args(self) -> None:
+        """Process the arguments to ensure they are set correctly."""
+        if not self.rep_builders:
+            raise ValueError('No report builders provided for combination.')
+        if self._app_fields is None:
+            # by default, we will use app_id column and it will be inserted as 'appId'
+            # Later we can add more fields
+            self.on_app_fields(AppHandler.get_default_key_columns())
+
+    def _inject_app_into_df(
+            self,
+            res_h: ToolResultHandlerT,
+            df: pd.DataFrame, app_id: str) -> pd.DataFrame:
+        """
+        Inject the application ID into the DataFrame.
+        :param df: The DataFrame to inject the application ID into.
+        :param app_id: The application ID to inject.
+        :return: The DataFrame with the application ID injected.
+        """
+        # TODO: Should we check if app_obj is not found?
+        app_obj = res_h.app_handlers.get(app_id)
+        return app_obj.add_fields_to_dataframe(df, self._app_fields)
+
+    def _build_single_report(self, csv_rep: CSVReport) -> List[pd.DataFrame]:
+        combined_dfs = []
+        # this is a dictionary and we should loop on it one by one to combine it
+        per_app_res = csv_rep.load()
+        for app_id, app_res in per_app_res.items():
+            try:
+                # Set a generic try-except block to handle unexpected errors for each entry to avoid
+                # failing the entire combination process.
+                if not app_res.success:  # what is the correct way to check for success?
+                    # Process entry with failed results.
+                    # 1. log debug message (We do not want error message because it will confuse the users)
+                    # 2. Add it to the dictionary of failed apps
+                    # 3. Call the failure callback if defined.
+                    CSVReportCombiner.log_failed_app(app_id, csv_rep, app_res)
+                    self._failed_apps[app_id] = app_res.get_fail_cause()
+                    if self._failure_cb:
+                        try:
+                            self._failure_cb(csv_rep.handler, app_id, app_res)
+                        except Exception as failure_cb_ex:  # pylint: disable=broad-except
+                            # if the failure callback fails, we log it but do not raise an error.
+                            CSVReportCombiner.logger(csv_rep).error(
+                                f'Failed to apply  failure_cb for app {app_id} on {csv_rep.tbl}: {failure_cb_ex}')
+                else:
+                    # This is a successful result, we need to process it.
+                    # 1. Append it to the list of successful apps.
+                    # 2. Inject the app key columns into the dataframe if enabled.
+                    # 3. Call the success callback if defined.
+                    self._successful_apps.add(app_id)
+                    processed_df = app_res.data
+                    if self._inject_app_ids_enabled:
+                        # inject the app_id into the dataframe
+                        processed_df = self._inject_app_into_df(csv_rep.handler, app_res.data, app_id)
+                    if self._success_cb:
+                        # apply the success_callback defined by the caller
+                        try:
+                            processed_df = self._success_cb(csv_rep.handler, app_id, processed_df)
+                        except Exception as success_cb_ex:  # pylint: disable=broad-except
+                            # if the success callback fails, we log it but do not raise an error.
+                            CSVReportCombiner.logger(csv_rep).error(
+                                f'Failed to apply success_cb for app {app_id} on {csv_rep.tbl}: {success_cb_ex}')
+                    # Q: Should we ignore or skip the empty dataframes?
+                    combined_dfs.append(processed_df)
+            except Exception as single_entry_ex:  # pylint: disable=broad-except
+                # if any exception occurs during the processing of the app, we log it and continue.
+                # add it to the failed_apps dictionary
+                CSVReportCombiner.logger(csv_rep).error(
+                    f'Failed to process app entry {app_id} for {csv_rep.tbl}: {single_entry_ex}')
+                self._failed_apps[app_id] = single_entry_ex
+        return combined_dfs
 
     def _create_empty_df(self) -> pd.DataFrame:
         """
         creates an empty DataFrame with the columns defined in the report builder.
         :return: an empty dataframe.
         """
-        empty_df = self.result_handler.create_empty_df(self.rep_builder.tbl)
-        if self._combine_args and 'use_cols' in self._combine_args:
-            # make sure that we insert the columns to the empty dataframe
-            injected_cols = pd.DataFrame(columns=self._combine_args['use_cols'])
-            return pd.concat([injected_cols, empty_df], axis=1)
+        # get the dataframe based on user arguments.
+        empty_df = self.default_rep_builder.create_empty_df()
+        # if apps injection is enabled, we need to inject the app_id columns
+        if self._inject_app_ids_enabled and self._app_fields:
+            # make sure that we inject the app_id columns
+            return AppHandler.inject_into_df(empty_df, self._app_fields)
         return empty_df
 
-    ################################
-    # Setters/Getters for processors
-    ################################
-
-    def process_failed(self,
-                       processor: Callable[[str, LoadDFResult], None]) -> 'CSVCombiner':
-        """Set the processor for failed applications."""
-        self._failed_app_processor = processor
-        return self
-
-    def process_success(self,
-                        cb_fn: Callable[[ToolResultHandlerT, str, pd.DataFrame, dict], pd.DataFrame]) -> 'CSVCombiner':
-        """Set the processor for successful applications."""
-        self._success_app_processor = cb_fn
-        return self
-
-    def combine_args(self, args: dict) -> 'CSVCombiner':
-        """Set the arguments for combining the reports."""
-        self._combine_args = args
-        return self
-
-    def on_apps(self) -> 'CSVCombiner':
-        """specify that the combiner inject AP UUID to the individual results before the concatenation."""
-        self.process_success(self.default_success_app_processor)
-        return self
-
-    #########################
-    # Public Interfaces
-    #########################
-
     def build(self) -> LoadDFResult:
-        """Build the combined CSV report."""
+        """Build the combined report."""
         # process teh arguments to ensure they are set correctly
-        self._evaluate_args()
-
+        self._process_args()
         load_error = None
         final_df = None
         success = False
+        fallen_back = False
+        # loop on all the reports and combine their results
         try:
-            per_app_res = self.rep_builder.load()
-            # this is a dictionary and we should loop on it one by one to combine it
             combined_dfs = []
-            for app_id, app_res in per_app_res.items():
-                # we need to patch the app_id to the dataframe
-                if app_res.load_error or app_res.data.empty:
-                    # process entry with failed results or skip them if no handlder is defined.
-                    if self._failed_app_processor:
-                        self._failed_app_processor(app_id, app_res)
-                    else:
-                        # default behavior is to skip the app
-                        continue
-                else:
-                    # process entry with successful results
-                    app_df = self._success_app_processor(self.result_handler,
-                                                         app_id,
-                                                         app_res.data,
-                                                         self._combine_args)
-                    # Q: Should we ignore or skip the empty dataframes?
-                    combined_dfs.append(app_df)
+            for csv_rep in self.rep_builders:
+                # load the report and combine the results.
+                # if an exception is thrown in a single iteration, then their must be something completely wrong and we
+                # need to fail.
+                combined_dfs.extend(self._build_single_report(csv_rep))
             if combined_dfs:
                 # only concatenate if we have any dataframes to combine
                 final_df = pd.concat(combined_dfs, ignore_index=True)
             else:
-                # create an empty DataFrame if no data was collected. uses the table schema.
+                # create an empty DataFrame if no data was collected.
                 final_df = self._create_empty_df()
             success = True
         except Exception as e:  # pylint: disable=broad-except
-            # handle any exceptions that occur during the combination phase
+            # handle any exceptions that occur during combination phase or loading sub-reports
             load_error = e
+            if self._fall_back_to_empty_df:
+                # if we are falling back to an empty DataFrame, we create it here.
+                try:
+                    final_df = self._create_empty_df()
+                    success = True
+                    fallen_back = True
+                except Exception as fall_back_ex:  # pylint: disable=broad-except
+                    self.logger(self.default_rep_builder).error(
+                        f'could not fall back to empty df {self.tbl}: {fall_back_ex}')
         return LoadDFResult(
-            f_path='combination of multiple path for table: ' + self.rep_builder.tbl,
+            f_path='combination of multiple path for table: ' + self.tbl,
             data=final_df,
             success=success,
-            fallen_back=False,
+            fallen_back=fallen_back,
             load_error=load_error)
 
 
@@ -381,3 +567,134 @@ class TXTReport(APIReport[TXTResult]):
         return self.rep_reader.load_app_txt(
             self._tbl,
             app=self._apps[0])
+
+
+@dataclass
+class LoadRawFilesResult(object):
+    """
+    A dataclass to hold the result of loading raw files.
+    :param ds_name: The name of the dataset used to identify the loading process.
+    :param _reports: A Private field mapping [report_id: str, dataFrame: pd.DataFrame]. Each dataframe is
+           the combined dataframe of all per-app tools output.
+    :param _failed_loads: A dictionary mapping the appIDs to the failed reports. Each entry is of the structure
+           [app_id: str, tuple(report_id: str, error: str)] in order to give details on the root
+           cause of each failure in-case the caller needs to process those failures.
+    """
+    ds_name: str
+    _reports: Dict[str, pd.DataFrame] = field(init=False, default_factory=dict)
+    _failed_loads: Dict[str, List[Tuple[str, str]]] = field(init=False, default_factory=dict)
+
+    @property
+    def reports(self) -> Dict[str, pd.DataFrame]:
+        """
+        Get the reports loaded from the CSV files.
+        :return: A dictionary mapping report IDs to their DataFrames.
+        """
+        return self._reports
+
+    @property
+    def failed_loads(self) -> Dict[str, List[Tuple[str, str]]]:
+        """
+        Get the failed loads.
+        :return: A dictionary mapping app IDs to a list of tuples containing report ID and error message.
+        """
+        return self._failed_loads
+
+    def append_success(self, report_id: str, df_res: LoadDFResult) -> None:
+        """
+        Append a successful report to the csv_files.
+        :param report_id: The unique identifier for the report.
+        :param df_res: The result of loading a DataFrame.
+        """
+        self._reports[report_id] = df_res.data
+
+    def append_failure(self, app_id: str, report_id: str, load_excep: Optional[Exception]) -> None:
+        """
+        Append a report to the csv_files or failed_loads based on the success of the load.
+        :param app_id: The unique identifier for the application.
+        :param report_id: The unique identifier for the report.
+        :param load_excep: The exception raised during the loading of the report.
+        """
+        self._failed_loads.setdefault(app_id, []).append((report_id, str(load_excep)))
+
+
+@dataclass
+class APIUtils(object):
+    """
+    A utility class for API v1 components.
+    This class provides static methods to process results from CSVReportCombiner and handle exceptions.
+    """
+    @staticmethod
+    def normalize_app_id_col(col_names: List[str]) -> Dict[str, str]:
+        """
+        Normalize the appId column name to 'appId' if it exists in the column names.
+        :param col_names: List of column names.
+        :return: A dictionary mapping the original column name to 'appId' if it exists.
+        """
+        for col_name in col_names:
+            if AppHandler.normalize_attribute(col_name) == 'app_id':
+                return {col_name: 'appId'}
+        return {}
+
+    @staticmethod
+    def process_res(
+            raw_res: LoadRawFilesResult,
+            combiner: CSVReportCombiner,
+            convert_to_camel: bool = False,
+            raise_on_failure: bool = True,
+            raise_on_empty: bool = True
+    ) -> Optional[pd.DataFrame]:
+        """
+        A utility function that wraps the creation of a combined per-app-report.
+        It processes the result of a CSVReportCombiner and handles exceptions.
+        :param raw_res: The LoadRawFilesResult instance to append the results to.
+        :param combiner: The CSVReportCombiner to process.
+        :param convert_to_camel: If True, convert the column names to camelCase.
+               This is useful to normalize the column-names to a common format.
+        :param raise_on_failure: If True, raise an exception if the combiner fails to
+               build the combined dataframe. Note that this is not intended to handle individual app-level
+               failures. For the latter, visit the arguments provided by the CSVReportCombiner.
+        :param raise_on_empty: If True, raise an exception if the resulting DataFrame is
+               empty or None. This is useful to ensure that mandatory reports are always valid DataFrames
+               while allow other optional reports to be empty without throwing exceptions.
+        :return: The resulting DataFrame. The DataFrame can be None if there was an error while loading the report
+               and the raise_on_empty is False. This cane be avoided if the combiner is configured to
+               fall_back to an empty DataFrame in case of failure.
+        :raises RuntimeError: If the combiner fails to build the final result and raise_on_failure is True.
+        :raises ValueError: If the resulting DataFrame is empty and raise_on_empty is True.
+        """
+        try:
+            if convert_to_camel:
+                # Update the rep_builders by setting the col_map_cb to the staticmethod to_camel.
+                for rep in combiner.rep_builders:
+                    rep.map_cols_cb(DataUtils.cols_to_camel_case)
+            # final_res is dictionary of [app_id: str, LoadDFResult] where each LoadDFResult
+            # contains the data and the success flag.
+            final_res = combiner.build()
+            # If the combiner failed to load the report, we should raise an exception
+            if not final_res.success and raise_on_failure:
+                if final_res.load_error:
+                    raise RuntimeError(
+                        f'Loading report {combiner.tbl} failed with error: {final_res.get_fail_cause()}'
+                    ) from final_res.get_fail_cause()  # use the get_fail_cause to get the original exception.
+                raise RuntimeError(f'Loading report {combiner.tbl} failed with unexpected error.')
+            # if dataframe is None, or dataframe is empty and raise_on_empty is True, raise an exception
+            if raise_on_empty and (final_res.data is None or final_res.data.empty):
+                detail_reason = 'a None DataFrame' if final_res.data is None else 'an empty DataFrame'
+                raise ValueError(
+                    f'Loading report {combiner.tbl} on dataset {raw_res.ds_name} returned {detail_reason}.')
+            # If we reach this point, then there is no raise on exceptions, just proceed with wrapping up the report.
+            # 1. Append failed apps: Loop on combiner_failed apps and append them to the raw_res.
+            if combiner.failed_apps:
+                for app_id, app_error in combiner.failed_apps.items():
+                    raw_res.append_failure(app_id, combiner.tbl, app_error)
+            # 2. Append the resulting dataframe to the reports if it is successful. Else set the Dataframe to None.
+            if final_res.success:
+                raw_res.append_success(combiner.tbl, final_res)
+                return final_res.data
+            # If the combiner failed to build the final result, we should None
+            return None
+        except Exception as e:  # pylint: disable=broad-except
+            # If we reach here, it means that the combiner failed to build the final result.
+            # We should raise an exception to inform the caller.
+            raise RuntimeError(f'Failed to load report {combiner.tbl} on dataset {raw_res.ds_name}: {e}') from e

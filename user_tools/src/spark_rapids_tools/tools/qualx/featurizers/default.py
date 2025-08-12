@@ -174,7 +174,7 @@ def extract_raw_features(
     Parameters
     ----------
     toc: pd.DataFrame
-        Table of contents of CSV files for the dataset.
+        Table of contents of CSV files for the dataset dF <filepath | ds_name | appId | table_name>
     node_level_supp: pd.DataFrame
         Node-level support information used to filter out metrics associated with unsupported operators.
     qualtool_filter: str
@@ -536,15 +536,17 @@ def load_csv_files(
     Parameters
     ----------
     toc: pd.DataFrame
-        Table of contents of CSV files for the dataset.
+        Table of contents of CSV files for the dataset dF <filepath | ds_name | appId | table_name>
     app_id: str
-        Application ID.
+        Application ID to target the specific profiler CSV files.
     node_level_supp: pd.DataFrame
         Node-level support information used to filter out metrics associated with unsupported operators.
+        dF <App ID | SQL ID | SQL Node Id | Exec Is Supported>
     qualtool_filter: str
         Type of filter to apply to the qualification tool output, either 'stage' or None.
     qualtool_output: pd.DataFrame
-        Qualification tool output.
+        Qualification tool output. This is the Dataframe loaded for the Qualification core summary.
+        dF <App Name | App ID | App Duration >
     remove_failed_sql: bool
         Remove sqlIDs with high failure rates, default: True.
 
@@ -646,6 +648,8 @@ def load_csv_files(
     sql_to_stage = scan_tbl('sql_to_stage_information')
     if not sql_to_stage.empty:
         # try:
+        # exclude the rows that do not show nodeIds.
+        # creates dF <sqlID | jobID>
         sqls_with_execs = (
             sql_to_stage.loc[sql_to_stage['SQL Nodes(IDs)'].notna()][['sqlID', 'jobID']]
             .groupby(['sqlID'])
@@ -656,6 +660,7 @@ def load_csv_files(
         sqls_with_execs = pd.DataFrame()
 
     if not sql_app_metrics.empty and not sqls_with_execs.empty:
+        # TODO: Not sure why we are doing this
         sql_app_metrics = (
             sql_app_metrics.merge(sqls_with_execs, on='sqlID')
             .drop(columns=['jobID'])
@@ -665,6 +670,7 @@ def load_csv_files(
     # Job to stageIds/sqlID mapping:
     job_map_tbl = scan_tbl('job_information')
     if not job_map_tbl.empty:
+        # dF <jobID | stageIds | sqlID | jobStartTime_min | endTime]>
         job_map_tbl = job_map_tbl.rename(columns={'startTime': 'jobStartTime_min'})
         job_map_tbl['sqlID'] = job_map_tbl['sqlID'].fillna(-1).astype(int)
         job_map_tbl['jobID'] = 'job_' + job_map_tbl['jobID'].astype(str)
