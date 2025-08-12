@@ -153,7 +153,7 @@ To continually train and evaluate a custom XGBoost model on eventlogs collected 
 ```bash
 spark_rapids train_and_evaluate \
 --qualx_pipeline_config qualx-pipeline-conf.yaml
---ouptut_folder train_and_evaluate_output
+--output_folder train_and_evaluate_output
 ```
 
 Arguments:
