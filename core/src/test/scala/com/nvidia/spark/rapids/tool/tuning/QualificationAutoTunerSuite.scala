@@ -705,7 +705,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
           |--conf spark.rapids.memory.host.offHeapLimit.enabled=true
           |--conf spark.rapids.memory.host.offHeapLimit.size=80g
-          |--conf spark.rapids.memory.pinnedPool.size=24320m
+          |--conf spark.rapids.memory.pinnedPool.size=48640m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=30
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=30
           |--conf spark.rapids.sql.batchSizeBytes=1g
