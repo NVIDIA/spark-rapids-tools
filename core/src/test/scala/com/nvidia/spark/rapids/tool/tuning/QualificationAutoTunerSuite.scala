@@ -683,13 +683,12 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
     // Create platform with target cluster info
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
-    platform.configureClusterInfoFromEventLog(
-      coresPerExecutor = 20,
-      execsPerNode = 1,
-      numExecs = 4,
-      numExecutorNodes = 4,
-      sparkProperties = logEventsProps.toMap,
-      systemProperties = Map.empty
+    configureEventLogClusterInfoForTest(
+      platform = platform,
+      numCores = 20,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
     )
 
     // Build AutoTuner

@@ -24,7 +24,6 @@ import com.nvidia.spark.rapids.tool.profiling.Profiler
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.annotation.Since
 
-
 /**
  * Test suite for the Profiling AutoTuner that uses the new target cluster properties format.
  *

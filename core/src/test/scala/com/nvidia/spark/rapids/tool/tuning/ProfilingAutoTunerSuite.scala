@@ -91,24 +91,6 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
   }
 
   /**
-   * Helper method to configure cluster info using Platform's existing method
-   */
-  protected def configureEventLogClusterInfoForTest(
-      platform: Platform,
-      numCores: Int = 32,
-      numWorkers: Int = 4,
-      gpuCount: Int = 1,
-      sparkProperties: Map[String, String] = Map.empty): Unit = {
-    val coresPerExecutor = numCores / gpuCount
-    val execsPerNode = gpuCount
-    val numExecutors = numWorkers * execsPerNode
-    platform.configureClusterInfoFromEventLog(
-      coresPerExecutor, execsPerNode, numExecutors, numWorkers,
-      sparkProperties, Map.empty
-    )
-  }
-
-  /**
    * Helper method to return an instance of the Profiling AutoTuner with default properties
    * for Dataproc.
    */
