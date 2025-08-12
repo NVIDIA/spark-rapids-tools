@@ -31,7 +31,7 @@ import org.scalatest.prop.TableFor3
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.RecommendedClusterInfo
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, PropertiesLoader}
+import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 /**
  * Suite to test the Qualification Tool's AutoTuner
@@ -54,28 +54,26 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   /**
-   * Helper method to build a worker info string with CPU properties
-   */
-  protected def buildCpuWorkerInfoAsString(
-       customProps: Option[mutable.Map[String, String]] = None,
-       numCores: Option[Int] = Some(32),
-       systemMemory: Option[String] = Some("122880MiB"),
-       numWorkers: Option[Int] = Some(4)): String = {
-    buildWorkerInfoAsString(customProps, numCores, systemMemory, numWorkers)
-  }
-
-  /**
    * Helper method to return an instance of the Qualification AutoTuner with default properties
    */
   private def buildDefaultAutoTuner(
       logEventsProps: mutable.Map[String, String] = defaultSparkProps): AutoTuner = {
-    val workerInfo = buildCpuWorkerInfoAsString(None, Some(32),
-      Some("212992MiB"), Some(5))
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "212992MiB")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion))
-    val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
-    val platform = PlatformFactory.createInstance(PlatformNames.EMR, clusterPropsOpt)
-    buildAutoTunerForTests(workerInfo, infoProvider, platform)
+      sparkPropsWithMemory, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR)
+
+    // Configure cluster info: 32 cores, 5 workers, 4 GPUs per worker = 20 total executors
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 4,
+      numExecs = 20, // 5 workers * 4 GPUs per worker
+      numExecutorNodes = 5,
+      sparkProperties = sparkPropsWithMemory.toMap,
+      systemProperties = Map.empty
+    )
+
+    buildAutoTunerForTests(infoProvider, platform)
   }
 
   /**
@@ -151,7 +149,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
   forAll(testData) { (testName: String, workerMemory: String, expectedResults: Seq[String]) =>
     test(s"test memory warnings for case: $testName") {
-      val workerInfo = buildCpuWorkerInfoAsString(None, Some(16), Some(workerMemory), Some(2))
       val logEventsProps: mutable.Map[String, String] =
         mutable.LinkedHashMap[String, String](
           "spark.executor.cores" -> "8",
@@ -159,12 +156,20 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           "spark.executor.memory" -> "8g",
           "spark.executor.memoryOverhead" -> "2g"
         )
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+      val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> workerMemory)
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         logEventsProps, Some(testSparkVersion))
-      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-      val autoTuner = buildAutoTunerForTests(workerInfo,
-        infoProvider, platform, sparkMaster = Some(Yarn))
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+      // Configure cluster info: 16 cores, 2 workers, 2 GPUs per worker = 4 total executors
+      platform.configureClusterInfoFromEventLog(
+        coresPerExecutor = 16,
+        execsPerNode = 2,
+        numExecs = 4, // 2 workers * 2 GPUs per worker
+        numExecutorNodes = 2,
+        sparkProperties = sparkPropsWithMemory.toMap,
+        systemProperties = Map.empty
+      )
+      val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
       val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
         QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
       val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -313,8 +318,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   // - Recommend `spark.rapids.sql.concurrentGpuTasks` to a value:
   //     max(CONC_GPU_TASKS (8), gpuMemory (24g) / GPU_MEM_PER_TASK (4g) = 6
   test("AutoTuner honours user provided tuning configurations specific to Qualification") {
-    // 1. Mock source cluster info for OnPrem
-    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("32g"), Some(2))
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
@@ -341,13 +344,23 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
     val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
       default = defaultTuningConfigsEntries, qualification = qualificationTuningConfigEntries)
-    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "32g")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt)
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
-      sparkMaster = Some(Yarn), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+    // Configure cluster info: 8 cores, 2 workers, 2 GPUs per worker = 4 total executors
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 2,
+      numExecs = 4, // 2 workers * 2 GPUs per worker
+      numExecutorNodes = 2,
+      sparkProperties = sparkPropsWithMemory.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner =
+      buildAutoTunerForTests(infoProvider, platform, Some(Yarn), Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -391,9 +404,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $missingGpuDiscoveryScriptComment
@@ -437,13 +447,22 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   forAll(gpuResourcePropertiesTestData) {
     (testName: String, sparkMaster: SparkMaster, expectedResults: Seq[String]) =>
       test(s"test AutoTuner for Qualification sets GPU resource properties for $testName") {
-        val workerInfo = buildCpuWorkerInfoAsString()
-        val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
+        val sparkPropsWithMemory = defaultSparkProps + ("spark.executor.memory" -> "122880MiB")
         val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
           defaultSparkProps, Some(testSparkVersion))
-        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, clusterPropsOpt)
-        val autoTuner = buildAutoTunerForTests(workerInfo,
-          infoProvider, platform, sparkMaster = Some(sparkMaster))
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+        // Configure cluster info: 32 cores, 4 workers, 2 GPUs per worker = 8 total executors
+        platform.configureClusterInfoFromEventLog(
+          coresPerExecutor = 32,
+          execsPerNode = 2,
+          numExecs = 8, // 4 workers * 2 GPUs per worker
+          numExecutorNodes = 4,
+          sparkProperties = sparkPropsWithMemory.toMap,
+          systemProperties = Map.empty
+        )
+
+        val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(sparkMaster))
         val (properties, comments) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps =
           QualificationAutoTunerRunner.filterByUpdatedPropsEnabled)
         val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -464,11 +483,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.executor.memory" -> "32g",
         "spark.sql.shuffle.partitions" -> "200",
         "spark.sql.files.maxPartitionBytes" -> "1g")
-    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("40g"), Some(2))
-    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-
     // Define 'spark.executor.resource.gpu.discoveryScript' as an enforced property
     val enforcedSparkProperties = Map(
       "spark.executor.resource.gpu.discoveryScript" -> "/opt/sparkPlugin/gpuDiscoveryScript.sh"
@@ -477,10 +493,18 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       enforcedSparkProperties = enforcedSparkProperties
     )
+    val sparkPropsWithMemory = defaultSparkProps + ("spark.executor.memory" -> "122880MiB")
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = sparkPropsWithMemory.toMap,
+      systemProperties = Map.empty
+    )
 
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform,
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform,
       sparkMaster = Some(Yarn))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -524,9 +548,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
@@ -638,16 +659,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         enforcedSparkProperties = enforcedSparkProps
       )
 
-      // Build worker info with GPU configuration (for source cluster)
-      val workerInfo = buildWorkerInfoAsString(
-        customProps = None,
-        numCores = Some(20),
-        systemMemory = Some("8g"),
-        numWorkers = Some(1)
-      )
-
-      // Create cluster properties
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(workerInfo)
       val infoProvider = getMockInfoProvider(
         maxInput = 0.0,
         spilledMetrics = Seq(0),
@@ -671,14 +682,17 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       default = defaultTuningConfigsEntries)
 
     // Create platform with target cluster info
-    val platform = PlatformFactory.createInstance(
-      PlatformNames.ONPREM,
-      clusterPropsOpt,
-      Some(targetClusterInfo)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    configureEventLogClusterInfoForTest(
+      platform = platform,
+      numCores = 20,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
     )
 
     // Build AutoTuner
-    val autoTuner = buildAutoTunerForTests(workerInfo, infoProvider, platform,
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform,
       sparkMaster = Some(Kubernetes), userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
@@ -744,9 +758,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${getEnforcedPropertyComment("spark.vcore.boost.ratio")}
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $missingGpuDiscoveryScriptComment
@@ -766,13 +777,19 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.executor.memory" -> "32g",
         "spark.sql.shuffle.partitions" -> "200",
         "spark.sql.files.maxPartitionBytes" -> "1g")
-    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("40g"), Some(2))
-    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt)
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val sparkPropsWithMemory = logEventsProps + ("spark.executor.memory" -> "122880MiB")
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = sparkPropsWithMemory.toMap,
+      systemProperties = Map.empty
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -812,9 +829,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
@@ -835,13 +849,18 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.sql.shuffle.partitions" -> "200",
         "spark.sql.files.maxPartitionBytes" -> "1g",
         "spark.plugins" -> "com.existing.plugin1,com.existing.plugin2")
-    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("40g"), Some(2))
-    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt)
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -881,9 +900,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
@@ -902,8 +918,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         "spark.executor.memory" -> "32g",
         "spark.sql.shuffle.partitions" -> "200",
         "spark.sql.files.maxPartitionBytes" -> "1g")
-    val sourceWorkerInfo = buildCpuWorkerInfoAsString(None, Some(8), Some("40g"), Some(2))
-    val sourceClusterInfoOpt = PropertiesLoader[ClusterProperties].loadFromContent(sourceWorkerInfo)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       logEventsProps, Some(testSparkVersion))
 
@@ -916,9 +930,16 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       enforcedSparkProperties = enforcedSparkProperties
     )
 
-    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
-      sourceClusterInfoOpt, Some(targetClusterInfo))
-    val autoTuner = buildAutoTunerForTests(sourceWorkerInfo, infoProvider, platform)
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
@@ -957,9 +978,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- GPU count is missing. Setting default to 1.
-          |- GPU device is missing. Setting default to l4.
-          |- GPU memory is missing. Setting default to 24576m.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
