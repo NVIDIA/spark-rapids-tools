@@ -101,7 +101,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tuning_configs: Path to a YAML file that contains the tuning configurations.
                 For sample tuning configs files, please visit
                 https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
-        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration. If not provided, the wrapper will use the default:
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
                https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
@@ -247,7 +248,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 or remote cloud storage url.
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
                          and "databricks-azure", "emr", default to "onprem".
-        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration. If not provided, the wrapper will use the default:
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
                https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         # Since prediction is an internal tool with frequent output, we enable debug mode by default
@@ -297,7 +299,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param features_csv_dir: Path to a folder containing one or more features.csv files.  These files are
                                  produced during prediction, and must be manually edited to provide a label column
                                  (Duration_speedup) and value.
-        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration. If not provided, the wrapper will use the default:
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
                https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
