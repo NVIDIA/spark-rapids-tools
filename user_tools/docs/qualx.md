@@ -157,7 +157,7 @@ spark_rapids train_and_evaluate \
 ```
 
 Arguments:
-- qualx_pipeline_config: (OPTIONAL) Path to YAML config file containing the required training parameters.
+- qualx_pipeline_config: Path to YAML config file containing the required training parameters.
 
 #### Configuration
 The training and evaluation pipeline is configured via the `qualx-pipeline-conf.yaml` file, which should have the following format:

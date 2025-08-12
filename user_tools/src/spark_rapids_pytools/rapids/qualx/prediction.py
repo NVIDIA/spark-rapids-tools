@@ -79,7 +79,7 @@ class Prediction(QualXTool):
                          qual=self.qual_output,
                          output_info=output_info,
                          model=custom_model_file,
-                         config=self.wrapper_options.get('qualxConfig'),
+                         config=self.wrapper_options.get('qualx_config'),
                          qual_handlers=[self.qual_handler])
             if not df.empty:
                 print_summary(df)
