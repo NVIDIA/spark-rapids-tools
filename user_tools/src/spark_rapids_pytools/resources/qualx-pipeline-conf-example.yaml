@@ -1,0 +1,30 @@
+dataset_name: mydataset
+platform: onprem
+alignment_dir: /path/to/alignments
+eventlogs:
+  cpu:
+    - /path/to/CPU/eventlogs
+  gpu:
+    - /path/to/GPU/eventlogs
+output_dir: pipeline
+# qualx
+cache_dir: qualx_cache
+datasets: datasets
+featurizers:
+  - default.py
+  - hash_plan.py
+modifiers:
+  - align_sql_id.py
+label: duration_sum
+split_functions:
+  train:
+    path: split_stratified.py
+    args:
+      label_col: duration_sum_speedup
+      threshold: 1.0
+  test: split_all_test.py
+model_type: xgboost
+xgboost:
+  model_name: xgb_model.json
+  n_trials: 200
+  qual_tool_filter: stage

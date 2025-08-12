@@ -329,6 +329,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         Each invocation will create a new dataset JSON file with an incrementing number.
 
         :param qualx_pipeline_config: Path to YAML config file containing the required training parameters.
+                                      For sample qualx-pipeline-conf-example.yaml files, please visit
+                                      https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-pipeline-conf-example.yaml.
         """
         # Since pipeline is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
