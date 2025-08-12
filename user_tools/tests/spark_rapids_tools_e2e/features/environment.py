@@ -88,11 +88,12 @@ def _set_environment_variables(context) -> None:
     Set environment variables needed for the virtual environment setup.
     """
     tools_version = Utilities.get_base_release()
-    scala_version = context.config.userdata.get('scala_version')
-    venv_name = context.config.userdata.get('venv_name')
+    scala_version = context.config.userdata.get('scala_version') or '2.12'
+    venv_name = context.config.userdata.get('venv_name') or 'spark_rapids_tools_e2e_venv'
     jar_filename = f'rapids-4-spark-tools_{scala_version}-{tools_version}-SNAPSHOT.jar'
     build_wheel_value = context.config.userdata.get('build_wheel')
-    build_wheel = build_wheel_value.lower() in ['true', '1', 'yes']
+    # Default to building wheel if not explicitly set to false
+    build_wheel = build_wheel_value is None or (build_wheel_value is not None and build_wheel_value.lower() in ['true', '1', 'yes'])
 
     os.environ['E2E_TEST_TOOLS_DIR'] = E2ETestUtils.get_tools_root_path()
     os.environ['E2E_TEST_SCRIPTS_DIR'] = os.path.join(E2ETestUtils.get_e2e_tests_resource_path(), 'scripts')
@@ -100,16 +101,17 @@ def _set_environment_variables(context) -> None:
     os.environ['E2E_TEST_TOOLS_JAR_PATH'] = os.path.join(os.environ['E2E_TEST_TOOLS_DIR'],
                                                          f'core/target/{jar_filename}')
     os.environ['E2E_TEST_BUILD_WHEEL'] = 'true' if build_wheel else 'false'
-    os.environ['E2E_TEST_SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver')
-    os.environ['E2E_TEST_HADOOP_VERSION'] = context.config.userdata.get('hadoop.version')
-    os.environ['E2E_TEST_TMP_DIR'] = context.config.userdata.get('e2e_tests_tmp_dir')
+    os.environ['E2E_TEST_SPARK_BUILD_VERSION'] = context.config.userdata.get('buildver') or '350'
+    os.environ['E2E_TEST_HADOOP_VERSION'] = context.config.userdata.get('hadoop.version') or '3.3.6'
+    os.environ['E2E_TEST_TMP_DIR'] = context.config.userdata.get('e2e_tests_tmp_dir') or '/tmp/spark_rapids_tools_e2e_tests'
 
 
 def _setup_env(context) -> None:
     """
     Build the wheel and set up the virtual environment for the tests.
     """
-    script_file_name = context.config.userdata.get('setup_script_file')
+    script_file_name = context.config.userdata.get('setup_script_file') or 'setup_env.sh'
+
     script = os.path.join(os.environ['E2E_TEST_SCRIPTS_DIR'], script_file_name)
     try:
         warning_msg = "Setting up the virtual environment for the tests. This may take a while."

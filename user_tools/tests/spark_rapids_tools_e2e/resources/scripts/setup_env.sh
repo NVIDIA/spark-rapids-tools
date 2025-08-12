@@ -87,12 +87,12 @@ install_python_package() {
   # Find and install the wheel file
   local wheel_file=$(find dist/ -name "*.whl" -type f | head -n 1)
   if [ -z "$wheel_file" ]; then
-    echo "No wheel file found in dist/ directory"
-    exit 1
+    echo "No wheel file found in dist/ directory, installing in development mode"
+    pip install -e .
+  else
+    echo "Installing wheel: $wheel_file"
+    pip install "$wheel_file"
   fi
-
-  echo "Installing wheel: $wheel_file"
-  pip install "$wheel_file"
   popd
 }
 
