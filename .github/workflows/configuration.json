@@ -3,56 +3,57 @@
     {
       "title": "### Autotuner",
       "labels": ["autotuner"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### QualX",
       "labels": ["qualx"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### API Change",
       "labels": ["api_change"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### Feature Request",
       "labels": ["feature request"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### Performance",
       "labels": ["performance"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### Build and CI/CD",
       "labels": ["dependencies", "cicd", "build"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### Bug Fixes",
       "labels": ["bug"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### User Tools",
       "labels": ["user_tools"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
     },
     {
       "title": "### Core",
       "labels": ["core_tools"],
-      "exhaustive": false,
-      "exhaustive_rules": false
+      "exhaustive": true
+    },
+    {
+      "title": "### Documentation",
+      "labels": ["documentation"],
+      "exhaustive": true
+    },
+    {
+      "title": "## Miscellaneous",
+      "labels": [],
+      "exhaustive": false
     }
   ],
   "sort": {

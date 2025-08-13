@@ -38,7 +38,7 @@ jobs:
         id: build_changelog
         uses: mikepenz/release-changelog-builder-action@v5
         with:
-          configuration: ".github/workflows/configuration.json" # Configuration file for the changelog builder (optional)z
+          configuration: ".github/workflows/configuration.json" # Configuration file for the changelog builder (optional)
           outputFile: "CHANGELOG_BODY.md"
         env:
           GITHUB_TOKEN: ${{ secrets.NVAUTO_TOKEN }}
