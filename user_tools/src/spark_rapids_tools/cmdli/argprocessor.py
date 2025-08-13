@@ -29,7 +29,6 @@ from spark_rapids_pytools.cloud_api.sp_types import DeployMode
 from spark_rapids_pytools.common.utilities import ToolLogging, Utils
 from spark_rapids_tools.cloud import ClientCluster
 from spark_rapids_tools.utils import AbstractPropContainer, is_http_file
-from spark_rapids_tools.utils.data_utils import DataUtils
 from ..configuration.submission.distributed_config import DistributedToolsConfig
 from ..configuration.submission.local_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
