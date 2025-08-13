@@ -32,6 +32,12 @@ from .core import (
     QualCoreResultHandler,
     ProfCoreResultHandler
 )
+from .builder import (
+    LoadRawFilesResult,
+    APIUtils,
+    CSVReportCombiner,
+    CSVReport
+)
 
 __all__ = [
     'AppHandler',
@@ -42,5 +48,9 @@ __all__ = [
     'QualWrapperResultHandler',
     'QualCoreResultHandler',
     'ProfWrapperResultHandler',
-    'ProfCoreResultHandler'
+    'ProfCoreResultHandler',
+    'LoadRawFilesResult',
+    'APIUtils',
+    'CSVReportCombiner',
+    'CSVReport'
 ]

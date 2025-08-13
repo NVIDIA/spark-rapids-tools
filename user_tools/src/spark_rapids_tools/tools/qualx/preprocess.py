@@ -288,6 +288,8 @@ def load_profiles(
             profile_files.extend(csv_files + json_files)
 
         # filter files by app_ids in app_meta
+        # toc_list is a list of dataframes of the following schema
+        # <filepath | ds_name | appId | table_name>
         toc_list = []
         app_meta_list = []
         for app_id, meta in app_meta.items():
@@ -297,12 +299,19 @@ def load_profiles(
             # filter profiler files by app_id and attach ds_name, appId, table_name
             # convert glob pattern to regex pattern
             if app_id == 'default':
+                # Create a list of all the raw metrics files.
                 app_id_files = profile_files
             else:
                 app_id = app_id.replace('*', '.*')
                 app_id_files = [f for f in profile_files if re.search(app_id, f)]
 
             if app_id_files:
+                # creates a dF <filepath | ds_name | appId | table_name>
+                # where:
+                # * filepath is the full path to the CSV/JSON file,
+                # * ds_name is the dataset name,
+                # * appId is the appId extracted from the filepath,
+                # * table_name is the file extracted from the filepath (without extension).
                 tmp = pd.DataFrame({'filepath': app_id_files})
                 fp_split = tmp['filepath'].str.split(r'/')
                 tmp['ds_name'] = f'{ds_name}:{job_name}' if job_name else ds_name
@@ -310,6 +319,8 @@ def load_profiles(
                 tmp['table_name'] = fp_split.str[-1].str.split('.').str[0]
 
                 # collect mapping of appId (after globbing) to meta
+                # this eventually creates the list of AppIds
+                # creates a dF <appId | runType | scaleFactor>
                 tmp_app_meta = tmp[['appId']].drop_duplicates()
                 for key, value in meta.items():
                     tmp_app_meta[key] = value
@@ -460,14 +471,14 @@ def load_qtool_execs(exec_info: pd.DataFrame) -> Optional[pd.DataFrame]:
             | node_level_supp['Action'].apply(_is_ignore_no_perf)
             | node_level_supp['Exec Name']
             .astype(str)
+            # TODO: revisit the need to check for 'WholeStageCodegen' in Exec Name.
+            #  Ideally, we want to remove those execs that should be dropped from the analysis (
+            #  e.g. WholeStageCodegen, WholeStageCodegenExec, etc.)
             .apply(lambda x: x.startswith('WholeStageCodegen'))
         )
-        node_level_supp = (
-            node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
-            .groupby(['App ID', 'SQL ID', 'SQL Node Id'])
-            .agg('all')
-            .reset_index(level=[0, 1, 2])
-        )
+        # in previous version we used to group by 'App ID', 'SQL ID', 'SQL Node Id', but this is not
+        # needed since the 3 keys form an uuid for each row.
+        node_level_supp = node_level_supp[['App ID', 'SQL ID', 'SQL Node Id', 'Exec Is Supported']]
     return node_level_supp
 
 

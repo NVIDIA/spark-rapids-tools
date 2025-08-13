@@ -29,12 +29,14 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
+from spark_rapids_tools.api_v1.builder import APIResultHandler
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
+from spark_rapids_tools.tools.qualx.revamp.x_main import predict_x
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -531,12 +533,20 @@ class Qualification(QualificationCore):
         model_name = self.ctxt.platform.get_prediction_model_name()
         qual_output_dir = self.ctxt.get_csp_output_path()
         output_info = self.__build_prediction_output_files_info()
-        qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
-            predictions_df = predict(platform=model_name, qual=qual_output_dir,
-                                     output_info=output_info,
-                                     model=estimation_model_args['customModelFile'],
-                                     qual_handlers=[qual_handler])
+            # Build the QualCore handler object to handle the prediction model output
+            q_core_handler = APIResultHandler().qual_core().with_path(qual_output_dir).build()
+            if Utils.get_rapids_tools_env('QUALX_REVAMP'):
+                predictions_df = predict_x(platform=model_name,
+                                           qual=qual_output_dir,
+                                           output_info=output_info,
+                                           model=estimation_model_args['customModelFile'],
+                                           qual_handlers=[q_core_handler])
+            else:
+                predictions_df = predict(platform=model_name, qual=qual_output_dir,
+                                         output_info=output_info,
+                                         model=estimation_model_args['customModelFile'],
+                                         qual_handlers=[q_core_handler])
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(
