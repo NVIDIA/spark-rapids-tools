@@ -177,10 +177,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
     opt[Boolean](required = false,
       descr = "Toggle AutoTuner module.",
       default = Some(false))
-  val workerInfo: ScallopOption[String] =
-    opt[String](required = false,
-      descr = "File path containing the system information of a worker node. It is assumed " +
-        "that all workers are homogenous. It requires the AutoTuner to be enabled.")
   val clusterReport: ScallopOption[Boolean] =
     toggle("cluster-report",
       default = Some(true),

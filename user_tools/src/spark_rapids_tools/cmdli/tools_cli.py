@@ -190,7 +190,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For sample target cluster info files, please visit
                 https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/targetClusterInfo
         :param rapids_options: A list of valid Profiling tool options.
-                Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
+                Note that the wrapper ignores ["output-directory"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options

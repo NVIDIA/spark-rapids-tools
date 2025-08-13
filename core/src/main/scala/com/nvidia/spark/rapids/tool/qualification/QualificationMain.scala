@@ -19,11 +19,11 @@ package com.nvidia.spark.rapids.tool.qualification
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory}
-import com.nvidia.spark.rapids.tool.tuning.{ClusterProperties, TunerContext}
+import com.nvidia.spark.rapids.tool.tuning.TunerContext
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppFilterImpl
-import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, RapidsToolsConfUtil}
+import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
  * A tool to analyze Spark event logs and determine if
@@ -69,9 +69,7 @@ object QualificationMain extends Logging {
     // This platform instance should not be used for anything other then referencing the
     // files for this particular Platform.
     val referencePlatform = try {
-      val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
-        PropertiesLoader[ClusterProperties].loadFromFile)
-      PlatformFactory.createInstance(appArgs.platform(), clusterPropsOpt)
+      PlatformFactory.createInstance(appArgs.platform())
     } catch {
       case NonFatal(e) =>
         logError("Error creating the platform", e)
@@ -117,7 +115,7 @@ object QualificationMain extends Logging {
     val qual = new Qualification(outputDirectory, hadoopConf, timeout,
       nThreads, pluginTypeChecker,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
-      tunerContext, appArgs.clusterReport(), appArgs.platform(), appArgs.workerInfo.toOption,
+      tunerContext, appArgs.clusterReport(), appArgs.platform(),
       appArgs.targetClusterInfo.toOption, appArgs.tuningConfigs.toOption)
     val res = qual.qualifyApps(filteredLogs)
     res

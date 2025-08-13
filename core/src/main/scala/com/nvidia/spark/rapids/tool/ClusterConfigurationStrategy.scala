@@ -56,7 +56,13 @@ trait ClusterSizingStrategy {
         platform.recommendedCoresPerExec
       } else {
         // For onprem, we do want to limit to the total cores count
-        math.min(platform.recommendedCoresPerExec, totalCoresCount)
+        // Sanity check to avoid returning 0 cores per executor in case
+        // set wrongly by the user
+        if (totalCoresCount > 0) {
+          math.min(platform.recommendedCoresPerExec, totalCoresCount)
+        } else {
+          platform.recommendedCoresPerExec
+        }
       }
     }
   }
@@ -186,6 +192,8 @@ abstract class ClusterConfigurationStrategy(
    *    by the recommended cores per executor.
    */
   final def getRecommendedConfig: Option[RecommendedClusterConfig] = {
+    // The sanity check for number of executors is only added because
+    // we do not have a default alternative for it
     val initialNumExecutors = getInitialNumExecutors
     if (initialNumExecutors <= 0) {
       None
@@ -199,69 +207,6 @@ abstract class ClusterConfigurationStrategy(
         getRecommendedNumGpus
       ))
     }
-  }
-}
-
-/**
- * Strategy for cluster configuration based on user specified cluster properties.
- */
-class ClusterPropertyBasedStrategy(
-    platform: Platform,
-    sourceSparkProperties: Map[String, String],
-    recommendedClusterSizingStrategy: ClusterSizingStrategy)
-  extends ClusterConfigurationStrategy(platform, sourceSparkProperties,
-    recommendedClusterSizingStrategy) {
-
-  private val clusterProperties = platform.clusterProperties.getOrElse(
-      throw new IllegalArgumentException("Cluster properties must be defined"))
-
-  // Calculate the number of GPUs per node based on the cluster properties
-  private lazy val numGpusFromProps: Int = {
-    // User provided num GPUs, fall back to platform default
-    val userProvidedNumGpus = clusterProperties.getGpu.getCount match {
-      case count if count > 0 => count
-      case _ => platform.defaultNumGpus
-    }
-
-    // Apply platform-specific GPU limits for CSP, no limits for on-prem
-    if (platform.isPlatformCSP) {
-      math.min(userProvidedNumGpus, platform.maxGpusSupported)
-    } else {
-      userProvidedNumGpus
-    }
-  }
-
-  override protected def calculateInitialNumExecutors: Int = {
-    val numWorkers = math.max(1, clusterProperties.system.numWorkers)
-    numGpusFromProps * numWorkers
-  }
-
-  override protected def calculateInitialCoresPerExec: Int = {
-    val coresPerGpu = clusterProperties.system.getNumCores.toDouble / numGpusFromProps
-    math.ceil(coresPerGpu).toInt
-  }
-
-  override protected def getRecommendedMemoryPerNodeMb: Long = {
-    StringUtils.convertToMB(clusterProperties.system.getMemory, Some(ByteUnit.BYTE))
-  }
-
-  def getSourceGpuDevice: Option[GpuDevice] = {
-    GpuDevice.createInstance(clusterProperties.getGpu.getName)
-  }
-
-  final def getSourceNumGpus: Option[Int] = {
-    Some(numGpusFromProps)
-  }
-
-  // TODO: In future, this logic should also consider the target cluster properties
-  def getRecommendedGpuDevice: GpuDevice = {
-    this.getSourceGpuDevice.getOrElse(platform.defaultGpuDevice)
-  }
-
-  // TODO: In future, this logic should also consider the target cluster properties
-  def getRecommendedNumGpus: Int = {
-    // `.get` is safe because `getSourceNumGpus` is final and always returns a value
-    this.getSourceNumGpus.get
   }
 }
 
@@ -335,9 +280,7 @@ class EventLogBasedStrategy(
 /**
  * Companion object to create appropriate cluster configuration strategy.
  *
- * Strategy Precedence:
- * 1. Cluster Properties based strategy
- * 2. Event Log based strategy
+ * Uses event log based strategy when cluster information from event log is available.
  */
 object ClusterConfigurationStrategy {
   def getStrategy(
@@ -346,16 +289,12 @@ object ClusterConfigurationStrategy {
       sourceSparkProperties: Map[String, String],
       recommendedClusterSizingStrategy: ClusterSizingStrategy)
   : Option[ClusterConfigurationStrategy] = {
-    if (platform.clusterProperties.isDefined) {
-      // Use strategy based on cluster properties
-      Some(new ClusterPropertyBasedStrategy(platform, sourceSparkProperties,
-        recommendedClusterSizingStrategy))
-    } else if (platform.clusterInfoFromEventLog.isDefined) {
+    if (platform.clusterInfoFromEventLog.isDefined) {
       // Use strategy based on cluster information from event log
       Some(new EventLogBasedStrategy(platform, recommendations,
         sourceSparkProperties, recommendedClusterSizingStrategy))
     } else {
-      // Neither cluster properties are defined nor cluster information from event log is available
+      // Cluster information from event log is not available
       None
     }
   }

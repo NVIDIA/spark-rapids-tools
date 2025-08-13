@@ -151,18 +151,18 @@ class PluginTypeCheckerSuite extends FunSuite with Logging {
   }
 
   val platformSpeedupEntries: Seq[(Platform, Map[String, Double])] = Seq(
-    (new OnPremPlatform(Some(A100Gpu), None, None), Map("UnionExec" -> 3.0, "Ceil" -> 4.0)),
-    (new DataprocPlatform(Some(T4Gpu), None, None), Map("UnionExec" -> 4.88, "Ceil" -> 4.88)),
-    (new EmrPlatform(Some(T4Gpu), None, None), Map("UnionExec" -> 2.07, "Ceil" -> 2.07)),
-    (new DatabricksAwsPlatform(Some(T4Gpu), None, None), Map("UnionExec" -> 2.45, "Ceil" -> 2.45)),
-    (new DatabricksAzurePlatform(Some(T4Gpu), None, None),
+    (new OnPremPlatform(Some(A100Gpu), None), Map("UnionExec" -> 3.0, "Ceil" -> 4.0)),
+    (new DataprocPlatform(Some(T4Gpu), None), Map("UnionExec" -> 4.88, "Ceil" -> 4.88)),
+    (new EmrPlatform(Some(T4Gpu), None), Map("UnionExec" -> 2.07, "Ceil" -> 2.07)),
+    (new DatabricksAwsPlatform(Some(T4Gpu), None), Map("UnionExec" -> 2.45, "Ceil" -> 2.45)),
+    (new DatabricksAzurePlatform(Some(T4Gpu), None),
       Map("UnionExec" -> 2.73, "Ceil" -> 2.73)),
-    (new DataprocServerlessPlatform(Some(L4Gpu), None, None),
+    (new DataprocServerlessPlatform(Some(L4Gpu), None),
       Map("WindowExec" -> 4.25, "Ceil" -> 4.25)),
-    (new DataprocPlatform(Some(L4Gpu), None, None), Map("UnionExec" -> 4.16, "Ceil" -> 4.16)),
-    (new DataprocGkePlatform(Some(T4Gpu), None, None), Map("WindowExec" -> 3.65, "Ceil" -> 3.65)),
-    (new DataprocGkePlatform(Some(L4Gpu), None, None), Map("WindowExec" -> 3.74, "Ceil" -> 3.74)),
-    (new EmrPlatform(Some(A10Gpu), None, None), Map("UnionExec" -> 2.59, "Ceil" -> 2.59))
+    (new DataprocPlatform(Some(L4Gpu), None), Map("UnionExec" -> 4.16, "Ceil" -> 4.16)),
+    (new DataprocGkePlatform(Some(T4Gpu), None), Map("WindowExec" -> 3.65, "Ceil" -> 3.65)),
+    (new DataprocGkePlatform(Some(L4Gpu), None), Map("WindowExec" -> 3.74, "Ceil" -> 3.74)),
+    (new EmrPlatform(Some(A10Gpu), None), Map("UnionExec" -> 2.59, "Ceil" -> 2.59))
   )
 
   platformSpeedupEntries.foreach { case (platform, speedupMap) =>
