@@ -1,16 +1,58 @@
 {
   "categories": [
     {
+      "title": "### Autotuner",
+      "labels": ["autotuner"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### QualX",
+      "labels": ["qualx"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### API Change",
+      "labels": ["api_change"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### Feature Request",
+      "labels": ["feature request"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### Performance",
+      "labels": ["performance"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### Build and CI/CD",
+      "labels": ["dependencies", "cicd", "build"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
+      "title": "### Bug Fixes",
+      "labels": ["bug"],
+      "exhaustive": false,
+      "exhaustive_rules": false
+    },
+    {
       "title": "### User Tools",
-      "labels": ["user_tools"]
+      "labels": ["user_tools"],
+      "exhaustive": false,
+      "exhaustive_rules": false
     },
     {
       "title": "### Core",
-      "labels": ["core_tools"]
-    },
-    {
-      "title": "### Miscellaneous",
-      "labels": []
+      "labels": ["core_tools"],
+      "exhaustive": false,
+      "exhaustive_rules": false
     }
   ],
   "sort": {
