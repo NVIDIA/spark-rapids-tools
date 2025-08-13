@@ -29,7 +29,4 @@ class DBAWSLocalRapidsJob(RapidsLocalJob):
     def _build_submission_cmd(self) -> list:
         # env vars are added later as a separate dictionary
         cmd_arg = super()._build_submission_cmd()
-        # any s3 link has to be converted to S3a:
-        for index, arr_entry in enumerate(cmd_arg):
-            cmd_arg[index] = arr_entry.replace('s3://', 's3a://')
         return cmd_arg
