@@ -196,19 +196,6 @@ class AbsToolUserArgModel:
         client_cluster = ClientCluster(CspPath(self.cluster))
         self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
-    # TODO: Update this function to not load the entire file into memory
-    #       rather than just the first line until a separator
-    def _get_first_eventlog_from_txt(self, file_path: str) -> str:
-        load_result = DataUtils.load_txt(CspPath(file_path))
-        if not load_result.success:
-            return ''
-        content = load_result.decode_txt()
-        if content is None:
-            return ''
-        for line in content.splitlines():
-            candidate = line.strip()
-            return candidate.split(',')[0]
-
     def get_processed_eventlog_paths(self) -> str:
         """
         Returns the processed eventlogs string to pass to the tool.
