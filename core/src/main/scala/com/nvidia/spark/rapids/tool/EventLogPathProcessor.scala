@@ -118,16 +118,15 @@ object EventLogPathProcessor extends Logging {
   private def expandTextFile(filePath: String, hadoopConf: Configuration): List[String] = {
     try {
       // Load the file content (remote or local) and normalize S3 scheme for Hadoop FS readers.
-      // Python side may write paths as s3://..., while Hadoop expects s3r://...
+      // Python side may write paths as s3://..., while Hadoop expects s3a://...
       val content = FSUtils.readFileContentAsUTF8(
         filePath = filePath,
         hadoopConf = Some(hadoopConf))
       val normalizedContent = content.replace("s3://", "s3a://")
+      // Split on new lines, whitespace, comma, or semicolon in one pass
       val tokens = normalizedContent
-        .split("\n")
+        .split("[\\s,;]+")
         .toList
-        .flatMap(_.split(","))
-        .map(_.trim)
         .filter(_.nonEmpty)
       if (tokens.isEmpty) {
         logWarning(s"No valid event log paths found in file: $filePath")
