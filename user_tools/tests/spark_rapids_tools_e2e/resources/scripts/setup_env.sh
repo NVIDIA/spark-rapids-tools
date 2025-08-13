@@ -88,7 +88,7 @@ install_python_package() {
   local wheel_file=$(find dist/ -name "*.whl" -type f | head -n 1)
   if [ -z "$wheel_file" ]; then
     echo "No wheel file found in dist/ directory, installing in development mode"
-    pip install -e .
+    pip install -e .[qualx, test]
   else
     echo "Installing wheel: $wheel_file"
     pip install "$wheel_file"
