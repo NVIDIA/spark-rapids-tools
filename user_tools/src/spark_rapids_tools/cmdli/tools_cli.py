@@ -59,8 +59,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The cmd will process each app individually, but will group apps with the same name into the
         same output row after averaging duration metrics accordingly.
 
-        :param eventlogs: Event log filenames or CSP storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, CSP storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
 
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
@@ -164,8 +164,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The tool also will recommend setting for the application assuming that the job will be able
         to use all the cluster resources (CPU and GPU) when it is running.
 
-        :param eventlogs: Event log filenames or cloud storage directories
-                containing event logs (comma separated). If missing, the wrapper reads the Spark's
+        :param eventlogs: Event log filenames, cloud storage directories
+                containing event logs (comma separated), or path to a TXT file containing a list of event log paths.
+                If missing, the wrapper reads the Spark's
                 property `spark.eventLog.dir` defined in the `cluster`.
         :param cluster: The cluster on which the Spark applications were executed. The argument
                 can be a cluster name or ID (for databricks platforms) or a valid path to the cluster's

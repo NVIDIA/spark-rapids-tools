@@ -82,12 +82,13 @@ object FSUtils {
    */
   def readFileContentAsUTF8(
       filePath: String,
-      hadoopConf: Configuration = new Configuration(),
+      hadoopConf: Option[Configuration] = None,
       delim: String = "\n"): String = {
+    val conf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
     val path = new Path(filePath)
     var fsIs: FSDataInputStream = null
     try {
-      fsIs = getInputStream(path, hadoopConf)
+      fsIs = getInputStream(path, conf)
       val source = UTF8Source.fromInputStream(fsIs)
       try {
         source.getLines().mkString(delim)

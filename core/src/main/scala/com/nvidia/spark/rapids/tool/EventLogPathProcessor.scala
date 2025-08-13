@@ -110,12 +110,20 @@ object EventLogPathProcessor extends Logging {
   }
 
   /**
-   * Read a text file (local or remote) and extract event log paths from it.
+   * Reads a text file and returns a flat list of all parsed paths in the order they appear.
+   * This function splits the file content by newlines and then splits each line by commas.
+   * If the file is readable but yields no valid tokens, a warning is logged and an empty list
+   * is returned.
    */
   private def expandTextFile(filePath: String, hadoopConf: Configuration): List[String] = {
     try {
-      val content = FSUtils.readFileContentAsUTF8(filePath, hadoopConf)
-      val tokens = content
+      // Load the file content (remote or local) and normalize S3 scheme for Hadoop FS readers.
+      // Python side may write paths as s3://..., while Hadoop expects s3r://...
+      val content = FSUtils.readFileContentAsUTF8(
+        filePath = filePath,
+        hadoopConf = Some(hadoopConf))
+      val normalizedContent = content.replace("s3://", "s3a://")
+      val tokens = normalizedContent
         .split("\n")
         .toList
         .flatMap(_.split(","))
