@@ -286,12 +286,14 @@ class EstimationModelArgProcessor(AbsToolUserArgModel):
     """
     estimation_model: Optional[QualEstimationModel] = None
     custom_model_file: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def init_tool_args(self) -> None:
         if self.estimation_model is None:
             self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
         else:
             self.p_args['toolArgs']['estimationModel'] = self.estimation_model
+        self.p_args['toolArgs']['qualxConfig'] = self.qualx_config
 
     def init_arg_cases(self):
         # currently, the estimation model is set to XGBOOST by default.
@@ -693,7 +695,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     qual_output: str = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
@@ -706,7 +708,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
             'output_folder': self.output_folder,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
@@ -723,7 +725,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
     n_trials: Optional[int] = None
     base_model: Optional[str] = None
     features_csv_dir: Optional[str] = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -735,7 +737,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'n_trials': self.n_trials,
             'base_model': self.base_model,
             'features_csv_dir': self.features_csv_dir,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'platformOpts': {},
         }
 
@@ -746,13 +748,13 @@ class TrainAndEvaluateUserArgModel(AbsToolUserArgModel):
     """
     Represents the arguments collected by the user to run the train and evaluate tool.
     """
-    config: str = None
+    qualx_pipeline_config: str = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
         return {
             'runtimePlatform': runtime_platform,
-            'config': self.config,
+            'qualx_pipeline_config': self.qualx_pipeline_config,
             'output_folder': self.output_folder,
             'platformOpts': {},
         }

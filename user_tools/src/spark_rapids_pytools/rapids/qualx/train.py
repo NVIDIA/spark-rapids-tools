@@ -60,7 +60,7 @@ class Train(QualXTool):
                 n_trials=self.wrapper_options['n_trials'],
                 base_model=self.wrapper_options['base_model'],
                 features_csv_dir=self.wrapper_options['features_csv_dir'],
-                config=self.wrapper_options['config'],
+                config=self.wrapper_options['qualx_config'],
             )
             self.logger.info('Training completed successfully.')
             self.logger.info('Trained XGBoost model is saved at: %s', self.wrapper_options['model'])

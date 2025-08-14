@@ -20,7 +20,7 @@ Arguments:
 - qual_output: Path to a directory containing qualification tool output.
 - output_folder: Path to store the output.
 - custom_model_file: (OPTIONAL) Path to a custom-trained model.json file.
-- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
+- qualx_config: (OPTIONAL) Path to a qualx-conf.yaml file to use for configuration. If not provided, the wrapper will use the default: https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
 
 Output files:
 - prediction.csv: per-application speedup predictions.
@@ -135,7 +135,7 @@ Arguments:
 - n_trials: (OPTIONAL) Number of trials for hyperparameter search, default: 200.
 - base_model: (OPTIONAL) Path to pre-trained model to serve as a base for fine-tuning/continued-training.
 - features_csv_dir: (OPTIONAL) Path to a directory containing one or more features.csv files to augment the training dataset.
-- config: (OPTIONAL) Path to a qualx-conf.yaml file containing configuration options for the qualx model.
+- qualx_config: (OPTIONAL) Path to a qualx-conf.yaml file to use for configuration. If not provided, the wrapper will use the default: https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
 
 Continuing the example from above, we would use:
 ```bash
@@ -152,9 +152,12 @@ Once satisfied with the model, just supply the path to this model in the `--cust
 To continually train and evaluate a custom XGBoost model on eventlogs collected over time, run the following periodically:
 ```bash
 spark_rapids train_and_evaluate \
---config qualx-pipeline-conf.yaml
---ouptut_folder train_and_evaluate_output
+--qualx_pipeline_config qualx-pipeline-conf.yaml
+--output_folder train_and_evaluate_output
 ```
+
+Arguments:
+- qualx_pipeline_config: Path to YAML config file containing the required training parameters.
 
 #### Configuration
 The training and evaluation pipeline is configured via the `qualx-pipeline-conf.yaml` file, which should have the following format:
