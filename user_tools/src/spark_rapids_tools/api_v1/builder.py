@@ -640,7 +640,7 @@ class APIHelpers(object):
         :return: An instance of ToolResultHandlerT for the Qual Core report.
         :raises ValueError: If raise_on_empty is True and the report is empty or missing.
         """
-        q_core_h =  (
+        q_core_h = (
             APIResultHandler()
             .qual_core()
             .with_path(dir_path)
