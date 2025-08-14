@@ -111,20 +111,18 @@ object EventLogPathProcessor extends Logging {
 
   /**
    * Reads a text file and returns a flat list of all parsed paths in the order they appear.
-   * This function splits the file content by newlines and then splits each line by commas.
-   * If the file is readable but yields no valid tokens, a warning is logged and an empty list
-   * is returned.
+   * This function splits any sequence of event log paths by newlines, whitespace, comma
+   * or semicolon. If the file is readable but yields no valid tokens, a warning is logged
+   * and an empty list is returned.
    */
   private def expandTextFile(filePath: String, hadoopConf: Configuration): List[String] = {
     try {
-      // Load the file content (remote or local) and normalize S3 scheme for Hadoop FS readers.
-      // Python side may write paths as s3://..., while Hadoop expects s3a://...
+      // Load the file content (remote or local)
       val content = FSUtils.readFileContentAsUTF8(
         filePath = filePath,
         hadoopConf = Some(hadoopConf))
-      val normalizedContent = content.replace("s3://", "s3a://")
       // Split on new lines, whitespace, comma, or semicolon in one pass
-      val tokens = normalizedContent
+      val tokens = content
         .split("[\\s,;]+")
         .toList
         .filter(_.nonEmpty)
@@ -136,6 +134,23 @@ object EventLogPathProcessor extends Logging {
       case NonFatal(e) =>
         logWarning(s"Failed to read event log list file: $filePath. Skipping file.", e)
         List.empty
+    }
+  }
+
+  /**
+   * Normalize S3-style URIs to Hadoop's s3a scheme.
+   * Converts prefixes `s3://` and `s3n://` to `s3a://`.
+   */
+  private def normalizeS3Paths(paths: List[String]): List[String] = {
+    paths.map { p =>
+      // Going with stripPrefix to add safety and less regex computation time
+      if (p.startsWith("s3://")) {
+        "s3a://" + p.stripPrefix("s3://")
+      } else if (p.startsWith("s3n://")) {
+        "s3a://" + p.stripPrefix("s3n://")
+      } else {
+        p
+      }
     }
   }
 
@@ -324,7 +339,8 @@ object EventLogPathProcessor extends Logging {
       fsStartTime: Option[String] = None,
       fsEndTime: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
     val expandedPaths = expandEventLogsList(eventLogsPaths, hadoopConf)
-    val logsPathNoWildCards = processWildcardsLogs(expandedPaths, hadoopConf)
+    val normalizedPaths = normalizeS3Paths(expandedPaths)
+    val logsPathNoWildCards = processWildcardsLogs(normalizedPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
         // If no event logs are found in the path after wildcard expansion, return a failed event
