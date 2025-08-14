@@ -232,13 +232,13 @@ class CSVReport(APIReport[LoadDFResult]):
     mechanisms for missing or malformed data.
 
     Attributes:
-        _fall_cb (Optional\[Callable\[[], pd.DataFrame\]\]): A callback to provide a fallback DataFrame
+        _fall_cb (Optional[Callable[[], pd.DataFrame]]): A callback to provide a fallback DataFrame
             if loading fails or the data is missing.
-        _map_cols (Optional\[dict\]): A static mapping from original column names to new column names
+        _map_cols (Optional[dict]): A static mapping from original column names to new column names
             to be applied when loading the DataFrame.
-        _pd_args (Optional\[dict\]): Additional arguments to pass to pandas when reading the DataFrame,
+        _pd_args (Optional[dict]): Additional arguments to pass to pandas when reading the DataFrame,
             such as 'usecols', 'dtype', etc.
-        _col_mapper_cb (Optional\[Callable\[\[List\[str\]\], Dict\[str, str\]\]\]): A callback that
+        _col_mapper_cb (Optional[Callable[[List[str]], Dict[str, str]]]): A callback that
             dynamically generates a column mapping based on the list of columns present in the table.
 
     Typical usage:
