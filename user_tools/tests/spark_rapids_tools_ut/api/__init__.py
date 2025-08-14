@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,12 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-system:
-  numCores: 8 
-  memory:  16384MiB
-  numWorkers: 4
-softwareProperties:
-  spark.scheduler.mode: FAIR
-  spark.sql.cbo.enabled: 'true'
-  spark.ui.port: '0'
-  spark.yarn.am.memory: 640m
+"""Module to test the API Tools"""

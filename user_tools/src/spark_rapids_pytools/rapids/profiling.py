@@ -33,52 +33,22 @@ class Profiling(ProfilingCore):
     """
     name = 'profiling'
 
-    def _process_worker_info_arg(self):
-        worker_info_arg = self.wrapper_options.get('autoTunerFileInput')
-        if not worker_info_arg:
-            return
-        self.logger.info('Processing WorkerInfo argument [%s]', worker_info_arg)
-        # download the worker_file into the work dir
-        input_path = self.ctxt.platform.storage.download_resource(worker_info_arg,
-                                                                  self.ctxt.get_local_work_dir(),
-                                                                  fail_ok=False,
-                                                                  create_dir=True)
-        self.ctxt.set_ctxt('autoTunerFilePath', input_path)
-        self.ctxt.set_ctxt('autoTunerFileName', FSUtil.get_resource_name(input_path))
-        self.logger.info('WorkerInfo successfully processed into workDir [%s]', input_path)
-
     def _process_custom_args(self):
         """
-        Profiling tool processes extra arguments:
-        1. the worker_info argument
-        2. the clusters
+        Profiling tool processes the cluster argument
         """
-        self._process_worker_info_arg()
-        # if the workerInfo is not set, then we need to use the gpu_cluster
-        if not self.ctxt.get_ctxt('autoTunerFilePath'):
-            self._process_offline_cluster_args()
-        else:
-            self.logger.info('Skipping building of GPU_CLUSTER because WorkerInfo is defined')
+        self._process_offline_cluster_args()
         super()._process_custom_args()
 
     def _process_offline_cluster_args(self):
         offline_cluster_opts = self.wrapper_options.get('migrationClustersProps', {})
-        if self._process_gpu_cluster_args(offline_cluster_opts):
-            # only if we succeed to get the GPU cluster, we can generate auto-tuner-input
-            self._generate_autotuner_input()
+        self._process_gpu_cluster_args(offline_cluster_opts)
 
     def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
         gpu_cluster_arg = offline_cluster_opts.get('gpuCluster')
         if gpu_cluster_arg:
             gpu_cluster_obj = self._create_migration_cluster('GPU', gpu_cluster_arg)
             self.ctxt.set_ctxt('gpuClusterProxy', gpu_cluster_obj)
-            return True
-        # If we are here, we know that the workerInfoPath was not set as well.
-        return False
-
-    def _generate_autotuner_input(self):
-        gpu_cluster_obj = self.ctxt.get_ctxt('gpuClusterProxy')
-        self._generate_autotuner_input_from_cluster(gpu_cluster_obj)
 
     def __read_single_app_output(self, file_path: str) -> (str, List[str], List[str]):
         def split_list_str_by_pattern(input_seq: List[str], pattern: str) -> int:

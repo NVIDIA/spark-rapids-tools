@@ -117,7 +117,7 @@ class ResultHandler(object):
         """
         reader = self.tbl_reader_map.get(tbl)
         if reader:
-            return reader.is_per_app
+            return reader.is_per_app()
         return False
 
     def get_reader_by_tbl(self, tbl: str) -> Optional[ToolReportReader]:
@@ -131,6 +131,17 @@ class ResultHandler(object):
     #########################
     # Public Interfaces
     #########################
+
+    def get_reader_path(self, report_id: str) -> Optional[BoundedCspPath]:
+        """
+        Get the path to the report file for the given report ID.
+        :param report_id: The unique identifier for the report.
+        :return: The path to the report file, or None if not found.
+        """
+        reader = self.readers.get(report_id)
+        if reader:
+            return reader.out_path
+        return None
 
     def create_empty_df(self, tbl: str) -> pd.DataFrame:
         """
@@ -152,6 +163,17 @@ class ResultHandler(object):
         if reader:
             return reader.get_table_path(table_label)
         return None
+
+    def is_empty(self) -> bool:
+        """
+        Check if the result handler has no data.
+        :return: True if the result handler is empty, False otherwise.
+        """
+        # first check that the output file exists
+        if not self.out_path.exists():
+            return True
+        # then check that the app_handlers are empty
+        return not self.app_handlers
 
 #########################
 # Type Definitions

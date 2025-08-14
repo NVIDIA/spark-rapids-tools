@@ -15,6 +15,10 @@
 """init file of the api_v1 package which offers a common interface to consume the tools
 output."""
 
+from .common import (
+    APIUtils,
+    LoadCombinedRepResult
+)
 from .app_handler import (
     AppHandler
 )
@@ -32,8 +36,15 @@ from .core import (
     QualCoreResultHandler,
     ProfCoreResultHandler
 )
+from .builder import (
+    CSVReportCombiner,
+    CSVReport,
+    APIHelpers
+)
 
 __all__ = [
+    'APIUtils',
+    'LoadCombinedRepResult',
     'AppHandler',
     'register_result_class',
     'result_registry',
@@ -42,5 +53,8 @@ __all__ = [
     'QualWrapperResultHandler',
     'QualCoreResultHandler',
     'ProfWrapperResultHandler',
-    'ProfCoreResultHandler'
+    'ProfCoreResultHandler',
+    'CSVReportCombiner',
+    'CSVReport',
+    'APIHelpers'
 ]

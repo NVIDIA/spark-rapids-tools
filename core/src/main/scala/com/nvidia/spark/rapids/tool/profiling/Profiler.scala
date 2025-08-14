@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ClusterProperties, ProfilingAutoTunerHelper, TargetClusterProps, TuningConfigsProvider, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerHelper, TargetClusterProps, TuningConfigsProvider, TuningEntryTrait}
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -206,12 +206,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       // we need a platform per application because it is storing cluster information, which could
       // vary between applications, especially when using dynamic allocation.
       val platform = {
-        val clusterPropsOpt = appArgs.workerInfo.toOption.flatMap(
-          PropertiesLoader[ClusterProperties].loadFromFile)
         val targetClusterPropsOpt = appArgs.targetClusterInfo.toOption.flatMap(
           PropertiesLoader[TargetClusterProps].loadFromFile)
         PlatformFactory.createInstance(appArgs.platform(),
-          clusterPropsOpt, targetClusterPropsOpt)
+          targetClusterPropsOpt)
       }
       val app = new ApplicationInfo(hadoopConf, path, platform = platform,
         enableDiagnosticViews = enableDiagnosticViews)

@@ -16,10 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
-import java.util
-
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
@@ -123,106 +120,8 @@ class GpuWorkerProps(
     }
   }
 
-  /**
-   * Sets any missing field and return a list of messages to indicate what has been updated.
-   * @return a list containing information of what was missing and the default value that has been
-   *         used to initialize the field.
-   */
-  def setMissingFields(platform: Platform,
-      tuningConfigs: TuningConfigsProvider): Seq[String] = {
-    val res = new mutable.ListBuffer[String]()
-    if (setDefaultGpuCountIfMissing(tuningConfigs)) {
-      res += s"GPU count is missing. Setting default to $getCount."
-    }
-    if (setDefaultGpuNameIfMissing(platform)) {
-      res += s"GPU device is missing. Setting default to $getName."
-    }
-    if (setDefaultGpuMemIfMissing()) {
-      res += s"GPU memory is missing. Setting default to $getMemory."
-    }
-    res
-  }
-
   override def toString: String =
     s"{count: $count, memory: $memory, name: $name}"
-}
-
-/**
- * A wrapper class that stores all the system properties.
- * The BeanProperty enables loading and parsing the YAML formatted content using the
- * Constructor SnakeYaml approach.
- */
-class SystemClusterProps(
-    @BeanProperty var numCores: Int,
-    @BeanProperty var memory: String,
-    @BeanProperty var numWorkers: Int) {
-  def this() = {
-    this(0, "0m", 0)
-  }
-  def isMissingInfo: Boolean = {
-    // keep for future expansion as we may add more fields later.
-    numWorkers <= 0
-  }
-  def isEmpty: Boolean = {
-    // consider the object incorrect if either numCores or memory are not set.
-    memory == null || memory.isEmpty || numCores <= 0 || memory.startsWith("0")
-  }
-  private def setDefaultNumWorkersIfMissing(tuningConfigs: TuningConfigsProvider)
-  : Boolean = {
-    if (numWorkers <= 0) {
-      numWorkers = tuningConfigs.getEntry("NUM_WORKERS").getMin.toInt
-      true
-    } else {
-      false
-    }
-  }
-  /**
-   * Sets any missing field and return a list of messages to indicate what has been updated.
-   * @return a list containing information of what was missing and the default value that has been
-   *         used to initialize the field.
-   */
-  def setMissingFields(tuningConfigs: TuningConfigsProvider): Seq[String] = {
-    val res = new mutable.ListBuffer[String]()
-    if (setDefaultNumWorkersIfMissing(tuningConfigs)) {
-      res += s"Number of workers is missing. Setting default to $getNumWorkers."
-    }
-    res
-  }
-  override def toString: String =
-    s"{numCores: $numCores, memory: $memory, numWorkers: $numWorkers}"
-}
-
-/**
- * A wrapper class that stores all the properties of the cluster.
- * The BeanProperty enables loading and parsing the YAML formatted content using the
- * Constructor SnakeYaml approach.
- *
- * @param system wrapper that includes the properties related to system information like cores and
- *               memory.
- * @param gpu wrapper that includes the properties related to GPU.
- * @param softwareProperties a set of software properties such as Spark properties.
- *                           The properties are typically loaded from the default cluster
- *                           configurations.
- */
-class ClusterProperties(
-    @BeanProperty var system: SystemClusterProps,
-    @BeanProperty var gpu: GpuWorkerProps,
-    @BeanProperty var softwareProperties: util.LinkedHashMap[String, String])
-  extends ValidatableProperties {
-
-  def this() = {
-    this(new SystemClusterProps(), new GpuWorkerProps(), new util.LinkedHashMap[String, String]())
-  }
-
-  override def validate(): Unit = {
-    gpu.validate()
-  }
-
-  def isEmpty: Boolean = {
-    system.isEmpty && gpu.isEmpty
-  }
-  override def toString: String =
-    s"{${system.toString}, ${gpu.toString}, $softwareProperties}"
 }
 
 /**
@@ -233,7 +132,7 @@ sealed trait SparkMaster {
   val defaultExecutorMemoryMB: Long
 }
 case object Local extends SparkMaster {
-  val defaultExecutorMemoryMB: Long = 0L
+  val defaultExecutorMemoryMB: Long = 1024L
 }
 case object Yarn extends SparkMaster {
   val defaultExecutorMemoryMB: Long = 1024L
@@ -243,7 +142,7 @@ case object Kubernetes extends SparkMaster {
 }
 case object Standalone extends SparkMaster {
   // Would be the entire node memory by default
-  val defaultExecutorMemoryMB: Long = 0L
+  val defaultExecutorMemoryMB: Long = 1024L
 }
 
 object SparkMaster {
@@ -314,7 +213,6 @@ object SparkMaster {
  *      Cannot recommend properties. See Comments.
  *
  *      Comments:
- *      - java.io.FileNotFoundException: File worker_info.yaml does not exist
  *      - 'spark.executor.memory' should be set to at least 2GB/core.
  *      - 'spark.executor.instances' should be set to (gpuCount * numWorkers).
  *      - 'spark.task.resource.gpu.amount' should be set to Max(1, (numCores / gpuCount)).
@@ -322,12 +220,9 @@ object SparkMaster {
  *      - 'spark.rapids.memory.pinnedPool.size' should be set to 2048m.
  *      - 'spark.sql.adaptive.enabled' should be enabled for better performance.
  *
- * @param clusterProps The cluster properties including cores, mem, GPU, and software
- *                     (see [[ClusterProperties]]).
  * @param appInfoProvider the container holding the profiling result.
  */
 abstract class AutoTuner(
-    val clusterProps: ClusterProperties,
     val appInfoProvider: AppSummaryInfoBaseProvider,
     val platform: Platform,
     val driverInfoProvider: DriverLogInfoProvider,
@@ -363,7 +258,7 @@ abstract class AutoTuner(
     .getDefaultAsMemory(ByteUnit.MiB)
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
-  private lazy val isOffHeapLimitEnabled: Boolean = {
+  private lazy val isOffHeapLimitUserEnabled: Boolean = {
     platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
       .exists(_.trim.equalsIgnoreCase("true"))
   }
@@ -415,7 +310,7 @@ abstract class AutoTuner(
   private lazy val getAllSourceProperties: Map[String, String] = {
     // the cluster properties override the app properties as
     // it is provided by the user.
-    appInfoProvider.getAllProperties ++ clusterProps.getSoftwareProperties.asScala
+    appInfoProvider.getAllProperties
   }
 
   /**
@@ -745,7 +640,7 @@ abstract class AutoTuner(
     )
     val pySparkMemMB = platform.getPySparkMemoryMB(getPropertyValue).getOrElse(0L)
     // Calculate executor memory overhead using new formula if OffHeapLimit.enabled=true
-    var executorMemOverhead = if (isOffHeapLimitEnabled) {
+    var executorMemOverhead = if (isOffHeapLimitUserEnabled) {
       calculateExecutorMemoryOverhead(
         totalMemMinusReserved, executorHeapMB, sparkOffHeapMemMB)
     } else {
@@ -757,7 +652,7 @@ abstract class AutoTuner(
     val defaultPinnedMem = tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val defaultSpillMem = tuningConfigs.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val minOverhead: Long = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
-      if (isOffHeapLimitEnabled) {
+      if (isOffHeapLimitUserEnabled) {
         executorMemOverhead
       } else {
         executorMemOverhead + defaultPinnedMem + defaultSpillMem
@@ -780,7 +675,7 @@ abstract class AutoTuner(
       // Calculate host off-heap limit size for pinned memory calculation
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
-        isOffHeapLimitEnabled) {
+        isOffHeapLimitUserEnabled) {
         executorMemOverhead + sparkOffHeapMemMB
       } else {
         0L // Not used for CSP platforms or when offHeapLimit is disabled
@@ -802,7 +697,7 @@ abstract class AutoTuner(
       // all off heap memory.
       var spillMem = userEnforcedMemorySettings.spillMem.getOrElse(pinnedMem)
       var finalExecutorMemOverhead = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
-        if (isOffHeapLimitEnabled) {
+        if (isOffHeapLimitUserEnabled) {
           executorMemOverhead
         } else {
           executorMemOverhead + pinnedMem + spillMem
@@ -821,7 +716,7 @@ abstract class AutoTuner(
         // Else update pinned and spill memory to use default values
         pinnedMem = defaultPinnedMem
         spillMem = defaultSpillMem
-        finalExecutorMemOverhead = if (isOffHeapLimitEnabled) {
+        finalExecutorMemOverhead = if (isOffHeapLimitUserEnabled) {
           executorMemOverhead
         } else {
           executorMemOverhead + defaultPinnedMem + defaultSpillMem
@@ -944,7 +839,7 @@ abstract class AutoTuner(
 
               // Calculate host off-heap limit size for onPrem platform only when
               // offHeapLimit is enabled
-              if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+              if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
                 val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
                   offHeapSizeMB - osReservedMemory
                 if (hostOffHeapLimitSizeMB > 0) {
@@ -969,7 +864,7 @@ abstract class AutoTuner(
               notEnoughMemCommentForKey(
                 "spark.executor.memory"))
             // Skip off-heap related comments when offHeapLimit is enabled
-            if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+            if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
               appendComment("spark.memory.offHeap.size",
                 notEnoughMemCommentForKey(
                   "spark.memory.offHeap.size"))
@@ -1064,23 +959,6 @@ abstract class AutoTuner(
     }
   }
 
-  /**
-   * If the cluster worker-info is missing entries (i.e., CPU and GPU count), it sets the entries
-   * to default values. For each default value, a comment is added to the [[comments]].
-   */
-  def configureClusterPropDefaults: Unit = {
-    if (!clusterProps.system.isEmpty) {
-      if (clusterProps.system.isMissingInfo) {
-        clusterProps.system.setMissingFields(tuningConfigs)
-          .foreach(m => appendComment(m))
-      }
-      if (clusterProps.gpu.isMissingInfo) {
-        clusterProps.gpu.setMissingFields(platform, tuningConfigs)
-          .foreach(m => appendComment(m))
-      }
-    }
-  }
-
   private def recommendGCProperty(): Unit = {
     val jvmGCFraction = appInfoProvider.getJvmGCFractions
     if (jvmGCFraction.nonEmpty) { // avoid zero division
@@ -1111,15 +989,16 @@ abstract class AutoTuner(
           }
         } else {
           if (getPropertyValue("spark.sql.adaptive.coalescePartitions.minPartitionNum").isEmpty) {
-            // The ideal setting is for the parallelism of the cluster
-            val numCoresPerExec = calcNumExecutorCores
-            // TODO: Should this based on the recommended cluster instead of source cluster props?
-            val numExecutorsPerWorker = clusterProps.gpu.getCount
-            val numWorkers = clusterProps.system.getNumWorkers
-            if (numExecutorsPerWorker != 0 && numWorkers != 0) {
-              val total = numWorkers * numExecutorsPerWorker * numCoresPerExec
-              appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
-                total.toString)
+            // TODO: Should this be based on the recommended
+            //  cluster instead of the cluster info from the event log
+            // The ideal setting is same as the parallelism of the cluster
+            platform.clusterInfoFromEventLog match {
+              case Some(clusterInfo) =>
+                // Use cluster info from event log to calculate total parallelism
+                val total = clusterInfo.numExecutors * clusterInfo.coresPerExecutor
+                appendRecommendation("spark.sql.adaptive.coalescePartitions.minPartitionNum",
+                  total.toString)
+              case None =>
             }
           }
         }
@@ -1513,10 +1392,6 @@ abstract class AutoTuner(
     }
   }
 
-  def convertClusterPropsToString(): String = {
-    clusterProps.toString
-  }
-
   /**
    * Add default comments for missing properties except the ones
    * which should be skipped.
@@ -1554,7 +1429,7 @@ abstract class AutoTuner(
   }
 
   /**
-   * The Autotuner loads the spark properties from either the ClusterProperties or the eventlog.
+   * The Autotuner loads the spark properties from the eventlog.
    * 1- runs the calculation for each criterion and saves it as a [[TuningEntryTrait]].
    * 2- The final list of recommendations include any [[TuningEntryTrait]] that has a
    *    recommendation that is different from the original property.
@@ -1581,17 +1456,10 @@ abstract class AutoTuner(
       skipList.foreach(skipSeq => skippedRecommendations ++= skipSeq)
       skippedRecommendations ++= platform.recommendationsToExclude
       initRecommendations()
-      // update GPU device of platform based on cluster properties if it is not already set.
-      // if the GPU device cannot be inferred from cluster properties, do not make any updates.
-      if (platform.gpuDevice.isEmpty && !clusterProps.isEmpty && !clusterProps.gpu.isEmpty) {
-        GpuDevice.createInstance(clusterProps.gpu.getName)
-          .foreach(platform.setGpuDevice)
-      }
       // configured GPU recommended instance type NEEDS to happen before any of the other
       // recommendations as they are based on
       // the instance type
       configureGPURecommendedInstanceType()
-      configureClusterPropDefaults
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
       recommendPluginProps()
@@ -1672,8 +1540,8 @@ abstract class AutoTuner(
       .getOrElse("false")
 
     useV1SourceList.contains("parquet") &&
-    hybridParquetEnabled.toLowerCase == "true" &&
-    hybridLoadBackend.toLowerCase == "false"
+      hybridParquetEnabled.toLowerCase == "true" &&
+      hybridLoadBackend.toLowerCase == "false"
   }
 
   /**
@@ -1712,16 +1580,12 @@ abstract class AutoTuner(
   private def calculatePinnedMemorySize(numExecutorCores: Int,
                                         hostOffHeapLimitSizeMB: Long): Long = {
     // Use new formula only for onPrem platform
-    if (!platform.isPlatformCSP) {
-      // Get GPU batch size in MB
-      val gpuBatchSizeMB = StringUtils.convertToMB(
-        tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefault, Some(ByteUnit.BYTE))
-      // Calculate 2 * executor cores * GPU batch size
-      val coresBatchSizeMB = 2L * numExecutorCores * gpuBatchSizeMB
-      // Calculate 1/4 * host.offHeapLimit.Size
-      val quarterHostOffHeapLimitMB = hostOffHeapLimitSizeMB / 4
+    if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+      // Calculate pinned pool-offHeap ratio * host.offHeapLimit.Size
+      val ratioPinnedPoolSize = hostOffHeapLimitSizeMB *
+        tuningConfigs.getEntry("PINNED_MEM_OFFHEAP_RATIO").getDefault.toDouble
       // Return the minimum of the two values
-      Math.min(coresBatchSizeMB, quarterHostOffHeapLimitMB)
+      ratioPinnedPoolSize.toLong
     } else {
       // For CSP platforms, return a default value (this will be overridden by the original logic)
       tuningConfigs.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
@@ -1746,7 +1610,7 @@ abstract class AutoTuner(
     offHeapMB: Long): Long = {
 
     // Use new formula only for onPrem platform when offHeapLimit is enabled
-    if (!platform.isPlatformCSP && isOffHeapLimitEnabled) {
+    if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
       val calculatedOverhead = totalMemMinusReserved - executorHeapMB - offHeapMB
 
       // Ensure the overhead is not negative and has a minimum value
@@ -1787,12 +1651,11 @@ object AutoTuner {
  * specifically for GPU event logs.
  */
 class ProfilingAutoTuner(
-    clusterProps: ClusterProperties,
     appInfoProvider: BaseProfilingAppSummaryInfoProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider,
     userProvidedTuningConfigs: Option[TuningConfigsProvider])
-  extends AutoTuner(clusterProps, appInfoProvider, platform, driverInfoProvider,
+  extends AutoTuner(appInfoProvider, platform, driverInfoProvider,
     userProvidedTuningConfigs, ProfilingAutoTunerHelper) {
 
   /**
@@ -1879,7 +1742,6 @@ trait AutoTunerHelper extends Logging {
    * Abstract method to create an instance of the AutoTuner.
    */
   def createAutoTunerInstance(
-    clusterProps: ClusterProperties,
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider,
@@ -1892,7 +1754,7 @@ trait AutoTunerHelper extends Logging {
       driverInfoProvider: DriverLogInfoProvider,
       userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
     logError("Exception: " + ex.getStackTrace.mkString("Array(", ", ", ")"))
-    val tuning = createAutoTunerInstance(new ClusterProperties(), appInfo,
+    val tuning = createAutoTunerInstance(appInfo,
       platform, driverInfoProvider, userProvidedTuningConfigs)
     val msg = ex match {
       case cEx: ConstructorException => cEx.getContext
@@ -1906,7 +1768,6 @@ trait AutoTunerHelper extends Logging {
    * Similar to [[buildAutoTuner]] but it allows constructing the AutoTuner without an
    * existing file. This can be used in testing.
    *
-   * @param clusterProps the cluster properties as string.
    * @param singleAppProvider the wrapper implementation that accesses the properties of the profile
    *                          results.
    * @param platform represents the environment created as a target for recommendations.
@@ -1914,16 +1775,17 @@ trait AutoTunerHelper extends Logging {
    * @return a new AutoTuner object.
    */
   def buildAutoTunerFromProps(
-      clusterProps: String,
       singleAppProvider: AppSummaryInfoBaseProvider,
-      platform: Platform = PlatformFactory.createInstance(clusterProperties = None),
+      platform: Platform = PlatformFactory.createInstance(),
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
       userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
   ): AutoTuner = {
     try {
-      val clusterPropsOpt = PropertiesLoader[ClusterProperties].loadFromContent(clusterProps)
-      createAutoTunerInstance(clusterPropsOpt.getOrElse(new ClusterProperties()),
-        singleAppProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
+      createAutoTunerInstance(
+        singleAppProvider,
+        platform,
+        driverInfoProvider,
+        userProvidedTuningConfigs)
     } catch {
       case NonFatal(e) =>
         handleException(e, singleAppProvider, platform, driverInfoProvider,
@@ -1939,7 +1801,6 @@ trait AutoTunerHelper extends Logging {
   ): AutoTuner = {
     try {
       val autoT = createAutoTunerInstance(
-        platform.clusterProperties.getOrElse(new ClusterProperties()),
         singleAppProvider, platform, driverInfoProvider, userProvidedTuningConfigs)
       autoT
     } catch {
@@ -1960,14 +1821,13 @@ trait AutoTunerHelper extends Logging {
  */
 object ProfilingAutoTunerHelper extends AutoTunerHelper {
   def createAutoTunerInstance(
-      clusterProps: ClusterProperties,
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider,
       userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
     appInfoProvider match {
       case profilingAppProvider: BaseProfilingAppSummaryInfoProvider =>
-        new ProfilingAutoTuner(clusterProps, profilingAppProvider, platform,
+        new ProfilingAutoTuner(profilingAppProvider, platform,
           driverInfoProvider, userProvidedTuningConfigs)
       case _ =>
         throw new IllegalArgumentException("'appInfoProvider' must be an instance of " +

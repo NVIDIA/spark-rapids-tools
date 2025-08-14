@@ -93,6 +93,12 @@ default:
     max: 4g
     usedBy: spark.rapids.memory.pinnedPool.size
 
+  - name: PINNED_MEM_OFFHEAP_RATIO
+    description: >-
+      fraction to OFFHEAP limit size to calculate pinned memory size
+    default: 0.5
+    usedBy: spark.rapids.memory.pinnedPool.size
+
   - name: SPILL_MEMORY
     description: >-
       Amount of memory reserved for spilling operations.

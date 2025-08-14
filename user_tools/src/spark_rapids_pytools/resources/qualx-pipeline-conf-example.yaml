@@ -12,23 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# A workflow to create label for PRs
-name: Pull Request Labeler
-
-on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-
-jobs:
-  labeler:
-    permissions:
-      contents: read
-      pull-requests: write
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: NVIDIA/spark-rapids-common/checkout@main
-      - name: Label PR
-        uses: actions/labeler@v5
-        with:
-          configuration-path: ".github/labeler.yml"
+dataset_name: mydataset
+platform: onprem
+alignment_dir: /path/to/alignments
+eventlogs:
+  cpu:
+    - /path/to/CPU/eventlogs
+  gpu:
+    - /path/to/GPU/eventlogs
+output_dir: pipeline
+# qualx
+cache_dir: qualx_cache
+datasets: datasets
+featurizers:
+  - default.py
+  - hash_plan.py
+modifiers:
+  - align_sql_id.py
+label: duration_sum
+split_functions:
+  train:
+    path: split_stratified.py
+    args:
+      label_col: duration_sum_speedup
+      threshold: 1.0
+  test: split_all_test.py
+model_type: xgboost
+xgboost:
+  model_name: xgb_model.json
+  n_trials: 200
+  qual_tool_filter: stage

@@ -34,7 +34,7 @@ from ..configuration.submission.local_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
-from ..tools.autotuner import AutoTunerPropMgr
+
 from ..utils.util import dump_tool_usage, Utilities
 
 
@@ -286,12 +286,14 @@ class EstimationModelArgProcessor(AbsToolUserArgModel):
     """
     estimation_model: Optional[QualEstimationModel] = None
     custom_model_file: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def init_tool_args(self) -> None:
         if self.estimation_model is None:
             self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
         else:
             self.p_args['toolArgs']['estimationModel'] = self.estimation_model
+        self.p_args['toolArgs']['qualxConfig'] = self.qualx_config
 
     def init_arg_cases(self):
         # currently, the estimation model is set to XGBOOST by default.
@@ -603,16 +605,6 @@ class ProfileUserArgModel(ToolUserArgModel):
     """
     driverlog: Optional[str] = None
 
-    def determine_cluster_arg_type(self) -> ArgValueCase:
-        cluster_case = super().determine_cluster_arg_type()
-        if cluster_case == ArgValueCase.VALUE_B:
-            # determine is this an autotuner file or not
-            auto_tuner_prop_obj = AutoTunerPropMgr.load_from_file(self.cluster, raise_on_error=False)
-            if auto_tuner_prop_obj:
-                cluster_case = ArgValueCase.VALUE_C
-                self.p_args['toolArgs']['autotuner'] = self.cluster
-        return cluster_case
-
     def init_driverlog_argument(self) -> None:
         if self.driverlog is None:
             self.p_args['toolArgs']['driverlog'] = None
@@ -632,30 +624,11 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
-        self.p_args['toolArgs']['autotuner'] = None
         self.init_driverlog_argument()
-
-    def define_invalid_arg_cases(self) -> None:
-        super().define_invalid_arg_cases()
-        self.rejected['Autotuner requires eventlogs'] = {
-            'valid': False,
-            'callable': partial(self.raise_validation_exception,
-                                'Cannot run tool cmd. AutoTuner requires eventlogs argument'),
-            'cases': [
-                [ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED]
-            ]
-        }
 
     def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
-
-    def define_detection_cases(self) -> None:
-        super().define_detection_cases()
-        # append the case when the autotuner input
-        self.detected['Define Platform based on Eventlogs prefix']['cases'].append(
-            [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A]
-        )
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'ProfileUserArgModel':
@@ -665,13 +638,7 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        # check if the cluster infor was autotuner_input
-        if self.p_args['toolArgs']['autotuner']:
-            # this is an autotuner input
-            self.p_args['toolArgs']['cluster'] = None
-        else:
-            # this is an actual cluster argument
-            self.p_args['toolArgs']['cluster'] = self.cluster
+        self.p_args['toolArgs']['cluster'] = self.cluster
         if self.p_args['toolArgs']['driverlog'] is None:
             requires_event_logs = True
             rapids_options = {}
@@ -714,8 +681,7 @@ class ProfileUserArgModel(ToolUserArgModel):
             'eventlogs': self.eventlogs,
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapids_options,
-            'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
+            'toolsJar': self.p_args['toolArgs']['toolsJar']
         }
 
         return wrapped_args
@@ -729,7 +695,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     qual_output: str = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
@@ -742,7 +708,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
             'output_folder': self.output_folder,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
@@ -759,7 +725,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
     n_trials: Optional[int] = None
     base_model: Optional[str] = None
     features_csv_dir: Optional[str] = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -771,7 +737,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'n_trials': self.n_trials,
             'base_model': self.base_model,
             'features_csv_dir': self.features_csv_dir,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'platformOpts': {},
         }
 
@@ -782,13 +748,13 @@ class TrainAndEvaluateUserArgModel(AbsToolUserArgModel):
     """
     Represents the arguments collected by the user to run the train and evaluate tool.
     """
-    config: str = None
+    qualx_pipeline_config: str = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
         return {
             'runtimePlatform': runtime_platform,
-            'config': self.config,
+            'qualx_pipeline_config': self.qualx_pipeline_config,
             'output_folder': self.output_folder,
             'platformOpts': {},
         }
