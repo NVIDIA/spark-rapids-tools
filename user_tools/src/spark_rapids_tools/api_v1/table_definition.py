@@ -20,8 +20,8 @@ import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+from spark_rapids_tools.api_v1 import APIUtils
 from spark_rapids_tools.enums import ReportTableFormat
-from spark_rapids_tools.utils import Utilities
 
 
 @dataclass
@@ -65,7 +65,7 @@ class TableDef(BaseModel):
         """
         res = {}
         for col in self.columns:
-            res[col.name] = Utilities.scala_to_pandas_type(col.data_type)
+            res[col.name] = APIUtils.scala_to_pd_dtype(col.data_type)
         return res
 
     def create_empty_df(self) -> pd.DataFrame:

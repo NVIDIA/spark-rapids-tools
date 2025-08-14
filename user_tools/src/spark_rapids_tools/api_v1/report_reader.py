@@ -58,7 +58,6 @@ class ToolReportReader(object):
     def set_apps(self, defined_apps: Dict[str, AppHandler]) -> None:
         self.app_fds.update(defined_apps)
 
-    @property
     def is_per_app(self) -> bool:
         """
         Check if this reader is designed to handle reports per application.
@@ -235,7 +234,6 @@ class PerAppToolReportReader(ToolReportReader):
     per application. It has some other features that can be used as utility.
     """
     @override
-    @property
     def is_per_app(self) -> bool:
         """
         Check if this reader is designed to handle reports per application.
