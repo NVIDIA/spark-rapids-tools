@@ -44,9 +44,15 @@ class AbstractReportResult(Generic[ResDataT]):
     load_error: Optional[Exception] = None
 
     def get_fail_cause(self) -> Optional[Exception]:
-        if self.load_error:
-            return self.load_error.__cause__
-        return None
+        """
+        Get the root cause of the failure if any. If the exception was raised from another,
+        return the original exception; otherwise, return the direct exception.
+        :return: the root exception if any
+        """
+        exc = self.load_error
+        while exc and exc.__cause__ is not None:
+            exc = exc.__cause__
+        return exc
 
 
 @dataclass
