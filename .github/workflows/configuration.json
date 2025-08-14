@@ -8,52 +8,61 @@
     {
       "title": "### QualX",
       "labels": ["qualx"],
+      "exclude_labels": ["autotuner"],
       "exhaustive": true
     },
     {
       "title": "### API Change",
       "labels": ["api_change"],
+      "exclude_labels": ["autotuner", "qualx"],
       "exhaustive": true
     },
     {
       "title": "### Feature Request",
       "labels": ["feature request"],
+      "exclude_labels": ["autotuner", "qualx", "api_change"],
       "exhaustive": true
     },
     {
       "title": "### Performance",
       "labels": ["performance"],
-      "exhaustive": true
-    },
-    {
-      "title": "### Build and CI/CD",
-      "labels": ["dependencies", "cicd", "build"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request"],
       "exhaustive": true
     },
     {
       "title": "### Bug Fixes",
       "labels": ["bug"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance"],
+      "exhaustive": true
+    },
+    {
+      "title": "### Build and CI/CD",
+      "labels": ["dependencies", "cicd", "build"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug"],
       "exhaustive": true
     },
     {
       "title": "### User Tools",
       "labels": ["user_tools"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build"],
       "exhaustive": true
     },
     {
       "title": "### Core",
       "labels": ["core_tools"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools"],
       "exhaustive": true
     },
     {
       "title": "### Documentation",
       "labels": ["documentation"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools"],
       "exhaustive": true
     },
     {
       "title": "## Miscellaneous",
-      "labels": [],
-      "exhaustive": false
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools", "documentation"],
+      "exhaustive": true
     }
   ],
   "sort": {
