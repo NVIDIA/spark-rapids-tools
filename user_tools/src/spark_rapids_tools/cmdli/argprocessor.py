@@ -145,6 +145,27 @@ class AbsToolUserArgModel:
             return self.eventlogs
         return None
 
+    def determine_eventlogs_arg_type(self) -> ArgValueCase:
+        """
+        Determines the type of eventlogs argument:
+        - VALUE_A: Direct eventlog paths (single or comma-separated)
+        - VALUE_B: Presence of at least one valid TXT file path among the comma-separated list
+        - UNDEFINED: No eventlogs provided
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ArgValueCase.UNDEFINED
+        entries = [entry for entry in raw_eventlogs.split(',') if entry]
+        for entry in entries:
+            if entry.lower().endswith('.txt'):
+                if not CspPath.is_file_path(entry, extensions=['txt'], raise_on_error=False):
+                    raise PydanticCustomError(
+                        'eventlogs_file',
+                        f'Invalid eventlogs TXT file: {entry}. File must be an existing .txt file.\n  Error:')
+                return ArgValueCase.VALUE_B
+        # No .txt files present; treat as direct eventlog paths
+        return ArgValueCase.VALUE_A
+
     def raise_validation_exception(self, validation_err: str):
         raise PydanticCustomError(
             'invalid_argument',
@@ -174,19 +195,18 @@ class AbsToolUserArgModel:
         client_cluster = ClientCluster(CspPath(self.cluster))
         self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
-    def detect_platform_from_eventlogs_prefix(self):
-        map_storage_to_platform = {
-            'gcs': CspEnv.DATAPROC,
-            's3': CspEnv.EMR,
-            'local': CspEnv.ONPREM,
-            'hdfs': CspEnv.ONPREM,
-            'adls': CspEnv.DATABRICKS_AZURE
-        }
-        # in case we have a list of eventlogs, we need to split them and take the first one
-        ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
-        storage_type = ev_logs_path.get_storage_name()
-        self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
-        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
+    def get_processed_eventlog_paths(self) -> str:
+        """
+        Returns the processed eventlogs string to pass to the tool.
+        For TXT files, returns the file path itself.
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ''
+        eventlog_type = self.determine_eventlogs_arg_type()
+        if eventlog_type in (ArgValueCase.VALUE_A, ArgValueCase.VALUE_B):
+            return raw_eventlogs
+        return ''
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -428,9 +448,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             rapids_options['tuning_configs'] = self.tuning_configs
 
     def init_extra_arg_cases(self) -> list:
-        if self.eventlogs is None:
-            return [ArgValueCase.UNDEFINED]
-        return [ArgValueCase.VALUE_A]
+        return [self.determine_eventlogs_arg_type()]
 
     def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
@@ -493,14 +511,6 @@ class ToolUserArgModel(AbsToolUserArgModel):
             'callable': partial(self.detect_platform_from_cluster_prop),
             'cases': [
                 [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.IGNORE]
-            ]
-        }
-        self.detected['Define Platform based on Eventlogs prefix'] = {
-            'valid': True,
-            'callable': partial(self.detect_platform_from_eventlogs_prefix),
-            'cases': [
-                [ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A],
-                [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A]
             ]
         }
 
@@ -586,7 +596,7 @@ class QualifyUserArgModel(ToolUserArgModel):
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
@@ -678,7 +688,7 @@ class ProfileUserArgModel(ToolUserArgModel):
                 },
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapids_options,
             'toolsJar': self.p_args['toolArgs']['toolsJar']
@@ -810,7 +820,7 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {
@@ -857,7 +867,7 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {

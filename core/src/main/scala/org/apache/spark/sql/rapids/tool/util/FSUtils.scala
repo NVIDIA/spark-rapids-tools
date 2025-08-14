@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
 import scala.io.{BufferedSource, Source}
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, LocalFileSystem, Path}
+import org.apache.hadoop.fs.{FileSystem, FSDataInputStream, FSDataOutputStream, LocalFileSystem, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 
 /**
@@ -65,6 +65,11 @@ object FSUtils {
     outputStream
   }
 
+  private def getInputStream(dfsPath: Path, hadoopConf: Configuration): FSDataInputStream = {
+    val dfs = getFSForPath(dfsPath, hadoopConf)
+    dfs.open(dfsPath)
+  }
+
   def getUTF8BufferedWriter(outputLoc: String,
       hadoopConf: Option[Configuration]): BufferedWriter = {
     val outStream = getOutputStream(outputLoc, hadoopConf.getOrElse(new Configuration()))
@@ -73,13 +78,31 @@ object FSUtils {
 
   /**
    * Reads the content of a file as UTF-8 and closes the resources.
+   * Works with any Hadoop-compatible filesystem (local, HDFS, S3, GCS, etc.).
    */
-  def readFileContentAsUTF8(filePath: String, delim: String = "\n"): String = {
-    val source = UTF8Source.fromFile(filePath)
+  def readFileContentAsUTF8(
+      filePath: String,
+      hadoopConf: Option[Configuration] = None,
+      delim: String = "\n"): String = {
+    val conf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
+    val path = new Path(filePath)
+    var fsIs: FSDataInputStream = null
     try {
-      source.getLines().mkString(delim)
+      fsIs = getInputStream(path, conf)
+      val source = UTF8Source.fromInputStream(fsIs)
+      try {
+        source.getLines().mkString(delim)
+      } finally {
+        source.close()
+      }
     } finally {
-      source.close()
+      if (fsIs != null) {
+        try {
+          fsIs.close()
+        } catch {
+          case _: Throwable => // ignore close errors
+        }
+      }
     }
   }
 }

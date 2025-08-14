@@ -39,8 +39,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                            verbose: bool = None) -> None:
         """The Core Qualification cmd.
 
-        :param eventlogs: Event log filenames or CSP storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, CSP storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
         :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
@@ -80,8 +80,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
         This is a simplified version for development and testing purposes that directly executes
         the profiling tool JAR without the extra processing layers.
 
-        :param eventlogs: Event log filenames or cloud storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, cloud storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
         :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
