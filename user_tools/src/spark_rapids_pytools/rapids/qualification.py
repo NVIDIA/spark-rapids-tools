@@ -128,12 +128,6 @@ class Qualification(QualificationCore):
         if cpu_cluster_arg is not None:
             cpu_cluster_obj = self._create_migration_cluster('CPU', cpu_cluster_arg)
             self.ctxt.set_ctxt('cpuClusterProxy', cpu_cluster_obj)
-            if cpu_cluster_obj and self.ctxt.get_rapids_auto_tuner_enabled():
-                # Generate Autotuner input file for the Qualification
-                # Note that we do not call the `_calculate_spark_settings(worker_node_hw_info)` method here
-                # because the Qualification tool does not need to calculate the recommended Spark settings
-                # as it will be part of the generated Autotuner output file.
-                self._generate_autotuner_input_from_cluster(cpu_cluster_obj)
 
     # process a single cluster specified by the user
     def _process_offline_cluster_args(self) -> None:
@@ -172,8 +166,6 @@ class Qualification(QualificationCore):
         3. gpu_per_machine: number of gpu installed on a worker node.
         4. cuda version
         """
-        super()._process_custom_args()
-
         gpu_device = self.ctxt.get_value('sparkRapids', 'gpu', 'device')
         gpu_device_arg = self.wrapper_options.get('gpuDevice')
         if gpu_device_arg is not None:
@@ -196,6 +188,7 @@ class Qualification(QualificationCore):
         self._process_submission_mode_arg()
         # This is noise to dump everything
         # self.logger.debug('%s custom arguments = %s', self.pretty_name(), self.ctxt.props['wrapperCtx'])
+        super()._process_custom_args()
 
     def __remap_columns_and_prune(self, all_rows) -> pd.DataFrame:
         cols_subset = self.ctxt.get_value('toolOutput', 'csv', 'summaryReport', 'columns')
@@ -540,10 +533,13 @@ class Qualification(QualificationCore):
         output_info = self.__build_prediction_output_files_info()
         qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
-            predictions_df = predict(platform=model_name, qual=qual_output_dir,
-                                     output_info=output_info,
-                                     model=estimation_model_args['customModelFile'],
-                                     qual_handlers=[qual_handler])
+            predictions_df = predict(
+                platform=model_name,
+                qual=qual_output_dir,
+                output_info=output_info,
+                model=estimation_model_args['customModelFile'],
+                config=estimation_model_args['qualxConfig'],
+                qual_handlers=[qual_handler])
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(

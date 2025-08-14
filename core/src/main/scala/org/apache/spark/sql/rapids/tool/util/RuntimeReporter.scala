@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,15 +53,20 @@ trait RuntimeReporter extends Logging {
    */
   def generateStatusResults(appStatuses: Seq[AppResult]): Seq[AppStatusResult] = {
     skipAppsWithOlderAttempts(appStatuses).map {
-      case FailureAppResult(path, message) =>
-        AppStatusResult(path, "FAILURE", "N/A", message)
-      case SkippedAppResult(path, message) =>
-        AppStatusResult(path, "SKIPPED", "N/A", message)
-      case SuccessAppResult(path, appId, _, message) =>
-        AppStatusResult(path, "SUCCESS", appId, message)
-      case UnknownAppResult(path, appId, message) =>
-        val finalAppId = if (appId.isEmpty) "N/A" else appId
-        AppStatusResult(path, "UNKNOWN", finalAppId, message)
+      case fAppRes @ FailureAppResult(path, message) =>
+        AppStatusResult.build(path, fAppRes.status, message = Option(message))
+      case skippedAppRes @ SkippedAppResult(path, message) =>
+        AppStatusResult.build(path, skippedAppRes.status, message = Option(message))
+      case successAppRes @ SuccessAppResult(path, appId, attemptId, appName, message) =>
+        AppStatusResult.build(path,
+          successAppRes.status,
+          message = Some(message),
+          appId = Some(appId),
+          attemptId = Some(attemptId),
+          appName = Some(appName))
+      case naAppRes @ UnknownAppResult(path, appId, message) =>
+        val finalAppId = if (appId.isEmpty) None else Some(appId)
+        AppStatusResult.build(path, naAppRes.status, message = Some(message), appId = finalAppId)
       case profAppResult: AppResult =>
         throw new UnsupportedOperationException(s"Invalid status for $profAppResult")
     }

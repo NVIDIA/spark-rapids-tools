@@ -26,8 +26,6 @@ from dataclasses import dataclass, field
 from logging import Logger
 from typing import Any, Callable, Dict, List, Optional
 
-import yaml
-
 import spark_rapids_pytools
 from spark_rapids_pytools import get_spark_dep_version
 from spark_rapids_pytools.cloud_api.sp_types import get_platform, \
@@ -44,7 +42,7 @@ from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import untar_file
-from spark_rapids_tools.utils import Utilities
+from spark_rapids_tools.utils import Utilities, AbstractPropContainer
 from spark_rapids_tools.utils.net_utils import DownloadTask
 
 
@@ -530,7 +528,10 @@ class RapidsJarTool(RapidsTool):
         # This is used later to determine if the Speed up calculation should be skipped if
         # running the Qualification Tool.
         target_cluster_info_file = self.rapids_options.get('target_cluster_info')
-        target_cluster_info = YAMLPropertiesContainer(target_cluster_info_file) if target_cluster_info_file else None
+        target_cluster_info = (
+            AbstractPropContainer.load_from_file(target_cluster_info_file)
+            if target_cluster_info_file else None
+        )
         # workerInfo may or may not be present in the target cluster info.
         worker_info = target_cluster_info.get_value_silent('workerInfo') if target_cluster_info else None
         if worker_info:
@@ -683,53 +684,8 @@ class RapidsJarTool(RapidsTool):
     def _process_offline_cluster_args(self):
         pass
 
-    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None) -> bool:
+    def _process_gpu_cluster_args(self, offline_cluster_opts: dict = None):
         pass
-
-    def _generate_autotuner_file_for_cluster(self, file_path: str, cluster_ob: ClusterBase):
-        """
-        Given file path and the cluster object, it will generate the formatted input file in yaml
-        that can be used by the autotuner to run the profiling tool.
-        :param file_path: local path whether the file should be stored
-        :param cluster_ob: the object representing the cluster proxy.
-        :return:
-        """
-        self.logger.info('Generating input file for Auto-tuner')
-        worker_hw_info = cluster_ob.get_worker_hw_info()
-        worker_info = {
-                'softwareProperties': cluster_ob.get_all_spark_properties()
-            }
-        if worker_hw_info:
-            if worker_hw_info.sys_info:
-                worker_info['system'] = {
-                        'numCores': worker_hw_info.sys_info.num_cpus,
-                        'memory': f'{worker_hw_info.sys_info.cpu_mem}MiB',
-                        'numWorkers': cluster_ob.get_workers_count()
-                }
-
-            if worker_hw_info.gpu_info:
-                worker_info['gpu'] = {
-                    # the scala code expects a unit
-                    'memory': f'{worker_hw_info.gpu_info.gpu_mem}MiB',
-                    'count': worker_hw_info.gpu_info.num_gpus,
-                    'name': worker_hw_info.gpu_info.get_gpu_device_name()
-                }
-
-        # add the spark properties that we need to set
-        with open(file_path, 'w', encoding='utf-8') as worker_info_file:
-            self.logger.debug('Opening file %s to write worker info', file_path)
-            yaml.dump(worker_info, worker_info_file, sort_keys=False)
-
-    def _generate_autotuner_input_from_cluster(self, cluster_obj: ClusterBase):
-        input_file_name = 'worker_info.yaml'
-        self.ctxt.set_ctxt('autoTunerFileName', input_file_name)
-        autotuner_input_path = FSUtil.build_path(self.ctxt.get_local_work_dir(), 'worker_info.yaml')
-        self._generate_autotuner_file_for_cluster(file_path=autotuner_input_path,
-                                                  cluster_ob=cluster_obj)
-        self.logger.info('Generated autotuner worker info: %s', autotuner_input_path)
-        self.ctxt.set_ctxt('autoTunerFilePath', autotuner_input_path)
-        self.logger.info('WorkerInfo successfully processed into workDir [%s]',
-                         autotuner_input_path)
 
     def _copy_dependencies_to_remote(self):
         self.logger.info('Skipping preparing remote dependency folder')
@@ -924,12 +880,9 @@ class RapidsJarTool(RapidsTool):
         return platform_args
 
     def _create_autotuner_rapids_args(self) -> list:
-        # Add the autotuner argument, also add worker-info if the autotunerPath exists
+        # Add the autotuner argument
         if self.ctxt.get_rapids_auto_tuner_enabled():
-            autotuner_path = self.ctxt.get_ctxt('autoTunerFilePath')
-            if autotuner_path is None:
-                return ['--auto-tuner']
-            return ['--auto-tuner', '--worker-info', autotuner_path]
+            return ['--auto-tuner']
         return []
 
     def _get_job_submission_resources(self, tool_name: str) -> dict:

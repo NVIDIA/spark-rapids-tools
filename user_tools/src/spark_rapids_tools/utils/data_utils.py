@@ -17,39 +17,105 @@ core tools."""
 
 import os
 import json
-from dataclasses import dataclass
-from typing import Optional, List, Callable, Any, Union, IO
+from dataclasses import dataclass, field
+from typing import Optional, List, Callable, Any, Union, IO, Generic, TypeVar, Dict
 
 import pandas as pd
+from jproperties import Properties
 
 from spark_rapids_tools import CspPathT
 
+ResDataT = TypeVar('ResDataT')
+
 
 @dataclass
-class LoadDFResult(object):
+class AbstractReportResult(Generic[ResDataT]):
+    """
+    A base class for report results. It is used to define the common interface for all report results.
+    :param f_path: The path where the report is located. Notice that we use a plain string and not
+                     a CspPath as we want to keep the class lightWeight in case we face performance
+                        issues related to keeping CspPath objects in memory.
+    :param success: Whether the loading is successful.
+    :param load_error: The error that occurred during the loading if any.
+    """
+    f_path: str
+    success: bool
+    data: Optional[ResDataT]
+    load_error: Optional[Exception] = None
+
+    def get_fail_cause(self) -> Optional[Exception]:
+        """
+        Get the root cause of the failure if any. If the exception was raised from another,
+        return the original exception; otherwise, return the direct exception.
+        :return: the root exception if any
+        """
+        exc = self.load_error
+        while exc and exc.__cause__ is not None:
+            exc = exc.__cause__
+        return exc
+
+
+@dataclass
+class LoadDFResult(AbstractReportResult[pd.DataFrame]):
     """
     A class that represents the result of a download task. It contains the following information:
     :param f_path: The path where the CSV located. Notice that we use a plain string and not
                    a CspPath as we want to keep the class lightWeight in case we face performance
                    issues related to keeping CspPath objects in memory.
-    :param df: The dataframe that was loaded from the file.
+    :param data: The dataframe that was loaded from the file.
     :param success: Whether the loading is successful.
     :param fallen_back: Was the DF resulting DF created from a fallBack to default value, or was it
                         loaded actually from the file.
     :param load_error: The error that occurred during the loading if any.
     """
-    f_path: str
-    df: Optional[pd.DataFrame]
-    success: bool
-    fallen_back: bool
-    load_error: Optional[Exception] = None
+    data: Optional[pd.DataFrame]
+    fallen_back: bool = field(default=False)
 
     def df_to_dict(self) -> List[dict[str, str]]:
-        return DataUtils.convert_df_to_dict(self.df)
+        return DataUtils.convert_df_to_dict(self.data)
 
-    def get_fail_cause(self) -> Optional[Exception]:
-        if self.load_error:
-            return self.load_error.__cause__
+
+@dataclass
+class JPropsResult(AbstractReportResult[Dict[str, str]]):
+    """
+    A class that represents the result of a properties loading task. It contains the following information:
+    :param f_path: The path where the properties file is located.
+    :param data: The loaded properties as a dictionary.
+    :param success: Whether the loading is successful.
+    :param load_error: The error that occurred during the loading if any.
+    """
+    data: Optional[Dict[str, str]]
+
+    def get_item(self, item_key) -> Optional[str]:
+        """
+        Get a specific item from the loaded properties.
+        :param item_key: The key of the item to retrieve.
+        :return: The value associated with the given key, or None if the key does not exist.
+        """
+        if self.success and self.data:
+            return self.data.get(item_key)
+        return None
+
+
+@dataclass
+class TXTResult(AbstractReportResult[str]):
+    """
+    A class that represents the result of a text file processing task. It contains the following information:
+    :param f_path: The path where the text file is located.
+    :param data: The processed text content.
+    :param success: Whether the processing is successful.
+    :param load_error: The error that occurred during the processing if any.
+    """
+    data: Optional[str]
+
+    def decode_txt(self, encoding: str = 'utf-8') -> Optional[str]:
+        """
+        Decode the processed text content to a string using the specified encoding.
+        :param encoding: The encoding to use for decoding.
+        :return: The decoded text content as a string, or None if processing failed.
+        """
+        if self.success and self.data and isinstance(self.data, bytes):
+            return self.data.decode(encoding)
         return None
 
 
@@ -141,7 +207,7 @@ class DataUtils:
             success = True
         return LoadDFResult(
             f_path=actual_path,
-            df=loaded_df,
+            data=loaded_df,
             success=success,
             fallen_back=fallen_back,
             load_error=load_error)
@@ -179,14 +245,95 @@ class DataUtils:
             success = loaded_df is not None
         except Exception as e:  # pylint: disable=broad-except
             load_error = e
-            loaded_df = None
         if loaded_df is None and default_cb:
             loaded_df = default_cb()
             fallen_back = True
             success = True
         return LoadDFResult(
             f_path=actual_path,
-            df=loaded_df,
+            data=loaded_df,
             success=success,
             fallen_back=fallen_back,
             load_error=load_error)
+
+    @staticmethod
+    def read_jprops(
+            file_buffer: Union[str, bytes, os.PathLike, IO[Any]],
+            encoding='utf-8') -> Properties:
+        """
+        Read a properties file from a file path or buffer.
+
+        :param file_buffer: A file path or a file-like object containing the properties data.
+                             Can be a string path, path-like object, or file-like object.
+        :param encoding: Additional argument to set the encoding for the reading of the file.
+        :return:
+            Properties: The loaded properties, or None if reading fails.
+        :raises:
+            Exception: If reading fails, the original exception is re-raised.
+
+        Examples:
+        >>> # load properties from a file
+        >>> loaded_props = DataUtils.read_jprops('config.properties')
+        """
+        try:
+            jprops = Properties()
+            jprops.load(file_buffer, encoding=encoding)
+            return jprops
+        except Exception as e:
+            raise RuntimeError(f'Failed to read properties from {file_buffer} — {e}') from e
+
+    @staticmethod
+    def load_jprops(f_path: Union[str, CspPathT], encoding='utf-8') -> JPropsResult:
+        """
+        Load a properties file from a given file path.
+
+        :param f_path: The file path to load.
+        :param encoding: Encoding to use when reading the properties file.
+        :return: A LoadPropertiesResult object holding information about the properties loading task.
+        """
+        loaded_props = None
+        data_props: Dict[str, str] = {}
+        load_error = None
+        success = False
+        actual_path = str(f_path)
+        try:
+            if isinstance(f_path, str):
+                with open(f_path, 'rb') as prop_file:
+                    # Read properties from a file path:
+                    loaded_props = DataUtils.read_jprops(prop_file, encoding=encoding)
+            else:
+                with f_path.open_input_stream() as fis:
+                    loaded_props = DataUtils.read_jprops(fis, encoding=encoding)
+            success = loaded_props is not None
+            data_props.update(loaded_props.properties)
+        except Exception as e:  # pylint: disable=broad-except
+            load_error = e
+        return JPropsResult(f_path=actual_path,
+                            data=data_props,
+                            success=success,
+                            load_error=load_error)
+
+    @staticmethod
+    def load_txt(f_path: Union[str, CspPathT]) -> TXTResult:
+        """
+        Load a text file from a given file path.
+        :param f_path: The file path to load.
+        :return: A TXTResult object holding information about the text file loading task.
+        """
+        success = False
+        load_error = None
+        try:
+            if isinstance(f_path, str):
+                # read in binary because we want to match the behavior of CspPath
+                with open(f_path, 'rb') as f:
+                    f_content = f.read().decode('utf-8')
+            else:
+                with f_path.open_input_stream() as fis:
+                    f_content = fis.read()
+            success = f_content is not None
+        except Exception as e:  # pylint: disable=broad-except
+            load_error = e
+        return TXTResult(f_path=str(f_path),
+                         data=f_content,
+                         success=success,
+                         load_error=load_error)

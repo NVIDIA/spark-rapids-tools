@@ -86,7 +86,9 @@ dependencies = [
     # used for retrieving available memory on the host
     "psutil==7.0.0",
     # pyspark for distributed computing
-    "pyspark>=3.4.2,<4.0.0"
+    "pyspark>=3.4.2,<4.0.0",
+    # Jproperties used to handle Java properties file (added for the Tools API)
+    "jproperties==2.1.2"
 ]
 dynamic=["entry-points", "version"]
 

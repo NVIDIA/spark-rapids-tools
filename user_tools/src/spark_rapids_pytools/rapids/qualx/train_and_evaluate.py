@@ -27,11 +27,11 @@ class TrainAndEvaluate(QualXTool):
 
     Attributes
     ----------
-    config:
+    qualx_pipeline_config:
         Path to YAML config file containing training parameters.
     """
 
-    config: str = None
+    qualx_pipeline_config: str = None
 
     name = 'train_and_evaluate'
 
@@ -40,7 +40,7 @@ class TrainAndEvaluate(QualXTool):
         Runs the QualX pipeline.
         """
         try:
-            train_and_evaluate(config=self.config)
+            train_and_evaluate(config=self.qualx_pipeline_config)
             self.logger.info('QualX pipeline completed successfully.')
         except Exception as e:  # pylint: disable=broad-except
             self.logger.error('QualX pipeline failed with error: %s', e)

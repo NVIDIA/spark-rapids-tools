@@ -50,10 +50,9 @@ target/
 
 # prepackage locations
 csp-resources*
-tools-resources/
 
 # generated files resources directory in user_tools
-**/resources/core/generated_files/
+**/resources/generated_files/core
 
 # precommit files
 *-E

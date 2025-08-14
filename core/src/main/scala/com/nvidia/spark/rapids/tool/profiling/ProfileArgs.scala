@@ -111,10 +111,6 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Output the SQL Ids after being cleaned of delta log metadata operations to " +
         "allow aligning cpu/gpu runs.",
       default = Some(false))
-  val workerInfo: ScallopOption[String] =
-    opt[String](required = false,
-      descr = "File path containing the system information of a worker node. It is assumed " +
-        "that all workers are homogenous. It requires the AutoTuner to be enabled")
   val enableDiagnosticViews: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Toggle diagnostic views generation. Disabled by default.",
@@ -122,6 +118,14 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val targetClusterInfo: ScallopOption[String] =
     opt[String](required = false,
       descr = "File path containing the system information of the target cluster")
+  val tuningConfigs: ScallopOption[String] =
+    opt[String](
+      required = false,
+      descr =
+        "File path for tuning configs to override defaults. " +
+        "If not set, default configs are used. " +
+        "Default: <repo>/core/src/main/resources/bootstrap/tuningConfigs.yaml"
+    )
 
   validate(filterCriteria) {
     case crit if crit.endsWith("-newest-filesystem") ||

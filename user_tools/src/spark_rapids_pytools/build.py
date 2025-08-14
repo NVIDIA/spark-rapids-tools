@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, NVIDIA CORPORATION.
+# Copyright (c) 2022-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 """Build helpers."""
 
-import datetime
 import os
 
 
@@ -25,7 +24,8 @@ def get_version(main: str = None) -> str:
     suffix = ''
     nightly = os.environ.get('USERTOOLS_NIGHTLY')
     if nightly == '1':
-        suffix = '.dev' + datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')
+        build_number = os.environ.get('BUILD_NUMBER', '0')
+        suffix = f'.dev{build_number}'
     return main + suffix
 
 

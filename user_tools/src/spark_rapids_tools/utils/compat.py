@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Includes classes and wrappers related to autotuner feature"""
+"""A module to resolve compatibilities across Python releases."""
 
-from typing import Optional, ClassVar, Type
+# pylint: disable=unused-import
 
-from spark_rapids_tools.utils.propmanager import PropValidatorSchemaCamel, PropValidatorSchema, AbstractPropContainer
-
-
-class AutoTunerInputSchema(PropValidatorSchemaCamel):
-    system: dict
-    gpu: Optional[dict] = None
-    software_properties: Optional[dict] = None
-
-
-class AutoTunerPropMgr(AbstractPropContainer):
-    schema_clzz: ClassVar[Type['PropValidatorSchema']] = AutoTunerInputSchema
+try:
+    from typing import override  # Python 3.12+
+except ImportError:
+    # Older python versions
+    from typing_extensions import override

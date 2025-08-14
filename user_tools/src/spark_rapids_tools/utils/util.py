@@ -417,3 +417,44 @@ class Utilities:
             'yes': True,
             'no': False
         }.get(s.lower(), False)
+
+    @staticmethod
+    def str_to_camel(s: str) -> str:
+        """
+        Convert a string to camel case.
+        Adopted from
+        https://www.30secondsofcode.org/python/s/string-capitalize-camel-snake-kebab/#camel-case-string
+        > To convert a string to camel case, you can use re.sub() to replace any - or _ with a space,
+        > using the regexp r"(_|-)+". Then, use str.title() to capitalize every word and convert the
+        > rest to lowercase. Finally, use str.replace() to remove any spaces between words.
+        :param s: The input string.
+        :return: The camel case version of the input string.
+        """
+        s = re.sub(r'([_\-])+', ' ', s).title().replace(' ', '')
+        return ''.join([s[0].lower(), s[1:]])
+
+    @staticmethod
+    def scala_to_pandas_type(scala_type: str) -> str:
+        """
+        Converts a Scala data type string to its corresponding Pandas-compatible type.
+        Note that it is important to use Pandas Nullable type in order to support null data
+        passed from the core-tools. For example, Pandas cannot use 'int64' for an integer column if
+        it has missing values. It always expect it to be a NaN which might not be the case for
+        Scala.
+
+        :param scala_type: The Scala data type string (e.g., 'Int', 'String', 'Double').
+        :return: (str) The Pandas-compatible data type string (e.g., 'int64', 'object', 'float64').
+        """
+        scala_to_pandas_map = {
+            'Int': 'Int64',         # Nullable integer
+            'Long': 'Int64',        # Both Scala Int and Long map to int64 in Pandas for typical usage.
+            'Float': 'float32',     # Float is already nullable (supports NaN)
+            'Double': 'float64',    # Float is already nullable (supports NaN)
+            'String': 'string',     # Pandas nullable string dtype
+            'Boolean': 'boolean',   # Pandas nullable boolean dtype
+            'Timestamp': 'datetime64[ns]',
+            'Date': 'datetime64[ns]',  # Pandas represents both Date and Timestamp as datetime64[ns].
+            'Decimal': 'object',  # Pandas may not have a direct equivalent for Decimal, so 'object' is used.
+            # Add more mappings for other Scala types as needed
+        }
+        return scala_to_pandas_map.get(scala_type, 'object')  # Default to object for unknown types.

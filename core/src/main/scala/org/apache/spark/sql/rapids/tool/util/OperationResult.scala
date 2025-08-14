@@ -22,7 +22,7 @@ import org.apache.spark.internal.Logging
  *  Represents a result specific to `AppBase` class. This is a base class for
  *  Success, Failure and Unknown types.
  */
-class AppResult(path: String, message: String) extends Logging {
+abstract class AppResult(path: String, message: String) extends Logging {
   /**
    * Logs the message along with an optional exception, if provided.
    */
@@ -33,26 +33,37 @@ class AppResult(path: String, message: String) extends Logging {
       case None => logWarning(messageToLog)
     }
   }
+
+  val status: String
 }
 
 case class SuccessAppResult(
     path: String,
     appId: String,
     attemptId: Int,
+    appName: String,
     message: String = "") extends AppResult(path, message) {
   override def logMessage(exp: Option[Exception] = None): Unit = {
-    logInfo(s"File: $path, Message: $message")
+    logInfo(s"[SUCCESS] File: $path, appName: $appName, appId: $appId, attemptId: $attemptId")
   }
+
+  override val status: String = "SUCCESS"
 }
 
 case class FailureAppResult(path: String, message: String)
-  extends AppResult(path, message) {}
+  extends AppResult(path, message) {
+  override val status: String = "FAILURE"
+}
 
 case class UnknownAppResult(path: String, appId: String, message: String)
-  extends AppResult(path, message) {}
+  extends AppResult(path, message) {
+  override val status: String = "UNKNOWN"
+}
 
 case class SkippedAppResult(path: String, message: String)
-  extends AppResult(path, message) {}
+  extends AppResult(path, message) {
+  override val status: String = "SKIPPED"
+}
 
 object SkippedAppResult {
   def fromAppAttempt(path: String, appId: String, attemptId: Int): SkippedAppResult = {

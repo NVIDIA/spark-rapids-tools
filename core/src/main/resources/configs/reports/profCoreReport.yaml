@@ -1,0 +1,66 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This file is used to define the output files of the qualification tool.
+# Note that all the output files in this list should be considered internal-use only.
+
+reportDefinitions:
+  - reportId: profCoreOutput
+    subDirectory: rapids_4_spark_profile
+    description: >-
+      TBD
+    scope: global
+    nestedReports:
+      - reportId: coreRawMetrics
+    tableDefinitions:
+      # AppStatusResult
+      - label: profCoreCSVStatus
+        description: >-
+          Status of each eventlog passed to the profiling tool.
+          The status is either success, failure, skipped, or unknown (failure).
+          Some rows in that file might not contain App ID depending on the status of the parser.
+        fileName: profiling_status.csv
+        scope: global
+        columns:
+          - name: Event Log
+            dataType: String
+            description: >-
+              Path to the eventlog file
+          - name: Status
+            dataType: String
+            description: >-
+              Results of the processing of the eventlog. It can be:
+              success the tool successfully processed the entire events
+              failure an exception was thrown by the tool
+              skipped the eventlog is not supported by the tool (i.e., streaming and GPU eventlogs)
+              unknown an unexpected kind of failure happened
+          - name: App ID
+            dataType: String
+            description: >-
+              ID of the app associated with the eventlog.
+              If the eventlog failed to be processed, this value is empty.
+          - name: Attempt ID
+            dataType: Int
+            description: >-
+              Attempt ID of the app associated with the eventlog.
+              For Yarn, the Unique ID of the app is the concatenation of the application ID and the attempt ID.
+          - name: App Name
+            dataType: String
+            description: >-
+              Name of application associated with the eventlog.
+          - name: Description
+            dataType: String
+            description: >-
+              Contains the details of the failure reason for a given eventlog.
+              If the eventlog succeeded, this value contains the total processing time of that file.

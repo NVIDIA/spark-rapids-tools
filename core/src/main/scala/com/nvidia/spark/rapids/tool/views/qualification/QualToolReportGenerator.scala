@@ -127,6 +127,8 @@ class QualToolStatusTable(
         Seq(formatStr(r.path),
           formatStr(r.status),
           formatStr(r.appId),
+          r.attemptId,
+          formatStr(r.appName),
           formatStr(r.message)
         ).mkString(delim))
     }

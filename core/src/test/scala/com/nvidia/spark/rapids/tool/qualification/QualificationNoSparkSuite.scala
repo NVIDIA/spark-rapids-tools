@@ -746,7 +746,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         numExecsPerNode = 1,
         numExecutors = 2,
         numWorkerNodes = 2,
-        executorHeapMemory = 0L,
+        executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false,
         "N/A", "N/A", "N/A",
         driverHost = Some("dataproc-test-m.c.internal")),
@@ -756,7 +756,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         numExecsPerNode = 1,
         numExecutors = 2,
         numWorkerNodes = 2,
-        executorHeapMemory = 0L,
+        executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false,
         "N/A", "N/A", "N/A",
         driverHost = Some("10.10.10.100"),
@@ -767,7 +767,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         numExecsPerNode = 1,
         numExecutors = 2,
         numWorkerNodes = 2,
-        executorHeapMemory = 0L,
+        executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false,
         "N/A", "N/A", "N/A",
         driverHost = Some("10.10.10.100"))
@@ -785,11 +785,11 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
   val expectedClusterInfoMap: Seq[(String, Option[SourceClusterInfo])] = Seq(
     "eventlog_2nodes_8cores" -> // 2 executor nodes with 8 cores.
       Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 8,
-        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
+        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_multiple_executors" -> // 3 nodes, each with 2 executors having 12 cores.
       Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 0L,
+        numExecsPerNode = -1, numExecutors = 4, numWorkerNodes = 3, executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.59.184.210"))),
     "eventlog_4nodes_8cores_dynamic_alloc.zstd" -> // using dynamic allocation, total of 5 nodes, each with max 7
       // executor running having 4 cores. At the end it had 1 active executor.
@@ -800,11 +800,11 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         driverHost = Some("10.10.6.9"))),
     "eventlog_3nodes_12cores_variable_cores" -> // 3 nodes with varying cores: 8, 12, and 8, each with 1 executor.
       Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 0L,
+        numExecsPerNode = 1, numExecutors = 3, numWorkerNodes = 3, executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_3nodes_12cores_exec_removed" -> // 2 nodes, each with 1 executor having 12 cores, 1 executor removed.
       Some(SourceClusterInfo(vendor = PlatformNames.DEFAULT, coresPerExecutor = 12,
-        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 0L,
+        numExecsPerNode = 1, numExecutors = 2, numWorkerNodes = 2, executorHeapMemory = 1024L,
         dynamicAllocationEnabled = false, "N/A", "N/A", "N/A", driverHost = Some("10.10.10.100"))),
     "eventlog_driver_only" -> None // Event log with driver only
   )

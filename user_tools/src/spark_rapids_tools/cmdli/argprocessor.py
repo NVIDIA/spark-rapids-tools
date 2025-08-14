@@ -34,7 +34,7 @@ from ..configuration.submission.local_config import LocalToolsConfig
 from ..configuration.tools_config import ToolsConfig
 from ..enums import QualFilterApp, CspEnv, QualEstimationModel, SubmissionMode
 from ..storagelib.csppath import CspPath
-from ..tools.autotuner import AutoTunerPropMgr
+
 from ..utils.util import dump_tool_usage, Utilities
 
 
@@ -145,6 +145,27 @@ class AbsToolUserArgModel:
             return self.eventlogs
         return None
 
+    def determine_eventlogs_arg_type(self) -> ArgValueCase:
+        """
+        Determines the type of eventlogs argument:
+        - VALUE_A: Direct eventlog paths (single or comma-separated)
+        - VALUE_B: Presence of at least one valid TXT file path among the comma-separated list
+        - UNDEFINED: No eventlogs provided
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ArgValueCase.UNDEFINED
+        entries = [entry for entry in raw_eventlogs.split(',') if entry]
+        for entry in entries:
+            if entry.lower().endswith('.txt'):
+                if not CspPath.is_file_path(entry, extensions=['txt'], raise_on_error=False):
+                    raise PydanticCustomError(
+                        'eventlogs_file',
+                        f'Invalid eventlogs TXT file: {entry}. File must be an existing .txt file.\n  Error:')
+                return ArgValueCase.VALUE_B
+        # No .txt files present; treat as direct eventlog paths
+        return ArgValueCase.VALUE_A
+
     def raise_validation_exception(self, validation_err: str):
         raise PydanticCustomError(
             'invalid_argument',
@@ -174,19 +195,18 @@ class AbsToolUserArgModel:
         client_cluster = ClientCluster(CspPath(self.cluster))
         self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
-    def detect_platform_from_eventlogs_prefix(self):
-        map_storage_to_platform = {
-            'gcs': CspEnv.DATAPROC,
-            's3': CspEnv.EMR,
-            'local': CspEnv.ONPREM,
-            'hdfs': CspEnv.ONPREM,
-            'adls': CspEnv.DATABRICKS_AZURE
-        }
-        # in case we have a list of eventlogs, we need to split them and take the first one
-        ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
-        storage_type = ev_logs_path.get_storage_name()
-        self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
-        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
+    def get_processed_eventlog_paths(self) -> str:
+        """
+        Returns the processed eventlogs string to pass to the tool.
+        For TXT files, returns the file path itself.
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ''
+        eventlog_type = self.determine_eventlogs_arg_type()
+        if eventlog_type in (ArgValueCase.VALUE_A, ArgValueCase.VALUE_B):
+            return raw_eventlogs
+        return ''
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -286,12 +306,14 @@ class EstimationModelArgProcessor(AbsToolUserArgModel):
     """
     estimation_model: Optional[QualEstimationModel] = None
     custom_model_file: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def init_tool_args(self) -> None:
         if self.estimation_model is None:
             self.p_args['toolArgs']['estimationModel'] = QualEstimationModel.get_default()
         else:
             self.p_args['toolArgs']['estimationModel'] = self.estimation_model
+        self.p_args['toolArgs']['qualxConfig'] = self.qualx_config
 
     def init_arg_cases(self):
         # currently, the estimation model is set to XGBOOST by default.
@@ -355,6 +377,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     jvm_threads: Optional[int] = None
     tools_config_path: Optional[str] = None
     target_cluster_info: Optional[str] = None
+    tuning_configs: Optional[str] = None
 
     def is_concurrent_submission(self) -> bool:
         return False
@@ -413,10 +436,19 @@ class ToolUserArgModel(AbsToolUserArgModel):
             # See: `spark_rapids_pytools.rapids.rapids_tool.RapidsJarTool._process_tool_args_from_input`
             rapids_options['target_cluster_info'] = self.target_cluster_info
 
+    def process_tuning_configs(self, rapids_options: dict) -> None:
+        if self.tuning_configs is not None:
+            if not CspPath.is_file_path(self.tuning_configs,
+                                        extensions=['yaml'],
+                                        raise_on_error=False):
+                raise PydanticCustomError(
+                    'tuning_configs',
+                    f'Tuning configs file path {self.tuning_configs} is not valid. '
+                    'It is expected to be a valid YAML file.')
+            rapids_options['tuning_configs'] = self.tuning_configs
+
     def init_extra_arg_cases(self) -> list:
-        if self.eventlogs is None:
-            return [ArgValueCase.UNDEFINED]
-        return [ArgValueCase.VALUE_A]
+        return [self.determine_eventlogs_arg_type()]
 
     def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
@@ -481,14 +513,6 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.IGNORE]
             ]
         }
-        self.detected['Define Platform based on Eventlogs prefix'] = {
-            'valid': True,
-            'callable': partial(self.detect_platform_from_eventlogs_prefix),
-            'cases': [
-                [ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A],
-                [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A]
-            ]
-        }
 
 
 @dataclass
@@ -547,7 +571,8 @@ class QualifyUserArgModel(ToolUserArgModel):
         self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
-
+        # process tuning configs
+        self.process_tuning_configs(rapids_options)
         # finally generate the final values
         wrapped_args = {
             'runtimePlatform': runtime_platform,
@@ -571,7 +596,7 @@ class QualifyUserArgModel(ToolUserArgModel):
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
@@ -589,16 +614,6 @@ class ProfileUserArgModel(ToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     driverlog: Optional[str] = None
-
-    def determine_cluster_arg_type(self) -> ArgValueCase:
-        cluster_case = super().determine_cluster_arg_type()
-        if cluster_case == ArgValueCase.VALUE_B:
-            # determine is this an autotuner file or not
-            auto_tuner_prop_obj = AutoTunerPropMgr.load_from_file(self.cluster, raise_on_error=False)
-            if auto_tuner_prop_obj:
-                cluster_case = ArgValueCase.VALUE_C
-                self.p_args['toolArgs']['autotuner'] = self.cluster
-        return cluster_case
 
     def init_driverlog_argument(self) -> None:
         if self.driverlog is None:
@@ -619,30 +634,11 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def init_tool_args(self) -> None:
         self.p_args['toolArgs']['platform'] = self.platform
-        self.p_args['toolArgs']['autotuner'] = None
         self.init_driverlog_argument()
-
-    def define_invalid_arg_cases(self) -> None:
-        super().define_invalid_arg_cases()
-        self.rejected['Autotuner requires eventlogs'] = {
-            'valid': False,
-            'callable': partial(self.raise_validation_exception,
-                                'Cannot run tool cmd. AutoTuner requires eventlogs argument'),
-            'cases': [
-                [ArgValueCase.IGNORE, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED]
-            ]
-        }
 
     def define_rejected_missing_eventlogs(self) -> None:
         if self.p_args['toolArgs']['driverlog'] is None:
             super().define_rejected_missing_eventlogs()
-
-    def define_detection_cases(self) -> None:
-        super().define_detection_cases()
-        # append the case when the autotuner input
-        self.detected['Define Platform based on Eventlogs prefix']['cases'].append(
-            [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A]
-        )
 
     @model_validator(mode='after')
     def validate_arg_cases(self) -> 'ProfileUserArgModel':
@@ -652,13 +648,7 @@ class ProfileUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        # check if the cluster infor was autotuner_input
-        if self.p_args['toolArgs']['autotuner']:
-            # this is an autotuner input
-            self.p_args['toolArgs']['cluster'] = None
-        else:
-            # this is an actual cluster argument
-            self.p_args['toolArgs']['cluster'] = self.cluster
+        self.p_args['toolArgs']['cluster'] = self.cluster
         if self.p_args['toolArgs']['driverlog'] is None:
             requires_event_logs = True
             rapids_options = {}
@@ -674,6 +664,8 @@ class ProfileUserArgModel(ToolUserArgModel):
         self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
+        # process tuning configs
+        self.process_tuning_configs(rapids_options)
 
         # finally generate the final values
         wrapped_args = {
@@ -696,11 +688,10 @@ class ProfileUserArgModel(ToolUserArgModel):
                 },
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapids_options,
-            'toolsJar': self.p_args['toolArgs']['toolsJar'],
-            'autoTunerFileInput': self.p_args['toolArgs']['autotuner']
+            'toolsJar': self.p_args['toolArgs']['toolsJar']
         }
 
         return wrapped_args
@@ -714,7 +705,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
     This is used as doing preliminary validation against some of the common pattern
     """
     qual_output: str = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
     estimation_model_args: Optional[Dict] = dataclasses.field(default_factory=dict)
 
     def build_tools_args(self) -> dict:
@@ -727,7 +718,7 @@ class PredictUserArgModel(AbsToolUserArgModel):
             'runtimePlatform': self.platform,
             'qual_output': self.qual_output,
             'output_folder': self.output_folder,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
             'platformOpts': {}
         }
@@ -744,7 +735,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
     n_trials: Optional[int] = None
     base_model: Optional[str] = None
     features_csv_dir: Optional[str] = None
-    config: Optional[str] = None
+    qualx_config: Optional[str] = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
@@ -756,7 +747,7 @@ class TrainUserArgModel(AbsToolUserArgModel):
             'n_trials': self.n_trials,
             'base_model': self.base_model,
             'features_csv_dir': self.features_csv_dir,
-            'config': self.config,
+            'qualx_config': self.qualx_config,
             'platformOpts': {},
         }
 
@@ -767,13 +758,13 @@ class TrainAndEvaluateUserArgModel(AbsToolUserArgModel):
     """
     Represents the arguments collected by the user to run the train and evaluate tool.
     """
-    config: str = None
+    qualx_pipeline_config: str = None
 
     def build_tools_args(self) -> dict:
         runtime_platform = CspEnv.fromstring(self.platform)
         return {
             'runtimePlatform': runtime_platform,
-            'config': self.config,
+            'qualx_pipeline_config': self.qualx_pipeline_config,
             'output_folder': self.output_folder,
             'platformOpts': {},
         }
@@ -829,7 +820,7 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {
@@ -876,7 +867,7 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {

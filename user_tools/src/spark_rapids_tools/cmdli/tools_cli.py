@@ -49,6 +49,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       tools_config_file: str = None,
                       submission_mode: str = None,
                       target_cluster_info: str = None,
+                      tuning_configs: str = None,
+                      qualx_config: str = None,
                       **rapids_options) -> None:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
@@ -58,8 +60,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The cmd will process each app individually, but will group apps with the same name into the
         same output row after averaging duration metrics accordingly.
 
-        :param eventlogs: Event log filenames or CSP storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, CSP storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
 
                 Skipping this argument requires that the cluster argument points to a valid
                 cluster name on the CSP.
@@ -96,6 +98,12 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 multiple "spark-property" arguments.
                 For more details on Qualification tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/qualification/jar-usage.html#running-the-qualification-tool-standalone-on-spark-event-logs
+        :param tuning_configs: Path to a YAML file that contains the tuning configurations.
+                For sample tuning configs files, please visit
+                https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
+               https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
@@ -112,7 +120,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         }
         estimation_model_args = AbsToolUserArgModel.create_tool_args(estimation_arg_valid,
                                                                      estimation_model=None,
-                                                                     custom_model_file=custom_model_file)
+                                                                     custom_model_file=custom_model_file,
+                                                                     qualx_config=qualx_config)
         if estimation_model_args is None:
             return None
         qual_args = AbsToolUserArgModel.create_tool_args('qualification',
@@ -127,7 +136,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          estimation_model_args=estimation_model_args,
                                                          tools_config_path=tools_config_file,
                                                          submission_mode=submission_mode,
-                                                         target_cluster_info=target_cluster_info)
+                                                         target_cluster_info=target_cluster_info,
+                                                         tuning_configs=tuning_configs)
         if qual_args:
             rapids_options.update(qual_args['rapidOptions'])
             tool_obj = QualificationAsLocal(platform_type=qual_args['runtimePlatform'],
@@ -149,6 +159,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   verbose: bool = None,
                   tools_config_file: str = None,
                   target_cluster_info: str = None,
+                  tuning_configs: str = None,
                   **rapids_options):
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on GPU accelerated clusters.
@@ -158,8 +169,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         The tool also will recommend setting for the application assuming that the job will be able
         to use all the cluster resources (CPU and GPU) when it is running.
 
-        :param eventlogs: Event log filenames or cloud storage directories
-                containing event logs (comma separated). If missing, the wrapper reads the Spark's
+        :param eventlogs: Event log filenames, cloud storage directories
+                containing event logs (comma separated), or path to a TXT file containing a list of event log paths.
+                If missing, the wrapper reads the Spark's
                 property `spark.eventLog.dir` defined in the `cluster`.
         :param cluster: The cluster on which the Spark applications were executed. The argument
                 can be a cluster name or ID (for databricks platforms) or a valid path to the cluster's
@@ -183,10 +195,13 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 For sample target cluster info files, please visit
                 https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/targetClusterInfo
         :param rapids_options: A list of valid Profiling tool options.
-                Note that the wrapper ignores ["output-directory", "worker-info"] flags, and it does not support
+                Note that the wrapper ignores ["output-directory"] flags, and it does not support
                 multiple "spark-property" arguments.
                 For more details on Profiling tool options, please visit
                 https://docs.nvidia.com/spark-rapids/user-guide/latest/profiling/jar-usage.html#prof-tool-title-options
+        :param tuning_configs: Path to a YAML file that contains the tuning configurations.
+                For sample tuning configs files, please visit
+                https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
@@ -207,7 +222,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
                                                          tools_config_path=tools_config_file,
-                                                         target_cluster_info=target_cluster_info)
+                                                         target_cluster_info=target_cluster_info,
+                                                         tuning_configs=tuning_configs)
         if prof_args:
             rapids_options.update(prof_args['rapidOptions'])
             tool_obj = ProfilingAsLocal(platform_type=prof_args['runtimePlatform'],
@@ -221,7 +237,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                    output_folder: str = None,
                    custom_model_file: str = None,
                    platform: str = 'onprem',
-                   config: str = None) -> None:
+                   qualx_config: str = None) -> None:
         """The Prediction cmd takes existing qualification tool output and runs the
         estimation model in the qualification tools for GPU speedups.
 
@@ -233,7 +249,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                 or remote cloud storage url.
         :param platform: defines one of the following "onprem", "dataproc", "databricks-aws",
                          and "databricks-azure", "emr", default to "onprem".
-        :param config: Path to a qualx-conf.yaml file to use for configuration.
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
+               https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         # Since prediction is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -253,7 +271,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                             qual_output=qual_output,
                                                             output_folder=output_folder,
                                                             estimation_model_args=estimation_model_args,
-                                                            config=config)
+                                                            qualx_config=qualx_config)
 
         if predict_args:
             tool_obj = Prediction(platform_type=predict_args['runtimePlatform'],
@@ -270,7 +288,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
               n_trials: int = None,
               base_model: str = None,
               features_csv_dir: str = None,
-              config: str = None):
+              qualx_config: str = None):
         """The Train cmd trains an XGBoost model on the input data to estimate the speedup of a
          Spark CPU application.
 
@@ -282,7 +300,9 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param features_csv_dir: Path to a folder containing one or more features.csv files.  These files are
                                  produced during prediction, and must be manually edited to provide a label column
                                  (Duration_speedup) and value.
-        :param config: Path to YAML config file containing the required training parameters.
+        :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
+               If not provided, the wrapper will use the default:
+               https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
         """
         # Since train is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -296,20 +316,22 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                                           n_trials=n_trials,
                                                           base_model=base_model,
                                                           features_csv_dir=features_csv_dir,
-                                                          config=config)
+                                                          qualx_config=qualx_config)
 
         tool_obj = Train(platform_type=train_args['runtimePlatform'],
                          output_folder=output_folder,
                          wrapper_options=train_args)
         tool_obj.launch()
 
-    def train_and_evaluate(self, config: str = None):
+    def train_and_evaluate(self, qualx_pipeline_config: str = None):
         """The Train and Evaluate cmd trains an XGBoost model and evaluates it using matched CPU and GPU eventlogs.
 
         This API supports online training by allowing multiple invocations with new data.
         Each invocation will create a new dataset JSON file with an incrementing number.
 
-        :param config: Path to YAML config file containing the required training parameters.
+        :param qualx_pipeline_config: Path to YAML config file containing the required training parameters.
+                                      For sample qualx-pipeline-conf-example.yaml files, please visit
+                                      https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-pipeline-conf-example.yaml.
         """
         # Since pipeline is an internal tool with frequent output, we enable debug mode by default
         ToolLogging.enable_debug_mode()
@@ -317,10 +339,10 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
 
         pipeline_args = AbsToolUserArgModel.create_tool_args('train_and_evaluate',
                                                              platform=CspEnv.get_default(),
-                                                             config=config)
+                                                             qualx_pipeline_config=qualx_pipeline_config)
 
         tool_obj = TrainAndEvaluate(platform_type=pipeline_args['runtimePlatform'],
-                                    config=config,
+                                    qualx_pipeline_config=qualx_pipeline_config,
                                     wrapper_options=pipeline_args)
         tool_obj.launch()
 

@@ -247,17 +247,53 @@ case class DriverLogUnsupportedOperators(
 case class AppStatusResult(
     path: String,
     status: String,
-    appId: String = "",
-    message: String = "") extends ProfileResult {
+    message: String,
+    appId: String,
+    attemptId: String,
+    appName: String) extends ProfileResult {
+
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("AppStatusResult")
   }
 
   override def convertToSeq(): Array[String] = {
-    Array(path, status, appId, StringUtils.reformatCSVString(message.replaceAll("\\R", "\\\\n")))
+    Array(path, status, appId, attemptId, appName, message)
   }
 
-  override def convertToCSVSeq(): Array[String] = convertToSeq()
+  override def convertToCSVSeq(): Array[String] = {
+    Array(path, StringUtils.quoteCSVString(status), StringUtils.reformatCSVString(appId),
+      attemptId, StringUtils.reformatCSVString(appName),
+      StringUtils.reformatCSVString(message))
+  }
+}
+
+object AppStatusResult {
+  def build(path: String,
+      status: String,
+      message: Option[String] = None,
+      appId: Option[String] = None,
+      attemptId: Option[Int] = None,
+      appName: Option[String] = None) : AppStatusResult = {
+    val processedMsg =
+      // process the message to escape special characters if any
+      message.map { m =>
+        // Escape newlines and other special characters for CSV output
+        StringUtils.renderStr(m, doEscapeMetaCharacters = true, maxLength = 0)
+      }.getOrElse("N/A")
+    val appIdStr = appId match {
+      case Some(id) => id
+      case None => "N/A"
+    }
+    val attemptIdStr = attemptId match {
+      case Some(id) => id.toString
+      case None => "N/A"
+    }
+    val appNameStr = appName match {
+      case Some(name) => name
+      case None => "N/A"
+    }
+    AppStatusResult(path, status, processedMsg, appIdStr, attemptIdStr, appNameStr)
+  }
 }
 
 // note that some things might not be set until after sqlMetricsAggregation called

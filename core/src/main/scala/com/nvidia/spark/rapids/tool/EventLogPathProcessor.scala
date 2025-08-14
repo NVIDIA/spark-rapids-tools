@@ -85,6 +85,78 @@ object EventLogPathProcessor extends Logging {
   private val EXCLUDED_EVENTLOG_NAME_KEYWORDS = Set("stdout", "stderr", "log4j", ".log.")
 
   /**
+   * Expand event log inputs from text files containing paths or return direct event log paths.
+   * If the path ends with .txt, it reads and expands the file to get event log paths.
+   * Otherwise, it treats the path as a direct event log path.
+   * Each non-empty line in txt files can optionally be a comma-separated list of paths.
+   */
+  private def expandEventLogsList(
+     eventLogsPaths: List[String], hadoopConf: Configuration): List[String] = {
+    val expandedPaths = eventLogsPaths.flatMap { pathString =>
+      if (pathString.toLowerCase.endsWith(".txt")) {
+        // The paths coming from the txt file have to normalised again
+        // to ensure compatibility with Hadoop FS
+        normalizeS3Paths(expandTextFile(pathString, hadoopConf))
+      } else {
+        // In case of a non-txt file, we assume it is a valid event log path
+        // This can later be expanded to support other file types
+        List(pathString)
+      }
+    }
+
+    if (expandedPaths.isEmpty && eventLogsPaths.nonEmpty) {
+      logWarning("No valid event log paths found. Ensure .txt files contain valid event log paths.")
+    }
+
+    expandedPaths
+  }
+
+  /**
+   * Reads a text file and returns a flat list of all parsed paths in the order they appear.
+   * This function splits any sequence of event log paths by newlines, whitespace, comma
+   * or semicolon. If the file is readable but yields no valid tokens, a warning is logged
+   * and an empty list is returned.
+   */
+  private def expandTextFile(filePath: String, hadoopConf: Configuration): List[String] = {
+    try {
+      // Load the file content (remote or local)
+      val content = FSUtils.readFileContentAsUTF8(
+        filePath = filePath,
+        hadoopConf = Some(hadoopConf))
+      // Split on new lines, whitespace, comma, or semicolon in one pass
+      val tokens = content
+        .split("[\\s,;]+")
+        .toList
+        .filter(_.nonEmpty)
+      if (tokens.isEmpty) {
+        logWarning(s"No valid event log paths found in file: $filePath")
+      }
+      tokens
+    } catch {
+      case NonFatal(e) =>
+        logWarning(s"Failed to read event log list file: $filePath. Skipping file.", e)
+        List.empty
+    }
+  }
+
+  /**
+   * Normalize S3-style URIs to Hadoop's s3a scheme.
+   * Converts prefixes `s3://` and `s3n://` to `s3a://`.
+   */
+  private def normalizeS3Paths(paths: List[String]): List[String] = {
+    paths.map { p =>
+      // Going with stripPrefix to add safety and less regex computation time
+      if (p.startsWith("s3://")) {
+        "s3a://" + p.stripPrefix("s3://")
+      } else if (p.startsWith("s3n://")) {
+        "s3a://" + p.stripPrefix("s3n://")
+      } else {
+        p
+      }
+    }
+  }
+
+  /**
    * Filter to identify valid event log files based on the criteria:
    *  - File should either not have any suffix or have a supported compression codec suffix
    *  - File should not contain any of the EXCLUDED_EVENTLOG_NAME_KEYWORDS keywords in its name
@@ -268,7 +340,9 @@ object EventLogPathProcessor extends Logging {
       minEventLogSize: Option[String] = None,
       fsStartTime: Option[String] = None,
       fsEndTime: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
-    val logsPathNoWildCards = processWildcardsLogs(eventLogsPaths, hadoopConf)
+    val normalizedPaths = normalizeS3Paths(eventLogsPaths)
+    val expandedPaths = expandEventLogsList(normalizedPaths, hadoopConf)
+    val logsPathNoWildCards = processWildcardsLogs(expandedPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
         // If no event logs are found in the path after wildcard expansion, return a failed event

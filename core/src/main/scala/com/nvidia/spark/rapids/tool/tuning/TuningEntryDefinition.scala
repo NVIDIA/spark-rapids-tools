@@ -126,6 +126,10 @@ class TuningEntryDefinition(
     confTypeInfo.defaultUnit
   }
 
+  def getConfTypeAsEnum: ConfTypeEnum.Value = {
+    confTypeInfo.name
+  }
+
   /**
    * Indicates if the property has a default value in Spark. This implies that the default value
    * can be used to set the original value of the property.
@@ -158,6 +162,45 @@ class TuningEntries(
 object TuningEntryDefinition {
   // A static Map between the propertyName and the TuningEntryDefinition
   lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] = loadTable()
+
+  /**
+   * Creates a tuning definition with commonly used defaults.
+   *
+   * @param label the property name
+   * @param description description of the property (defaults: null)
+   * @param confType the configuration type name (default: "string")
+   * @param defaultUnit optional default unit for byte types
+   * @param enabled whether the tuning entry is enabled (default: true)
+   * @param level the level of the tuning entry (default: "job")
+   * @param category the category (default: "tuning")
+   * @param bootstrapEntry whether this should be a bootstrap entry (default: true)
+   * @param defaultSpark the default Spark value (default: null)
+   * @return a new TuningEntryDefinition instance
+   */
+  def apply(
+      label: String,
+      description: String = null,
+      confType: ConfTypeEnum.Value = ConfTypeEnum.String,
+      defaultUnit: Option[String] = None,
+      enabled: Boolean = true,
+      level: String = "job",
+      category: String = "tuning",
+      bootstrapEntry: Boolean = true,
+      defaultSpark: String = null): TuningEntryDefinition = {
+    // Create a new TuningEntryDefinition with the provided parameters.
+    val defn = new TuningEntryDefinition()
+    defn.setLabel(label)
+    defn.setDescription(description)
+    defn.setEnabled(enabled)
+    defn.setLevel(level)
+    defn.setCategory(category)
+    defn.setBootstrapEntry(bootstrapEntry)
+    defn.setDefaultSpark(defaultSpark)
+    // Create the confType map with the provided confType and optional defaultUnit.
+    val confTypeMap = Map("name" -> confType.toString) ++ defaultUnit.map("defaultUnit" -> _)
+    defn.setConfType(new java.util.LinkedHashMap(confTypeMap.asJava))
+    defn
+  }
 
   /**
    * Load the tuning table from a specific yaml resource file.

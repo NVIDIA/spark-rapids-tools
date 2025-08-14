@@ -87,25 +87,24 @@ install_python_package() {
   # Find and install the wheel file
   local wheel_file=$(find dist/ -name "*.whl" -type f | head -n 1)
   if [ -z "$wheel_file" ]; then
-    echo "No wheel file found in dist/ directory"
-    exit 1
+    echo "No wheel file found in dist/ directory, installing in development mode"
+    pip install -e .[qualx, test]
+  else
+    echo "Installing wheel: $wheel_file"
+    pip install "$wheel_file"
   fi
-
-  echo "Installing wheel: $wheel_file"
-  pip install "$wheel_file"
-  pip install .
   popd
 }
 
 # Check if we need to build the wheel file
 python_tools_dir="$E2E_TEST_TOOLS_DIR/user_tools"
-wheel_exists=false
+wheel_exists="false"
 if [ -d "$python_tools_dir/dist" ] && [ -n "$(find "$python_tools_dir/dist" -name "*.whl" -type f 2>/dev/null)" ]; then
-  wheel_exists=true
+  wheel_exists="true"
 fi
 
-# Build the wheel file using build.sh in non-fat mode if needed
-if [ "$E2E_TEST_BUILD_WHEEL" = "true" ] || [ "$wheel_exists" = false ]; then
+# Build wheel if: wheel doesn't exist AND E2E_BUILD_WHEEL is explicitly true
+if [ "$wheel_exists" != "true" ] && [ "$E2E_TEST_BUILD_WHEEL" = "true" ]; then
   build_wheel
 fi
 

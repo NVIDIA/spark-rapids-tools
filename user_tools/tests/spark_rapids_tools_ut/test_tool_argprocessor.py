@@ -259,44 +259,6 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                           cluster=cluster_prop_file,
                                           eventlogs=f'{get_ut_data_dir}/eventlogs')
 
-    @pytest.mark.parametrize('tool_name', ['profiling'])
-    @pytest.mark.parametrize('csp', all_csps)
-    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.UNDEFINED])
-    def test_with_platform_with_autotuner(self, get_ut_data_dir, tool_name, csp, prop_path):
-        # should fail: platform provided; autotuner needs eventlogs
-        autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
-        self.create_tool_args_should_fail(tool_name,
-                                          platform=csp,
-                                          cluster=autotuner_prop_file)
-
-        # should fail: platform not provided; autotuner needs eventlogs
-        self.create_tool_args_should_fail(tool_name,
-                                          cluster=autotuner_prop_file)
-
-    @pytest.mark.parametrize('tool_name', ['profiling'])
-    @pytest.mark.parametrize('csp', all_csps)
-    @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
-    @register_triplet_test([ArgValueCase.VALUE_A, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
-    @register_triplet_test([ArgValueCase.UNDEFINED, ArgValueCase.VALUE_C, ArgValueCase.VALUE_A])
-    def test_with_platform_with_autotuner_with_eventlogs(self, get_ut_data_dir, tool_name, csp, prop_path):
-        # should pass: platform, autotuner properties and eventlogs are provided
-        autotuner_prop_file = f'{get_ut_data_dir}/{prop_path}'
-        tool_args = self.create_tool_args_should_pass(tool_name,
-                                                      platform=csp,
-                                                      cluster=autotuner_prop_file,
-                                                      eventlogs=f'{get_ut_data_dir}/eventlogs')
-        # cost savings should be disabled for profiling
-        self.validate_tool_args(tool_name=tool_name, tool_args=tool_args,
-                                cost_savings_enabled=False,
-                                expected_platform=csp)
-
-        # should fail: platform must be provided
-        self.create_tool_args_should_fail(tool_name,
-                                          cluster=autotuner_prop_file,
-                                          eventlogs=f'{get_ut_data_dir}/eventlogs')
-
     @pytest.mark.parametrize('prop_path', [autotuner_prop_path])
     def test_profiler_with_driverlog(self, get_ut_data_dir, prop_path):
         prof_args = AbsToolUserArgModel.create_tool_args('profiling',
@@ -351,11 +313,11 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
 
         Possible States:
         - platform:`undefined` or `actual value`.
-        - cluster: `undefined`, `cluster name`, `cluster property file` or `auto tuner file`.
+        - cluster: `undefined`, `cluster name`, or `cluster property file`.
         - event logs: `undefined` or `actual value`.
         """
         arg_platform_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A]
-        arg_cluster_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_B, ArgValueCase.VALUE_C]
+        arg_cluster_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_B]
         arg_eventlogs_cases = [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A]
 
         all_args_keys = [str([p, c, e]) for p in arg_platform_cases for c in arg_cluster_cases for e in

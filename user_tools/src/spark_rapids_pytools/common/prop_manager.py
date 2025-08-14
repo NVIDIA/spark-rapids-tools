@@ -19,9 +19,11 @@ from dataclasses import field, dataclass
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Callable, Union
+from typing_extensions import deprecated
 
 import yaml
 from pyaml_env import parse_config
+
 
 from spark_rapids_tools import get_elem_from_dict, get_elem_non_safe
 
@@ -56,6 +58,7 @@ def is_valid_gpu_device(val) -> bool:
     return val.upper() in get_gpu_device_list()
 
 
+@deprecated('Deprecated: use AbstractPropContainer instead. This class does not support CspPaths.')
 @dataclass
 class AbstractPropertiesContainer(object):
     """
@@ -153,6 +156,7 @@ class AbstractPropertiesContainer(object):
                 raise RuntimeError('Incorrect Type of JSON content') from e
 
 
+@deprecated('Deprecated: use AbstractPropContainer instead. This class does not support CspPaths.')
 @dataclass
 class YAMLPropertiesContainer(AbstractPropertiesContainer):
 
@@ -161,6 +165,7 @@ class YAMLPropertiesContainer(AbstractPropertiesContainer):
         self._init_fields()
 
 
+@deprecated('Deprecated: use AbstractPropContainer instead. This class does not support CspPaths.')
 @dataclass
 class JSONPropertiesContainer(AbstractPropertiesContainer):
 
