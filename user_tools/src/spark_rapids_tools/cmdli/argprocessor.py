@@ -199,16 +199,13 @@ class AbsToolUserArgModel:
         """
         Returns the processed eventlogs string to pass to the tool.
         For TXT files, returns the file path itself.
-        For direct paths, returns the original string as-is.
-        This also handles the s3:// to s3a:// format to support
-        Core tools to detect the platform correctly for S3 paths.
         """
         raw_eventlogs = self.get_eventlogs()
         if raw_eventlogs is None:
             return ''
         eventlog_type = self.determine_eventlogs_arg_type()
         if eventlog_type in (ArgValueCase.VALUE_A, ArgValueCase.VALUE_B):
-            return raw_eventlogs.replace('s3://', 's3a://')
+            return raw_eventlogs
         return ''
 
     def validate_onprem_with_cluster_name(self):

@@ -94,7 +94,9 @@ object EventLogPathProcessor extends Logging {
      eventLogsPaths: List[String], hadoopConf: Configuration): List[String] = {
     val expandedPaths = eventLogsPaths.flatMap { pathString =>
       if (pathString.toLowerCase.endsWith(".txt")) {
-        expandTextFile(pathString, hadoopConf)
+        // The paths coming from the txt file have to normalised again
+        // to ensure compatibility with Hadoop FS
+        normalizeS3Paths(expandTextFile(pathString, hadoopConf))
       } else {
         // In case of a non-txt file, we assume it is a valid event log path
         // This can later be expanded to support other file types
@@ -338,9 +340,9 @@ object EventLogPathProcessor extends Logging {
       minEventLogSize: Option[String] = None,
       fsStartTime: Option[String] = None,
       fsEndTime: Option[String] = None): (Seq[EventLogInfo], Seq[EventLogInfo]) = {
-    val expandedPaths = expandEventLogsList(eventLogsPaths, hadoopConf)
-    val normalizedPaths = normalizeS3Paths(expandedPaths)
-    val logsPathNoWildCards = processWildcardsLogs(normalizedPaths, hadoopConf)
+    val normalizedPaths = normalizeS3Paths(eventLogsPaths)
+    val expandedPaths = expandEventLogsList(normalizedPaths, hadoopConf)
+    val logsPathNoWildCards = processWildcardsLogs(expandedPaths, hadoopConf)
     val logsWithTimestamp = logsPathNoWildCards.flatMap {
       case (rawPath, processedPaths) if processedPaths.isEmpty =>
         // If no event logs are found in the path after wildcard expansion, return a failed event
