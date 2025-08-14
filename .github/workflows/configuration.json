@@ -60,7 +60,7 @@
       "exhaustive": true
     },
     {
-      "title": "## Miscellaneous",
+      "title": "### Miscellaneous",
       "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools", "documentation"],
       "exhaustive": true
     }
