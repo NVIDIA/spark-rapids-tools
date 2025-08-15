@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 """Test Identifying cluster from properties"""
 
-import pytest  # pylint: disable=import-error
+import pytest
 
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.cloud import ClientCluster

@@ -132,6 +132,14 @@ class ResultHandler(object):
     # Public Interfaces
     #########################
 
+    def get_folder_name(self) -> str:
+        """
+        get the base-name of the folder output. This can be handy to act as an identifier for the
+        output processor.
+        :return: the basename of the output folder
+        """
+        return self.out_path.base_name()
+
     def get_reader_path(self, report_id: str) -> Optional[BoundedCspPath]:
         """
         Get the path to the report file for the given report ID.

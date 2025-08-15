@@ -16,7 +16,7 @@
 
 import sys
 
-import pytest  # pylint: disable=import-error
+import pytest
 
 
 def get_test_resources_path():

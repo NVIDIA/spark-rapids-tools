@@ -29,6 +29,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
+from spark_rapids_tools.api_v1 import APIHelpers
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -531,15 +532,22 @@ class Qualification(QualificationCore):
         model_name = self.ctxt.platform.get_prediction_model_name()
         qual_output_dir = self.ctxt.get_csp_output_path()
         output_info = self.__build_prediction_output_files_info()
-        qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
+            # create a qual_core_handler to read qual-core reports and raise exception if
+            # handler is empty (folder is empty or zero AppIDs)
             predictions_df = predict(
                 platform=model_name,
                 qual=qual_output_dir,
                 output_info=output_info,
                 model=estimation_model_args['customModelFile'],
                 config=estimation_model_args['qualxConfig'],
-                qual_handlers=[qual_handler])
+                qual_handlers=[
+                    APIHelpers.build_qual_core_handler(
+                        qual_output_dir,
+                        raise_on_empty=True
+                    )
+                ]
+            )
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(
