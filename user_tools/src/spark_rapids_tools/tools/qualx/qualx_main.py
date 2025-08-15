@@ -919,7 +919,7 @@ def _predict_cli(
             qual_handlers.extend(run_qualification_tool(platform,
                                                         [eventlogs],
                                                         output_dir,
-                                                        tools_config=cfg.tools.config))
+                                                        tools_config=cfg.tools_config))
         qual = output_dir
     else:
         qual = qual_output
@@ -1015,7 +1015,7 @@ def evaluate(
                                                     eventlogs,
                                                     f'{qual_dir}/{ds_name}',
                                                     skip_run=skip_run,
-                                                    tools_config=cfg.tools.config))
+                                                    tools_config=cfg.tools_config))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 

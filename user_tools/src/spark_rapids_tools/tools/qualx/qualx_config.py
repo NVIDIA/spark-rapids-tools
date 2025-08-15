@@ -24,14 +24,6 @@ from spark_rapids_tools.configuration.common import BaseConfig
 from spark_rapids_tools.utils import AbstractPropContainer
 
 
-class ToolsConfig(BaseConfig):
-    """Configuration for tools execution parameters."""
-    config: Optional[str] = Field(
-        default=None,
-        description='Path to tools configuration file for Profiler and Qualification tools.',
-        examples=['tools-config.yaml'])
-
-
 class QualxConfig(BaseConfig):
     """Main container for Qualx configuration."""
     # path to the config file, for internal use only
@@ -108,12 +100,10 @@ class QualxConfig(BaseConfig):
         description='OPTIONAL: Path to alignment directory.',
         examples=['alignment'])
 
-    tools: Optional[ToolsConfig] = Field(
-        default_factory=ToolsConfig,
-        description='Tools execution configuration config file path.',
-        examples=[{
-            'config': 'tools-config.yaml'
-        }])
+    tools_config: Optional[str] = Field(
+        default=None,
+        description='OPTIONAL: Path to tools configuration file for Profiler and Qualification tools.',
+        examples=['tools-config.yaml'])
 
     @model_validator(mode='after')
     def check_env_overrides(self):

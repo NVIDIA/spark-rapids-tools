@@ -188,7 +188,7 @@ def load_datasets(
                     eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
                     run_profiler_tool(platform,
                                       eventlogs,
-                                      f'{profile_dir}/{ds_name}',
+                                      output_dir=f'{profile_dir}/{ds_name}',
                                       tools_config=config.tools.config)
 
             # load/preprocess profiler data

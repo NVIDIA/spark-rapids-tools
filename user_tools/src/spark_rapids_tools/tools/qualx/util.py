@@ -342,7 +342,7 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    # Write eventlogs list to a file to avoid long command lines with thousands of entries
+    # Write eventlogs list to a file to avoid long command lines
     ensure_directory(output_dir)
     eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
     with open(eventlogs_file, 'w', encoding='utf-8') as f:
@@ -373,7 +373,7 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         # Filter out GPU logs early and process all qualifying eventlogs in a single call
         filtered_eventlogs = [eventlog for eventlog in eventlogs if '/gpu' not in str(eventlog).lower()]
         if filtered_eventlogs:
-            # Write eventlogs list to a file to avoid long command lines with thousands of entries
+            # Write eventlogs list to a file to avoid long command lines
             ensure_directory(output_dir)
             eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
             with open(eventlogs_file, 'w', encoding='utf-8') as f:
