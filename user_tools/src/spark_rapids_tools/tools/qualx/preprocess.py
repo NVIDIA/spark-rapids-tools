@@ -186,15 +186,10 @@ def load_datasets(
                 if ds_name not in profiles:
                     eventlogs = ds_meta['eventlogs']
                     eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
-                    # Extract JVM parameters from config if available
-                    jvm_heap_size = config.tools.jvm_heap_size
-                    jvm_threads = config.tools.jvm_threads
                     run_profiler_tool(platform,
                                       eventlogs,
                                       f'{profile_dir}/{ds_name}',
-                                      tools_config=config.tools.config,
-                                      jvm_heap_size=jvm_heap_size,
-                                      jvm_threads=jvm_threads)
+                                      tools_config=config.tools.config)
 
             # load/preprocess profiler data
             profile_df = load_profiles(datasets, profile_dir=profile_dir)

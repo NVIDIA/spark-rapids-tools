@@ -26,16 +26,6 @@ from spark_rapids_tools.utils import AbstractPropContainer
 
 class ToolsConfig(BaseConfig):
     """Configuration for tools execution parameters."""
-    jvm_heap_size: Optional[int] = Field(
-        default=None,
-        description='The maximum heap size of the JVM in gigabytes.',
-        examples=[16, 32])
-
-    jvm_threads: Optional[int] = Field(
-        default=None,
-        description='Number of threads to use for parallel processing on the eventlogs batch.',
-        examples=[4, 8])
-
     config: Optional[str] = Field(
         default=None,
         description='Path to tools configuration file for Profiler and Qualification tools.',
@@ -120,10 +110,8 @@ class QualxConfig(BaseConfig):
 
     tools: Optional[ToolsConfig] = Field(
         default_factory=ToolsConfig,
-        description='Tools execution configuration including JVM parameters and config file path.',
+        description='Tools execution configuration config file path.',
         examples=[{
-            'jvm_heap_size': 16,
-            'jvm_threads': 4,
             'config': 'tools-config.yaml'
         }])
 

@@ -338,42 +338,31 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
-def process_eventlog_path(eventlog_path: str) -> str:
-    """
-    This processing is needed for the Scala tools to work with S3a paths
-    """
-    if eventlog_path.startswith('s3://'):
-        return eventlog_path.replace('s3://', 's3a://', 1)
-    return eventlog_path
-
-
-def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None,
-                      jvm_heap_size: int = None, jvm_threads: int = None) -> None:
+def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    # Join all eventlogs as a comma-separated string to enable Java tools to handle parallel processing internally
-    processed_eventlogs = [process_eventlog_path(os.path.expandvars(eventlog)) for eventlog in eventlogs]
-    eventlogs_str = ','.join(processed_eventlogs)
-
-    logger.info('Triggering profiling with %d eventlogs in single batch', len(eventlogs))
+    # Write eventlogs list to a file to avoid long command lines with thousands of entries
+    ensure_directory(output_dir)
+    eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
+    with open(eventlogs_file, 'w', encoding='utf-8') as f:
+        for eventlog in eventlogs:
+            f.write(os.path.expandvars(eventlog) + '\n')
+    logger.info('Triggering profiling with %d eventlogs via file: %s', len(eventlogs), eventlogs_file)
 
     dev_cli = DevCLI()
     dev_cli.profiling_core(
-        eventlogs=eventlogs_str,
+        eventlogs=eventlogs_file,
         platform=platform,
         output_folder=output_dir,
         tools_jar=None,
         tools_config_file=tools_config,
-        jvm_heap_size=jvm_heap_size,
-        jvm_threads=jvm_threads,
         verbose=True
     )
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
-                           output_dir: str, skip_run: bool = False, tools_config: str = None,
-                           jvm_heap_size: int = None, jvm_threads: int = None) -> List[QualCoreHandler]:
+                           output_dir: str, skip_run: bool = False, tools_config: str = None) -> List[QualCoreHandler]:
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
@@ -384,22 +373,22 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         # Filter out GPU logs early and process all qualifying eventlogs in a single call
         filtered_eventlogs = [eventlog for eventlog in eventlogs if '/gpu' not in str(eventlog).lower()]
         if filtered_eventlogs:
-            # Process all eventlogs in a single call for better benchmarking
-            # Join all eventlogs as comma-separated string and let Java tools handle parallelism
-            processed_eventlogs = \
-                [process_eventlog_path(os.path.expandvars(eventlog)) for eventlog in filtered_eventlogs]
-            eventlogs_str = ','.join(processed_eventlogs)
-            logger.info('Triggering qualification with %d eventlogs in single batch', len(filtered_eventlogs))
+            # Write eventlogs list to a file to avoid long command lines with thousands of entries
+            ensure_directory(output_dir)
+            eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
+            with open(eventlogs_file, 'w', encoding='utf-8') as f:
+                for eventlog in filtered_eventlogs:
+                    f.write(os.path.expandvars(eventlog) + '\n')
+            logger.info('Triggering qualification with %d eventlogs via file: %s',
+                        len(filtered_eventlogs), eventlogs_file)
 
             dev_cli = DevCLI()
             dev_cli.qualification_core(
-                eventlogs=eventlogs_str,
+                eventlogs=eventlogs_file,
                 platform=platform,
                 output_folder=output_dir,
                 tools_jar=None,
                 tools_config_file=tools_config,
-                jvm_heap_size=jvm_heap_size,
-                jvm_threads=jvm_threads,
                 verbose=False
             )
 

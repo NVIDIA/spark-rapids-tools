@@ -916,15 +916,10 @@ def _predict_cli(
         # --eventlogs takes priority over --qual_output
         if not any(f.startswith('qual_') for f in os.listdir(output_dir)):
             # run qual tool if no existing qual output found
-            # Extract JVM parameters from config if available
-            jvm_heap_size = cfg.tools.jvm_heap_size
-            jvm_threads = cfg.tools.jvm_threads
             qual_handlers.extend(run_qualification_tool(platform,
                                                         [eventlogs],
                                                         output_dir,
-                                                        tools_config=cfg.tools.config,
-                                                        jvm_heap_size=jvm_heap_size,
-                                                        jvm_threads=jvm_threads))
+                                                        tools_config=cfg.tools.config))
         qual = output_dir
     else:
         qual = qual_output
@@ -1016,16 +1011,11 @@ def evaluate(
         eventlogs = ds_meta['eventlogs']
         eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
         skip_run = ds_name in quals
-        # Extract JVM parameters from config if available
-        jvm_heap_size = cfg.tools.jvm_heap_size
-        jvm_threads = cfg.tools.jvm_threads
         qual_handlers.extend(run_qualification_tool(platform,
                                                     eventlogs,
                                                     f'{qual_dir}/{ds_name}',
                                                     skip_run=skip_run,
-                                                    tools_config=cfg.tools.config,
-                                                    jvm_heap_size=jvm_heap_size,
-                                                    jvm_threads=jvm_threads))
+                                                    tools_config=cfg.tools.config))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 
