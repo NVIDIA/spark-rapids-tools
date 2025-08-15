@@ -38,7 +38,6 @@ from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
-from spark_rapids_tools.configuration.tools_config import ToolsConfig
 from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import untar_file

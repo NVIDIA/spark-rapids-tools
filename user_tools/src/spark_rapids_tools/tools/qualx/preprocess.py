@@ -189,7 +189,7 @@ def load_datasets(
                     run_profiler_tool(platform,
                                       eventlogs,
                                       output_dir=f'{profile_dir}/{ds_name}',
-                                      tools_config=config.tools.config)
+                                      tools_config=config.tools_config)
 
             # load/preprocess profiler data
             profile_df = load_profiles(datasets, profile_dir=profile_dir)

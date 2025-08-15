@@ -402,7 +402,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
                     effective_threads = tools_cfg.runtime.jvm_threads
         jvm_heap = effective_heap
         if jvm_heap is None:
-            # set default GC heap size based on the available memory of the host.
+            # set default GC heap size based on the virtual memory of the host.
             jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
         # check if both tools are going to run concurrently, then we need to reduce the heap size
         # To reduce possibility of OOME, each core-tools thread should be running with at least 8 GB
@@ -580,7 +580,7 @@ class QualifyUserArgModel(ToolUserArgModel):
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
         rapids_options = {}
-        # process the tools config file (load first to supply defaults)
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
@@ -673,7 +673,7 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'driverlog': self.p_args['toolArgs']['driverlog']
             }
 
-        # process the tools config file (load first to supply defaults)
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
