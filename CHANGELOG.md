@@ -1,6 +1,28 @@
 
 <br/>
 
+## Release [v25.06.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.3)
+Generated on 2025-08-15
+### Autotuner
+
+- New rule to tune pinned memory pool size ([#1842](https://github.com/NVIDIA/spark-rapids-tools/pull/1842))
+- Add unit test for new memory tune logic ([#1840](https://github.com/NVIDIA/spark-rapids-tools/pull/1840))
+
+### QualX
+
+- [FEA] Support qualx YAML configuration argument to Qual tool ([#1848](https://github.com/NVIDIA/spark-rapids-tools/pull/1848))
+
+### Feature Request
+
+- Add a report combiner based on appIds to the Tools-API ([#1856](https://github.com/NVIDIA/spark-rapids-tools/pull/1856))
+
+### User Tools
+
+- Remove worker-info support from Tools ([#1846](https://github.com/NVIDIA/spark-rapids-tools/pull/1846))
+
+
+<br/>
+
 ## Release [v25.06.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.2)
 Generated on 2025-08-06
 ### User Tools
