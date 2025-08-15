@@ -24,7 +24,7 @@ import string
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -33,6 +33,7 @@ from tabulate import tabulate
 from spark_rapids_tools.cmdli.dev_cli import DevCLI
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
+from spark_rapids_pytools.common.utilities import temp_text_file
 
 
 INTERMEDIATE_DATA_ENABLED = False
@@ -338,27 +339,30 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
+def eventlogs_tempfile(contents: str) -> Iterator[str]:
+    # Deprecated local helper. Use global temp_text_file instead.
+    return temp_text_file(contents, prefix='eventlogs_', suffix='.txt')
+
+
 def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
     # Write eventlogs list to a file to avoid long command lines
     ensure_directory(output_dir)
-    eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
-    with open(eventlogs_file, 'w', encoding='utf-8') as f:
-        for eventlog in eventlogs:
-            f.write(os.path.expandvars(eventlog) + '\n')
-    logger.info('Triggering profiling with %d eventlogs via file: %s', len(eventlogs), eventlogs_file)
+    eventlogs_text = ''.join(os.path.expandvars(e) + '\n' for e in eventlogs)
+    with temp_text_file(eventlogs_text, prefix='eventlogs_', suffix='.txt') as eventlogs_file:
+        logger.info('Triggering profiling with %d eventlogs via file: %s', len(eventlogs), eventlogs_file)
 
-    dev_cli = DevCLI()
-    dev_cli.profiling_core(
-        eventlogs=eventlogs_file,
-        platform=platform,
-        output_folder=output_dir,
-        tools_jar=None,
-        tools_config_file=tools_config,
-        verbose=True
-    )
+        dev_cli = DevCLI()
+        dev_cli.profiling_core(
+            eventlogs=eventlogs_file,
+            platform=platform,
+            output_folder=output_dir,
+            tools_jar=None,
+            tools_config_file=tools_config,
+            verbose=True
+        )
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
@@ -375,22 +379,20 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         if filtered_eventlogs:
             # Write eventlogs list to a file to avoid long command lines
             ensure_directory(output_dir)
-            eventlogs_file = os.path.join(output_dir, f'eventlogs_{random_string(8)}.txt')
-            with open(eventlogs_file, 'w', encoding='utf-8') as f:
-                for eventlog in filtered_eventlogs:
-                    f.write(os.path.expandvars(eventlog) + '\n')
-            logger.info('Triggering qualification with %d eventlogs via file: %s',
-                        len(filtered_eventlogs), eventlogs_file)
+            filtered_text = ''.join(os.path.expandvars(e) + '\n' for e in filtered_eventlogs)
+            with temp_text_file(filtered_text, prefix='eventlogs_', suffix='.txt') as eventlogs_file:
+                logger.info('Triggering qualification with %d eventlogs via file: %s',
+                            len(filtered_eventlogs), eventlogs_file)
 
-            dev_cli = DevCLI()
-            dev_cli.qualification_core(
-                eventlogs=eventlogs_file,
-                platform=platform,
-                output_folder=output_dir,
-                tools_jar=None,
-                tools_config_file=tools_config,
-                verbose=False
-            )
+                dev_cli = DevCLI()
+                dev_cli.qualification_core(
+                    eventlogs=eventlogs_file,
+                    platform=platform,
+                    output_folder=output_dir,
+                    tools_jar=None,
+                    tools_config_file=tools_config,
+                    verbose=False
+                )
 
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
