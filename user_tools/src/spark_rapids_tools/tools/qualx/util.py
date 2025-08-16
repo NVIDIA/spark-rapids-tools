@@ -340,7 +340,6 @@ def random_string(length: int) -> str:
 
 
 def eventlogs_tempfile(contents: str) -> Iterator[str]:
-    # Deprecated local helper. Use global temp_text_file instead.
     return temp_text_file(contents, prefix='eventlogs_', suffix='.txt')
 
 

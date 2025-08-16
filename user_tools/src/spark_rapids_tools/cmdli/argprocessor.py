@@ -394,8 +394,8 @@ class ToolUserArgModel(AbsToolUserArgModel):
         effective_threads = self.jvm_threads
         if effective_heap is None or effective_threads is None:
             # Use already loaded tools config (if available)
-            tools_cfg = self.p_args['toolArgs'].get('toolsConfig')
-            if tools_cfg and getattr(tools_cfg, 'runtime', None):
+            tools_cfg = self.p_args['toolArgs']['toolsConfig']
+            if tools_cfg and tools_cfg.runtime:
                 if effective_heap is None:
                     effective_heap = tools_cfg.runtime.jvm_heap_size
                 if effective_threads is None:
