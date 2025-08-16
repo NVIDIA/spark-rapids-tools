@@ -14,7 +14,7 @@
 
 """The runtime configurations of the tools as defined by the user."""
 
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field
 
@@ -28,3 +28,15 @@ class ToolsRuntimeConfig(BaseConfig):
                     'Set this list to specify Spark binaries along with any other required jar '
                     'files (i.e., hadoop jars, gcp connectors,..etc.). '
                     'When specified, the default predefined dependencies will be ignored.')
+
+    jvm_heap_size: Optional[int] = Field(
+        default=None,
+        description='The maximum heap size of the JVM in gigabytes. '
+                    'If not set, a default value is calculated based on host memory.',
+        examples=[16, 32])
+
+    jvm_threads: Optional[int] = Field(
+        default=None,
+        description='Number of threads to use for parallel processing on the eventlogs batch. '
+                    'If not set, a default value is calculated based on host cores and heap size.',
+        examples=[4, 8])

@@ -207,6 +207,40 @@
           },
           "title": "Dependencies",
           "type": "array"
+        },
+        "jvm_heap_size": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The maximum heap size of the JVM in gigabytes. If not set, a default value is calculated based on host memory.",
+          "examples": [
+            16,
+            32
+          ],
+          "title": "Jvm Heap Size"
+        },
+        "jvm_threads": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Number of threads to use for parallel processing on the eventlogs batch. If not set, a default value is calculated based on host cores and heap size.",
+          "examples": [
+            4,
+            8
+          ],
+          "title": "Jvm Threads"
         }
       },
       "required": [
