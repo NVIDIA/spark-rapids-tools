@@ -60,7 +60,7 @@ def temp_text_file(contents: str,
 
     try:
         from pathlib import Path  # pylint: disable=import-outside-toplevel
-        yield str(Path(temp_path).absolute())
+        yield Path(temp_path).absolute().as_uri()
     finally:
         try:
             if os.path.exists(temp_path):

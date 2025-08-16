@@ -24,7 +24,7 @@ import string
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -337,10 +337,6 @@ def load_plugin(plugin_path: str) -> types.ModuleType:
 def random_string(length: int) -> str:
     """Return a random hexadecimal string of a specified length."""
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
-
-
-def eventlogs_tempfile(contents: str) -> Iterator[str]:
-    return temp_text_file(contents, prefix='eventlogs_', suffix='.txt')
 
 
 def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
