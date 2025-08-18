@@ -23,12 +23,11 @@ import subprocess
 import sys
 import threading
 import time
-from contextlib import contextmanager
+import tempfile
 from dataclasses import dataclass, field
 from logging import Logger
 from shutil import make_archive, which
-import tempfile
-from typing import Callable, Any, Optional, Iterator
+from typing import Callable, Any, Optional
 
 import chevron
 from packaging.version import Version
@@ -36,38 +35,6 @@ from progress.spinner import PixelSpinner
 from pygments import highlight
 from pygments.formatters import get_formatter_by_name
 from pygments.lexers import get_lexer_by_name
-
-
-@contextmanager
-def temp_text_file(contents: str,
-                   prefix: str = 'tmp_',
-                   suffix: str = '.txt',
-                   dir_path: str = None) -> Iterator[str]:
-    """Create a temporary text file with provided contents and ensure cleanup.
-
-    Yields the path to the temp file. The file is deleted on context exit.
-    """
-    tmp_file = tempfile.NamedTemporaryFile(
-        mode='w', encoding='utf-8', delete=False,
-        dir=dir_path or tempfile.gettempdir(), prefix=prefix, suffix=suffix
-    )
-    try:
-        tmp_file.write(contents)
-        tmp_file.flush()
-        temp_path = tmp_file.name
-    finally:
-        tmp_file.close()
-
-    try:
-        from pathlib import Path  # pylint: disable=import-outside-toplevel
-        yield Path(temp_path).absolute().as_uri()
-    finally:
-        try:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-        except Exception:  # pylint: disable=broad-except
-            # best-effort cleanup; ignore failures
-            pass
 
 
 class Utils:

@@ -33,7 +33,7 @@ from tabulate import tabulate
 from spark_rapids_tools.cmdli.dev_cli import DevCLI
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
-from spark_rapids_pytools.common.utilities import temp_text_file
+from spark_rapids_tools.utils.util import temp_file_with_contents
 
 
 INTERMEDIATE_DATA_ENABLED = False
@@ -346,7 +346,7 @@ def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tool
     # Write eventlogs list to a file to avoid long command lines
     ensure_directory(output_dir)
     eventlogs_text = ''.join(os.path.expandvars(e) + '\n' for e in eventlogs)
-    with temp_text_file(eventlogs_text, prefix='eventlogs_', suffix='.txt') as eventlogs_file:
+    with temp_file_with_contents(eventlogs_text, suffix='.txt') as eventlogs_file:
         logger.info('Triggering profiling with %d eventlogs via file: %s', len(eventlogs), eventlogs_file)
 
         dev_cli = DevCLI()
@@ -375,7 +375,7 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
             # Write eventlogs list to a file to avoid long command lines
             ensure_directory(output_dir)
             filtered_text = ''.join(os.path.expandvars(e) + '\n' for e in filtered_eventlogs)
-            with temp_text_file(filtered_text, prefix='eventlogs_', suffix='.txt') as eventlogs_file:
+            with temp_file_with_contents(filtered_text, suffix='.txt') as eventlogs_file:
                 logger.info('Triggering qualification with %d eventlogs via file: %s',
                             len(filtered_eventlogs), eventlogs_file)
 
