@@ -87,8 +87,8 @@ build_mode="$1"
 jar_url="$2"
 
 # Optional mode to only prepare resources (generate Tools JAR, copy reports) without building the wheel
-# Usage: PREPARE_ONLY=1 ./build.sh non-fat [jar_url]
-PREPARE_ONLY=${PREPARE_ONLY:-0}
+# Usage: SKIP_WHEEL_PACKAGE_BUILD=1 ./build.sh non-fat [jar_url]
+SKIP_WHEEL_PACKAGE_BUILD=${SKIP_WHEEL_PACKAGE_BUILD:-0}
 
 # get the directory of the script
 WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
@@ -212,12 +212,6 @@ remove_web_dependencies() {
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
   rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
-  # ensure .gitkeep stays under generated_files root
-  local gen_root="${res_dir}/generated_files"
-  mkdir -p "${gen_root}"
-  if [ ! -f "${gen_root}/.gitkeep" ]; then
-    touch "${gen_root}/.gitkeep"
-  fi
 }
 
 # Function to copy reports configurations from core module to generated_files folder
@@ -266,12 +260,6 @@ prepare_resources() {
 
   # Cleanup temporary build artifacts
   clean_up_build_jars
-  # ensure .gitkeep stays under generated_files root
-  local gen_root="${WRAPPER_RESOURCES_DIR}/generated_files"
-  mkdir -p "${gen_root}"
-  if [ ! -f "${gen_root}/.gitkeep" ]; then
-    touch "${gen_root}/.gitkeep"
-  fi
 }
 
 # Pre-build setup
@@ -318,12 +306,6 @@ build() {
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
   clean_up_build_jars
-  # ensure .gitkeep stays under generated_files root
-  local gen_root="${WRAPPER_RESOURCES_DIR}/generated_files"
-  mkdir -p "${gen_root}"
-  if [ ! -f "${gen_root}/.gitkeep" ]; then
-    touch "${gen_root}/.gitkeep"
-  fi
 }
 
 
@@ -336,8 +318,8 @@ log_msg "$CYAN" " Jar URL                   : ${jar_url}"
 log_msg "$CYAN" " Wrapper ResourceS Dir     : ${WRAPPER_RESOURCES_DIR}"
 echo
 
-if [ "$PREPARE_ONLY" = "1" ]; then
-  log_msg "$BLUE" " Running in PREPARE_ONLY mode (no wheel build)"
+if [ "$SKIP_WHEEL_PACKAGE_BUILD" = "1" ]; then
+  log_msg "$BLUE" " Running in SKIP_WHEEL_PACKAGE_BUILD mode (no wheel build)"
   prepare_resources
   build_exit_code=$?
 else
@@ -347,8 +329,8 @@ else
 fi
 if [ $build_exit_code -eq 0 ]; then
   echo
-  if [ "$PREPARE_ONLY" = "1" ]; then
-    log_msg "$UNDER" "Resources prepared successfully. Wheel build was skipped (PREPARE_ONLY=1)."
+  if [ "$SKIP_WHEEL_PACKAGE_BUILD" = "1" ]; then
+    log_msg "$UNDER" "Resources prepared successfully. Wheel build was skipped (SKIP_WHEEL_PACKAGE_BUILD=1)."
   else
     log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
   fi
