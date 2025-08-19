@@ -367,7 +367,9 @@ class CSVReportCombiner(object):
     each potentially representing a different data source or configuration but sharing the same
     table schema. It manages the process of loading, combining, and post-processing data from these
     reports, handling both successful and failed application loads.
-    It can be used for both types of reports: global and per-application reports.
+    It can be used for both types of reports:
+        - per-application (i.e., files that are listed in the per-app folders such as app_information); and
+        - global (i.e., files that are not listed in the per-app folders such as qual_summary).
 
     Key Features:
         - Supports combining results from multiple CSVReport instances, each associated with a per-app table.
@@ -405,10 +407,12 @@ class CSVReportCombiner(object):
            than just appending the failures into the failed_apps dictionary, this callback can become
            handy.
     :param _fall_back_to_empty_df: bool, default False. If True, the combiner will return an empty
-           DataFrame if there is an error during the combination process.
+           DataFrame if there is an error during the combination process. When False, an excpetion
+           will be captured by the LoadDFResult object, and a NONE data value.
     :param _failed_loads: Dict[str, Exception], default {}. A dictionary that maps IDs to the exception
            raised during the loading of each item. In case of per-app report, this is a map between
            app_id and the exception. For global reports, it is the folder name and the exception.
+    :param _successful_loads: Set[str], default {}. A set of IDs that were successfully loaded.
     :raises:
         ValueError: If no report builders are provided or if argument validation fails.
         Exception: If an error occurs during the combination process and fallback is not enabled.
@@ -426,7 +430,7 @@ class CSVReportCombiner(object):
         field(default=None, init=False))
     _fall_back_to_empty_df: bool = field(default=False, init=False)
     _failed_loads: Dict[str, Exception] = field(default_factory=dict, init=False)
-    _successful_ids: Set[str] = field(default_factory=set, init=False)
+    _successful_loads: Set[str] = field(default_factory=set, init=False)
 
     @staticmethod
     def logger(csv_rep: CSVReport) -> Logger:
@@ -511,7 +515,7 @@ class CSVReportCombiner(object):
                 # 1. Append it to the list of successful apps.
                 # 2. Inject the app key columns into the dataframe if enabled.
                 # 3. Call the success callback if defined.
-                self._successful_ids.add(entry_id)
+                self._successful_loads.add(entry_id)
                 processed_df = entry_res.data
                 if self._inject_app_ids_enabled:
                     # inject the app_id into the dataframe
@@ -594,7 +598,7 @@ class CSVReportCombiner(object):
     @property
     def successful_ids(self) -> Set[str]:
         """Get the Ids with successful loads."""
-        return self._successful_ids
+        return self._successful_loads
 
     @property
     def default_rep_builder(self) -> CSVReport:
@@ -793,7 +797,7 @@ class APIHelpers(object):
             if raise_on_empty and (final_res.data is None or final_res.data.empty):
                 detail_reason = 'a None DataFrame' if final_res.data is None else 'an empty DataFrame'
                 raise ValueError(
-                    f'Loading report {combiner.tbl} on dataset {raw_res.ds_name} returned {detail_reason}.')
+                    f'Loading report {combiner.tbl} on dataset {raw_res.res_id} returned {detail_reason}.')
             # If we reach this point, then there is no raise on exceptions, just proceed with wrapping up the report.
             # 1. Append failed apps: Loop on combiner_failed apps and append them to the raw_res.
             if combiner.failed_loads:
@@ -808,4 +812,4 @@ class APIHelpers(object):
         except Exception as e:  # pylint: disable=broad-except
             # If we reach here, it means that the combiner failed to build the final result.
             # We should raise an exception to inform the caller.
-            raise RuntimeError(f'Failed to load report {combiner.tbl} on dataset {raw_res.ds_name}: {e}') from e
+            raise RuntimeError(f'Failed to load report {combiner.tbl} on dataset {raw_res.res_id}: {e}') from e

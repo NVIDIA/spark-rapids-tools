@@ -210,10 +210,7 @@ def _get_combined_qual_data(
     This function aggregates node-level support data and qualification tool outputs from multiple
     qualification runs, aligning them by application ID to ensure consistency across datasets.
     It processes the raw execution results using a CSV report combiner, building reports from
-    each handler and merging them into unified DataFrames. The result includes:
-    - A combined node-level support DataFrame,
-    - A combined qualification tool output DataFrame (qualCoreCSVSummary),
-    - A list of paths to the rawmetric folder in each qual output directory.
+    each handler and merging them into unified DataFrames.
 
     :param qual_handlers: List of QualCoreResultHandler instances.
     :return: A tuple containing:
@@ -223,7 +220,7 @@ def _get_combined_qual_data(
     """
     if not qual_handlers:
         return None, None, []
-    raw_execs_res = LoadCombinedRepResult(ds_name='qual_execs_report')
+    raw_execs_res = LoadCombinedRepResult(res_id='qual_execs_report')
     # Combine node-level support data from multiple qualification handlers.
     # This processes the raw execution results using a CSV report combiner, building reports
     # from each handler and aligning on the "App ID" field to ensure consistency across datasets.
