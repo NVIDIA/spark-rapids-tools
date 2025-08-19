@@ -88,7 +88,10 @@ dependencies = [
     # pyspark for distributed computing
     "pyspark>=3.4.2,<4.0.0",
     # Jproperties used to handle Java properties file (added for the Tools API)
-    "jproperties==2.1.2"
+    "jproperties==2.1.2",
+    # used for model training.  Python [3.10, 3.13]
+    "optuna==4.4.0",
+    "optuna-integration==4.4.0"
 ]
 dynamic=["entry-points", "version"]
 
@@ -117,9 +120,8 @@ test = [
     'pylint==3.3.7'
 ]
 qualx = [
+    # optional dependencies for qualx plotting
     "holoviews",
     "matplotlib",
-    "optuna",
-    "optuna-integration",
     "seaborn"
 ]
