@@ -86,6 +86,10 @@ fi
 build_mode="$1"
 jar_url="$2"
 
+# Optional mode to only prepare resources (generate Tools JAR, copy reports) without building the wheel
+# Usage: PREPARE_ONLY=1 ./build.sh non-fat [jar_url]
+PREPARE_ONLY=${PREPARE_ONLY:-0}
+
 # get the directory of the script
 WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
@@ -208,6 +212,12 @@ remove_web_dependencies() {
   rm -rf "${res_dir:?}"/"$PREPACKAGED_FOLDER"
   # remove compressed file in case archive-mode was enabled
   rm -f "${res_dir:?}"/"$PREPACKAGED_FOLDER".tgz
+  # ensure .gitkeep stays under generated_files root
+  local gen_root="${res_dir}/generated_files"
+  mkdir -p "${gen_root}"
+  if [ ! -f "${gen_root}/.gitkeep" ]; then
+    touch "${gen_root}/.gitkeep"
+  fi
 }
 
 # Function to copy reports configurations from core module to generated_files folder
@@ -227,6 +237,40 @@ copy_reports_from_core() {
     log_info "Finished copying report files to generated files directory"
   else
     bail "directories were not found ${src_core_reports}"
+  fi
+}
+
+# Prepare-only: generate the Tools JAR and copy the core reports into generated resources
+# This avoids building the Python wheel and can be used by CI/tox prior to isolated builds
+prepare_resources() {
+  # Clean any previously generated resources
+  remove_web_dependencies "$WRAPPER_RESOURCES_DIR"
+
+  # Build or download the tools JAR
+  log_section "Building the tools jar...."
+  if [ -n "$jar_url" ]; then
+    log_info "Using provided JAR URL"
+    download_jar_from_url "$jar_url" "$BUILD_DIR"
+  else
+    log_info "Building JAR from source"
+    build_jar_from_source
+  fi
+
+  # Create destination jars directory and copy the built tools jar
+  local dest_jars_dir="${WRAPPER_RESOURCES_DIR}/${DEST_CORE_JARS_REL_PATH}"
+  mkdir -p "${dest_jars_dir}"
+  cp -f "${TOOLS_JAR_FILE}" "${dest_jars_dir}/"
+
+  # Copy core reports into generated_files
+  copy_reports_from_core "$WRAPPER_RESOURCES_DIR"
+
+  # Cleanup temporary build artifacts
+  clean_up_build_jars
+  # ensure .gitkeep stays under generated_files root
+  local gen_root="${WRAPPER_RESOURCES_DIR}/generated_files"
+  mkdir -p "${gen_root}"
+  if [ ! -f "${gen_root}/.gitkeep" ]; then
+    touch "${gen_root}/.gitkeep"
   fi
 }
 
@@ -274,6 +318,12 @@ build() {
   # Look into the pyproject.toml file for the build system requirements
   python -m build --wheel
   clean_up_build_jars
+  # ensure .gitkeep stays under generated_files root
+  local gen_root="${WRAPPER_RESOURCES_DIR}/generated_files"
+  mkdir -p "${gen_root}"
+  if [ ! -f "${gen_root}/.gitkeep" ]; then
+    touch "${gen_root}/.gitkeep"
+  fi
 }
 
 
@@ -286,12 +336,22 @@ log_msg "$CYAN" " Jar URL                   : ${jar_url}"
 log_msg "$CYAN" " Wrapper ResourceS Dir     : ${WRAPPER_RESOURCES_DIR}"
 echo
 
-pre_build
-build
-build_exit_code=$?
+if [ "$PREPARE_ONLY" = "1" ]; then
+  log_msg "$BLUE" " Running in PREPARE_ONLY mode (no wheel build)"
+  prepare_resources
+  build_exit_code=$?
+else
+  pre_build
+  build
+  build_exit_code=$?
+fi
 if [ $build_exit_code -eq 0 ]; then
   echo
-  log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
+  if [ "$PREPARE_ONLY" = "1" ]; then
+    log_msg "$UNDER" "Resources prepared successfully. Wheel build was skipped (PREPARE_ONLY=1)."
+  else
+    log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
+  fi
   echo
   log_msg "$GREEN" " Product                   : ${PRODUCT_NAME}"
   log_msg "$GREEN" " Jar URL                   : ${jar_url}"
