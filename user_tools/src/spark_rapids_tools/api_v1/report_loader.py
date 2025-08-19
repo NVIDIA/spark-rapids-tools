@@ -61,9 +61,9 @@ class ReportDefinition(BaseModel):
     # need to define the sub_directory of the report where the files are located.
     # Otherwise, the callers need to initialize a report by passing the exact output folder instead
     # of the parent folder which defies the purpose of abstraction.
-    sub_directory: Optional[str] = Field(default=None)
+    sub_directory: Optional[str] = None
     # List of tables defined in that report
-    table_definitions: Optional[List[TableDef]] = Field(default=[])
+    table_definitions: List[TableDef] = Field(default_factory=list)
     # A report can be nested. For example, the wrapperReport has the coreOutput as a nested report.
     nested_reports: List[ReportStub] = Field(default_factory=list)
 

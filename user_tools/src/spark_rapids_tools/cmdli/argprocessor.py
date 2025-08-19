@@ -382,10 +382,25 @@ class ToolUserArgModel(AbsToolUserArgModel):
     def is_concurrent_submission(self) -> bool:
         return False
 
+    # JVM parameter setup follows the following order:
+    # 1. CLI args (jvm_heap_size, jvm_threads)
+    # 2. ToolsConfig.runtime (jvm_heap_size, jvm_threads) -> if not set, will fall back to calculated defaults
+    # 3. calculated defaults (jvm_heap_size, jvm_threads)
     def process_jvm_args(self) -> None:
         # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
         self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
-        jvm_heap = self.jvm_heap_size
+        # Resolve effective JVM parameters: CLI args > ToolsConfig.runtime > calculated defaults
+        effective_heap = self.jvm_heap_size
+        effective_threads = self.jvm_threads
+        if effective_heap is None or effective_threads is None:
+            # Use already loaded tools config (if available)
+            tools_cfg = self.p_args['toolArgs']['toolsConfig']
+            if tools_cfg and tools_cfg.runtime:
+                if effective_heap is None:
+                    effective_heap = tools_cfg.runtime.jvm_heap_size
+                if effective_threads is None:
+                    effective_threads = tools_cfg.runtime.jvm_threads
+        jvm_heap = effective_heap
         if jvm_heap is None:
             # set default GC heap size based on the virtual memory of the host.
             jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
@@ -394,7 +409,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
         # of heap.
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
                                                               jvm_processes=2 if self.is_concurrent_submission() else 1,
-                                                              jvm_threads=self.jvm_threads)
+                                                              jvm_threads=effective_threads)
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
@@ -565,10 +580,10 @@ class QualifyUserArgModel(ToolUserArgModel):
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
         rapids_options = {}
+        # load tools config before computing JVM args to allow config defaults to apply
+        self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
-        # process the tools config file
-        self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
         # process tuning configs
@@ -658,10 +673,10 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'driverlog': self.p_args['toolArgs']['driverlog']
             }
 
+        # load tools config before computing JVM args to allow config defaults to apply
+        self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
-        # process the tools config file
-        self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
         # process tuning configs
@@ -807,8 +822,10 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        self.process_jvm_args()
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
+        # process JVM arguments
+        self.process_jvm_args()
 
         platform_opts = {
             'credentialFile': None,
@@ -854,8 +871,10 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        self.process_jvm_args()
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
+        # process JVM arguments
+        self.process_jvm_args()
 
         platform_opts = {
             'credentialFile': None,

@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,27 +17,27 @@ Define implementation for the onPrem cluster
 """
 
 from typing import ClassVar, Type
-from typing_extensions import TypedDict
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 from spark_rapids_tools.cloud.cluster import ClientCluster, ClusterPropMgr, register_cluster_prop_mgr, register_client_cluster
 from spark_rapids_tools.utils.propmanager import PropValidatorSchema
 from spark_rapids_tools.utils.util import to_camel_case
 
 
-class OnPremDriverConfigSchema(TypedDict):
+class OnPremDriverConfigSchema(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case)
     num_cores: int
     memory: str
 
 
-class OnPremExecutorConfigSchema(TypedDict):
+class OnPremExecutorConfigSchema(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case)
     num_cores: int
     memory: str
     num_workers: int
 
 
-class OnPremClusterConfigSchema(TypedDict):
-    __pydantic_config__ = ConfigDict(alias_generator=to_camel_case)
-
+class OnPremClusterConfigSchema(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel_case)
     master_config: OnPremDriverConfigSchema
     worker_config: OnPremExecutorConfigSchema
 

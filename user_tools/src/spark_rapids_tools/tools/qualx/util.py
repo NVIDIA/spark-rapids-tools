@@ -22,7 +22,6 @@ import re
 import secrets
 import string
 import types
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -34,6 +33,7 @@ from tabulate import tabulate
 from spark_rapids_tools.cmdli.dev_cli import DevCLI
 from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
+from spark_rapids_tools.utils.util import temp_file_with_contents
 
 
 INTERMEDIATE_DATA_ENABLED = False
@@ -339,31 +339,25 @@ def random_string(length: int) -> str:
     return ''.join(secrets.choice(string.hexdigits) for _ in range(length))
 
 
-def process_eventlog_path(eventlog_path: str) -> str:
-    """
-    This processing is needed for the Scala tools to work with S3a paths
-    """
-    if eventlog_path.startswith('s3://'):
-        return eventlog_path.replace('s3://', 's3a://', 1)
-    return eventlog_path
-
-
 def run_profiler_tool(platform: str, eventlogs: List[str], output_dir: str, tools_config: str = None) -> None:
     logger.info('Running profiling on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
-    def run_profiling_core(eventlog: str) -> None:
+    # Write eventlogs list to a file to avoid long command lines
+    ensure_directory(output_dir)
+    eventlogs_text = ''.join(os.path.expandvars(e) + '\n' for e in eventlogs)
+    with temp_file_with_contents(eventlogs_text, suffix='.txt') as eventlogs_file:
+        logger.info('Triggering profiling with %d eventlogs via file: %s', len(eventlogs), eventlogs_file)
+
         dev_cli = DevCLI()
         dev_cli.profiling_core(
-            eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
+            eventlogs=eventlogs_file,
             platform=platform,
             output_folder=output_dir,
             tools_jar=None,
             tools_config_file=tools_config,
             verbose=True
         )
-
-    run_commands(eventlogs, run_profiling_core)
 
 
 def run_qualification_tool(platform: str, eventlogs: List[str],
@@ -375,21 +369,26 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
     else:
-        def run_qualification_core(eventlog: str) -> None:
-            # Skip gpu logs, assuming /gpu appearing in path can be used to distinguish
-            if '/gpu' in str(eventlog).lower():
-                return
-            dev_cli = DevCLI()
-            dev_cli.qualification_core(
-                eventlogs=process_eventlog_path(os.path.expandvars(eventlog)),
-                platform=platform,
-                output_folder=output_dir,
-                tools_jar=None,
-                tools_config_file=tools_config,
-                verbose=False
-            )
+        # Filter out GPU logs early and process all qualifying eventlogs in a single call
+        filtered_eventlogs = [eventlog for eventlog in eventlogs if '/gpu' not in str(eventlog).lower()]
+        if filtered_eventlogs:
+            # Write eventlogs list to a file to avoid long command lines
+            ensure_directory(output_dir)
+            filtered_text = ''.join(os.path.expandvars(e) + '\n' for e in filtered_eventlogs)
+            with temp_file_with_contents(filtered_text, suffix='.txt') as eventlogs_file:
+                logger.info('Triggering qualification with %d eventlogs via file: %s',
+                            len(filtered_eventlogs), eventlogs_file)
 
-        run_commands(eventlogs, run_qualification_core)
+                dev_cli = DevCLI()
+                dev_cli.qualification_core(
+                    eventlogs=eventlogs_file,
+                    platform=platform,
+                    output_folder=output_dir,
+                    tools_jar=None,
+                    tools_config_file=tools_config,
+                    verbose=False
+                )
+
         output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
                                  return_directories=True)
 
@@ -405,27 +404,6 @@ def run_qualification_tool(platform: str, eventlogs: List[str],
         logger.warning('No valid qualification handlers were created from eventlogs')
 
     return qual_handlers
-
-
-def run_commands(tasks: List, task_func, workers: int = 8) -> None:
-    """Run a list of tasks using a thread pool."""
-    if not tasks:
-        return
-
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(task_func, task): task for task in tasks
-        }
-
-        for future in as_completed(futures):
-            task = futures[future]
-            try:
-                future.result()
-                logger.info('Task completed: %s', task)
-
-            except Exception as e:  # pylint: disable=broad-except
-                logger.error('Task failed: %s', task)
-                logger.error(e)
 
 
 def print_summary(summary: pd.DataFrame) -> None:
