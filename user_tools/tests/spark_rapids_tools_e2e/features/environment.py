@@ -82,7 +82,6 @@ def _set_verbose_mode(context) -> None:
 
 
 def _set_environment_variables(context) -> None:
-    # Always resolve scripts dir via utils (independent from behave user-data)
     os.environ['E2E_TEST_SCRIPTS_DIR'] = os.path.join(E2ETestUtils.get_e2e_tests_resource_path(), 'scripts')
     os.environ.setdefault('E2E_TEST_HADOOP_VERSION', '3.3.6')
     os.environ.setdefault('E2E_TEST_TMP_DIR', '/tmp/spark_rapids_tools_e2e_tests')
