@@ -44,7 +44,7 @@ class TableDef(BaseModel):
     file_name: str
     scope: str
     columns: Optional[List[TableColumnDef]] = Field(default_factory=list)
-    file_format: Optional[ReportTableFormat] = Field(default=ReportTableFormat.get_default())
+    file_format: ReportTableFormat = ReportTableFormat.get_default()
 
     def get_column_by_name(self, name: str) -> Optional[TableColumnDef]:
         """Get a column definition by name."""

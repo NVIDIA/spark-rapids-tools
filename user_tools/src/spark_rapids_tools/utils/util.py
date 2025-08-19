@@ -15,17 +15,19 @@
 """Utility and helper methods"""
 
 import os
-import pathlib
+from contextlib import contextmanager
+from pathlib import Path, PurePath
 import re
 import shutil
 import ssl
 import sys
 import textwrap
 import urllib
+import tempfile
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
 from operator import getitem
-from typing import Any, Optional, ClassVar
+from typing import Any, Optional, ClassVar, Iterator
 
 import certifi
 import fire
@@ -39,6 +41,37 @@ from spark_rapids_pytools import get_version
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_tools.exceptions import CspPathAttributeError
+
+
+@contextmanager
+def temp_file_with_contents(contents: str,
+                            suffix: str = '.txt',
+                            dir_path: str = None) -> Iterator[str]:
+    """Create a temporary local file with provided contents and ensure cleanup.
+    :param contents: The text to write into the temporary file.
+    :param suffix: File name suffix to use (e.g., '.txt', '.json').
+    :param dir_path: Directory where the temp file is created. Defaults to the system temp directory.
+    """
+    tmp_file = tempfile.NamedTemporaryFile(
+        mode='w', encoding='utf-8', delete=False,
+        dir=dir_path or tempfile.gettempdir(), suffix=suffix
+    )
+    try:
+        tmp_file.write(contents)
+        tmp_file.flush()
+        temp_path = tmp_file.name
+    finally:
+        tmp_file.close()
+
+    try:
+        yield Path(temp_path).absolute().as_uri()
+    finally:
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except Exception:  # pylint: disable=broad-except
+            # best-effort cleanup; ignore failures
+            pass
 
 
 def get_elem_from_dict(data, keys):
@@ -83,7 +116,7 @@ def get_path_as_uri(fpath: str) -> str:
         return fpath
     # stringify the path to apply the common methods which is expanding the file.
     local_path = stringify_path(fpath)
-    return pathlib.PurePath(local_path).as_uri()
+    return PurePath(local_path).as_uri()
 
 
 def to_camel_case(word: str) -> str:
