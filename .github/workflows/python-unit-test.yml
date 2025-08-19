@@ -41,5 +41,10 @@ jobs:
           python -m pip install tox
           python -m pip install --pre tox-gh-actions
 
+      - name: Debug tox.ini
+        run: |
+          echo "Using commit:" && git rev-parse HEAD
+          echo "Tox file content (user_tools/tox.ini):" && sed -n '1,200p' user_tools/tox.ini | cat
+
       - name: Run tox test
         run: cd user_tools && tox
