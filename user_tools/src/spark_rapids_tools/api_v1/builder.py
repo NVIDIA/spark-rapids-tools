@@ -453,7 +453,9 @@ class CSVReportCombiner(object):
     def _inject_app_into_df(
             self,
             res_h: ToolResultHandlerT,
-            df: pd.DataFrame, app_id: str) -> pd.DataFrame:
+            df: pd.DataFrame,
+            app_id: str
+    ) -> pd.DataFrame:
         """
         Inject the application ID into the DataFrame.
         :param df: The DataFrame to inject the application ID into.
@@ -503,7 +505,7 @@ class CSVReportCombiner(object):
                     except Exception as failure_cb_ex:  # pylint: disable=broad-except
                         # if the failure callback fails, we log it but do not raise an error.
                         CSVReportCombiner.logger(csv_rep).error(
-                            f'Failed to apply  failure_cb for app {entry_id} on {csv_rep.tbl}: {failure_cb_ex}')
+                            f'Failed to apply failure_cb for app {entry_id} on {csv_rep.tbl}: {failure_cb_ex}')
             else:
                 # This is a successful result, we need to process it.
                 # 1. Append it to the list of successful apps.
