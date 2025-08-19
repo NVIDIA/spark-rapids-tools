@@ -28,7 +28,14 @@ import xgboost as xgb
 import fire
 
 from spark_rapids_tools import CspPath
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
+from spark_rapids_tools.api_v1 import (
+    QualCoreResultHandler,
+    APIHelpers,
+    LoadCombinedRepResult,
+    CSVReportCombiner,
+    CSVReport
+)
+
 from spark_rapids_tools.tools.qualx.config import (
     get_cache_dir,
     get_config,
@@ -194,68 +201,69 @@ def _get_calib_params(platform: str,
     return calib_params
 
 
-def _get_qual_data(qual_handler: QualCoreHandler) -> Tuple[
-    Optional[pd.DataFrame],
-    Optional[pd.DataFrame],
-    List[str]
-]:
-    node_level_supp = None
-    qualtool_output = None
-    qual_metrics = []
-    # Get node level support from combined exec DataFrame
-    exec_table = qual_handler.get_table_by_label('execCSVReport')
-    node_level_supp = load_qtool_execs(exec_table)
-    # Get qualification summary from qualCoreCSVSummary
-    qualtool_output = qual_handler.get_table_by_label('qualCoreCSVSummary')
-    if qualtool_output is not None:
-        # Extract only the required columns
-        cols = ['App Name', 'App ID', 'App Duration']
-        available_cols = [col for col in cols if col in qualtool_output.columns]
-        if available_cols:
-            qualtool_output = qualtool_output[available_cols]
-    # Get path to the raw metrics directory which has the per-app
-    # raw_metrics files
-    qual_metrics = qual_handler.get_raw_metrics_paths()
-
-    return node_level_supp, qualtool_output, qual_metrics
-
-
-def _get_combined_qual_data(qual_handlers: List[QualCoreHandler]) -> Tuple[
-    Optional[pd.DataFrame],
-    Optional[pd.DataFrame],
-    List[str]
-]:
+def _get_combined_qual_data(
+        qual_handlers: List[QualCoreResultHandler]
+) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], List[str]]:
     """
-    Combine qualification data from multiple QualCoreHandler objects.
+    Combine qualification data from multiple QualCoreResultHandler objects.
+
+    This function aggregates node-level support data and qualification tool outputs from multiple
+    qualification runs, aligning them by application ID to ensure consistency across datasets.
+    It processes the raw execution results using a CSV report combiner, building reports from
+    each handler and merging them into unified DataFrames.
+
+    :param qual_handlers: List of QualCoreResultHandler instances.
+    :return: A tuple containing:
+           - Combined node-level support DataFrame,
+           - Combined qualification tool output DataFrame,
+           - List of paths to the rawMetrics folder.
     """
     if not qual_handlers:
         return None, None, []
+    raw_execs_res = LoadCombinedRepResult(res_id='qual_execs_report')
+    # Combine node-level support data from multiple qualification handlers.
+    # This processes the raw execution results using a CSV report combiner, building reports
+    # from each handler and aligning on the "App ID" field to ensure consistency across datasets.
+    comb_node_level_supp_df = APIHelpers.combine_reports(
+        raw_res=raw_execs_res,
+        combiner=CSVReportCombiner(  # define the combiner to process the raw execs
+            rep_builders=[
+                CSVReport(r_h)       # define the CSV report
+                .table('execCSVReport')
+                for r_h in qual_handlers
+            ]
+        ).on_app_fields({'app_id': 'App ID'}),  # use "App ID" to fit with the remaining qualx code.
+        raise_on_empty=False,
+        raise_on_failure=False
+    )
+    # process the node-level-support
+    processed_node_level_supp_df = load_qtool_execs(comb_node_level_supp_df)
+    # Get path to the raw metrics directory which has the per-app raw_metrics files
+    combined_raw_metric_paths = []
+    for q_c_h in qual_handlers:
+        raw_metrics_path = q_c_h.get_raw_metrics_path()
+        if raw_metrics_path:
+            # For now, append the path without the scheme to be compatible with the remaining code
+            # that does not expect a URI value.
+            combined_raw_metric_paths.append(raw_metrics_path.no_scheme)
 
-    combined_node_level_supp = []
-    combined_qualtool_output = []
-    combined_qual_metrics = []
+    # TODO: TO_REMOVE: app_summary_csv was loaded to get the app_duration because it was missing in
+    #      raw csv files. Consider removing that.
+    comb_apps_summary_df = APIHelpers.combine_reports(
+        raw_res=raw_execs_res,
+        combiner=CSVReportCombiner(  # define the combiner to process the raw execs
+            rep_builders=[
+                CSVReport(r_h)       # define the CSV report
+                .table('qualCoreCSVSummary')
+                .pd_args({'usecols': ['App Name', 'App ID', 'App Duration']})  # use-only those columns
+                for r_h in qual_handlers
+            ]
+        ).disable_apps_injection(),  # This is a global report it does not require app injection
+        raise_on_empty=False,
+        raise_on_failure=False
+    )
 
-    for handler in qual_handlers:
-        node_level_supp, qualtool_output, qual_metrics = _get_qual_data(handler)
-
-        if node_level_supp is not None:
-            combined_node_level_supp.append(node_level_supp)
-
-        if qualtool_output is not None:
-            combined_qualtool_output.append(qualtool_output)
-
-        combined_qual_metrics.extend(qual_metrics)
-
-    # Combine DataFrames
-    final_node_level_supp = None
-    if combined_node_level_supp:
-        final_node_level_supp = pd.concat(combined_node_level_supp, ignore_index=True)
-
-    final_qualtool_output = None
-    if combined_qualtool_output:
-        final_qualtool_output = pd.concat(combined_qualtool_output, ignore_index=True)
-
-    return final_node_level_supp, final_qualtool_output, combined_qual_metrics
+    return processed_node_level_supp_df, comb_apps_summary_df, combined_raw_metric_paths
 
 
 def _get_split_fn(split_fn: Union[str, dict]) -> Callable[[pd.DataFrame], pd.DataFrame]:
@@ -701,7 +709,7 @@ def predict(
     model: Optional[str] = None,
     qual_tool_filter: Optional[str] = None,
     config: Optional[str] = None,
-    qual_handlers: List[QualCoreHandler]
+    qual_handlers: List[QualCoreResultHandler]
 ) -> pd.DataFrame:
     """Predict GPU speedup given CPU logs.
 
@@ -720,7 +728,7 @@ def predict(
     config:
         Path to a qualx-conf.yaml file to use for configuration.
     qual_handlers:
-        List of QualCoreHandler instances for reading qualification data.
+        List of QualCoreResultHandler instances for reading qualification data.
     """
     # load config from command line argument, or use default
     cfg = get_config(config)
@@ -728,9 +736,13 @@ def predict(
     model_config = cfg.__dict__.get(model_type, {})
     qual_filter = qual_tool_filter if qual_tool_filter else model_config.get('qual_tool_filter', 'stage')
 
+    if qual_handlers:
+        # filter out empty handlers
+        qual_handlers = [q_core_h for q_core_h in qual_handlers if not q_core_h.is_empty()]
+    # log a warning and return an empty DataFrame if no qual handlers can be processed.
     if not qual_handlers:
-        raise ValueError('qual_handlers list is empty - no qualification data available for prediction')
-
+        logger.warning('All qualification handlers are empty - no apps to predict')
+        return pd.DataFrame()
     node_level_supp, qual_tool_output, qual_metrics = _get_combined_qual_data(qual_handlers)
     # create a DataFrame with default predictions for all app IDs.
     # this will be used for apps without predictions.
@@ -923,7 +935,7 @@ def _predict_cli(
         qual = output_dir
     else:
         qual = qual_output
-        qual_handlers.append(QualCoreHandler(result_path=qual_output))
+        qual_handlers.append(APIHelpers.build_qual_core_handler(dir_path=qual_output))
 
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},

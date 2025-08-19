@@ -263,7 +263,7 @@ class PerAppToolReportReader(ToolReportReader):
             app_id = app_arg.uuid
         # check that the app_id exists in the valid app_fds
         if app_id not in self.app_fds:
-            raise ValueError(f'Application {app_id} not found in report {self.report_id}.')
+            raise ValueError(f'Application [{app_id}] not found in report [{self.report_id}].')
         return app_id
 
     def _resolve_app_ids(self,
@@ -331,13 +331,31 @@ class PerAppToolReportReader(ToolReportReader):
         :return: The loaded DataFrame result for the specified application and table.
         :raises ValueError: If the table or application is not found in the report.
         """
-        table_def = self._process_tbl_arg(tbl, ReportTableFormat.CSV)
-        app_id = self._resolve_app_id(app_arg=app)
-        return DataUtils.load_pd_df(
-            self._get_app_tbl_file(table_def, app_id),
-            default_cb=fall_cb,
-            map_columns=map_cols,
-            read_csv_kwargs=self._append_tbl_schema(table_def, pd_args))
+        try:
+            table_def = self._process_tbl_arg(tbl, ReportTableFormat.CSV)
+            app_id = self._resolve_app_id(app_arg=app)
+            return DataUtils.load_pd_df(
+                self._get_app_tbl_file(table_def, app_id),
+                default_cb=fall_cb,
+                map_columns=map_cols,
+                read_csv_kwargs=self._append_tbl_schema(table_def, pd_args))
+        except Exception as e:  # pylint: disable=broad-except
+            # this could mean that appId is not in this resultHandler
+            loaded_df = None
+            invalid_app_id = 'UNKNOWN_APP_ID'
+            if isinstance(app, str):
+                invalid_app_id = app
+            fallen_back = False
+            if fall_cb is not None:
+                loaded_df = fall_cb()
+                fallen_back = True
+            return LoadDFResult(
+                f_path=str(self.out_path.create_sub_path(f'{invalid_app_id}/{tbl}')),
+                data=loaded_df,
+                success=False,
+                fallen_back=fallen_back,
+                load_error=e
+            )
 
     def load_apps_jprop(self,
                         tbl: str,

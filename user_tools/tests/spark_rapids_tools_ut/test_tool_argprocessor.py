@@ -19,7 +19,7 @@ import warnings
 from collections import defaultdict
 from typing import Dict, Callable, List
 
-import pytest  # pylint: disable=import-error
+import pytest
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel, ArgValueCase
