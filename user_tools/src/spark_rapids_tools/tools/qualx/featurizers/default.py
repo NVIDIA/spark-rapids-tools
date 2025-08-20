@@ -710,7 +710,7 @@ def load_csv_files(
                 sql_ops_metrics = sql_ops_metrics.loc[
                     sql_ops_metrics['Exec Is Supported']
                 ].drop(columns=['Exec Is Supported'])
-            elif qualtool_filter == 'sqlId':
+            elif qualtool_filter == 'sql':
                 sql_level_supp = (
                     node_level_supp.groupby(['App ID', 'SQL ID'])['Exec Is Supported']
                     .agg('all')

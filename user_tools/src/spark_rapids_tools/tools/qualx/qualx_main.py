@@ -975,9 +975,11 @@ def evaluate(
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
     qual_tool_filter: str
-        Set to either 'sqlID', 'stage' (default), or 'none' to apply model to only fully-supported sqlIDs,
-        fully-supported stages, or all sqlIDs and stages, respectively.  A sqlID or stage is considered
-        fully supported if all contained execs are fully supported.
+        Filter out unsupported sql queries ('sql') or unsupported stages ('stage', default) before
+        applying the model, or use 'off' to apply the model without any consideration of unsupported
+        operators.  When filtering, a sql or stage will be considered unsupported if any of its
+        contained operators is unsupported.  That sql or stage will be assigned a 1.0 speedup, and
+        the model will be applied to the remaining sqls or stages.
     config:
         Path to a qualx-conf.yaml file to use for configuration.
     """
@@ -1012,7 +1014,7 @@ def evaluate(
         eventlogs = ds_meta['eventlogs']
         eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
         skip_run = ds_name in quals
-        if qual_filter != 'none':
+        if qual_filter in ['sql', 'stage']:
             qual_handlers.extend(run_qualification_tool(platform,
                                                         eventlogs,
                                                         f'{qual_dir}/{ds_name}',
@@ -1023,7 +1025,7 @@ def evaluate(
 
     node_level_supp = None
     qual_tool_output = None
-    if qual_filter != 'none':
+    if qual_filter in ['sql', 'stage']:
         logger.debug('Loading qualification tool CSV files.')
         if not qual_handlers:
             raise ValueError('No qualification handlers available for evaluation')
