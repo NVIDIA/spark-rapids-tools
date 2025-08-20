@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """CLI to run development related tools."""
-
+from typing import Optional
 
 import fire
 
@@ -39,7 +39,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                            jvm_threads: int = None,
                            tools_config_file: str = None,
                            verbose: bool = None,
-                           **rapids_options) -> None:
+                           **rapids_options) -> Optional[str]:
         """The Core Qualification cmd.
 
         :param eventlogs: Event log filenames, CSP storage directories containing event logs
@@ -57,6 +57,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Qualification tool options.
+        :return: The output folder where the qualification results are stored.
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -78,6 +79,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                                 wrapper_options=qual_args,
                                                 rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.output_folder
+        return None
 
     def profiling_core(self,
                        eventlogs: str = None,
@@ -88,7 +91,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                        jvm_threads: int = None,
                        tools_config_file: str = None,
                        verbose: bool = None,
-                       **rapids_options):
+                       **rapids_options) -> Optional[str]:
         """The Core Profiling cmd runs the profiling tool JAR directly with minimal processing.
 
         This is a simplified version for development and testing purposes that directly executes
@@ -109,6 +112,7 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
         :param rapids_options: A list of valid Profiling tool options.
+        :return: The output folder where the profiling results are stored.
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -130,6 +134,8 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                             wrapper_options=prof_args,
                                             rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.output_folder
+        return None
 
     def generate_instance_description(self,
                                       platform: str = None,

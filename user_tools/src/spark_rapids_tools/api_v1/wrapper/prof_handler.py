@@ -15,7 +15,7 @@
 """
 Module that contains the definition of the Profiling wrapper result handler.
 """
-
+import re
 from dataclasses import dataclass
 
 from spark_rapids_tools import override
@@ -26,6 +26,12 @@ from spark_rapids_tools.api_v1.result_handler import register_result_class, Resu
 @register_result_class('profWrapperOutput')
 @dataclass
 class ProfWrapperResultHandler(ResultHandler):
+    """
+    Result handler for the profiling wrapper module. This handler is used to manage
+    the final output of the profiling CLI cmd.
+    """
+    class Meta(ResultHandler.Meta):    # pylint: disable=too-few-public-methods
+        id_regex = re.compile(r'prof_[0-9]+_[0-9a-zA-Z]+')
 
     @property
     def core_reader(self) -> ToolReportReader:

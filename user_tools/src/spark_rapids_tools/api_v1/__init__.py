@@ -22,6 +22,9 @@ from .common import (
 from .app_handler import (
     AppHandler
 )
+from .report_reader import (
+    ToolReportReaderT
+)
 from .result_handler import (
     register_result_class,
     result_registry,
@@ -46,6 +49,7 @@ __all__ = [
     'APIUtils',
     'LoadCombinedRepResult',
     'AppHandler',
+    'ToolReportReaderT',
     'register_result_class',
     'result_registry',
     'ResultHandler',

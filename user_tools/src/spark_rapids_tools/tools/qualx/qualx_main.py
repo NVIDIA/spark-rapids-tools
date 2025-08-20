@@ -935,7 +935,7 @@ def _predict_cli(
         qual = output_dir
     else:
         qual = qual_output
-        qual_handlers.append(APIHelpers.build_qual_core_handler(dir_path=qual_output))
+        qual_handlers.append(APIHelpers.QualCore.build_handler(dir_path=qual_output))
 
     output_info = {
         'perSql': {'path': os.path.join(output_dir, 'per_sql.csv')},

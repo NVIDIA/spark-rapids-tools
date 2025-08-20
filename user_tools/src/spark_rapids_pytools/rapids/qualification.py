@@ -542,8 +542,8 @@ class Qualification(QualificationCore):
                 model=estimation_model_args['customModelFile'],
                 config=estimation_model_args['qualxConfig'],
                 qual_handlers=[
-                    APIHelpers.build_qual_core_handler(
-                        qual_output_dir,
+                    APIHelpers.QualCore.build_handler(
+                        dir_path=qual_output_dir,
                         raise_on_empty=True
                     )
                 ]
