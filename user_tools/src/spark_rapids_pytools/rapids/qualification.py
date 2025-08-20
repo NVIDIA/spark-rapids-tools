@@ -337,7 +337,7 @@ class Qualification(QualificationCore):
         csv_out = output_files_info.get_value('summary', 'path')
         if not df_final_result.empty:
             self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
-            df_final_result.to_csv(csv_out, float_format='%.2f')
+            df_final_result.to_csv(csv_out, float_format='%.2f', sep=',')
 
         # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
         recommender = ClusterConfigRecommender(self.ctxt)
