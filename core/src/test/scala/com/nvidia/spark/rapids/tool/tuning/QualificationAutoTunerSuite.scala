@@ -1155,13 +1155,12 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     assertExpectedLinesExist(expectedResults, autoTunerOutput)
   }
 
-  test("test multithread read core multiplier is specified in the tuning configs") {
-    // Mock properties from event log including the core multiplier property
+  test("test multithread read core multiplier config is specified in the tuning configs") {
+    // Mock properties from event log
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "6",
       "spark.executor.instances" -> "4",
-      "spark.executor.memory" -> "12g",
-      "com.custom.spark.coreMultiplier" -> "2.5"
+      "spark.executor.memory" -> "12g"
     )
 
     // Create target cluster info WITHOUT tuning definitions for the multiplier property

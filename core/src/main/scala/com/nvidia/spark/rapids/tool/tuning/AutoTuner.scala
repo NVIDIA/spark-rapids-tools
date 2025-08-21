@@ -468,10 +468,18 @@ abstract class AutoTuner(
     }
   }
 
+  /**
+   * Returns the label of the multithread read core multiplier property from
+   * the tuning table, if present.
+   * This is used when calculating the number of threads for
+   * 'spark.rapids.sql.multiThreadedRead.numThreads'.
+   */
   private def getMultithreadReadCoreMultiplierProperty: Option[String] = {
     val coreMultiplierDefs = finalTuningTable.values
       .filter(_.getCategoryAsEnum == CategoryEnum.MultiThreadReadCoreMultiplier)
-    assert(coreMultiplierDefs.size <= 1,
+    // If more than one property is found for the multithread read core multiplier category,
+    // we do not know which one to use. Therefore, raise an error.
+    require(coreMultiplierDefs.size <= 1,
       s"Only one multithread read core multiplier property is allowed. " +
         s"Found: ${coreMultiplierDefs.map(_.label).mkString(", ")}")
 
@@ -767,8 +775,12 @@ abstract class AutoTuner(
     def getBoundedNumThreads(coreMultiplier: Double): Int = {
       val numThreads = (numExecutorCores * coreMultiplier).toInt
       val numThreadsTuningEntry = tuningConfigs.getEntry("MULTITHREAD_READ_NUM_THREADS")
-      Math.max(numThreadsTuningEntry.getMin.toInt,
-        Math.min(numThreadsTuningEntry.getMax.toInt, numThreads))
+      val minThreads = numThreadsTuningEntry.getMin.toInt
+      val maxThreads = numThreadsTuningEntry.getMax.toInt
+      val boundedThreads = Math.max(minThreads, Math.min(maxThreads, numThreads))
+      logDebug(s"Bounded numThreads: $boundedThreads " +
+        s"(raw=$numThreads, min=$minThreads, max=$maxThreads)")
+      boundedThreads
     }
 
     val coreMultiplierProp =
