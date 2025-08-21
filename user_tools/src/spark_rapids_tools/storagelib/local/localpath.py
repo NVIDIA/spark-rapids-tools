@@ -13,8 +13,8 @@
 # limitations under the License.
 
 """Wrapper implementation for local path"""
-from typing import override
 
+from spark_rapids_tools import override
 from ..csppath import register_path_class, CspPath
 
 
