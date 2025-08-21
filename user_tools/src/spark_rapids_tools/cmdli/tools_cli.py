@@ -148,7 +148,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                             wrapper_options=qual_args,
                                             rapids_options=rapids_options)
             tool_obj.launch()
-            return tool_obj.output_folder
+            return tool_obj.csp_output_path
         return None
 
     def profiling(self,
@@ -237,7 +237,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                         wrapper_options=prof_args,
                                         rapids_options=rapids_options)
             tool_obj.launch()
-            return tool_obj.output_folder
+            return tool_obj.csp_output_path
         return None
 
     def prediction(self,
