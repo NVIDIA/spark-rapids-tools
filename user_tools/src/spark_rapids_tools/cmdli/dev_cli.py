@@ -13,18 +13,19 @@
 # limitations under the License.
 
 """CLI to run development related tools."""
+
 from typing import Optional
 
 import fire
 
+from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
+from spark_rapids_pytools.rapids.profiling_core import ProfilingCoreAsLocal
+from spark_rapids_pytools.rapids.qualification_core import QualificationCoreAsLocal
+from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
-from spark_rapids_pytools.rapids.qualification_core import QualificationCoreAsLocal
-from spark_rapids_pytools.rapids.profiling_core import ProfilingCoreAsLocal
-from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 
 
 class DevCLI(object):  # pylint: disable=too-few-public-methods

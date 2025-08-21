@@ -13,19 +13,20 @@
 # limitations under the License.
 
 """CLI to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
+
 from typing import Optional
 
 import fire
 
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
+from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
+from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from spark_rapids_pytools.rapids.qualx.prediction import Prediction
+from spark_rapids_pytools.rapids.qualx.train import Train
+from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import Utils, ToolLogging
-from spark_rapids_pytools.rapids.qualx.prediction import Prediction
-from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
-from spark_rapids_pytools.rapids.qualx.train import Train
-from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods

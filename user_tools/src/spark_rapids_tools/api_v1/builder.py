@@ -707,7 +707,6 @@ class CSVReportCombiner(object):
             load_error=load_error)
 
 
-# ResHGenT = TypeVar('ResHGenT', bound=ResultHandler)
 class GenericRH(Generic[ToolResultHandlerT]):
     """
     A generic internal class for building API result handlers.
@@ -729,6 +728,16 @@ class GenericRH(Generic[ToolResultHandlerT]):
             root_path: Union[str, BoundedCspPath],
             filter_cb: Optional[Callable[[BoundedCspPath], bool]] = None
     ) -> Union[List[str], List[BoundedCspPath]]:
+        """
+        Find paths for a given report type. This method searches only the immediate children of the
+        specified root_path and does not perform a recursive search into subdirectories.
+
+        :param root_path: The root directory path or BoundedCspPath to search for report files.
+        :param filter_cb: Optional callback to filter BoundedCspPath objects. If provided, only paths
+                          for which this callback returns True are included.
+        :return: A list of report paths (as str or BoundedCspPath) matching the report type and filter
+                 criteria.
+        """
         impl_class = result_registry.get(cls.Meta.report_id)
         return impl_class.Meta.find_report_paths(
             root_path=root_path,

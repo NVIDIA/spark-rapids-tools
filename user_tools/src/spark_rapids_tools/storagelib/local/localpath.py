@@ -14,7 +14,8 @@
 
 """Wrapper implementation for local path"""
 
-from spark_rapids_tools import override
+from ...utils.compat import override
+
 from ..csppath import register_path_class, CspPath
 
 
