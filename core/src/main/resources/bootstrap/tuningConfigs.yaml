@@ -272,7 +272,8 @@ default:
   - name: MULTITHREAD_READ_NUM_THREADS
     description: >-
       The maximum number of threads on each executor to use for reading small files in parallel.
-    max: 20
+    min: 20
+    max: 1000 # Users can override this value to limit the max number of threads.
     usedBy: spark.rapids.sql.multiThreadedRead.numThreads
 
   - name: MULTITHREAD_READ_CORE_MULTIPLIER

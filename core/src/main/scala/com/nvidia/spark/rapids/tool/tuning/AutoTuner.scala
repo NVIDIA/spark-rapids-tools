@@ -468,9 +468,14 @@ abstract class AutoTuner(
     }
   }
 
-  def calcNumExecutorCores: Int = {
-    val executorCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
-    Math.max(1, executorCores)
+  private def getMultithreadReadCoreMultiplierProperty: Option[String] = {
+    val coreMultiplierDefs = finalTuningTable.values
+      .filter(_.category == "multithreadReadCoreMultiplier")
+    assert(coreMultiplierDefs.size <= 1,
+      s"Only one multithread read core multiplier property is allowed. " +
+        s"Found: ${coreMultiplierDefs.map(_.label).mkString(", ")}")
+
+    coreMultiplierDefs.headOption.map(_.label)
   }
 
   /**
@@ -757,6 +762,24 @@ abstract class AutoTuner(
   // configuration is like. On prem we don't know so don't set these for now.
   private def configureMultiThreadedReaders(numExecutorCores: Int,
       setMaxBytesInFlight: Boolean): Unit = {
+
+    // Helper function to get the bounded number of threads
+    def getBoundedNumThreads(coreMultiplier: Double): Int = {
+      val numThreads = (numExecutorCores * coreMultiplier).toInt
+      val numThreadsTuningEntry = tuningConfigs.getEntry("MULTITHREAD_READ_NUM_THREADS")
+      Math.max(numThreadsTuningEntry.getMin.toInt,
+        Math.min(numThreadsTuningEntry.getMax.toInt, numThreads))
+    }
+
+    val coreMultiplierProp =
+      getMultithreadReadCoreMultiplierProperty.flatMap(getPropertyValue).map(_.toDouble)
+    // If a core multiplier is defined in the property, use it to calculate
+    // the number of threads for multithreaded reads.
+    if (coreMultiplierProp.isDefined && !platform.isPlatformCSP) {
+      appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
+        getBoundedNumThreads(coreMultiplierProp.get))
+      return
+    }
     if (numExecutorCores < 4) {
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
         Math.max(20, numExecutorCores))
@@ -778,10 +801,12 @@ abstract class AutoTuner(
       appendRecommendation("spark.rapids.sql.format.parquet.multithreaded.combine.waitTime",
         tuningConfigs.getEntry("READER_MULTITHREADED_COMBINE_WAIT_TIME").getDefault)
     } else {
-      val numThreads = numExecutorCores * tuningConfigs
-        .getEntry("MULTITHREAD_READ_CORE_MULTIPLIER").getDefault.toInt
+      // For 20+ cores, use the core multiplier defined in tuning configs
+      // to calculate the number of threads for multithreaded reads.
+      val coreMultiplier =
+        tuningConfigs.getEntry("MULTITHREAD_READ_CORE_MULTIPLIER").getDefault.toDouble
       appendRecommendation("spark.rapids.sql.multiThreadedRead.numThreads",
-        Math.max(tuningConfigs.getEntry("MULTITHREAD_READ_NUM_THREADS").getMax.toInt, numThreads))
+        getBoundedNumThreads(coreMultiplier))
       if (platform.isPlatformCSP) {
         if (setMaxBytesInFlight) {
           appendRecommendationForMemoryMB("spark.rapids.shuffle.multiThreaded.maxBytesInFlight",
