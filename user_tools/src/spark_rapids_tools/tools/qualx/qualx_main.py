@@ -964,7 +964,7 @@ def evaluate(
     output_dir: str,
     *,
     model: Optional[str] = None,
-    qual_tool_filter: Optional[str] = 'stage',
+    qual_tool_filter: Optional[str] = None,
     config: Optional[str] = None,
 ) -> None:
     """Evaluate model predictions against actual GPU speedup.
@@ -987,14 +987,17 @@ def evaluate(
         Either a model name corresponding to a platform/pre-trained model, or the path to an XGBoost
         model on disk.
     qual_tool_filter: str
-        Set to either 'sqlID' or 'stage' (default) to apply model to supported sqlIDs or stages,
-        based on qual tool output.  A sqlID or stage is fully supported if all execs are respectively
-        fully supported.
+        Filter out unsupported sql queries ('sql') or unsupported stages ('stage', default) before
+        applying the model, or use 'off' to apply the model without any consideration of unsupported
+        operators.  When filtering, a sql or stage will be considered unsupported if any of its
+        contained operators is unsupported.  That sql or stage will be assigned a 1.0 speedup, and
+        the model will be applied to the remaining sqls or stages.
     config:
         Path to a qualx-conf.yaml file to use for configuration.
     """
     # load config from command line argument, or use default
     cfg = get_config(config)
+    qual_filter = qual_tool_filter if qual_tool_filter else cfg.xgboost.get('qual_tool_filter', 'stage')
 
     with open(dataset, 'r', encoding='utf-8') as f:
         datasets = json.load(f)
@@ -1023,18 +1026,22 @@ def evaluate(
         eventlogs = ds_meta['eventlogs']
         eventlogs = [os.path.expandvars(eventlog) for eventlog in eventlogs]
         skip_run = ds_name in quals
-        qual_handlers.extend(run_qualification_tool(platform,
-                                                    eventlogs,
-                                                    f'{qual_dir}/{ds_name}',
-                                                    skip_run=skip_run,
-                                                    tools_config=cfg.tools_config))
+        if qual_filter in ['sql', 'stage']:
+            qual_handlers.extend(run_qualification_tool(platform,
+                                                        eventlogs,
+                                                        f'{qual_dir}/{ds_name}',
+                                                        skip_run=skip_run,
+                                                        tools_config=cfg.tools_config))
         if 'split_function' in ds_meta:
             split_fn = _get_split_fn(ds_meta['split_function'])
 
-    logger.debug('Loading qualification tool CSV files.')
-    if not qual_handlers:
-        raise ValueError('No qualification handlers available for evaluation')
-    node_level_supp, qual_tool_output, _ = _get_combined_qual_data(qual_handlers)
+    node_level_supp = None
+    qual_tool_output = None
+    if qual_filter in ['sql', 'stage']:
+        logger.debug('Loading qualification tool CSV files.')
+        if not qual_handlers:
+            raise ValueError('No qualification handlers available for evaluation')
+        node_level_supp, qual_tool_output, _ = _get_combined_qual_data(qual_handlers)
 
     logger.debug('Loading profiler tool CSV files.')
     profile_df = load_profiles(datasets, profile_dir=profile_dir)  # w/ GPU rows
@@ -1042,7 +1049,7 @@ def evaluate(
         datasets,
         profile_dir=profile_dir,
         node_level_supp=node_level_supp,
-        qual_tool_filter=qual_tool_filter,
+        qual_tool_filter=qual_filter,
         qual_tool_output=qual_tool_output,
     )  # w/o GPU rows
     if profile_df.empty:
@@ -1061,7 +1068,7 @@ def evaluate(
         dataset_name,
         profile_df,
         split_fn=split_fn,
-        qual_tool_filter=qual_tool_filter,
+        qual_tool_filter=qual_filter,
         calib_params=calib_params
     )
 
@@ -1098,7 +1105,7 @@ def evaluate(
         dataset_name,
         filtered_profile_df,
         split_fn=split_fn,
-        qual_tool_filter=qual_tool_filter,
+        qual_tool_filter=qual_filter,
         calib_params=calib_params
     )
 
