@@ -122,7 +122,7 @@ class SpeedupCategory:
                     existing_reason = single_row.get('Not Recommended Reason', '')
                     heuristic_skipping_reason = entry.get('skippingReason')
                     if existing_reason and heuristic_skipping_reason:
-                        single_row['Not Recommended Reason'] = existing_reason + f'; {heuristic_skipping_reason}'
+                        single_row['Not Recommended Reason'] = existing_reason + f', {heuristic_skipping_reason}'
                     elif heuristic_skipping_reason:
                         single_row['Not Recommended Reason'] = heuristic_skipping_reason
                     single_row[category_col_name] = self.props.get('defaultCategory')
