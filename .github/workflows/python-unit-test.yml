@@ -20,8 +20,33 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build:
+  prepare-deps:
     runs-on: ubuntu-latest
+    env:
+      RAPIDS_USER_TOOLS_CACHE_FOLDER: ${{ github.workspace }}/.cache/spark_rapids_user_tools_cache
+    steps:
+      - name: Checkout code
+        uses: NVIDIA/spark-rapids-common/checkout@main
+
+      - name: Prefetch heavy on-prem dependency artifacts
+        shell: bash
+        run: |
+          chmod +x scripts/ci_prefetch_onprem_deps.sh
+          scripts/ci_prefetch_onprem_deps.sh "$RAPIDS_USER_TOOLS_CACHE_FOLDER" "user_tools/src/spark_rapids_pytools/resources/onprem-configs.json"
+
+      - name: Upload RAPIDS cache artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapids-cache
+          path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
+
+  build:
+    needs: prepare-deps
+    runs-on: ubuntu-latest
+    env:
+      # Ensure all runtime downloads (Spark archives, jars, temp build artifacts) land in a
+      # repo-local cache folder so they can be restored across matrix jobs via actions/cache
+      RAPIDS_USER_TOOLS_CACHE_FOLDER: ${{ github.workspace }}/.cache/spark_rapids_user_tools_cache
     strategy:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
@@ -34,6 +59,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+
+      - name: Restore RAPIDS cache artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: rapids-cache
+          path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
 
       - name: Install tox
         run: |
