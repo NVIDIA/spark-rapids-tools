@@ -50,10 +50,6 @@ logger = get_logger(__name__)
 @dataclass
 class RegexPattern:
     app_id = re.compile(r'app.*[_-][0-9]+[_-][0-9]+')
-    profile = re.compile(r'prof_[0-9]+_[0-9a-zA-Z]+')
-    qual_tool = re.compile(r'qual_[0-9]+_[0-9a-zA-Z]+')
-    rapids_profile = re.compile(r'rapids_4_spark_profile')
-    rapids_qual = re.compile(r'rapids_4_spark_qualification_output')
     qual_tool_metrics = re.compile(r'raw_metrics')
 
 
@@ -371,9 +367,9 @@ def run_qualification_tool(
     logger.info('Saving output to: %s', output_dir)
 
     if skip_run:
-        output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
-                                 return_directories=True)
+        output_dirs = APIHelpers.QualWrapper.find_report_paths(root_path=output_dir)
     else:
+        output_dirs = []
         # Filter out GPU logs early and process all qualifying eventlogs in a single call
         filtered_eventlogs = [eventlog for eventlog in eventlogs if '/gpu' not in str(eventlog).lower()]
         if filtered_eventlogs:
@@ -385,7 +381,7 @@ def run_qualification_tool(
                             len(filtered_eventlogs), eventlogs_file)
 
                 dev_cli = DevCLI()
-                dev_cli.qualification_core(
+                run_out_path = dev_cli.qualification_core(
                     eventlogs=eventlogs_file,
                     platform=platform,
                     output_folder=output_dir,
@@ -393,14 +389,16 @@ def run_qualification_tool(
                     tools_config_file=tools_config,
                     verbose=False
                 )
-
-        output_dirs = find_paths(output_dir, lambda d: RegexPattern.qual_tool.match(d) is not None,
-                                 return_directories=True)
+                if run_out_path is not None:
+                    output_dirs.append(run_out_path)
+                else:
+                    logger.warning(
+                        'Qualification tool on %s did not produce any output.', eventlogs_file)
 
     qual_handlers = []
     for output_path in output_dirs:
         try:
-            handler = APIHelpers.build_qual_core_handler(dir_path=output_path)
+            handler = APIHelpers.QualCore.build_handler(dir_path=output_path)
             qual_handlers.append(handler)
         except Exception as e:  # pylint: disable=broad-except
             logger.warning('Failed to create QualCoreHandler for %s: %s', output_path, e)

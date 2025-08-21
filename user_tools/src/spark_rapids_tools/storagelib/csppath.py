@@ -349,6 +349,17 @@ class CspPath(metaclass=CspPathMeta):
         new_path = f'{self._fpath}{postfix}{sub_path}'
         return CspPath(new_path)
 
+    def to_str_format(self) -> str:
+        """
+        Returns the string representation of the path in a way compatible with
+        the remaining functionalities in the code. For example, modules that do not
+        support remote files, then they should use this method to convert
+        LocalFS to normal paths..
+        This is useful for logging and debugging purposes.
+        :return: The string representation of the path.
+        """
+        return str(self)
+
     @property
     def size(self) -> int:
         return self.file_info.size

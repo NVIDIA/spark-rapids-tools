@@ -22,10 +22,18 @@ from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, Any,
 import pandas as pd
 
 from spark_rapids_tools import override
-from spark_rapids_tools.api_v1 import ToolResultHandlerT, LoadCombinedRepResult, APIUtils
 from spark_rapids_tools.api_v1 import AppHandler
+from spark_rapids_tools.api_v1 import (
+    ToolReportReaderT,
+    ToolResultHandlerT,
+    LoadCombinedRepResult,
+    APIUtils,
+    ProfWrapperResultHandler,
+    QualCoreResultHandler,
+    QualWrapperResultHandler,
+    result_registry
+)
 from spark_rapids_tools.api_v1.report_loader import ReportLoader
-from spark_rapids_tools.api_v1.report_reader import ToolReportReaderT
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
 from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult
 
@@ -699,14 +707,46 @@ class CSVReportCombiner(object):
             load_error=load_error)
 
 
-@dataclass
-class APIHelpers(object):
+class GenericRH(Generic[ToolResultHandlerT]):
     """
-    A helper class for API v1 components.
-    This class provides static methods to process results from CSVReportCombiner and handle exceptions.
+    A generic internal class for building API result handlers.
     """
-    @staticmethod
-    def build_qual_core_handler(
+    class Meta:  # pylint: disable=too-few-public-methods
+        report_id: str
+
+    @classmethod
+    def _init_builder(cls, dir_path: Union[str, BoundedCspPath]) -> 'APIResultHandler':
+        return APIResultHandler().with_path(dir_path)
+
+    @classmethod
+    def _set_handler_report(cls, builder: APIResultHandler, report_id: str) -> 'APIResultHandler':
+        return builder.report(report_id)
+
+    @classmethod
+    def find_report_paths(
+            cls,
+            root_path: Union[str, BoundedCspPath],
+            filter_cb: Optional[Callable[[BoundedCspPath], bool]] = None
+    ) -> Union[List[str], List[BoundedCspPath]]:
+        """
+        Find paths for a given report type. This method searches only the immediate children of the
+        specified root_path and does not perform a recursive search into subdirectories.
+
+        :param root_path: The root directory path or BoundedCspPath to search for report files.
+        :param filter_cb: Optional callback to filter BoundedCspPath objects. If provided, only paths
+                          for which this callback returns True are included.
+        :return: A list of report paths (as str or BoundedCspPath) matching the report type and filter
+                 criteria.
+        """
+        impl_class = result_registry.get(cls.Meta.report_id)
+        return impl_class.Meta.find_report_paths(
+            root_path=root_path,
+            filter_cb=filter_cb
+        )
+
+    @classmethod
+    def build_handler(
+            cls,
             dir_path: Union[str, BoundedCspPath],
             raise_on_empty: bool = False
     ) -> ToolResultHandlerT:
@@ -718,38 +758,51 @@ class APIHelpers(object):
         :return: An instance of ToolResultHandlerT for the Qual Core report.
         :raises ValueError: If raise_on_empty is True and the report is empty or missing.
         """
-        q_core_h = (
-            APIResultHandler()
-            .qual_core()
-            .with_path(dir_path)
-            .build()
-        )
-        if raise_on_empty and q_core_h.is_empty():
-            raise ValueError(f'Qual Core report at {dir_path} is empty or does not exist.')
-        return q_core_h
+        builder_obj = cls._init_builder(dir_path)
+        builder_obj = cls._set_handler_report(builder_obj, cls.Meta.report_id)
+        res_h = builder_obj.build()
+        if raise_on_empty and res_h.is_empty():
+            if not res_h.out_path.exists():
+                empty_reason = 'Directory does not exist'
+            else:
+                empty_reason = 'No apps found in the reports'
+            raise ValueError(f'Report at [{dir_path}] is empty. {empty_reason}.')
+        return res_h
 
-    @staticmethod
-    def build_qual_wrapper_handler(
-            dir_path: Union[str, BoundedCspPath],
-            raise_on_empty: bool = False
-    ) -> ToolResultHandlerT:
-        """
-        Builds and returns a ToolResultHandlerT for the Qual Wrapper report.
 
-        :param dir_path: The directory path or BoundedCspPath where the Qual Wrapper report is located.
-        :param raise_on_empty: If True, raises a ValueError if the report is empty or does not exist.
-        :return: An instance of ToolResultHandlerT for the Qual Wrapper report.
-        :raises ValueError: If raise_on_empty is True and the report is empty or missing.
+@dataclass
+class APIHelpers(object):
+    """
+    A collection of helper classes and methods for building API reports and combining them.
+    """
+
+    ###################################
+    # Public API for API Helpers
+    ###################################
+
+    class QualCore(GenericRH[QualCoreResultHandler]):
         """
-        q_wrapper_h = (
-            APIResultHandler()
-            .qual_wrapper()
-            .with_path(dir_path)
-            .build()
-        )
-        if raise_on_empty and q_wrapper_h.is_empty():
-            raise ValueError(f'Qual Wrapper report at {dir_path} is empty or does not exist.')
-        return q_wrapper_h
+        A helper class for building Qual Core reports.
+        It provides static methods to build ResultHandler for Qual Core reports.
+        """
+        class Meta(GenericRH[QualCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
+            report_id: str = 'qualCoreOutput'
+
+    class QualWrapper(GenericRH[QualWrapperResultHandler]):
+        """
+        A helper class for building Qual Wrapper reports.
+        It provides static methods to build Result Handler for Qual Wrapper reports.
+        """
+        class Meta(GenericRH[QualWrapperResultHandler].Meta):    # pylint: disable=too-few-public-methods
+            report_id: str = 'qualWrapperOutput'
+
+    class ProfWrapper(GenericRH[ProfWrapperResultHandler]):
+        """
+        A helper class for building Prof Wrapper reports.
+        It provides static methods to build Result Handler for Prof Wrapper reports.
+        """
+        class Meta(GenericRH[ProfWrapperResultHandler].Meta):    # pylint: disable=too-few-public-methods
+            report_id: str = 'profWrapperOutput'
 
     @staticmethod
     def combine_reports(

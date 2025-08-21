@@ -14,18 +14,19 @@
 
 """CLI to run tools associated with RAPIDS Accelerator for Apache Spark plugin."""
 
+from typing import Optional
 
 import fire
 
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
+from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
+from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
+from spark_rapids_pytools.rapids.qualx.prediction import Prediction
+from spark_rapids_pytools.rapids.qualx.train import Train
+from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import CspEnv, QualEstimationModel
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import Utils, ToolLogging
-from spark_rapids_pytools.rapids.qualx.prediction import Prediction
-from spark_rapids_pytools.rapids.profiling import ProfilingAsLocal
-from spark_rapids_pytools.rapids.qualification import QualificationAsLocal
-from spark_rapids_pytools.rapids.qualx.train import Train
-from spark_rapids_pytools.rapids.qualx.train_and_evaluate import TrainAndEvaluate
 
 
 class ToolsCLI(object):  # pylint: disable=too-few-public-methods
@@ -51,7 +52,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                       target_cluster_info: str = None,
                       tuning_configs: str = None,
                       qualx_config: str = None,
-                      **rapids_options) -> None:
+                      **rapids_options) -> Optional[str]:
         """The Qualification cmd provides estimated speedups by migrating Apache Spark applications
         to GPU accelerated clusters.
 
@@ -104,6 +105,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param qualx_config: Path to a qualx-conf.yaml file to use for configuration.
                If not provided, the wrapper will use the default:
                https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/src/spark_rapids_pytools/resources/qualx-conf.yaml.
+        :return: The output folder where the qualification tool output is stored.
+        :rtype: Optional[str]
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         platform = Utils.get_value_or_pop(platform, rapids_options, 'p')
@@ -145,6 +148,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                             wrapper_options=qual_args,
                                             rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.csp_output_path
         return None
 
     def profiling(self,
@@ -160,7 +164,7 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                   tools_config_file: str = None,
                   target_cluster_info: str = None,
                   tuning_configs: str = None,
-                  **rapids_options):
+                  **rapids_options) -> Optional[str]:
         """The Profiling cmd provides information which can be used for debugging and profiling
         Apache Spark applications running on GPU accelerated clusters.
 
@@ -202,6 +206,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
         :param tuning_configs: Path to a YAML file that contains the tuning configurations.
                 For sample tuning configs files, please visit
                 https://github.com/NVIDIA/spark-rapids-tools/tree/main/core/src/main/resources/bootstrap/tuningConfigs.yaml
+        :return: The output folder where the profiling tool output is stored.
+        :rtype: Optional[str]
         """
         eventlogs = Utils.get_value_or_pop(eventlogs, rapids_options, 'e')
         cluster = Utils.get_value_or_pop(cluster, rapids_options, 'c')
@@ -231,6 +237,8 @@ class ToolsCLI(object):  # pylint: disable=too-few-public-methods
                                         wrapper_options=prof_args,
                                         rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.csp_output_path
+        return None
 
     def prediction(self,
                    qual_output: str = None,

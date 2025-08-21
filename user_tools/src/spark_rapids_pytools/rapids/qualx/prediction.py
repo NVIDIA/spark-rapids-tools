@@ -38,7 +38,7 @@ class Prediction(QualXTool):
 
     @property
     def qual_handler(self) -> QualCoreResultHandler:
-        return APIHelpers.build_qual_core_handler(dir_path=self.qual_output)
+        return APIHelpers.QualCore.build_handler(dir_path=self.qual_output)
 
     def __prepare_prediction_output_info(self) -> dict:
         """
