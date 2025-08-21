@@ -270,8 +270,8 @@ pre_build() {
   rm -rf build/ dist/
   log_info "install build dependencies using pip"
   pip install build
-  # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
-  if ! pip install ".[qualx,test]"; then
+  # Note: Removed -e .[dev-env] to avoid overriding existing package installations
+  if ! pip install ".[dev-env]"; then
     bail "Failed to download the package with dependencies"
   fi
 }

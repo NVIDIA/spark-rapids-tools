@@ -40,6 +40,7 @@ Set up a Python environment with a version between 3.10 and 3.12
       Note:
       - To install dependencies required for running unit tests, use the optional `test` parameter: `pip install -e '.[test]'`
       - To install dependencies required for QualX training, use the optional `qualx` parameter `pip install -e '.[qualx]'`
+      - To install all the required dependencies, use the optional `dev-env` parameter: `pip install -e '.[dev-env]'`
 
     - Using wheel package built from the repo (see the build steps below).
 
