@@ -1005,8 +1005,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       label = "com.custom.spark.coreMultiplier",
       description = "Core multiplier property",
       confType = ConfTypeEnum.Double,
-      level = "cluster",
-      category = "multithreadReadCoreMultiplier"
+      level = LevelEnum.Cluster,
+      category = CategoryEnum.MultiThreadReadCoreMultiplier
     )
 
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
@@ -1064,8 +1064,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       label = "com.custom.spark.coreMultiplier",
       description = "Core multiplier property",
       confType = ConfTypeEnum.Double,
-      level = "cluster",
-      category = "multithreadReadCoreMultiplier"
+      level = LevelEnum.Cluster,
+      category = CategoryEnum.MultiThreadReadCoreMultiplier
     )
 
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(

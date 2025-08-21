@@ -470,7 +470,7 @@ abstract class AutoTuner(
 
   private def getMultithreadReadCoreMultiplierProperty: Option[String] = {
     val coreMultiplierDefs = finalTuningTable.values
-      .filter(_.category == "multithreadReadCoreMultiplier")
+      .filter(_.getCategoryAsEnum == CategoryEnum.MultiThreadReadCoreMultiplier)
     assert(coreMultiplierDefs.size <= 1,
       s"Only one multithread read core multiplier property is allowed. " +
         s"Found: ${coreMultiplierDefs.map(_.label).mkString(", ")}")
