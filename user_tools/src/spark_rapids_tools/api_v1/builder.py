@@ -762,7 +762,7 @@ class GenericRH(Generic[ToolResultHandlerT]):
         builder_obj = cls._set_handler_report(builder_obj, cls.Meta.report_id)
         res_h = builder_obj.build()
         if raise_on_empty and res_h.is_empty():
-            if res_h.out_path.exists():
+            if not res_h.out_path.exists():
                 empty_reason = 'Directory does not exist'
             else:
                 empty_reason = 'No apps found in the reports'

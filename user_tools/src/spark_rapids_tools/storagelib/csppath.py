@@ -353,7 +353,7 @@ class CspPath(metaclass=CspPathMeta):
         """
         Returns the string representation of the path in a way compatible with
         the remaining functionalities in the code. For example, modules that do not
-        support remote files, then they shoould use this method to convert
+        support remote files, then they should use this method to convert
         LocalFS to normal paths..
         This is useful for logging and debugging purposes.
         :return: The string representation of the path.
