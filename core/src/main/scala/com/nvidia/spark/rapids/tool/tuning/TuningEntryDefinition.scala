@@ -45,6 +45,46 @@ object ConfTypeEnum extends Enumeration {
   def default: Value = String
 }
 
+object CategoryEnum extends Enumeration {
+  // Functionality:
+  //   - Required for functionality of Spark RAPIDS
+  // Tuning:
+  //   - Required to tune the Spark RAPIDS job
+  // MultiThreadReadCoreMultiplier:
+  //   - Special purpose category for identifying the spark property to use as a core multiplier
+  //     when tuning `spark.rapids.sql.multiThreadedRead.numThreads`.
+  val Functionality, Tuning, MultiThreadReadCoreMultiplier = Value
+
+  def fromString(s: String): Value = {
+    s.toLowerCase match {
+      case "functionality" => Functionality
+      case "tuning" => Tuning
+      case "multithreadreadcoremultiplier" => MultiThreadReadCoreMultiplier
+      case _ => throw new IllegalArgumentException(s"Unknown category: $s")
+    }
+  }
+
+  def default: Value = Tuning
+}
+
+object LevelEnum extends Enumeration {
+  // Job:
+  //   - Application-level settings (e.g. `spark.kryoserializer.buffer.max`)
+  // Cluster:
+  //   - Executor/resource-level settings (e.g. `spark.plugins`)
+  val Job, Cluster = Value
+
+  def fromString(s: String): Value = {
+    s.toLowerCase match {
+      case "job" => Job
+      case "cluster" => Cluster
+      case _ => throw new IllegalArgumentException(s"Unknown level: $s")
+    }
+  }
+
+  def default: Value = Job
+}
+
 /**
  * Represents the type information for a tuning entry configuration.
  * @param name The type name (Byte, String, Int, Time)
@@ -99,6 +139,8 @@ class TuningEntryDefinition(
     @BeanProperty var confType: util.LinkedHashMap[String, String],
     @BeanProperty var comments: util.LinkedHashMap[String, String]) {
   private lazy val confTypeInfo: ConfType = ConfType.fromMap(confType)
+  private lazy val categoryEnum: CategoryEnum.Value = CategoryEnum.fromString(category)
+  private lazy val levelEnum: LevelEnum.Value = LevelEnum.fromString(level)
 
   def this() = {
     this(label = "", description = "", enabled = true, level = "", category = "",
@@ -128,6 +170,14 @@ class TuningEntryDefinition(
 
   def getConfTypeAsEnum: ConfTypeEnum.Value = {
     confTypeInfo.name
+  }
+
+  def getCategoryAsEnum: CategoryEnum.Value = {
+    categoryEnum
+  }
+
+  def getLevelAsEnum: LevelEnum.Value = {
+    levelEnum
   }
 
   /**
@@ -171,8 +221,8 @@ object TuningEntryDefinition {
    * @param confType the configuration type name (default: "string")
    * @param defaultUnit optional default unit for byte types
    * @param enabled whether the tuning entry is enabled (default: true)
-   * @param level the level of the tuning entry (default: "job")
-   * @param category the category (default: "tuning")
+   * @param level the level of the tuning entry (default: LevelEnum.Job)
+   * @param category the category (default: CategoryEnum.Tuning)
    * @param bootstrapEntry whether this should be a bootstrap entry (default: true)
    * @param defaultSpark the default Spark value (default: null)
    * @return a new TuningEntryDefinition instance
@@ -183,8 +233,8 @@ object TuningEntryDefinition {
       confType: ConfTypeEnum.Value = ConfTypeEnum.String,
       defaultUnit: Option[String] = None,
       enabled: Boolean = true,
-      level: String = "job",
-      category: String = "tuning",
+      level: LevelEnum.Value = LevelEnum.Job,
+      category: CategoryEnum.Value = CategoryEnum.Tuning,
       bootstrapEntry: Boolean = true,
       defaultSpark: String = null): TuningEntryDefinition = {
     // Create a new TuningEntryDefinition with the provided parameters.
@@ -192,8 +242,8 @@ object TuningEntryDefinition {
     defn.setLabel(label)
     defn.setDescription(description)
     defn.setEnabled(enabled)
-    defn.setLevel(level)
-    defn.setCategory(category)
+    defn.setLevel(level.toString.toLowerCase)
+    defn.setCategory(category.toString.toLowerCase)
     defn.setBootstrapEntry(bootstrapEntry)
     defn.setDefaultSpark(defaultSpark)
     // Create the confType map with the provided confType and optional defaultUnit.

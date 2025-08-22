@@ -984,4 +984,227 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("test multithread read core multiplier category config is specified" +
+    " in the target cluster and defined in tuning definitions") {
+    // Mock properties from event log
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "16g"
+    )
+
+    // Define core multiplier property in enforced section
+    val enforcedSparkProperties = Map(
+      "com.custom.spark.coreMultiplier" -> "2.0"
+    )
+
+    // Create tuning definitions for the core multiplier property in the target cluster
+    import scala.collection.JavaConverters._
+    val coreMultiplierTuningDef = TuningEntryDefinition(
+      label = "com.custom.spark.coreMultiplier",
+      description = "Core multiplier property",
+      confType = ConfTypeEnum.Double,
+      level = LevelEnum.Cluster,
+      category = CategoryEnum.MultiThreadReadCoreMultiplier
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(32),
+      memoryGB = Some(128L),
+      gpuCount = Some(1),
+      gpuMemory = Some("24g"),
+      gpuDevice = Some("a100"),
+      enforcedSparkProperties = enforcedSparkProperties,
+      tuningDefinitions = List(coreMultiplierTuningDef).asJava
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 1,
+      numExecs = 4,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // With multiplier of 2.0 -> From target cluster
+    // Expected results should reflect this multiplier in calculations:
+    // - multiThreadedRead.numThreads = 32 * 2.0 = 64
+    val expectedResults = Seq(
+      "--conf com.custom.spark.coreMultiplier=2.0",
+      "--conf spark.rapids.sql.multiThreadedRead.numThreads=64",
+      "- 'com.custom.spark.coreMultiplier' was user-enforced in the target cluster properties."
+    )
+
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  }
+
+  test("test multithread read core multiplier category config is specified" +
+    " in the event log and defined in tuning definitions") {
+    // Mock properties from event log including the core multiplier property
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "4",
+      "spark.executor.instances" -> "8",
+      "spark.executor.memory" -> "8g",
+      "com.custom.spark.coreMultiplier" -> "3.0"
+    )
+
+    // Create tuning definitions for the core multiplier property
+    import scala.collection.JavaConverters._
+    val coreMultiplierTuningDef = TuningEntryDefinition(
+      label = "com.custom.spark.coreMultiplier",
+      description = "Core multiplier property",
+      confType = ConfTypeEnum.Double,
+      level = LevelEnum.Cluster,
+      category = CategoryEnum.MultiThreadReadCoreMultiplier
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(32),
+      memoryGB = Some(128L),
+      gpuCount = Some(1),
+      gpuMemory = Some("24g"),
+      gpuDevice = Some("a100"),
+      tuningDefinitions = List(coreMultiplierTuningDef).asJava
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 4,
+      execsPerNode = 1,
+      numExecs = 8,
+      numExecutorNodes = 8,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // With multiplier of 3.0 -> From event log
+    // Expected results should reflect this multiplier in calculations:
+    // - multiThreadedRead.numThreads = 32 * 3.0 = 96
+    val expectedResults = Seq(
+      "--conf spark.rapids.sql.multiThreadedRead.numThreads=96"
+    )
+
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+
+    // Verify the multiplier property is not in recommendations since it's unchanged
+    assert(!autoTunerOutput.contains("--conf com.custom.spark.coreMultiplier=3.0"),
+      "Core multiplier property should not appear in recommendations when unchanged from event log")
+  }
+
+  test("test multithread read core multiplier category config is specified" +
+    " in the event log and but not defined in tuning definitions") {
+    // Mock properties from event log including the core multiplier property
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "6",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "12g",
+      "com.custom.spark.coreMultiplier" -> "2.5"
+    )
+
+    // Create target cluster info WITHOUT tuning definitions for the multiplier property
+    // This means the multiplier should be ignored
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(32),
+      memoryGB = Some(128L),
+      gpuCount = Some(1),
+      gpuMemory = Some("24g"),
+      gpuDevice = Some("a100")
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 6,
+      execsPerNode = 1,
+      numExecs = 4,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // With NO multiplier specified as property -> Use default multiplier from tuning configs
+    // Expected results should reflect normal core calculations
+    // - multiThreadedRead.numThreads = 32 * 2 = 64
+    val expectedResults = Seq(
+      "--conf spark.rapids.sql.multiThreadedRead.numThreads=64"
+    )
+
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  }
+
+  test("test multithread read core multiplier config is specified in the tuning configs") {
+    // Mock properties from event log
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "6",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "12g"
+    )
+
+    // Create target cluster info WITHOUT tuning definitions for the multiplier property
+    // This means the multiplier should be ignored
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(32),
+      memoryGB = Some(128L),
+      gpuCount = Some(1),
+      gpuMemory = Some("24g"),
+      gpuDevice = Some("a100")
+    )
+
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "MULTITHREAD_READ_CORE_MULTIPLIER", default = "5"),
+      TuningConfigEntry(name = "MULTITHREAD_READ_NUM_THREADS", max = "100")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 6,
+      execsPerNode = 1,
+      numExecs = 4,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform,
+      userProvidedTuningConfigs = Some(userProvidedTuningConfigs))
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // Use the multiplier from the user-provided tuning configs
+    // Expected results should reflect normal core calculations
+    // - multiThreadedRead.numThreads = min(100, 32 * 5) = 100
+    val expectedResults = Seq(
+      "--conf spark.rapids.sql.multiThreadedRead.numThreads=100"
+    )
+
+    assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  }
 }
