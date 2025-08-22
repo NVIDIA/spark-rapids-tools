@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Prefetch heavy dependency artifacts (Spark archives, Hadoop/GCS/Azure jars) used by unit tests
-# Usage: scripts/ci_prefetch_onprem_deps.sh [CACHE_DIR] [PLATFORMS] [CONFIG_DIR]
+# Usage: scripts/prefetch_deps.sh [CACHE_DIR] [PLATFORMS] [CONFIG_DIR]
 #
 # Arguments:
 #   CACHE_DIR  -> Target folder for cached artifacts
@@ -49,7 +49,8 @@ echo "Platforms: ${PLATFORMS_CSV}"
 echo "Config directory: ${CONFIG_DIR}"
 
 # Use Python to parse per-platform JSON config(s) and collect URIs from the
-# defined structure: dependencies -> deployMode -> LOCAL -> <ver>: [ { uri } ]
+# defined structure: dependencies -> deployMode -> LOCAL -> <activeBuildVer>: [ { uri } ]
+# If activeBuildVer is not set, the highest available numeric version key is used.
 readarray -t URIS < <(python - "$PLATFORMS_CSV" "$CONFIG_DIR" <<'PY'
 import json, os, sys
 
@@ -70,16 +71,23 @@ for platform in platforms:
             data = json.load(f)
     except Exception:
         continue
-    deps = data.get('dependencies', {}).get('deployMode', {}).get('LOCAL', {})
-    if isinstance(deps, dict):
-        for items in deps.values():
-            if isinstance(items, list):
-                for it in items:
-                    if isinstance(it, dict):
-                        uri = it.get('uri')
-                        if isinstance(uri, str) and uri and uri not in seen:
-                            seen.add(uri)
-                            uris.append(uri)
+    deps_local = data.get('dependencies', {}).get('deployMode', {}).get('LOCAL', {})
+    if not isinstance(deps_local, dict):
+        continue
+    active_ver = deps_local.get('activeBuildVer')
+    numeric_versions = [k for k, v in deps_local.items() if isinstance(k, str) and k.isdigit() and isinstance(v, list)]
+    if not active_ver or active_ver not in deps_local:
+        try:
+            active_ver = max(numeric_versions, key=lambda x: int(x)) if numeric_versions else None
+        except ValueError:
+            active_ver = None
+    if active_ver and isinstance(deps_local.get(active_ver), list):
+        for it in deps_local[active_ver]:
+            if isinstance(it, dict):
+                uri = it.get('uri')
+                if isinstance(uri, str) and uri and uri not in seen:
+                    seen.add(uri)
+                    uris.append(uri)
 
 for u in uris:
     print(u)
