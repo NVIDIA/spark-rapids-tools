@@ -664,7 +664,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
 
             // Calculate cores per executor by dividing the total cores in the instance
             // by the number of GPUs in the instance
-            val recommendedCoresPerExecutor = _recommendedWorkerNode.cores /
             val recommendedCoresPerExecutor = math.ceil(
               _recommendedWorkerNode.cores.toDouble / _recommendedWorkerNode.numGpus
             ).toInt
