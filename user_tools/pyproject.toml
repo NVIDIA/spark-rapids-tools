@@ -112,7 +112,12 @@ version = {attr = "spark_rapids_pytools.__version__"}
 repository = "https://github.com/NVIDIA/spark-rapids-tools/tree/main"
 [project.optional-dependencies]
 test = [
-    "tox", 'pytest', 'cli_test_helpers', 'behave',
+    'tox',
+    'pytest',
+    'pytest-cov',
+    'cli_test_helpers',
+    'behave',
+    'flake8',
     # use flak-8 plugin for pydantic
     'flake8-pydantic',
     # Use pylint for static code analysis.
@@ -121,7 +126,28 @@ test = [
 ]
 qualx = [
     # optional dependencies for qualx plotting
-    "holoviews",
-    "matplotlib",
-    "seaborn"
+    'holoviews',
+    'matplotlib',
+    'seaborn'
+]
+dev-env = [
+    ###############################################################
+    # Lists all the dependencies to set-up development environment
+    ###############################################################
+    # Development environment dependencies for testing and linting
+    'tox',
+    'pytest',
+    'pytest-cov',
+    'cli_test_helpers',
+    'behave',
+    'flake8',
+    # use flak-8 plugin for pydantic
+    'flake8-pydantic',
+    # Use pylint for static code analysis.
+    # Set specific version to avoid breaking test with newer pylint releases. Python [3.9-3.13]
+    'pylint==3.3.7',
+    # optional dependencies for qualx plotting
+    'holoviews',
+    'matplotlib',
+    'seaborn'
 ]
