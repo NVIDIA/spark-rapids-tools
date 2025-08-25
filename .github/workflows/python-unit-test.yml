@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           chmod +x scripts/prefetch_deps.sh
-          scripts/prefetch_deps.sh "$RAPIDS_USER_TOOLS_CACHE_FOLDER" "onprem,emr" "user_tools/src/spark_rapids_pytools/resources"
+          scripts/prefetch_deps.sh "$RAPIDS_USER_TOOLS_CACHE_FOLDER" "dataproc,emr,databricks_aws,databricks_azure" "user_tools/src/spark_rapids_pytools/resources"
 
       - name: Upload RAPIDS cache artifact
         uses: actions/upload-artifact@v4
