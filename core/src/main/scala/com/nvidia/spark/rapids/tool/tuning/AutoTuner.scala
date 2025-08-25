@@ -676,8 +676,6 @@ abstract class AutoTuner(
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
         isOffHeapLimitUserEnabled) {
-        if (platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.size").isDefined) {
-          StringUtils.convertToMB(
         val userOffHeapLimitOpt = platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.size")
         if (userOffHeapLimitOpt.isDefined) {
           StringUtils.convertToMB(
