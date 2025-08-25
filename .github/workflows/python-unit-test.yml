@@ -73,4 +73,14 @@ jobs:
           python -m pip install --pre tox-gh-actions
 
       - name: Run tox test
-        run: cd user_tools && tox
+        run: |
+          cd user_tools
+          tox
+
+      - name: Upload behave timing reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behave-reports-${{ matrix.python-version }}
+          path: user_tools/behave-reports
+          if-no-files-found: ignore
