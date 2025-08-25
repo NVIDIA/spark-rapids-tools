@@ -284,7 +284,7 @@ class ReportTableFormat(EnumeratedType):
         """
         acceptable_map = {
             self.CSV: [self.TXT],
-            self.JSON: [self.TXT],
+            self.JSON: [self.TXT, self.CSV],  # It is possible to convert JSON to CSV (pandas normalizes JSON)
             self.CONF: [self.PROPERTIES],
             self.PROPERTIES: [self.TXT],
             self.TXT: []

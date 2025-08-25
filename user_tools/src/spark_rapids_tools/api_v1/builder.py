@@ -22,7 +22,7 @@ from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, Any,
 import pandas as pd
 
 from spark_rapids_tools import override
-from spark_rapids_tools.api_v1 import AppHandler
+from spark_rapids_tools.api_v1 import AppHandler, ProfCoreResultHandler
 from spark_rapids_tools.api_v1 import (
     ToolReportReaderT,
     ToolResultHandlerT,
@@ -89,8 +89,8 @@ RepDataT = TypeVar('RepDataT')
 class APIReport(Generic[RepDataT]):
     """Base class for API reports that loads data from a report handler."""
     handler: ToolResultHandlerT
-    _apps: Optional[List[Union[str, AppHandler]]] = field(default_factory=list, init=False)
-    _tbl: Optional[str] = field(default=None, init=False)
+    _tbl: Optional[str] = field(default=None)
+    _apps: Optional[List[Union[str, AppHandler]]] = field(default_factory=list)
 
     def _check_apps(self) -> None:
         """Check if applications are properly configured."""
@@ -249,7 +249,11 @@ class CSVReport(APIReport[LoadDFResult]):
             such as 'usecols', 'dtype', etc.
         _col_mapper_cb (Optional[Callable[[List[str]], Dict[str, str]]]): A callback that
             dynamically generates a column mapping based on the list of columns present in the table.
-
+            Compared to static mapping (_map_cols), this allows for more flexible handling of
+            column names that may change over time or across different reports.
+        _fall_back_to_empty_df (bool): If True, and there is an exception, the report will fall back
+            to returning an empty DataFrame
+        _load_res: The result of the last load operation stored as part of the object.
     Typical usage:
         - Configure the report with table label and application(s).
         - Optionally set column mapping, pandas arguments, or fallback callback.
@@ -258,10 +262,33 @@ class CSVReport(APIReport[LoadDFResult]):
     See Also:
         APIReport, LoadDFResult
     """
-    _fall_cb: Optional[Callable[[], pd.DataFrame]] = field(default=None, init=False)
-    _map_cols: Optional[dict] = field(default=None, init=False)
-    _pd_args: Optional[dict] = field(default=None, init=False)
-    _col_mapper_cb: Optional[Callable[[List[str]], Dict[str, str]]] = field(default=None, init=False)
+    _fall_cb: Optional[Callable[[], pd.DataFrame]] = field(default=None)
+    _map_cols: Optional[dict] = field(default=None)
+    _pd_args: Optional[dict] = field(default=None)
+    _col_mapper_cb: Optional[Callable[[List[str]], Dict[str, str]]] = field(default=None)
+    _fall_back_to_empty_df: bool = field(default=False)
+    _load_res: Optional[LoadDFResult] = field(default=None, init=False)
+
+    @property
+    def load_res(self) -> Optional[LoadDFResult]:
+        """Get the result of the last load operation."""
+        return self._load_res
+
+    @load_res.setter
+    def load_res(self, value: LoadDFResult) -> None:
+        self._load_res = value
+
+    def _check_fall_back_args(self) -> None:
+        """
+        Check if the fallback callback is set and valid.
+        If not set, it will default to returning an empty DataFrame.
+        """
+        if self._fall_cb is None:
+            # if the fall-back callback is not defined and fall_to_empty is enabled
+            # then we will set the fall-back callback to return an empty DataFrame with datatypes
+            # defined.
+            if self._fall_back_to_empty_df:
+                self._fall_cb = self.create_empty_df
 
     def _check_map_col_args(self) -> None:
         """
@@ -295,6 +322,7 @@ class CSVReport(APIReport[LoadDFResult]):
         """Check if the required arguments are set."""
         super()._check_args()
         self._check_map_col_args()
+        self._check_fall_back_args()
 
     @override
     def _load_global(self) -> LoadDFResult:
@@ -325,6 +353,28 @@ class CSVReport(APIReport[LoadDFResult]):
             map_cols=self._map_cols,
             pd_args=self._pd_args
         )
+
+    def __enter__(self):
+        """
+        Context manager entry point to load the data.
+        :return: LoadDFResult or Dict[str, LoadDFResult] depending on the table type.
+        """
+        self.load_res = self.load()
+        return self.load_res
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit point to handle cleanup and error propagation.
+        It returns False to propagate any error that occurred within the context. If no such
+        error occurred, it checks the load result for success and raises an exception if the
+        load failed and no fallback was provided.
+        """
+        if exc_val is None:
+            # If the load_res was unsuccessful, then throw an exception.
+            if self.load_res is not None and not self.load_res.success:
+                # this means that there was failure and the fall-back did not work
+                raise RuntimeError(f'Failed to load {self.tbl}') from self.load_res.get_fail_cause()
+        return False
 
     ##########################
     # Public API for CSVReport
@@ -803,6 +853,14 @@ class APIHelpers(object):
         """
         class Meta(GenericRH[ProfWrapperResultHandler].Meta):    # pylint: disable=too-few-public-methods
             report_id: str = 'profWrapperOutput'
+
+    class ProfCore(GenericRH[ProfCoreResultHandler]):
+        """
+        A helper class for building Prof Wrapper reports.
+        It provides static methods to build Result Handler for Prof Wrapper reports.
+        """
+        class Meta(GenericRH[ProfCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
+            report_id: str = 'profCoreOutput'
 
     @staticmethod
     def combine_reports(
