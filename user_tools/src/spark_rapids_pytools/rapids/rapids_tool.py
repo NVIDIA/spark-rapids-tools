@@ -23,8 +23,9 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from functools import cached_property
 from logging import Logger
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Generic
 
 import spark_rapids_pytools
 from spark_rapids_pytools import get_spark_dep_version
@@ -36,6 +37,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
+from spark_rapids_tools.api_v1 import ToolResultHandlerT, APIHelpers, LoadCombinedRepResult
 from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
@@ -440,10 +442,27 @@ class RapidsTool(object):
 
 
 @dataclass
-class RapidsJarTool(RapidsTool):
+class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
     """
     A wrapper class to represent wrapper commands that require RAPIDS jar file.
     """
+
+    @cached_property
+    def core_handler(self) -> ToolResultHandlerT:
+        """
+        Create and return a coreHandler instance for reading core reports.
+        This property should always be called after the scala code has executed.
+        Otherwise, the property has to be refreshed
+        :return: An instance of ToolResultHandlerT which could be QualCoreResultHandler
+                 or ProfCoreResultHandler.
+        :raises ValueError: If the tool name does not match any known core handler.
+        """
+        normalized_tool_name = self.name.lower()
+        if 'qualification' in normalized_tool_name:
+            return APIHelpers.QualCore.build_handler(dir_path=self.csp_output_path)
+        if 'profiling' in normalized_tool_name:
+            return APIHelpers.ProfCore.build_handler(dir_path=self.csp_output_path)
+        raise ValueError(f'Tool name [{normalized_tool_name}] has no CoreHandler associated with it.')
 
     def _process_jar_arg(self):
         # TODO: use the StorageLib to download the jar file
@@ -803,19 +822,50 @@ class RapidsJarTool(RapidsTool):
         out_tree_list = self._gen_output_tree()
         return Utils.gen_multiline_str(res_arr, out_tree_list)
 
+    def _init_core_handler(self) -> None:
+        """
+        Initializes the core_handler object and store it into the context.
+        This method is used to force the refresh of the core_handler property just in case
+        the property was called before the tool execution.
+        """
+        # force the refresh of the core handler property
+        if 'core_handler' in self.__dict__:
+            del self.__dict__['core_handler']
+        self.ctxt.set_ctxt('coreHandler', self.core_handler)
+        # create a single instance of the combine tracker to use it in multiple modules.
+        self.ctxt.set_ctxt(
+            'csvCombineTracker',
+            LoadCombinedRepResult(res_id='combined_csv_tracker')
+        )
+
+    def get_csv_combine_tracker(self) -> LoadCombinedRepResult:
+        """
+        Get the CSV combine tracker instance.
+        :return: An instance of LoadCombinedRepResult
+        """
+        combine_tracker = self.ctxt.get_ctxt('csvCombineTracker')
+        if combine_tracker is None:
+            combine_tracker = LoadCombinedRepResult(res_id='combined_csv_tracker')
+            self.ctxt.set_ctxt(
+                'csvCombineTracker',
+                combine_tracker
+            )
+        return combine_tracker
+
     def _evaluate_rapids_jar_tool_output_exist(self) -> bool:
         """
         Used as a subtask of self._process_output(). this method has the responsibility of
         checking if the tools produced no output and take the necessary action
         :return: True if the tool has generated an output
         """
-        rapids_output_dir = self.ctxt.get_rapids_output_folder()
+        self._init_core_handler()
         res = True
-        if not self.ctxt.platform.storage.resource_exists(rapids_output_dir):
-            res = False
-            self.ctxt.set_ctxt('wrapperOutputContent',
-                               self._report_results_are_empty())
-            self.logger.info('The Rapids jar tool did not generate an output directory')
+        if self.core_handler.is_empty():
+            if not self.core_handler.out_path.exists():
+                # There is no output_folder at all
+                res = False
+                self.ctxt.set_ctxt('wrapperOutputContent', self._report_results_are_empty())
+                self.logger.info('The Rapids jar tool did not generate an output directory')
         self.ctxt.set_ctxt('rapidsOutputIsGenerated', res)
         return res
 
