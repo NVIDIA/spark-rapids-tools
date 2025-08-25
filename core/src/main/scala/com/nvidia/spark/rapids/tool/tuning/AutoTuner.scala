@@ -280,6 +280,10 @@ abstract class AutoTuner(
    * @return true if the entry should be included in the final recommendations, false otherwise
    */
   def shouldIncludeInFinalRecommendations(tuningEntry: TuningEntryTrait): Boolean = {
+    if (platform.isPropertyPreserved(tuningEntry.name)) {
+      // If the property is preserved, it should be included in the final recommendations.
+      return true
+    }
     if (filterByUpdatedPropertiesEnabled) {
       tuningEntry.isTuned()
     } else {
@@ -315,6 +319,9 @@ abstract class AutoTuner(
 
   /**
    * Combined tuning table that merges the default tuning definitions with user-defined ones.
+   * Properties in the 'exclude' list are excluded from the final table.
+   * Properties in the 'preserve' list are added with enabled=true and bootstrapEntry=true.
+   * Properties in the 'enforced' map are added with enabled=true
    * Mutable to allow adding new definitions at runtime.
    */
   private lazy val finalTuningTable: Map[String, TuningEntryDefinition] = {
@@ -324,6 +331,25 @@ abstract class AutoTuner(
       platform.targetCluster
         .map(_.getSparkProperties.tuningDefinitionsMap)
         .getOrElse(Map.empty[String, TuningEntryDefinition])
+
+    // Exclude properties specified in the 'exclude' list
+    platform.targetCluster.foreach { cluster =>
+      val excludePropertiesSet = cluster.getSparkProperties.excludePropertiesSet
+      excludePropertiesSet.foreach { key =>
+        appendComment(getExcludedPropertyComment(key))
+        baseMap.remove(key)
+      }
+    }
+
+    // Add or update tuning definitions for preserve properties
+    platform.targetCluster.foreach { cluster =>
+      cluster.getSparkProperties.preservePropertiesSet.foreach { key =>
+        // All preserve properties should be enabled and have bootstrap entries.
+        val tuningDefn = baseMap.getOrElseUpdate(key, TuningEntryDefinition(key))
+        tuningDefn.setEnabled(true)
+        tuningDefn.setBootstrapEntry(true)
+      }
+    }
 
     // Add or update tuning definitions for user-enforced properties
     platform.userEnforcedRecommendations.keys.foreach { key =>
@@ -344,6 +370,23 @@ abstract class AutoTuner(
         recommendations(key) = recommendationVal
       }
     }
+
+    // Add the preserve properties to the recommendations.
+    // These properties should preserve their values from the source application.
+    platform.targetCluster.foreach { cluster =>
+      cluster.getSparkProperties.preservePropertiesSet.foreach { key =>
+        getPropertyValueFromSource(key) match {
+          case Some(sourceValue) =>
+            val recomRecord = recommendations.getOrElseUpdate(key,
+              TuningEntry.build(key, Some(sourceValue), None, finalTuningTable.get(key)))
+            recomRecord.setRecommendedValue(sourceValue)
+            appendComment(getPreservedPropertyComment(key))
+          case None =>
+            appendComment(getPreservedPropertyNotFoundComment(key))
+        }
+      }
+    }
+
     // Add the enforced properties to the recommendations.
     platform.userEnforcedRecommendations.foreach {
       case (key, value) =>
@@ -355,7 +398,19 @@ abstract class AutoTuner(
   }
 
   /**
-   * Append a comment to the list by looking up the persistent comment if any in the tuningEntry
+   * Helper method to mark a property as unresolved. Unresolved properties are those which
+   * are required but their values could not be determined by the AutoTuner.
+   */
+  private def markAsUnresolved(key: String, fillInValue: Option[String] = None): Unit = {
+    finalTuningTable.get(key).foreach { tuningDef =>
+      val recomRecord = recommendations.getOrElseUpdate(key,
+        TuningEntry.build(key, getPropertyValueFromSource(key), None, Some(tuningDef)))
+      recomRecord.markAsUnresolved(fillInValue)
+    }
+  }
+
+  /**
+   * Append a comment to the list by looking up the missing comment if any in the tuningEntry
    * table.
    * @param key the property set by the autotuner.
    */
@@ -363,7 +418,7 @@ abstract class AutoTuner(
     val missingComment = finalTuningTable.get(key)
       .flatMap(_.getMissingComment())
       .getOrElse(s"was not set.")
-    appendComment(s"'$key' $missingComment")
+    appendComment(key, missingComment)
   }
 
   /**
@@ -373,7 +428,7 @@ abstract class AutoTuner(
   private def appendPersistentComment(key: String): Unit = {
     finalTuningTable.get(key).foreach { eDef =>
       eDef.getPersistentComment().foreach { comment =>
-        appendComment(s"'$key' $comment")
+        appendComment(key, comment)
       }
     }
   }
@@ -386,7 +441,7 @@ abstract class AutoTuner(
   private def appendUpdatedComment(key: String): Unit = {
     finalTuningTable.get(key).foreach { eDef =>
       eDef.getUpdatedComment().foreach { comment =>
-        appendComment(s"'$key' $comment")
+        appendComment(key, comment)
       }
     }
   }
@@ -396,9 +451,11 @@ abstract class AutoTuner(
       // do not do anything if the recommendations should be skipped
       return
     }
-    if (platform.getUserEnforcedSparkProperty(key).isDefined) {
-      // If the property is enforced by the user, the recommendation should be
-      // skipped as we have already added it during the initialization.
+    if (platform.getUserEnforcedSparkProperty(key).isDefined ||
+      platform.isPropertyPreserved(key) || platform.isPropertyExcluded(key)) {
+      // If the property is enforced, preserved or excluded by the user, then
+      // the recommendation should be skipped as we have already handled it during
+      // initRecommendations() and initialization of finalTuningTable.
       return
     }
     // Update the recommendation entry or update the existing one.
@@ -889,25 +946,21 @@ abstract class AutoTuner(
           case Left(notEnoughMemComment) =>
             // Not enough memory available, add warning comments
             appendComment(notEnoughMemComment)
-            appendComment("spark.rapids.memory.pinnedPool.size",
-              notEnoughMemCommentForKey(
-                "spark.rapids.memory.pinnedPool.size"))
-            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
-              appendComment("spark.executor.memoryOverhead",
-                notEnoughMemCommentForKey(
-                  "spark.executor.memoryOverhead"))
+            // Helper function to append not enough memory comment for a specific key
+            def appendCommentForNotEnoughMem(key: String): Unit = {
+              appendComment(key, notEnoughMemCommentForKey(key), prependKey = false)
+              // Mark the recommendation as unresolved since AutoTuner could not recommend a value
+              markAsUnresolved(key)
             }
-            appendComment("spark.executor.memory",
-              notEnoughMemCommentForKey(
-                "spark.executor.memory"))
+            appendCommentForNotEnoughMem("spark.rapids.memory.pinnedPool.size")
+            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+              appendCommentForNotEnoughMem("spark.executor.memoryOverhead")
+            }
+            appendCommentForNotEnoughMem("spark.executor.memory")
             // Skip off-heap related comments when offHeapLimit is enabled
             if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
-              appendComment("spark.memory.offHeap.size",
-                notEnoughMemCommentForKey(
-                  "spark.memory.offHeap.size"))
-              appendComment("spark.rapids.memory.host.offHeapLimit.size",
-                notEnoughMemCommentForKey(
-                  "spark.rapids.memory.host.offHeapLimit.size"))
+              appendCommentForNotEnoughMem("spark.memory.offHeap.size")
+              appendCommentForNotEnoughMem("spark.rapids.memory.host.offHeapLimit.size")
             }
             false
         }
@@ -1098,8 +1151,11 @@ abstract class AutoTuner(
       getPropertyValue(autoBroadcastJoinKey).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
     val autoBroadcastJoinThresholdDefaultMB =
       tuningConfigs.getEntry("AQE_AUTO_BROADCAST_JOIN_THRESHOLD").getDefaultAsMemory(ByteUnit.MiB)
+    // If the property is not set, append a missing comment and mark it
+    // as unresolved so the user knows to look at it.
     if (autoBroadcastJoinThresholdPropertyMB.isEmpty) {
-      appendComment(autoBroadcastJoinKey, s"'$autoBroadcastJoinKey' was not set.")
+      appendMissingComment(autoBroadcastJoinKey)
+      markAsUnresolved(autoBroadcastJoinKey)
     } else if (autoBroadcastJoinThresholdPropertyMB.get > autoBroadcastJoinThresholdDefaultMB) {
       appendComment(s"Setting '$autoBroadcastJoinKey' > ${autoBroadcastJoinThresholdDefaultMB}m" +
         s" could lead to performance\n" +
@@ -1420,12 +1476,14 @@ abstract class AutoTuner(
   private def appendComment(
       key: String,
       comment: String,
-      fillInValue: Option[String] = None): Unit = {
-    if (!skippedRecommendations.contains(key)) {
-      val recomRecord = recommendations.getOrElseUpdate(key,
-        TuningEntry.build(key, getPropertyValueFromSource(key), None, finalTuningTable.get(key)))
-      recomRecord.markAsUnresolved(fillInValue)
-      comments += comment
+      prependKey: Boolean = true): Unit = {
+    if (!skippedRecommendations.contains(key) && finalTuningTable.contains(key)) {
+      val finalComment = if (prependKey) {
+        s"'$key' $comment"
+      } else {
+        comment
+      }
+      appendComment(finalComment)
     }
   }
 
@@ -1964,6 +2022,31 @@ trait AutoTunerStaticComments {
    */
   def getEnforcedPropertyComment(key: String): String = {
     s"'$key' was user-enforced in the target cluster properties."
+  }
+
+  /**
+   * Append a comment to the list indicating that the property was preserved from source.
+   * @param key the property preserved from source.
+   */
+  def getPreservedPropertyComment(key: String): String = {
+    s"'$key' was preserved from source application properties as specified in target cluster."
+  }
+
+  /**
+   * Append a comment to the list indicating that the property was specified in preserve list
+   * but not found in source properties.
+   * @param key the property specified in preserve list but not found in source.
+   */
+  def getPreservedPropertyNotFoundComment(key: String): String = {
+    s"'$key' was specified in preserve list but not found in source properties."
+  }
+
+  /**
+   * Append a comment to the list indicating that the property was excluded from source.
+   * @param key the property excluded from source.
+   */
+  def getExcludedPropertyComment(key: String): String = {
+    s"'$key' was excluded from tuning recommendations as specified in target cluster."
   }
 
   def commentForExperimentalConfig(config: String): String = {
