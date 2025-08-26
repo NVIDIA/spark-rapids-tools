@@ -14,6 +14,7 @@
 
 """Module that contains the definition of the profiling Result handler for the core module."""
 
+import re
 from dataclasses import dataclass
 
 from spark_rapids_tools import override
@@ -25,6 +26,12 @@ from spark_rapids_tools.api_v1.report_reader import ToolReportReader
 @dataclass
 class ProfCoreResultHandler(ResultHandler):
     """Result handler for the profiling core module."""
+    class Meta(ResultHandler.Meta):    # pylint: disable=too-few-public-methods
+        """
+        Meta class for ProfCoreResultHandler to define common attributes.
+        """
+        id_regex = re.compile(r'rapids_4_spark_profile')
+
     @override
     @property
     def alpha_reader(self) -> ToolReportReader:

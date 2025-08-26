@@ -86,6 +86,10 @@ fi
 build_mode="$1"
 jar_url="$2"
 
+# Optional mode to only prepare resources (generate Tools JAR, copy reports) without building the wheel
+# Usage: SKIP_WHEEL_PACKAGE_BUILD=1 ./build.sh non-fat [jar_url]
+SKIP_WHEEL_PACKAGE_BUILD=${SKIP_WHEEL_PACKAGE_BUILD:-0}
+
 # get the directory of the script
 WORK_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 
@@ -230,6 +234,34 @@ copy_reports_from_core() {
   fi
 }
 
+# Prepare-only: generate the Tools JAR and copy the core reports into generated resources
+# This avoids building the Python wheel and can be used by CI/tox prior to isolated builds
+prepare_resources() {
+  # Clean any previously generated resources
+  remove_web_dependencies "$WRAPPER_RESOURCES_DIR"
+
+  # Build or download the tools JAR
+  log_section "Building the tools jar...."
+  if [ -n "$jar_url" ]; then
+    log_info "Using provided JAR URL"
+    download_jar_from_url "$jar_url" "$BUILD_DIR"
+  else
+    log_info "Building JAR from source"
+    build_jar_from_source
+  fi
+
+  # Create destination jars directory and copy the built tools jar
+  local dest_jars_dir="${WRAPPER_RESOURCES_DIR}/${DEST_CORE_JARS_REL_PATH}"
+  mkdir -p "${dest_jars_dir}"
+  cp -f "${TOOLS_JAR_FILE}" "${dest_jars_dir}/"
+
+  # Copy core reports into generated_files
+  copy_reports_from_core "$WRAPPER_RESOURCES_DIR"
+
+  # Cleanup temporary build artifacts
+  clean_up_build_jars
+}
+
 # Pre-build setup
 pre_build() {
   log_info "upgrade pip"
@@ -238,8 +270,8 @@ pre_build() {
   rm -rf build/ dist/
   log_info "install build dependencies using pip"
   pip install build
-  # Note: Removed -e .[qualx,test] to avoid overriding existing package installations
-  if ! pip install ".[qualx,test]"; then
+  # Note: Removed -e .[dev-env] to avoid overriding existing package installations
+  if ! pip install ".[dev-env]"; then
     bail "Failed to download the package with dependencies"
   fi
 }
@@ -286,12 +318,22 @@ log_msg "$CYAN" " Jar URL                   : ${jar_url}"
 log_msg "$CYAN" " Wrapper ResourceS Dir     : ${WRAPPER_RESOURCES_DIR}"
 echo
 
-pre_build
-build
-build_exit_code=$?
+if [ "$SKIP_WHEEL_PACKAGE_BUILD" = "1" ]; then
+  log_msg "$BLUE" " Running in SKIP_WHEEL_PACKAGE_BUILD mode (no wheel build)"
+  prepare_resources
+  build_exit_code=$?
+else
+  pre_build
+  build
+  build_exit_code=$?
+fi
 if [ $build_exit_code -eq 0 ]; then
   echo
-  log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
+  if [ "$SKIP_WHEEL_PACKAGE_BUILD" = "1" ]; then
+    log_msg "$UNDER" "Resources prepared successfully. Wheel build was skipped (SKIP_WHEEL_PACKAGE_BUILD=1)."
+  else
+    log_msg "$UNDER" "Build successful. To install, use: pip install dist/<wheel-file>"
+  fi
   echo
   log_msg "$GREEN" " Product                   : ${PRODUCT_NAME}"
   log_msg "$GREEN" " Jar URL                   : ${jar_url}"

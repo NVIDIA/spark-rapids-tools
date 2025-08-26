@@ -662,14 +662,26 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                 _recommendedWorkerNode.numGpus).toInt
             }
 
+            // Calculate cores per executor by dividing the total cores in the instance
+            // by the number of GPUs in the instance
+            val recommendedCoresPerExecutor = math.ceil(
+              _recommendedWorkerNode.cores.toDouble / _recommendedWorkerNode.numGpus
+            ).toInt
+
+            // Calculate the recommended number of executors by dividing the total number of
+            // executors by the recommended cores per executor
+            val recommendedNumExecutors =
+              (clusterConfig.coresPerExec * clusterConfig.numExecutors) /
+                recommendedCoresPerExecutor
+
             val dynamicAllocSettings = Platform.getDynamicAllocationSettings(sourceSparkProperties)
             recommendedWorkerNode = Some(_recommendedWorkerNode)
             recommendedClusterInfo = Some(RecommendedClusterInfo(
               vendor = vendor,
-              coresPerExecutor = clusterConfig.coresPerExec,
+              coresPerExecutor = recommendedCoresPerExecutor,
               numWorkerNodes = numWorkerNodes,
               numGpusPerNode = _recommendedWorkerNode.numGpus,
-              numExecutors = clusterConfig.numExecutors,
+              numExecutors = recommendedNumExecutors,
               gpuDevice = _recommendedWorkerNode.gpuDevice.toString,
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,

@@ -1163,4 +1163,100 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       }
     }
   }
+
+  test("test text file expansion with event log paths") {
+    TrampolineUtil.withTempDir { tempDir =>
+      // Create a text file with multiple event log paths
+      val txtFile = new File(tempDir, "eventlogs.txt")
+      val txtContent = s"""${qualLogDir}/udf_func_eventlog
+                          |${qualLogDir}/udf_dataset_eventlog
+                          |${qualLogDir}/dataset_eventlog""".stripMargin
+
+      // Write the text file
+      val writer = new java.io.FileWriter(txtFile)
+      try {
+        writer.write(txtContent)
+      } finally {
+        writer.close()
+      }
+
+      val (result, _) = EventLogPathProcessor.processAllPaths(
+        None, None, List(txtFile.getAbsolutePath), hadoopConf)
+
+      // Should find 3 event logs from the text file
+      assert(result.length == 3)
+      val eventLogNames = result.map(_.eventLog.getName).sorted
+      assert(eventLogNames.contains("udf_func_eventlog"))
+      assert(eventLogNames.contains("udf_dataset_eventlog"))
+      assert(eventLogNames.contains("dataset_eventlog"))
+    }
+  }
+
+  test("test mixed input: text file and direct event log paths") {
+    TrampolineUtil.withTempDir { tempDir =>
+      // Create a text file with some event log paths
+      val txtFile = new File(tempDir, "partial_logs.txt")
+      val txtContent = s"""${qualLogDir}/udf_func_eventlog
+                          |${qualLogDir}/udf_dataset_eventlog""".stripMargin
+
+      val writer = new java.io.FileWriter(txtFile)
+      try {
+        writer.write(txtContent)
+      } finally {
+        writer.close()
+      }
+
+      // Mix text file with direct event log path
+      val inputPaths = List(
+        txtFile.getAbsolutePath,
+        s"${qualLogDir}/dataset_eventlog"
+      )
+
+      val (result, _) = EventLogPathProcessor.processAllPaths(
+        None, None, inputPaths, hadoopConf)
+
+      // Should find 3 event logs total (2 from txt + 1 direct)
+      assert(result.length == 3)
+      val eventLogNames = result.map(_.eventLog.getName).sorted
+      assert(eventLogNames.contains("udf_func_eventlog"))
+      assert(eventLogNames.contains("udf_dataset_eventlog"))
+      assert(eventLogNames.contains("dataset_eventlog"))
+    }
+  }
+
+  test("test text file with comma-separated paths") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val txtFile = new File(tempDir, "comma_separated.txt")
+      val txtContent = s"${qualLogDir}/udf_func_eventlog,${qualLogDir}/dataset_eventlog"
+
+      val writer = new java.io.FileWriter(txtFile)
+      try {
+        writer.write(txtContent)
+      } finally {
+        writer.close()
+      }
+
+      val (result, _) = EventLogPathProcessor.processAllPaths(
+        None, None, List(txtFile.getAbsolutePath), hadoopConf)
+
+      // Should find 2 event logs from comma-separated line
+      assert(result.length == 2)
+      val eventLogNames = result.map(_.eventLog.getName).sorted
+      assert(eventLogNames.contains("udf_func_eventlog"))
+      assert(eventLogNames.contains("dataset_eventlog"))
+    }
+  }
+
+  test("test empty text file") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val txtFile = new File(tempDir, "empty.txt")
+      txtFile.createNewFile() // Create empty file
+
+      val (result, _) = EventLogPathProcessor.processAllPaths(
+        None, None, List(txtFile.getAbsolutePath), hadoopConf)
+
+      // Should return empty result for empty text file
+      assert(result.isEmpty)
+    }
+  }
 }

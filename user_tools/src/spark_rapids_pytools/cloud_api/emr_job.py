@@ -1,4 +1,4 @@
-# Copyright (c) 2023, NVIDIA CORPORATION.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,7 +28,4 @@ class EmrLocalRapidsJob(RapidsLocalJob):
     def _build_submission_cmd(self) -> list:
         # env vars are added later as a separate dictionary
         cmd_arg = super()._build_submission_cmd()
-        # any s3 link has to be converted to S3a:
-        for index, arr_entry in enumerate(cmd_arg):
-            cmd_arg[index] = arr_entry.replace('s3://', 's3a://')
         return cmd_arg

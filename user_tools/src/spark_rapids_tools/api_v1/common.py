@@ -71,14 +71,15 @@ class APIUtils(object):
 class LoadCombinedRepResult(object):
     """
     A dataclass to hold the result of loading raw files.
-    :param ds_name: The name of the dataset used to identify the loading process.
+    :param res_id: An ID of the container. This can be used as way to track different operations and
+           log them in a human friendly way.
     :param _reports: A Private field mapping [report_id: str, dataFrame: pd.DataFrame]. Each dataframe is
            the combined dataframe of all per-app tools output.
     :param _failed_loads: A dictionary mapping the appIDs to the failed reports. Each entry is of the structure
            [app_id: str, tuple(report_id: str, error: str)] in order to give details on the root
            cause of each failure in-case the caller needs to process those failures.
     """
-    ds_name: str
+    res_id: str
     _reports: Dict[str, pd.DataFrame] = field(init=False, default_factory=dict)
     _failed_loads: Dict[str, List[Tuple[str, str]]] = field(init=False, default_factory=dict)
 

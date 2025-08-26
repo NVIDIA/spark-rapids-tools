@@ -15,7 +15,7 @@
 """
 Module that contains the definition of the Qualification wrapper result handler.
 """
-
+import re
 from dataclasses import dataclass
 
 from spark_rapids_tools import override
@@ -26,6 +26,12 @@ from spark_rapids_tools.api_v1.result_handler import register_result_class, Resu
 @register_result_class('qualWrapperOutput')
 @dataclass
 class QualWrapperResultHandler(ResultHandler):
+    """
+    Result handler for the qualification wrapper module. This handler is used to manage
+    the final output of the qualification process (qualification + prediction)
+    """
+    class Meta(ResultHandler.Meta):    # pylint: disable=too-few-public-methods
+        id_regex = re.compile(r'qual_[0-9]+_[0-9a-zA-Z]+')
 
     @property
     def core_reader(self) -> ToolReportReader:

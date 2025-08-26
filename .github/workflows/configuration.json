@@ -39,7 +39,7 @@
       "title": "### Build and CI/CD",
       "labels": ["dependencies", "cicd", "build"],
       "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug"],
-      "exhaustive": true
+      "exhaustive": false
     },
     {
       "title": "### User Tools",
@@ -54,14 +54,20 @@
       "exhaustive": true
     },
     {
-      "title": "### Documentation",
-      "labels": ["documentation"],
+      "title": "### Testing",
+      "labels": ["test"],
       "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools"],
       "exhaustive": true
     },
     {
+      "title": "### Documentation",
+      "labels": ["documentation"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools", "test"],
+      "exhaustive": true
+    },
+    {
       "title": "### Miscellaneous",
-      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools", "documentation"],
+      "exclude_labels": ["autotuner", "qualx", "api_change", "feature request", "performance", "bug", "dependencies", "cicd", "build", "user_tools", "core_tools", "test", "documentation"],
       "exhaustive": true
     }
   ],

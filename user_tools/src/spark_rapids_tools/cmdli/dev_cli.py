@@ -14,17 +14,18 @@
 
 """CLI to run development related tools."""
 
+from typing import Optional
 
 import fire
 
+from spark_rapids_pytools.common.utilities import ToolLogging
+from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
+from spark_rapids_pytools.rapids.profiling_core import ProfilingCoreAsLocal
+from spark_rapids_pytools.rapids.qualification_core import QualificationCoreAsLocal
+from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 from spark_rapids_tools.cmdli.argprocessor import AbsToolUserArgModel
 from spark_rapids_tools.enums import CspEnv
 from spark_rapids_tools.utils.util import gen_app_banner, init_environment
-from spark_rapids_pytools.common.utilities import ToolLogging
-from spark_rapids_pytools.rapids.dev.instance_description import InstanceDescription
-from spark_rapids_pytools.rapids.qualification_core import QualificationCoreAsLocal
-from spark_rapids_pytools.rapids.profiling_core import ProfilingCoreAsLocal
-from spark_rapids_pytools.rapids.qualification_stats import SparkQualStats
 
 
 class DevCLI(object):  # pylint: disable=too-few-public-methods
@@ -35,20 +36,29 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                            platform: str = None,
                            output_folder: str = None,
                            tools_jar: str = None,
+                           jvm_heap_size: int = None,
+                           jvm_threads: int = None,
                            tools_config_file: str = None,
-                           verbose: bool = None) -> None:
+                           verbose: bool = None,
+                           **rapids_options) -> Optional[str]:
         """The Core Qualification cmd.
 
-        :param eventlogs: Event log filenames or CSP storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, CSP storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
         :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
                 rapids-4-spark-tools_*.jar from maven repository.
+        :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
+                Default is calculated based on a function of the total memory of the host.
+        :param jvm_threads: Number of threads to use for parallel processing on the eventlogs batch.
+                Default is calculated as a function of the total number of cores and the heap size on the host.
         :param tools_config_file: Path to a configuration file that contains the tools' options.
                For sample configuration files, please visit
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
+        :param rapids_options: A list of valid Qualification tool options.
+        :return: The output folder where the qualification results are stored.
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -59,37 +69,51 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                                          platform=platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
+                                                         jvm_heap_size=jvm_heap_size,
+                                                         jvm_threads=jvm_threads,
                                                          tools_config_path=tools_config_file,
                                                          session_uuid=session_uuid)
         if qual_args:
+            rapids_options.update(qual_args.get('rapidOptions', {}))
             tool_obj = QualificationCoreAsLocal(platform_type=qual_args['runtimePlatform'],
                                                 output_folder=qual_args['outputFolder'],
                                                 wrapper_options=qual_args,
-                                                rapids_options={})
+                                                rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.csp_output_path
+        return None
 
     def profiling_core(self,
                        eventlogs: str = None,
                        platform: str = None,
                        output_folder: str = None,
                        tools_jar: str = None,
+                       jvm_heap_size: int = None,
+                       jvm_threads: int = None,
                        tools_config_file: str = None,
-                       verbose: bool = None):
+                       verbose: bool = None,
+                       **rapids_options) -> Optional[str]:
         """The Core Profiling cmd runs the profiling tool JAR directly with minimal processing.
 
         This is a simplified version for development and testing purposes that directly executes
         the profiling tool JAR without the extra processing layers.
 
-        :param eventlogs: Event log filenames or cloud storage directories containing event logs
-                (comma separated).
+        :param eventlogs: Event log filenames, cloud storage directories containing event logs
+                (comma separated), or path to a TXT file containing a list of event log paths.
         :param platform: Platform type: "onprem", "emr", "dataproc", "databricks-aws", "databricks-azure".
         :param output_folder: Local path to store the output.
         :param tools_jar: Path to a bundled jar including Rapids tool. If missing, downloads the latest
                 rapids-4-spark-tools_*.jar from maven repository.
+        :param jvm_heap_size: The maximum heap size of the JVM in gigabytes.
+                Default is calculated based on a function of the total memory of the host.
+        :param jvm_threads: Number of threads to use for parallel processing on the eventlogs batch.
+                Default is calculated as a function of the total number of cores and the heap size on the host.
         :param tools_config_file: Path to a configuration file that contains the tools' options.
                For sample configuration files, please visit
                https://github.com/NVIDIA/spark-rapids-tools/tree/main/user_tools/tests/spark_rapids_tools_ut/resources/tools_config/valid
         :param verbose: True or False to enable verbosity of the script.
+        :param rapids_options: A list of valid Profiling tool options.
+        :return: The output folder where the profiling results are stored.
         """
         if verbose:
             ToolLogging.enable_debug_mode()
@@ -100,14 +124,19 @@ class DevCLI(object):  # pylint: disable=too-few-public-methods
                                                          platform=platform,
                                                          output_folder=output_folder,
                                                          tools_jar=tools_jar,
+                                                         jvm_heap_size=jvm_heap_size,
+                                                         jvm_threads=jvm_threads,
                                                          tools_config_path=tools_config_file,
                                                          session_uuid=session_uuid)
         if prof_args:
+            rapids_options.update(prof_args.get('rapidOptions', {}))
             tool_obj = ProfilingCoreAsLocal(platform_type=prof_args['runtimePlatform'],
                                             output_folder=prof_args['outputFolder'],
                                             wrapper_options=prof_args,
-                                            rapids_options={})
+                                            rapids_options=rapids_options)
             tool_obj.launch()
+            return tool_obj.csp_output_path
+        return None
 
     def generate_instance_description(self,
                                       platform: str = None,

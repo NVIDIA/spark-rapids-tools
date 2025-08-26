@@ -145,6 +145,27 @@ class AbsToolUserArgModel:
             return self.eventlogs
         return None
 
+    def determine_eventlogs_arg_type(self) -> ArgValueCase:
+        """
+        Determines the type of eventlogs argument:
+        - VALUE_A: Direct eventlog paths (single or comma-separated)
+        - VALUE_B: Presence of at least one valid TXT file path among the comma-separated list
+        - UNDEFINED: No eventlogs provided
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ArgValueCase.UNDEFINED
+        entries = [entry for entry in raw_eventlogs.split(',') if entry]
+        for entry in entries:
+            if entry.lower().endswith('.txt'):
+                if not CspPath.is_file_path(entry, extensions=['txt'], raise_on_error=False):
+                    raise PydanticCustomError(
+                        'eventlogs_file',
+                        f'Invalid eventlogs TXT file: {entry}. File must be an existing .txt file.\n  Error:')
+                return ArgValueCase.VALUE_B
+        # No .txt files present; treat as direct eventlog paths
+        return ArgValueCase.VALUE_A
+
     def raise_validation_exception(self, validation_err: str):
         raise PydanticCustomError(
             'invalid_argument',
@@ -174,19 +195,18 @@ class AbsToolUserArgModel:
         client_cluster = ClientCluster(CspPath(self.cluster))
         self.p_args['toolArgs']['platform'] = CspEnv.fromstring(client_cluster.platform_name)
 
-    def detect_platform_from_eventlogs_prefix(self):
-        map_storage_to_platform = {
-            'gcs': CspEnv.DATAPROC,
-            's3': CspEnv.EMR,
-            'local': CspEnv.ONPREM,
-            'hdfs': CspEnv.ONPREM,
-            'adls': CspEnv.DATABRICKS_AZURE
-        }
-        # in case we have a list of eventlogs, we need to split them and take the first one
-        ev_logs_path = CspPath(self.get_eventlogs().split(',')[0])
-        storage_type = ev_logs_path.get_storage_name()
-        self.p_args['toolArgs']['platform'] = map_storage_to_platform[storage_type]
-        self.logger.info('Detected platform from eventlogs prefix: %s', self.p_args['toolArgs']['platform'].name)
+    def get_processed_eventlog_paths(self) -> str:
+        """
+        Returns the processed eventlogs string to pass to the tool.
+        For TXT files, returns the file path itself.
+        """
+        raw_eventlogs = self.get_eventlogs()
+        if raw_eventlogs is None:
+            return ''
+        eventlog_type = self.determine_eventlogs_arg_type()
+        if eventlog_type in (ArgValueCase.VALUE_A, ArgValueCase.VALUE_B):
+            return raw_eventlogs
+        return ''
 
     def validate_onprem_with_cluster_name(self):
         # this field has already been populated during initialization
@@ -362,10 +382,25 @@ class ToolUserArgModel(AbsToolUserArgModel):
     def is_concurrent_submission(self) -> bool:
         return False
 
+    # JVM parameter setup follows the following order:
+    # 1. CLI args (jvm_heap_size, jvm_threads)
+    # 2. ToolsConfig.runtime (jvm_heap_size, jvm_threads) -> if not set, will fall back to calculated defaults
+    # 3. calculated defaults (jvm_heap_size, jvm_threads)
     def process_jvm_args(self) -> None:
         # JDK8 uses parallel-GC by default. Set the GC algorithm to G1GC
         self.p_args['toolArgs']['jvmGC'] = '+UseG1GC'
-        jvm_heap = self.jvm_heap_size
+        # Resolve effective JVM parameters: CLI args > ToolsConfig.runtime > calculated defaults
+        effective_heap = self.jvm_heap_size
+        effective_threads = self.jvm_threads
+        if effective_heap is None or effective_threads is None:
+            # Use already loaded tools config (if available)
+            tools_cfg = self.p_args['toolArgs']['toolsConfig']
+            if tools_cfg and tools_cfg.runtime:
+                if effective_heap is None:
+                    effective_heap = tools_cfg.runtime.jvm_heap_size
+                if effective_threads is None:
+                    effective_threads = tools_cfg.runtime.jvm_threads
+        jvm_heap = effective_heap
         if jvm_heap is None:
             # set default GC heap size based on the virtual memory of the host.
             jvm_heap = Utilities.calculate_jvm_max_heap_in_gb()
@@ -374,7 +409,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
         # of heap.
         adjusted_resources = Utilities.adjust_tools_resources(jvm_heap,
                                                               jvm_processes=2 if self.is_concurrent_submission() else 1,
-                                                              jvm_threads=self.jvm_threads)
+                                                              jvm_threads=effective_threads)
         self.p_args['toolArgs']['jvmMaxHeapSize'] = jvm_heap
         self.p_args['toolArgs']['jobResources'] = adjusted_resources
         self.p_args['toolArgs']['log4jPath'] = Utils.resource_path('dev/log4j.properties')
@@ -428,9 +463,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
             rapids_options['tuning_configs'] = self.tuning_configs
 
     def init_extra_arg_cases(self) -> list:
-        if self.eventlogs is None:
-            return [ArgValueCase.UNDEFINED]
-        return [ArgValueCase.VALUE_A]
+        return [self.determine_eventlogs_arg_type()]
 
     def define_invalid_arg_cases(self) -> None:
         super().define_invalid_arg_cases()
@@ -495,14 +528,6 @@ class ToolUserArgModel(AbsToolUserArgModel):
                 [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_B, ArgValueCase.IGNORE]
             ]
         }
-        self.detected['Define Platform based on Eventlogs prefix'] = {
-            'valid': True,
-            'callable': partial(self.detect_platform_from_eventlogs_prefix),
-            'cases': [
-                [ArgValueCase.UNDEFINED, ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A],
-                [ArgValueCase.UNDEFINED, ArgValueCase.VALUE_A, ArgValueCase.VALUE_A]
-            ]
-        }
 
 
 @dataclass
@@ -555,10 +580,10 @@ class QualifyUserArgModel(ToolUserArgModel):
         # which is the onPrem platform.
         runtime_platform = self.get_or_set_platform()
         rapids_options = {}
+        # load tools config before computing JVM args to allow config defaults to apply
+        self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
-        # process the tools config file
-        self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
         # process tuning configs
@@ -586,7 +611,7 @@ class QualifyUserArgModel(ToolUserArgModel):
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
             'savingsCalculations': self.p_args['toolArgs']['savingsCalculations'],
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'filterApps': QualFilterApp.fromstring(self.p_args['toolArgs']['filterApps']),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'estimationModelArgs': self.p_args['toolArgs']['estimationModelArgs'],
@@ -648,10 +673,10 @@ class ProfileUserArgModel(ToolUserArgModel):
                 'driverlog': self.p_args['toolArgs']['driverlog']
             }
 
+        # load tools config before computing JVM args to allow config defaults to apply
+        self.load_tools_config()
         # process JVM arguments
         self.process_jvm_args()
-        # process the tools config file
-        self.load_tools_config()
         # process target_cluster_info
         self.process_target_cluster_info(rapids_options)
         # process tuning configs
@@ -678,7 +703,7 @@ class ProfileUserArgModel(ToolUserArgModel):
                 },
                 'jobResources': self.p_args['toolArgs']['jobResources']
             },
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'requiresEventlogs': requires_event_logs,
             'rapidOptions': rapids_options,
             'toolsJar': self.p_args['toolArgs']['toolsJar']
@@ -797,8 +822,10 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        self.process_jvm_args()
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
+        # process JVM arguments
+        self.process_jvm_args()
 
         platform_opts = {
             'credentialFile': None,
@@ -810,7 +837,7 @@ class QualificationCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {
@@ -844,8 +871,10 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
 
     def build_tools_args(self) -> dict:
         runtime_platform = self.get_or_set_platform()
-        self.process_jvm_args()
+        # load tools config before computing JVM args to allow config defaults to apply
         self.load_tools_config()
+        # process JVM arguments
+        self.process_jvm_args()
 
         platform_opts = {
             'credentialFile': None,
@@ -857,7 +886,7 @@ class ProfilingCoreUserArgModel(ToolUserArgModel):
         wrapped_args = {
             'runtimePlatform': runtime_platform,
             'outputFolder': self.output_folder,
-            'eventlogs': self.eventlogs,
+            'eventlogs': self.get_processed_eventlog_paths(),
             'toolsJar': self.p_args['toolArgs']['toolsJar'],
             'platformOpts': platform_opts,
             'jobSubmissionProps': {

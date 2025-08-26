@@ -71,6 +71,15 @@ class RapidsTool(object):
     logger: Logger = field(default=None, init=False)
     spinner: ToolsSpinner = field(default=None, init=False)
 
+    @property
+    def csp_output_path(self) -> str:
+        """
+        Get the output path for the current tool execution. This is different than self.output_folder
+        because it includes the folder created by the tool context
+        :return: The output path as a string.
+        """
+        return self.ctxt.get_csp_output_path()
+
     def get_tools_config_obj(self) -> Optional['ToolsConfig']:
         """
         Get the tools configuration object if provided in the CLI arguments.

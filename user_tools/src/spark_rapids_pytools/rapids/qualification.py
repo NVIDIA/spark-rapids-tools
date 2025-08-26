@@ -17,6 +17,7 @@
 import json
 import re
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Any, List, Callable, Optional, Dict
 
 import numpy as np
@@ -29,6 +30,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
+from spark_rapids_tools.api_v1 import APIHelpers, QualCoreResultHandler
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -337,7 +339,7 @@ class Qualification(QualificationCore):
         csv_out = output_files_info.get_value('summary', 'path')
         if not df_final_result.empty:
             self.logger.info('Generating GPU Estimated Speedup: as %s', csv_out)
-            df_final_result.to_csv(csv_out, float_format='%.2f')
+            df_final_result.to_csv(csv_out, float_format='%.2f', sep=',')
 
         # Add columns for cluster configuration recommendations and tuning configurations to the processed_apps.
         recommender = ClusterConfigRecommender(self.ctxt)
@@ -520,6 +522,16 @@ class Qualification(QualificationCore):
             entry['path'] = path
         return files_info
 
+    @cached_property
+    def qual_core_handler(self) -> QualCoreResultHandler:
+        """
+        Create and return a QualCoreHandler instance for reading qual-core reports.
+        This property should always be called after the scala code has executed.
+        Otherwise, the property has to be refreshed
+        :return: An instance of QualCoreResultHandler.
+        """
+        return APIHelpers.QualCore.build_handler(dir_path=self.csp_output_path)
+
     def __update_apps_with_prediction_info(self,
                                            all_apps: pd.DataFrame,
                                            estimation_model_args: dict) -> pd.DataFrame:
@@ -529,17 +541,22 @@ class Qualification(QualificationCore):
         """
         # Execute the prediction model
         model_name = self.ctxt.platform.get_prediction_model_name()
-        qual_output_dir = self.ctxt.get_csp_output_path()
         output_info = self.__build_prediction_output_files_info()
-        qual_handler = self.ctxt.get_ctxt('qualHandler')
         try:
+            # use the qual_core_handler to read qual-core reports and raise exception if the result is empty
+            if self.qual_core_handler.is_empty():
+                raise RuntimeError('QualCoreHandler has no data to process. '
+                                   'Please ensure the qualification tool has run successfully.')
             predictions_df = predict(
                 platform=model_name,
-                qual=qual_output_dir,
+                qual=self.csp_output_path,
                 output_info=output_info,
                 model=estimation_model_args['customModelFile'],
                 config=estimation_model_args['qualxConfig'],
-                qual_handlers=[qual_handler])
+                qual_handlers=[
+                    self.qual_core_handler
+                ]
+            )
         except Exception as e:  # pylint: disable=broad-except
             predictions_df = pd.DataFrame()
             self.logger.error(
