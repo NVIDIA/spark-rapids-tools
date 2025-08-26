@@ -868,68 +868,6 @@ class APIHelpers(object):
         class Meta(GenericRH[ProfCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
             report_id: str = 'profCoreOutput'
 
-    @staticmethod
-    def combine_reports(
-            raw_res: LoadCombinedRepResult,
-            combiner: CSVReportCombiner,
-            convert_to_camel: bool = False,
-            raise_on_failure: bool = True,
-            raise_on_empty: bool = True
-    ) -> Optional[pd.DataFrame]:
-        """
-        A utility function that wraps the creation of a combined per-app-report.
-        It processes the result of a CSVReportCombiner and handles exceptions.
-        :param raw_res: The LoadRawFilesResult instance to append the results to.
-        :param combiner: The CSVReportCombiner to process.
-        :param convert_to_camel: If True, convert the column names to camelCase.
-               This is useful to normalize the column-names to a common format.
-        :param raise_on_failure: If True, raise an exception if the combiner fails to
-               build the combined dataframe. Note that this is not intended to handle individual app-level
-               failures. For the latter, visit the arguments provided by the CSVReportCombiner.
-        :param raise_on_empty: If True, raise an exception if the resulting DataFrame is
-               empty or None. This is useful to ensure that mandatory reports are always valid DataFrames
-               while allow other optional reports to be empty without throwing exceptions.
-        :return: The resulting DataFrame. The DataFrame can be None if there was an error while loading the report
-               and the raise_on_empty is False. This cane be avoided if the combiner is configured to
-               fall_back to an empty DataFrame in case of failure.
-        :raises RuntimeError: If the combiner fails to build the final result and raise_on_failure is True.
-        :raises ValueError: If the resulting DataFrame is empty and raise_on_empty is True.
-        """
-        try:
-            if convert_to_camel:
-                # Update the rep_builders by setting the col_map_cb to the staticmethod to_camel.
-                for rep in combiner.rep_builders:
-                    rep.map_cols_cb(APIUtils.cols_to_camel_case)
-            # final_res is dictionary of [app_id: str, LoadDFResult] where each LoadDFResult
-            # contains the data and the success flag.
-            final_res = combiner.build()
-            # If the combiner failed to load the report, we should raise an exception
-            if not final_res.success and raise_on_failure:
-                if final_res.load_error:
-                    raise RuntimeError(
-                        f'Loading report {combiner.tbl} failed with error: {final_res.get_fail_cause()}'
-                    ) from final_res.get_fail_cause()  # use the get_fail_cause to get the original exception.
-                raise RuntimeError(f'Loading report {combiner.tbl} failed with unexpected error.')
-            # if dataframe is None, or dataframe is empty and raise_on_empty is True, raise an exception
-            if raise_on_empty and (final_res.data is None or final_res.data.empty):
-                detail_reason = 'a None DataFrame' if final_res.data is None else 'an empty DataFrame'
-                raise ValueError(
-                    f'Loading report {combiner.tbl} on dataset {raw_res.res_id} returned {detail_reason}.')
-            # If we reach this point, then there is no raise on exceptions, just proceed with wrapping up the report.
-            # 1. Append failed apps: Loop on combiner_failed apps and append them to the raw_res.
-            if combiner.failed_loads:
-                for app_id, app_error in combiner.failed_loads.items():
-                    raw_res.append_failure(app_id, combiner.tbl, app_error)
-            # 2. Append the resulting dataframe to the reports if it is successful. Else set the Dataframe to None.
-            if final_res.success:
-                raw_res.append_success(combiner.tbl, final_res)
-                return final_res.data
-            # If the combiner failed to build the final result, we should None
-            return None
-        except Exception as e:  # pylint: disable=broad-except
-            # If we reach here, it means that the combiner failed to build the final result.
-            # We should raise an exception to inform the caller.
-            raise RuntimeError(f'Failed to load report {combiner.tbl} on dataset {raw_res.res_id}: {e}') from e
 
     @dataclass
     class CombinedDFBuilder(object):
