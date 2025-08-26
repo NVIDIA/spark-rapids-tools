@@ -979,7 +979,7 @@ class APIHelpers(object):
                 # Optionally pick specific columns from each report and rename columns
                 builder.apply_on_report(
                     lambda x: x.pd_args(
-                        'usecols': ['col1', 'col2']
+                        {'usecols': ['col1', 'col2']}
                     ).map_cols({'col1': 'new_col1'})
                 )
                 combined_df = builder.build()
