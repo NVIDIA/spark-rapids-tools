@@ -1576,7 +1576,7 @@ abstract class AutoTuner(
 
   /**
    * Calculate recommended pinned memory size using the new formula:
-   * min (2 * spark executor cores * GPU batch size, 1/4 * host.offHeapLimit.Size)
+   * pinned pool-offHeap ratio * host.offHeapLimit.Size for onPrem platform.
    *
    * Note: This new formula is only used for onPrem platform.
    * For CSP platforms, the original calculation is used.
