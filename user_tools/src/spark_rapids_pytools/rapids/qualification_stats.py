@@ -22,7 +22,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.api_v1 import APIHelpers, LoadCombinedRepResult
+from spark_rapids_tools.api_v1 import APIHelpers
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 
 
@@ -76,11 +76,6 @@ class SparkQualStats(RapidsTool):
         # Add QualCoreHandler to the context
         self.ctxt.set_ctxt('coreHandler',
                            APIHelpers.QualCore.build_handler(dir_path=self.qual_output))
-        # create a single instance of the combine tracker to use it in multiple modules.
-        self.ctxt.set_ctxt(
-            'csvCombineTracker',
-            LoadCombinedRepResult(res_id='combined_csv_tracker')
-        )
 
     def _run_rapids_tool(self) -> None:
         """
