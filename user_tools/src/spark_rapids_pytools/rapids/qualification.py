@@ -17,7 +17,6 @@
 import json
 import re
 from dataclasses import dataclass, field
-from functools import cached_property
 from typing import Any, List, Callable, Optional, Dict
 
 import numpy as np
@@ -30,13 +29,12 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
-from spark_rapids_tools.api_v1 import APIHelpers, QualCoreResultHandler
+from spark_rapids_tools.api_v1 import APIHelpers, CSVReport, CSVReportCombiner
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
-from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
+from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.speedup_category import SpeedupCategory
 from spark_rapids_tools.tools.top_candidates import TopCandidates
 from spark_rapids_tools.tools.unsupported_ops_stage_duration import UnsupportedOpsStageDuration
@@ -357,11 +355,53 @@ class Qualification(QualificationCore):
                                     tools_processed_apps=df_final_result,
                                     comments=report_comments)
 
+    @staticmethod
+    def __map_cluster_info_table() -> dict:
+        """
+        Get the mapping from JSON column names (after json_normalize) to CSV column names
+        for cluster information files.
+        This is a temporary mapping that will be removed once the underlying cluster inference
+        code is updated to use the newer JSON column names. All expected column names
+        have been added to the mapping.
+        """
+        return {
+            'appId': 'App ID',
+            'appName': 'App Name',
+            'eventLogPath': 'Event Log',
+            'sourceClusterInfo.vendor': 'Vendor',
+            'sourceClusterInfo.driverHost': 'Driver Host',
+            'sourceClusterInfo.clusterId': 'Cluster Id',
+            'sourceClusterInfo.clusterName': 'Cluster Name',
+            'sourceClusterInfo.workerNodeType': 'Worker Node Type',
+            'sourceClusterInfo.driverNodeType': 'Driver Node Type',
+            'sourceClusterInfo.numWorkerNodes': 'Num Worker Nodes',
+            'sourceClusterInfo.numExecsPerNode': 'Num Executors Per Node',
+            'sourceClusterInfo.numExecutors': 'Num Executors',
+            'sourceClusterInfo.executorHeapMemory': 'Executor Heap Memory',
+            'sourceClusterInfo.dynamicAllocationEnabled': 'Dynamic Allocation Enabled',
+            'sourceClusterInfo.dynamicAllocationMaxExecutors': 'Dynamic Allocation Max Executors',
+            'sourceClusterInfo.dynamicAllocationMinExecutors': 'Dynamic Allocation Min Executors',
+            'sourceClusterInfo.dynamicAllocationInitialExecutors': 'Dynamic Allocation Initial Executors',
+            'sourceClusterInfo.coresPerExecutor': 'Cores Per Executor',
+            'recommendedClusterInfo.driverNodeType': 'Recommended Driver Node Type',
+            'recommendedClusterInfo.workerNodeType': 'Recommended Worker Node Type',
+            'recommendedClusterInfo.numExecutors': 'Recommended Num Executors',
+            'recommendedClusterInfo.numWorkerNodes': 'Recommended Num Worker Nodes',
+            'recommendedClusterInfo.coresPerExecutor': 'Recommended Cores Per Executor',
+            'recommendedClusterInfo.gpuDevice': 'Recommended GPU Device',
+            'recommendedClusterInfo.numGpusPerNode': 'Recommended Num GPUs Per Node',
+            'recommendedClusterInfo.vendor': 'Recommended Vendor',
+            'recommendedClusterInfo.dynamicAllocationEnabled': 'Recommended Dynamic Allocation Enabled',
+            'recommendedClusterInfo.dynamicAllocationMaxExecutors': 'Recommended Dynamic Allocation Max Executors',
+            'recommendedClusterInfo.dynamicAllocationMinExecutors': 'Recommended Dynamic Allocation Min Executors',
+            'recommendedClusterInfo.dynamicAllocationInitialExecutors':
+                'Recommended Dynamic Allocation Initial Executors'
+        }
+
     def _process_output(self) -> None:
         if not self._evaluate_rapids_jar_tool_output_exist():
             return
 
-        qual_handler = self._init_qual_handler()
         output_files_info = self.__build_output_files_info()
 
         def create_stdout_table_pprinter(total_apps: pd.DataFrame,
@@ -378,7 +418,8 @@ class Qualification(QualificationCore):
             return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps)
 
         # 1. Read summary report using QualCoreHandler
-        df = qual_handler.get_table_by_label('qualCoreCSVSummary')
+        with CSVReport(self.core_handler, _tbl='qualCoreCSVSummary') as q_sum_res:
+            df = q_sum_res.data
         # 1. Operations related to XGboost modelling
         if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
             try:
@@ -391,10 +432,20 @@ class Qualification(QualificationCore):
                     'Failed to use XGBoost estimation model for speedups. Qualification tool cannot continue. '
                     f'Reason - {type(e).__name__}: {e}'
                 ) from e
-
+        qual_load_res_tracker = self.get_csv_combine_tracker()
         # 2. Operations related to cluster information
         try:
-            cluster_info_df = qual_handler.get_table_by_label('clusterInfoJSONReport', 'json')
+            cluster_info_df = APIHelpers.combine_reports(
+                raw_res=qual_load_res_tracker,
+                combiner=CSVReportCombiner(  # define the combiner to process the raw execs
+                    rep_builders=[
+                        CSVReport(self.core_handler, _tbl='clusterInfoJSONReport')       # define the CSV report
+                        .map_cols(Qualification.__map_cluster_info_table())
+                    ]
+                ).disable_apps_injection(),  # use "App ID"
+                raise_on_empty=False,
+                raise_on_failure=False
+            )
             # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
@@ -405,8 +456,20 @@ class Qualification(QualificationCore):
                               'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to reading qualification output (unsupported operators and apps status)
-        unsupported_ops_df = qual_handler.get_table_by_label('unsupportedOpsCSVReport')
-        apps_status_df = qual_handler.get_table_by_label('qualCoreCSVStatus')
+        unsupported_ops_df = APIHelpers.combine_reports(
+            raw_res=qual_load_res_tracker,
+            combiner=CSVReportCombiner(  # define the combiner to process the raw execs
+                rep_builders=[
+                    CSVReport(self.core_handler)       # define the CSV report
+                    .table('unsupportedOpsCSVReport')
+                ]
+            ).on_app_fields({'app_id': 'App ID'}),  # use "App ID"
+            raise_on_empty=False,
+            raise_on_failure=False
+        )
+
+        with CSVReport(self.core_handler, _tbl='qualCoreCSVStatus') as status_res:
+            apps_status_df = status_res.data
 
         # 4. Operations related to output
         report_gen = self.__build_global_report_summary(df,
@@ -522,16 +585,6 @@ class Qualification(QualificationCore):
             entry['path'] = path
         return files_info
 
-    @cached_property
-    def qual_core_handler(self) -> QualCoreResultHandler:
-        """
-        Create and return a QualCoreHandler instance for reading qual-core reports.
-        This property should always be called after the scala code has executed.
-        Otherwise, the property has to be refreshed
-        :return: An instance of QualCoreResultHandler.
-        """
-        return APIHelpers.QualCore.build_handler(dir_path=self.csp_output_path)
-
     def __update_apps_with_prediction_info(self,
                                            all_apps: pd.DataFrame,
                                            estimation_model_args: dict) -> pd.DataFrame:
@@ -544,7 +597,7 @@ class Qualification(QualificationCore):
         output_info = self.__build_prediction_output_files_info()
         try:
             # use the qual_core_handler to read qual-core reports and raise exception if the result is empty
-            if self.qual_core_handler.is_empty():
+            if self.core_handler.is_empty():
                 raise RuntimeError('QualCoreHandler has no data to process. '
                                    'Please ensure the qualification tool has run successfully.')
             predictions_df = predict(
@@ -554,7 +607,7 @@ class Qualification(QualificationCore):
                 model=estimation_model_args['customModelFile'],
                 config=estimation_model_args['qualxConfig'],
                 qual_handlers=[
-                    self.qual_core_handler
+                    self.core_handler
                 ]
             )
         except Exception as e:  # pylint: disable=broad-except
@@ -634,28 +687,21 @@ class Qualification(QualificationCore):
         Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
         applications into speedup categories (Small/Medium/Large).
         """
-        qual_handler = self.ctxt.get_ctxt('qualHandler')
-        app_info_dict = qual_handler.get_raw_metric_per_app_dict('application_information.csv')
-        # Rename columns from each DataFrame in the app_info_dict and merge them with the tools_processed_apps
-        merged_dfs = []
-        for df in app_info_dict.values():
-            if not df.empty and 'appId' in df.columns and 'sparkRuntime' in df.columns:
-                merged_dfs.append(
-                    df[['appId', 'sparkRuntime']].rename(columns={'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})
-                )
-        spark_runtime_df = pd.concat(merged_dfs, ignore_index=True)
+        qual_load_res_tracker = self.get_csv_combine_tracker()
+        spark_runtime_df = APIHelpers.combine_reports(
+            raw_res=qual_load_res_tracker,
+            combiner=CSVReportCombiner(  # define the combiner to process the raw execs
+                rep_builders=[           # define the CSV report
+                    CSVReport(self.core_handler)
+                    .table('coreRawApplicationInformationCSV')                       # tableName
+                    .pd_args({'usecols': ['appId', 'sparkRuntime']})                 # use only required columns
+                    .map_cols({'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})  # rename columns
+                ]
+            ).disable_apps_injection(),                                              # do not insert app column
+            raise_on_empty=False,
+            raise_on_failure=False
+        )
         return tools_processed_apps.merge(spark_runtime_df, on='App ID', how='left')
-
-    def _init_qual_handler(self) -> QualCoreHandler:
-        """
-        Initialize the QualCoreHandler and store it in the context.
-        This method should be called after the tool execution is complete and output is available.
-        """
-        rapids_output_folder_path = self.ctxt.get_rapids_output_folder()
-        qual_handler = QualCoreHandler(result_path=rapids_output_folder_path)
-        self.ctxt.set_ctxt('qualHandler', qual_handler)
-        self.logger.info('QualCoreHandler initialized and stored in context')
-        return qual_handler
 
 
 @dataclass

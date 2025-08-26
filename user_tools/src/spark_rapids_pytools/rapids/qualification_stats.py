@@ -14,16 +14,15 @@
 
 """Implementation class representing wrapper around the Qualification Stats tool."""
 
-from dataclasses import dataclass
-
 import os
+from dataclasses import dataclass
 
 from spark_rapids_pytools.cloud_api.sp_types import get_platform
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.tools.core.qual_handler import QualCoreHandler
+from spark_rapids_tools.api_v1 import APIHelpers, LoadCombinedRepResult
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 
 
@@ -75,7 +74,13 @@ class SparkQualStats(RapidsTool):
         self.ctxt.set_local('outputFolder', self.output_folder)
         self.logger.info('Local output folder is set as: %s', self.output_folder)
         # Add QualCoreHandler to the context
-        self.ctxt.set_ctxt('qualHandler', QualCoreHandler(result_path=self.qual_output))
+        self.ctxt.set_ctxt('coreHandler',
+                           APIHelpers.QualCore.build_handler(dir_path=self.qual_output))
+        # create a single instance of the combine tracker to use it in multiple modules.
+        self.ctxt.set_ctxt(
+            'csvCombineTracker',
+            LoadCombinedRepResult(res_id='combined_csv_tracker')
+        )
 
     def _run_rapids_tool(self) -> None:
         """
