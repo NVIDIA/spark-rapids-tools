@@ -27,7 +27,6 @@ from spark_rapids_tools.api_v1 import (
     ToolReportReaderT,
     ToolResultHandlerT,
     LoadCombinedRepResult,
-    APIUtils,
     ProfWrapperResultHandler,
     QualCoreResultHandler,
     QualWrapperResultHandler,
@@ -867,7 +866,6 @@ class APIHelpers(object):
         """
         class Meta(GenericRH[ProfCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
             report_id: str = 'profCoreOutput'
-
 
     @dataclass
     class CombinedDFBuilder(object):
