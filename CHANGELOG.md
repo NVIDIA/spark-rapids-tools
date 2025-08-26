@@ -1,6 +1,36 @@
 
 <br/>
 
+## Release [v25.08.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.0)
+Generated on 2025-08-26
+### Autotuner
+
+- AutoTuner: Support Custom Core Multiplier Property for Multithread Read ([#1870](https://github.com/NVIDIA/spark-rapids-tools/pull/1870))
+
+### QualX
+
+- Use Tools-API to get output-paths in QualX ([#1865](https://github.com/NVIDIA/spark-rapids-tools/pull/1865))
+- Skip running Qualification tool during Qualx evaluation if qual_tool_filter is off ([#1863](https://github.com/NVIDIA/spark-rapids-tools/pull/1863))
+- Use Tools-API to load qual reports in QualX ([#1857](https://github.com/NVIDIA/spark-rapids-tools/pull/1857))
+- QualX optimization to run tools efficiently in parallel ([#1810](https://github.com/NVIDIA/spark-rapids-tools/pull/1810))
+
+### Feature Request
+
+- Adding support for parsing eventlog paths through TXT file input ([#1849](https://github.com/NVIDIA/spark-rapids-tools/pull/1849))
+
+### Bug Fixes
+
+- Correct qual_summary formatting ([#1864](https://github.com/NVIDIA/spark-rapids-tools/pull/1864))
+
+### Build and CI/CD
+
+- reorganize dependencies in the toml and tox files ([#1867](https://github.com/NVIDIA/spark-rapids-tools/pull/1867))
+- [Followup-1853]: fix exhaustive flag for changelog-builder ([#1861](https://github.com/NVIDIA/spark-rapids-tools/pull/1861))
+- Pin optuna version as a required dependency ([#1860](https://github.com/NVIDIA/spark-rapids-tools/pull/1860))
+
+
+<br/>
+
 ## Release [v25.06.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.06.3)
 Generated on 2025-08-15
 ### Autotuner
