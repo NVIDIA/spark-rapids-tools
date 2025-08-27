@@ -209,12 +209,12 @@ A typical workflow to successfully run the `profiling` command in local mode is 
 4. Depending on the accessibility of the cluster properties, the user chooses one of the 2 cases below (_"Case-A"_, and _"Case-B"_) to trigger the CLI.
 
 For each successful execution, the wrapper generates a new directory in the format of
-`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `profiling_summary.log` in addition to
+`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `tuning_summary.log` in addition to
 the actual folder of the RAPIDS Profiling tool. The directory will be mirrored to S3 folder if the
 argument `--remote_folder` was a valid S3 path.
 
    ```
-    ./prof_<YYYYmmddHHmmss>_<0x%08X>/profiling_summary.log
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/tuning_summary.log
     ./prof_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_profile/
    ```
 

@@ -136,7 +136,7 @@ class Profiling(ProfilingCore):
                    app_name,
                    Utils.gen_multiline_str(recommendations),
                    Utils.gen_multiline_str(comments)]
-            log_lines.append(app_id)
+            log_lines.append(f'App ID: {app_id}')
             sec_props = Utils.gen_joined_str(join_elem='\n\t',
                                              items=list(chain(sec_props_head, recommendations)))
             sec_comments = Utils.gen_joined_str(join_elem='\n\t',

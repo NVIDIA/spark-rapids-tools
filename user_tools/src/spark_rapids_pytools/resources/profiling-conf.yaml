@@ -15,7 +15,7 @@
 toolOutput:
   subFolder: rapids_4_spark_profile
   textFormat:
-    log4jFileName: rapids_4_spark_profile_stderr.log
+    log4jFileName: prof_core_stderr.log
   recommendations:
     fileName: profile.log
     headers:
@@ -60,7 +60,7 @@ sparkRapids:
 local:
   output:
     cleanUp: true
-    fileName: profiling_summary.log
+    fileName: tuning_summary.log
     summaryColumns:
       - 'App ID'
       - 'App Name'
