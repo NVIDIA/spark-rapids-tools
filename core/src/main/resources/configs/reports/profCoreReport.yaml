@@ -25,7 +25,7 @@ reportDefinitions:
       - reportId: coreRawMetrics
     tableDefinitions:
       # AppStatusResult
-      - label: profCoreCSVStatus
+      - label: coreCSVStatus
         description: >-
           Status of each eventlog passed to the profiling tool.
           The status is either success, failure, skipped, or unknown (failure).

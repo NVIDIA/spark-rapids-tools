@@ -111,7 +111,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
           .withExpectedCounts(StatusReportCounts(0, 0, 1, 0)))
       .withChecker(
         QToolOutFileCheckerImpl("Content of status file")
-          .withTableLabel("qualCoreCSVStatus")
+          .withTableLabel("coreCSVStatus")
           .withExpectedRows("expect only 1 row", 1)
           .withContentVisitor("Columns are correct while AppID might not be set",
             csvContainer => {
@@ -620,7 +620,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
       .withChecker(
         QToolOutFileCheckerImpl("check the content of status file")
           .withExpectedRows("4 rows in the status", 4)
-          .withTableLabel("qualCoreCSVStatus")
+          .withTableLabel("coreCSVStatus")
           .withContentVisitor(
             "AttemptId [1, 3] should have description stating that they are skipped",
             csvContainer => {

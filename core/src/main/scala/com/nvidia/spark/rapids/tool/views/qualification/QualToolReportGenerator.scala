@@ -196,7 +196,7 @@ object QualToolReportGenerator extends QualReportGeneratorTrait[QualToolResult] 
       reportConfigs: Map[String, String],
       qualToolResult: QualToolResult): Unit = {
     val table = tableMeta.label match {
-      case "qualCoreCSVStatus" => new QualToolStatusTable(tableMeta, rootDirectory, hadoopConf)
+      case "coreCSVStatus" => new QualToolStatusTable(tableMeta, rootDirectory, hadoopConf)
       case "qualCoreCSVSummary" => new QualToolSummaryTable(tableMeta, rootDirectory, hadoopConf)
       case _ =>
         throw new IllegalArgumentException(

@@ -465,7 +465,7 @@ class Qualification(QualificationCore):
             c_builder.combiner.on_app_fields({'app_id': 'App ID'})
             unsupported_ops_df = c_builder.build()
 
-        with CSVReport(self.core_handler, _tbl='qualCoreCSVStatus') as status_res:
+        with CSVReport(self.core_handler, _tbl='coreCSVStatus') as status_res:
             apps_status_df = status_res.data
 
         # 4. Operations related to output
