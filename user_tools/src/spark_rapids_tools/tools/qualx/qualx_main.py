@@ -30,10 +30,7 @@ import fire
 from spark_rapids_tools import CspPath
 from spark_rapids_tools.api_v1 import (
     QualCoreResultHandler,
-    APIHelpers,
-    LoadCombinedRepResult,
-    CSVReportCombiner,
-    CSVReport
+    APIHelpers
 )
 
 from spark_rapids_tools.tools.qualx.config import (
@@ -220,22 +217,18 @@ def _get_combined_qual_data(
     """
     if not qual_handlers:
         return None, None, []
-    raw_execs_res = LoadCombinedRepResult(res_id='qual_execs_report')
     # Combine node-level support data from multiple qualification handlers.
     # This processes the raw execution results using a CSV report combiner, building reports
     # from each handler and aligning on the "App ID" field to ensure consistency across datasets.
-    comb_node_level_supp_df = APIHelpers.combine_reports(
-        raw_res=raw_execs_res,
-        combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-            rep_builders=[
-                CSVReport(r_h)       # define the CSV report
-                .table('execCSVReport')
-                for r_h in qual_handlers
-            ]
-        ).on_app_fields({'app_id': 'App ID'}),  # use "App ID" to fit with the remaining qualx code.
+    with APIHelpers.CombinedDFBuilder(
+        table='execCSVReport',
+        handlers=qual_handlers,
         raise_on_empty=False,
         raise_on_failure=False
-    )
+    ) as c_builder:
+        # use "App ID" to fit with the remaining qualx code.
+        c_builder.combiner.on_app_fields({'app_id': 'App ID'})
+        comb_node_level_supp_df = c_builder.build()
     # process the node-level-support
     processed_node_level_supp_df = load_qtool_execs(comb_node_level_supp_df)
     # Get path to the raw metrics directory which has the per-app raw_metrics files
@@ -249,19 +242,17 @@ def _get_combined_qual_data(
 
     # TODO: TO_REMOVE: app_summary_csv was loaded to get the app_duration because it was missing in
     #      raw csv files. Consider removing that.
-    comb_apps_summary_df = APIHelpers.combine_reports(
-        raw_res=raw_execs_res,
-        combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-            rep_builders=[
-                CSVReport(r_h)       # define the CSV report
-                .table('qualCoreCSVSummary')
-                .pd_args({'usecols': ['App Name', 'App ID', 'App Duration']})  # use-only those columns
-                for r_h in qual_handlers
-            ]
-        ).disable_apps_injection(),  # This is a global report it does not require app injection
-        raise_on_empty=False,
-        raise_on_failure=False
-    )
+    with APIHelpers.CombinedDFBuilder(
+            table='qualCoreCSVSummary',
+            handlers=qual_handlers,
+            raise_on_empty=False,
+            raise_on_failure=False,
+    ) as c_builder:
+        # use-only those columns
+        c_builder.apply_on_report(lambda x: x.pd_args({'usecols': ['App Name', 'App ID', 'App Duration']}))
+        # No need to inject appIDs since "App ID" column is included in the report.
+        c_builder.combiner.disable_apps_injection()
+        comb_apps_summary_df = c_builder.build()
 
     return processed_node_level_supp_df, comb_apps_summary_df, combined_raw_metric_paths
 

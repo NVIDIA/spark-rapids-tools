@@ -29,7 +29,7 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
-from spark_rapids_tools.api_v1 import APIHelpers, CSVReport, CSVReportCombiner
+from spark_rapids_tools.api_v1 import APIHelpers, CSVReport
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -432,20 +432,19 @@ class Qualification(QualificationCore):
                     'Failed to use XGBoost estimation model for speedups. Qualification tool cannot continue. '
                     f'Reason - {type(e).__name__}: {e}'
                 ) from e
-        qual_load_res_tracker = self.get_csv_combine_tracker()
         # 2. Operations related to cluster information
         try:
-            cluster_info_df = APIHelpers.combine_reports(
-                raw_res=qual_load_res_tracker,
-                combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-                    rep_builders=[
-                        CSVReport(self.core_handler, _tbl='clusterInfoJSONReport')       # define the CSV report
-                        .map_cols(Qualification.__map_cluster_info_table())
-                    ]
-                ).disable_apps_injection(),  # use "App ID"
-                raise_on_empty=False,
-                raise_on_failure=False
-            )
+            with APIHelpers.CombinedDFBuilder(
+                    table='clusterInfoJSONReport',
+                    handlers=self.core_handler,
+                    raise_on_empty=False,
+                    raise_on_failure=False
+            ) as c_builder:
+                # convert the json columns to csv columns
+                c_builder.apply_on_report(lambda x: x.map_cols(Qualification.__map_cluster_info_table()))
+                # use "App ID" included in the json report
+                c_builder.combiner.disable_apps_injection()
+                cluster_info_df = c_builder.build()
             # Merge using a left join on 'App Name' and 'App ID'. This ensures `df` includes all cluster
             # info columns, even if `cluster_info_df` is empty.
             df = pd.merge(df, cluster_info_df, on=['App Name', 'App ID'], how='left')
@@ -456,17 +455,15 @@ class Qualification(QualificationCore):
                               'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to reading qualification output (unsupported operators and apps status)
-        unsupported_ops_df = APIHelpers.combine_reports(
-            raw_res=qual_load_res_tracker,
-            combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-                rep_builders=[
-                    CSVReport(self.core_handler)       # define the CSV report
-                    .table('unsupportedOpsCSVReport')
-                ]
-            ).on_app_fields({'app_id': 'App ID'}),  # use "App ID"
-            raise_on_empty=False,
-            raise_on_failure=False
-        )
+        with APIHelpers.CombinedDFBuilder(
+                table='unsupportedOpsCSVReport',
+                handlers=self.core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # use "App ID" column name on the injected apps
+            c_builder.combiner.on_app_fields({'app_id': 'App ID'})
+            unsupported_ops_df = c_builder.build()
 
         with CSVReport(self.core_handler, _tbl='qualCoreCSVStatus') as status_res:
             apps_status_df = status_res.data
@@ -687,20 +684,22 @@ class Qualification(QualificationCore):
         Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
         applications into speedup categories (Small/Medium/Large).
         """
-        qual_load_res_tracker = self.get_csv_combine_tracker()
-        spark_runtime_df = APIHelpers.combine_reports(
-            raw_res=qual_load_res_tracker,
-            combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-                rep_builders=[           # define the CSV report
-                    CSVReport(self.core_handler)
-                    .table('coreRawApplicationInformationCSV')                       # tableName
-                    .pd_args({'usecols': ['appId', 'sparkRuntime']})                 # use only required columns
-                    .map_cols({'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})  # rename columns
-                ]
-            ).disable_apps_injection(),                                              # do not insert app column
+        with APIHelpers.CombinedDFBuilder(
+            table='coreRawApplicationInformationCSV',
+            handlers=self.core_handler,
             raise_on_empty=False,
             raise_on_failure=False
-        )
+        ) as c_builder:
+            # customize the report loading to only select required columns and rename them
+            c_builder.apply_on_report(
+                lambda r: r.pd_args(
+                    {'usecols': ['appId', 'sparkRuntime']}
+                ).map_cols({'appId': 'App ID', 'sparkRuntime': 'Spark Runtime'})
+            )
+            # customize the combiner to not inject app column as we already have it (appId)
+            c_builder.combiner.disable_apps_injection()
+            # return a single combined dataframe
+            spark_runtime_df = c_builder.build()
         return tools_processed_apps.merge(spark_runtime_df, on='App ID', how='left')
 
 

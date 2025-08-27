@@ -23,7 +23,7 @@ import pandas as pd
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.api_v1 import APIHelpers, CSVReport, CSVReportCombiner
+from spark_rapids_tools.api_v1 import APIHelpers
 
 
 @dataclass
@@ -72,51 +72,39 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
             raise ValueError('QualCoreHandler not found in context')
 
         self.logger.info('Using QualCoreHandler to read data...')
-        qual_load_res_tracker = self.ctxt.get_ctxt('csvCombineTracker')
-        self.unsupported_operators_df = APIHelpers.combine_reports(
-            raw_res=qual_load_res_tracker,
-            combiner=CSVReportCombiner(  # define the combiner to process the raw execs
-                rep_builders=[
-                    CSVReport(core_handler)       # define the CSV report
-                    .table('unsupportedOpsCSVReport')
-                ]
-            )
-            .on_app_fields({'app_id': 'App ID'})  # use "App ID"
-            .entry_success_cb(                    # process successful entries by dropping na rows
-                lambda x, y, z: z.dropna(subset=['Unsupported Operator'])
-            ),
-            raise_on_empty=False,
-            raise_on_failure=False
-        )
-
-        self.stages_df = APIHelpers.combine_reports(
-            raw_res=qual_load_res_tracker,
-            combiner=CSVReportCombiner(            # define the combiner to process the raw execs
-                rep_builders=[
-                    CSVReport(core_handler)        # define the CSV report
-                    .table('stagesCSVReport')
-                ]
-            )
-            .on_app_fields({'app_id': 'App ID'}),  # use "App ID" as the app identifier
-            raise_on_empty=False,
-            raise_on_failure=False
-        )
-
-        self.execs_df = APIHelpers.combine_reports(
-            raw_res=qual_load_res_tracker,
-            combiner=CSVReportCombiner(            # define the combiner to process the raw execs
-                rep_builders=[
-                    CSVReport(core_handler)        # define the CSV report
-                    .table('execCSVReport')
-                ]
-            )
-            .on_app_fields({'app_id': 'App ID'})   # use "App ID" as the app identifier
-            .entry_success_cb(                     # process successful entries by dropping na rows
-                lambda x, y, z: z.dropna(subset=['Exec Stages', 'Exec Name'])
-            ),
-            raise_on_empty=False,
-            raise_on_failure=False
-        )
+        with APIHelpers.CombinedDFBuilder(
+                table='unsupportedOpsCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # 1- use "App ID" column name on the injected apps
+            # 2- process successful entries by dropping na rows
+            c_builder.combiner.on_app_fields(
+                {'app_id': 'App ID'}
+            ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Unsupported Operator']))
+            self.unsupported_operators_df = c_builder.build()
+        with APIHelpers.CombinedDFBuilder(
+                table='stagesCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # use "App ID" column name on the injected apps
+            c_builder.combiner.on_app_fields({'app_id': 'App ID'})
+            self.stages_df = c_builder.build()
+        with APIHelpers.CombinedDFBuilder(
+                table='execCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # 1- use "App ID" column name on the injected apps
+            # 2- process successful entries by dropping na rows
+            c_builder.combiner.on_app_fields(
+                {'app_id': 'App ID'}
+            ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Exec Stages', 'Exec Name']))
+            self.execs_df = c_builder.build()
 
         self.logger.info('Reading data using QualCoreHandler completed.')
 

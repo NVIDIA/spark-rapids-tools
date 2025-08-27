@@ -37,7 +37,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.api_v1 import ToolResultHandlerT, APIHelpers, LoadCombinedRepResult
+from spark_rapids_tools.api_v1 import ToolResultHandlerT, APIHelpers
 from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
@@ -832,25 +832,6 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
         if 'core_handler' in self.__dict__:
             del self.__dict__['core_handler']
         self.ctxt.set_ctxt('coreHandler', self.core_handler)
-        # create a single instance of the combine tracker to use it in multiple modules.
-        self.ctxt.set_ctxt(
-            'csvCombineTracker',
-            LoadCombinedRepResult(res_id='combined_csv_tracker')
-        )
-
-    def get_csv_combine_tracker(self) -> LoadCombinedRepResult:
-        """
-        Get the CSV combine tracker instance.
-        :return: An instance of LoadCombinedRepResult
-        """
-        combine_tracker = self.ctxt.get_ctxt('csvCombineTracker')
-        if combine_tracker is None:
-            combine_tracker = LoadCombinedRepResult(res_id='combined_csv_tracker')
-            self.ctxt.set_ctxt(
-                'csvCombineTracker',
-                combine_tracker
-            )
-        return combine_tracker
 
     def _evaluate_rapids_jar_tool_output_exist(self) -> bool:
         """
