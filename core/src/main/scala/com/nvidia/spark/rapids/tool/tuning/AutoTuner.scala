@@ -336,8 +336,10 @@ abstract class AutoTuner(
     platform.targetCluster.foreach { cluster =>
       val excludePropertiesSet = cluster.getSparkProperties.excludePropertiesSet
       excludePropertiesSet.foreach { key =>
-        appendComment(getExcludedPropertyComment(key))
-        baseMap.remove(key)
+        baseMap.remove(key).foreach { _ =>
+          // If the property was removed, add a comment indicating it was excluded.
+          appendComment(getExcludedPropertyComment(key))
+        }
       }
     }
 

@@ -1269,7 +1269,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.batchSizeBytes=1g
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
