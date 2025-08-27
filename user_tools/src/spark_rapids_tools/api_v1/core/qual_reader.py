@@ -19,7 +19,6 @@ from functools import cached_property
 
 import pandas as pd
 
-from spark_rapids_tools import override
 from spark_rapids_tools.api_v1.core.core_reader import CoreReaderBase
 from spark_rapids_tools.api_v1.report_reader import register_report_class
 
@@ -30,11 +29,6 @@ class QualCoreOutput(CoreReaderBase):
     """
     A class that reads the output of the Qual Core tool.
     """
-    @override
-    @property
-    def _status_tbl(self) -> str:
-        """Label for the CSV table in the report."""
-        return 'qualCoreCSVStatus'
 
     @cached_property
     def apps_summary_df(self) -> pd.DataFrame:

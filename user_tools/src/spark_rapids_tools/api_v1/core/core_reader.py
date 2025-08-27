@@ -33,18 +33,18 @@ class CoreReaderBase(ToolReportReader):
     Base class for core report readers. It provides common functionality
     for reading core reports and loading application descriptions.
     Typically, a core reader has some more specific functionalities and capabilities. For example,
-    1. the core-reader has the reponsibility to list all the AppHandlers that were analyzed by the run.
+    1. the core-reader has the responsibility to list all the AppHandlers analyzed by the run.
     The reason we use a core-reader instead of a wrapper reader is that the core-reader has the
-    actual list of eventlogs. So, it can be used to define all the eventlogPaths and and categorize
+    actual list of eventlogs. So, it can be used to define all the eventlogPaths and categorize
     them into their perspective results.
     2. The core reader can define the version of the core-tools that generated the output results
-    and whether it is compatible
+    and whether it is compatible.
     """
 
     @property
     def _status_tbl(self) -> str:
         """Label for the CSV table in the report."""
-        raise NotImplementedError('Subclasses should implement this method.')
+        return 'coreCSVStatus'
 
     @cached_property
     def apps_status_res(self) -> LoadDFResult:
