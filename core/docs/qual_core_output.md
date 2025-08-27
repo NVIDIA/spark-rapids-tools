@@ -71,7 +71,7 @@ The output files are defined in the following format:
   * description: column description.
 
 
-### qualCoreCSVStatus
+### coreCSVStatus
 
 * _Scope_: global
 * _File name_: status.csv

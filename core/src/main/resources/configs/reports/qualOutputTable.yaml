@@ -44,7 +44,7 @@
 #        ├── unsupported_operators.csv
 
 qualTableDefinitions:
-  - label: qualCoreCSVStatus
+  - label: coreCSVStatus
     description: >-
       Status of each eventlog passed to the qualification tool.
       The status is either success, failure, skipped, or unknown (failure).

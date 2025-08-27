@@ -54,9 +54,9 @@ def step_then_rep_res_is_empty_dict(context, tbl_name):
 
 @then('CSV report result of status-report should fail with exception "{exception_type}"')
 def step_then_rep_res_fails_with_exception(context, exception_type):
-    tbl_name = 'qualCoreCSVStatus'
+    tbl_name = 'coreCSVStatus'
     if context.tools_res_handler.report_id in ['profWrapperOutput', 'profCoreOutput']:
-        tbl_name = 'profCoreCSVStatus'
+        tbl_name = 'coreCSVStatus'
     if not hasattr(context, 'csv_rep_res'):
         context.csv_rep_res = {}
     csv_rep = CSVReport(context.tools_res_handler).table(tbl_name)

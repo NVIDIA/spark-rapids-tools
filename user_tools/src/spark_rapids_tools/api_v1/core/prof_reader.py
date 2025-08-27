@@ -16,7 +16,6 @@
 
 from dataclasses import dataclass
 
-from spark_rapids_tools import override
 from spark_rapids_tools.api_v1.core.core_reader import CoreReaderBase
 from spark_rapids_tools.api_v1.report_reader import register_report_class
 
@@ -27,8 +26,3 @@ class ProfCoreOutput(CoreReaderBase):
     """
     A class that reads the output of the Prof Core tool.
     """
-    @override
-    @property
-    def _status_tbl(self) -> str:
-        """Label for the CSV table in the report."""
-        return 'profCoreCSVStatus'

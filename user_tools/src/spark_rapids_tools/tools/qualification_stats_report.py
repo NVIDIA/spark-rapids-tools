@@ -23,6 +23,7 @@ import pandas as pd
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
+from spark_rapids_tools.api_v1 import APIHelpers
 
 
 @dataclass
@@ -66,31 +67,44 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
     def _read_csv_files(self) -> None:
         self.logger.info('Reading CSV files...')
 
-        qual_handler = self.ctxt.get_ctxt('qualHandler')
-        if qual_handler is None:
+        core_handler = self.ctxt.get_ctxt('coreHandler')
+        if core_handler is None:
             raise ValueError('QualCoreHandler not found in context')
 
         self.logger.info('Using QualCoreHandler to read data...')
-
-        self.unsupported_operators_df = qual_handler.get_table_by_label('unsupportedOpsCSVReport')
-        if not self.unsupported_operators_df.empty:
-            self.unsupported_operators_df = (self.unsupported_operators_df
-                                             .astype({'Unsupported Operator': str}))
-            self.unsupported_operators_df = (self.unsupported_operators_df
-                                             .dropna(subset=['Unsupported Operator']))
-
-        self.stages_df = qual_handler.get_table_by_label('stagesCSVReport')
-
-        execs_dtype = {
-            'Exec Name': str,
-            'Exec Stages': str,
-            'Exec Children': str,
-            'Exec Children Node Ids': str
-        }
-        self.execs_df = qual_handler.get_table_by_label('execCSVReport',
-                                                        read_csv_kwargs={'dtype': execs_dtype})
-        if not self.execs_df.empty:
-            self.execs_df = self.execs_df.dropna(subset=['Exec Stages', 'Exec Name'])
+        with APIHelpers.CombinedDFBuilder(
+                table='unsupportedOpsCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # 1- use "App ID" column name on the injected apps
+            # 2- process successful entries by dropping na rows
+            c_builder.combiner.on_app_fields(
+                {'app_id': 'App ID'}
+            ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Unsupported Operator']))
+            self.unsupported_operators_df = c_builder.build()
+        with APIHelpers.CombinedDFBuilder(
+                table='stagesCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # use "App ID" column name on the injected apps
+            c_builder.combiner.on_app_fields({'app_id': 'App ID'})
+            self.stages_df = c_builder.build()
+        with APIHelpers.CombinedDFBuilder(
+                table='execCSVReport',
+                handlers=core_handler,
+                raise_on_empty=False,
+                raise_on_failure=False
+        ) as c_builder:
+            # 1- use "App ID" column name on the injected apps
+            # 2- process successful entries by dropping na rows
+            c_builder.combiner.on_app_fields(
+                {'app_id': 'App ID'}
+            ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Exec Stages', 'Exec Name']))
+            self.execs_df = c_builder.build()
 
         self.logger.info('Reading data using QualCoreHandler completed.')
 
