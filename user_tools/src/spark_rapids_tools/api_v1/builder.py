@@ -97,7 +97,8 @@ class APIReport(Generic[RepDataT]):
         handler (ToolResultHandlerT): The result handler used to load report data.
         _tbl (Optional[str]): The label of the table to load.
         _apps (Optional[List[Union[str, AppHandler]]]): List of application IDs or handlers to filter data.
-        _load_res (LoadDFResult): The result of the last load operation.
+        _load_res (LoadResult): The result of the load operation stored as part of the object.
+                                It can be either dictionary of RepDataT or a single RepDataT
 
     Methods:
         table(label): Set the table label to load.
@@ -110,7 +111,7 @@ class APIReport(Generic[RepDataT]):
     handler: ToolResultHandlerT
     _tbl: Optional[str] = field(default=None)
     _apps: Optional[List[Union[str, AppHandler]]] = field(default_factory=list)
-    _load_res: LoadDFResult = field(default=None, init=False)
+    _load_res: Union[RepDataT, Dict[str, RepDataT]] = field(default=None, init=False)
 
     def _check_apps(self) -> None:
         """Check if applications are properly configured."""
@@ -160,11 +161,16 @@ class APIReport(Generic[RepDataT]):
         error occurred, it checks the load result for success and raises an exception if the
         load failed and no fallback was provided.
         """
-        if exc_val is None:
-            # If the load_res was unsuccessful, then throw an exception.
-            if self.load_res is not None and not self.load_res.success:
-                # this means that there was failure and the fall-back did not work
-                raise RuntimeError(f'Failed to load {self.tbl}') from self.load_res.get_fail_cause()
+        # if there is no exception within the context, then we check whether the load was successful.
+        if exc_val is None and self.load_res is not None:
+            # if the load is unsuccessful and there is no exception, then we can throw an error
+            if not isinstance(self.load_res, dict):
+                # We only do this in case of a single loadResult object. Otherwise, per-app loads
+                # return a dictionary and each entry should be handled by the caller case-by-case.
+                if not self.load_res.success:
+                    # this means that there was failure and the fall-back did not work
+                    raise RuntimeError(f'Failed to load {self.tbl}') from self.load_res.get_fail_cause()
+        # propagate any exception that occurred within the context.
         return False
 
     ##########################
