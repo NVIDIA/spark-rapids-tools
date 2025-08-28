@@ -111,7 +111,7 @@ class APIReport(Generic[RepDataT]):
     handler: ToolResultHandlerT
     _tbl: Optional[str] = field(default=None)
     _apps: Optional[List[Union[str, AppHandler]]] = field(default_factory=list)
-    _load_res: Union[RepDataT, Dict[str, RepDataT]] = field(default=None, init=False)
+    _load_res: Optional[Union[RepDataT, Dict[str, RepDataT]]] = field(default=None, init=False)
 
     def _check_apps(self) -> None:
         """Check if applications are properly configured."""
@@ -178,7 +178,7 @@ class APIReport(Generic[RepDataT]):
     ##########################
 
     @property
-    def load_res(self) -> Optional[LoadDFResult]:
+    def load_res(self) -> Optional[Union[RepDataT, Dict[str, RepDataT]]]:
         """Get the result of the last load operation."""
         return self._load_res
 
