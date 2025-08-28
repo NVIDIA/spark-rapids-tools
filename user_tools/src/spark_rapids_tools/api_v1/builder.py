@@ -86,10 +86,32 @@ RepDataT = TypeVar('RepDataT')
 
 @dataclass
 class APIReport(Generic[RepDataT]):
-    """Base class for API reports that loads data from a report handler."""
+    """
+    Base class for API reports that loads data from a report handler.
+
+    This class provides a generic interface for loading, validating, and accessing report data
+    from a specified handler. It supports both global and per-application tables, context management
+    for loading and cleanup, and utility methods for argument checking and data retrieval.
+
+    Attributes:
+        handler (ToolResultHandlerT): The result handler used to load report data.
+        _tbl (Optional[str]): The label of the table to load.
+        _apps (Optional[List[Union[str, AppHandler]]]): List of application IDs or handlers to filter data.
+        _load_res (LoadResult): The result of the load operation stored as part of the object.
+                                It can be either dictionary of RepDataT or a single RepDataT
+
+    Methods:
+        table(label): Set the table label to load.
+        app(app): Add a single application to filter data.
+        apps(apps): Add multiple applications to filter data.
+        load(): Load the report data based on the specified table and applications.
+        __enter__(): Context manager entry to load data.
+        __exit__(): Context manager exit for cleanup and error handling.
+    """
     handler: ToolResultHandlerT
     _tbl: Optional[str] = field(default=None)
     _apps: Optional[List[Union[str, AppHandler]]] = field(default_factory=list)
+    _load_res: Optional[Union[RepDataT, Dict[str, RepDataT]]] = field(default=None, init=False)
 
     def _check_apps(self) -> None:
         """Check if applications are properly configured."""
@@ -124,11 +146,43 @@ class APIReport(Generic[RepDataT]):
     def _load_single_app(self) -> RepDataT:
         """Load the report data for a single application."""
 
+    def __enter__(self) -> RepDataT:
+        """
+        Context manager entry point to load the data.
+        :return: LoadDFResult or Dict[str, LoadDFResult] depending on the table type.
+        """
+        self._load_res = self.load()
+        return self._load_res
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Context manager exit point to handle cleanup and error propagation.
+        It returns False to propagate any error that occurred within the context. If no such
+        error occurred, it checks the load result for success and raises an exception if the
+        load failed and no fallback was provided.
+        """
+        # if there is no exception within the context, then we check whether the load was successful.
+        if exc_val is None and self.load_res is not None:
+            # if the load is unsuccessful and there is no exception, then we can throw an error
+            if not isinstance(self.load_res, dict):
+                # We only do this in case of a single loadResult object. Otherwise, per-app loads
+                # return a dictionary and each entry should be handled by the caller case-by-case.
+                if not self.load_res.success:
+                    # this means that there was failure and the fall-back did not work
+                    raise RuntimeError(f'Failed to load {self.tbl}') from self.load_res.get_fail_cause()
+        # propagate any exception that occurred within the context.
+        return False
+
     ##########################
     # Public API for APIReport
     ##########################
 
     @property
+    def load_res(self) -> Optional[Union[RepDataT, Dict[str, RepDataT]]]:
+        """Get the result of the last load operation."""
+        return self._load_res
+
+    @cached_property
     def rep_reader(self) -> 'ToolReportReaderT':
         """Get the report reader associated with this report."""
         if self._tbl is None:
@@ -272,16 +326,6 @@ class CSVReport(APIReport[LoadDFResult]):
     _pd_args: Optional[dict] = field(default=None)
     _col_mapper_cb: Optional[Callable[[List[str]], Dict[str, str]]] = field(default=None)
     _fall_back_to_empty_df: bool = field(default=False)
-    _load_res: Optional[LoadDFResult] = field(default=None, init=False)
-
-    @property
-    def load_res(self) -> Optional[LoadDFResult]:
-        """Get the result of the last load operation."""
-        return self._load_res
-
-    @load_res.setter
-    def load_res(self, value: LoadDFResult) -> None:
-        self._load_res = value
 
     def _check_fall_back_args(self) -> None:
         """
@@ -358,28 +402,6 @@ class CSVReport(APIReport[LoadDFResult]):
             map_cols=self._map_cols,
             pd_args=self._pd_args
         )
-
-    def __enter__(self):
-        """
-        Context manager entry point to load the data.
-        :return: LoadDFResult or Dict[str, LoadDFResult] depending on the table type.
-        """
-        self.load_res = self.load()
-        return self.load_res
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        Context manager exit point to handle cleanup and error propagation.
-        It returns False to propagate any error that occurred within the context. If no such
-        error occurred, it checks the load result for success and raises an exception if the
-        load failed and no fallback was provided.
-        """
-        if exc_val is None:
-            # If the load_res was unsuccessful, then throw an exception.
-            if self.load_res is not None and not self.load_res.success:
-                # this means that there was failure and the fall-back did not work
-                raise RuntimeError(f'Failed to load {self.tbl}') from self.load_res.get_fail_cause()
-        return False
 
     ##########################
     # Public API for CSVReport

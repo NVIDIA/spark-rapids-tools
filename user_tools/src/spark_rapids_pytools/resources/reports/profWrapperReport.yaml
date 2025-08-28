@@ -22,3 +22,12 @@ reportDefinitions:
     nestedReports:
       - reportId: profCoreOutput
         relativePath: rapids_4_spark_profile
+    tableDefinitions:
+      - label: tuningSummary
+        description: >-
+          Summary of the auto-tuning analysis performed on the eventlogs. It lists all the applications
+          along with a list of recommended-configurations and comments to help the user understand the
+          recommendations.
+        fileName: tuning_summary.log
+        fileFormat: TXT
+        scope: global

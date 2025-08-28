@@ -262,11 +262,11 @@ A typical workflow to successfully run the `profiling` command in local mode is 
 4. User runs profiling tool CLI command.
 
 For each successful execution, the wrapper generates a new directory in the format of
-`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `profiling_summary.log` in addition to
+`prof_<YYYYmmddHHmmss>_<0x%08X>`. The directory contains `tuning_summary.log` in addition to
 the actual folder of the RAPIDS Profiling tool.
 
    ```
-    ./prof_<YYYYmmddHHmmss>_<0x%08X>/profiling_summary.log
+    ./prof_<YYYYmmddHHmmss>_<0x%08X>/tuning_summary.log
     ./prof_<YYYYmmddHHmmss>_<0x%08X>/rapids_4_spark_profile/
    ```
 
