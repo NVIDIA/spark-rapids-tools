@@ -17,7 +17,6 @@ toolOutput:
   textFormat:
     log4jFileName: prof_core_stderr.log
   recommendations:
-    fileName: profile.log
     headers:
       section: '### D. Recommended Configuration ###'
       sparkProperties: 'Spark Properties:'

@@ -182,7 +182,7 @@ class APIReport(Generic[RepDataT]):
         """Get the result of the last load operation."""
         return self._load_res
 
-    @property
+    @cached_property
     def rep_reader(self) -> 'ToolReportReaderT':
         """Get the report reader associated with this report."""
         if self._tbl is None:
