@@ -41,7 +41,7 @@ dependencies = [
     "fastprogress==1.0.3",
     "fastcore==1.7.28",
     # Python [3.9, 3.13]
-    "fire==0.7.0",
+    "fire==0.7.1",
     # pandas python [3.9, 3.13]
     "pandas==2.3.0",
     # pyYaml-6.0.2 supports python[3.9, 3.13]
