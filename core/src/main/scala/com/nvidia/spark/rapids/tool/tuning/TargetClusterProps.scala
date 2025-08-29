@@ -151,7 +151,7 @@ class SparkProperties(
   }
 
   lazy val enforcedPropertiesMap: Map[String, String] = {
-    if (enforced == null || enforced.isEmpty) {
+    if (enforced.isEmpty) {
       Map.empty
     } else {
       enforced.asScala.toMap
@@ -159,7 +159,7 @@ class SparkProperties(
   }
 
   lazy val preservePropertiesSet: Set[String] = {
-    if (preserve == null || preserve.isEmpty) {
+    if (preserve.isEmpty) {
       Set.empty
     } else {
       preserve.asScala.toSet
@@ -167,7 +167,7 @@ class SparkProperties(
   }
 
   lazy val excludePropertiesSet: Set[String] = {
-    if (exclude == null || exclude.isEmpty) {
+    if (exclude.isEmpty) {
       Set.empty
     } else {
       exclude.asScala.toSet
@@ -175,7 +175,7 @@ class SparkProperties(
   }
 
   lazy val tuningDefinitionsMap: Map[String, TuningEntryDefinition] = {
-    if (tuningDefinitions == null || tuningDefinitions.isEmpty) {
+    if (tuningDefinitions.isEmpty) {
       Map.empty
     } else {
       tuningDefinitions.asScala.collect {

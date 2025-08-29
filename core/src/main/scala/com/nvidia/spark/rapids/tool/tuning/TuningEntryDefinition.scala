@@ -200,6 +200,15 @@ class TuningEntryDefinition(
   def getUpdatedComment(): Option[String] = {
     Option(comments.get("updated"))
   }
+
+  /**
+   * Mark this entry as enabled and a bootstrap entry.
+   * TODO: Identify the usage of BootstrapEntry and see if we need to keep it.
+   */
+  def markAsEnable(): Unit = {
+    this.setEnabled(true)
+    this.setBootstrapEntry(true)
+  }
 }
 
 class TuningEntries(
