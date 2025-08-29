@@ -1035,18 +1035,22 @@ class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
             out_path: Union[str, BoundedCspPath]) -> 'APIResHandler[ToolResultHandlerT]':
         """
         Factory method to create an instance of the appropriate subclass based on the provided report ID.
+        This is useful if the caller does not know the specific subclass to instantiate. The method
+        looks up the report ID in the result_registry and creates an instance of the corresponding subclass.
+        Example use-case is to create a handler from string dynamically in the tests.
 
         :param report_id: The report ID to match against registered subclasses.
         :param out_path: The output path for the result handler.
         :return: An instance of the matching subclass of APIResHandler.
         :raises ValueError: If no matching subclass is found for the given report ID.
         """
-        if not issubclass(cls, APIResHandler):
-            raise TypeError('Invalid subclass of APIResHandler.')
         impl_cls = result_registry.get(report_id)
         if impl_cls is None:
             raise ValueError(f'Unknown implementation for report ID: {report_id}')
-        instance = cls[impl_cls](out_path=out_path).report(report_id).build()
+        # call the metaclass constructor to create the instance
+        instance = type(cls).__call__(cls, out_path=out_path)
+        # set the report ID and build the handler
+        instance = instance.report(report_id).build()
         return instance
 
     def report(self, rep_id: str) -> 'APIResHandler[ToolResultHandlerT]':
