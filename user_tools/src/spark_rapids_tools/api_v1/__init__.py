@@ -42,7 +42,12 @@ from .core import (
 from .builder import (
     CSVReportCombiner,
     CSVReport,
-    APIHelpers
+    QualCore,
+    ProfCore,
+    QualWrapper,
+    ProfWrapper,
+    APIResHandler,
+    CombinedCSVBuilder
 )
 
 __all__ = [
@@ -60,5 +65,10 @@ __all__ = [
     'ProfCoreResultHandler',
     'CSVReportCombiner',
     'CSVReport',
-    'APIHelpers'
+    'QualCore',
+    'ProfCore',
+    'QualWrapper',
+    'ProfWrapper',
+    'APIResHandler',
+    'CombinedCSVBuilder'
 ]

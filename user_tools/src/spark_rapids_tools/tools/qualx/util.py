@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from spark_rapids_tools.api_v1 import QualCoreResultHandler, APIHelpers
+from spark_rapids_tools.api_v1 import QualWrapper, QualCore
 from spark_rapids_tools.cmdli.dev_cli import DevCLI
 from spark_rapids_tools.tools.qualx.config import get_config, get_label
 from spark_rapids_tools.utils.util import temp_file_with_contents
@@ -362,12 +362,12 @@ def run_qualification_tool(
         output_dir: str,
         skip_run: bool = False,
         tools_config: str = None
-) -> List[QualCoreResultHandler]:
+) -> List[QualCore]:
     logger.info('Running qualification on: %s', eventlogs if len(eventlogs) < 5 else f'{len(eventlogs)} eventlogs')
     logger.info('Saving output to: %s', output_dir)
 
     if skip_run:
-        output_dirs = APIHelpers.QualWrapper.find_report_paths(root_path=output_dir)
+        output_dirs = QualWrapper.find_report_paths(root_path=output_dir)
     else:
         output_dirs = []
         # Filter out GPU logs early and process all qualifying eventlogs in a single call
@@ -395,10 +395,10 @@ def run_qualification_tool(
                     logger.warning(
                         'Qualification tool on %s did not produce any output.', eventlogs_file)
 
-    qual_handlers = []
+    qual_handlers: List[QualCore] = []
     for output_path in output_dirs:
         try:
-            handler = APIHelpers.QualCore.build_handler(dir_path=output_path)
+            handler = QualCore(output_path)
             qual_handlers.append(handler)
         except Exception as e:  # pylint: disable=broad-except
             logger.warning('Failed to create QualCoreHandler for %s: %s', output_path, e)

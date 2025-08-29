@@ -22,7 +22,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.api_v1 import APIHelpers
+from spark_rapids_tools.api_v1.builder import QualCore
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 
 
@@ -74,8 +74,7 @@ class SparkQualStats(RapidsTool):
         self.ctxt.set_local('outputFolder', self.output_folder)
         self.logger.info('Local output folder is set as: %s', self.output_folder)
         # Add QualCoreHandler to the context
-        self.ctxt.set_ctxt('coreHandler',
-                           APIHelpers.QualCore.build_handler(dir_path=self.qual_output))
+        self.ctxt.set_ctxt('coreHandler', QualCore(self.qual_output))
 
     def _run_rapids_tool(self) -> None:
         """
