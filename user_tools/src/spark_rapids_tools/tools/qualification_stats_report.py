@@ -23,7 +23,6 @@ import pandas as pd
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.api_v1 import APIHelpers
 
 
 @dataclass
@@ -72,33 +71,18 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
             raise ValueError('QualCoreHandler not found in context')
 
         self.logger.info('Using QualCoreHandler to read data...')
-        with APIHelpers.CombinedDFBuilder(
-                table='unsupportedOpsCSVReport',
-                handlers=core_handler,
-                raise_on_empty=False,
-                raise_on_failure=False
-        ) as c_builder:
+        with core_handler.csv_combiner('unsupportedOpsCSVReport').supress_failure() as c_builder:
             # 1- use "App ID" column name on the injected apps
             # 2- process successful entries by dropping na rows
             c_builder.combiner.on_app_fields(
                 {'app_id': 'App ID'}
             ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Unsupported Operator']))
             self.unsupported_operators_df = c_builder.build()
-        with APIHelpers.CombinedDFBuilder(
-                table='stagesCSVReport',
-                handlers=core_handler,
-                raise_on_empty=False,
-                raise_on_failure=False
-        ) as c_builder:
+        with core_handler.csv_combiner('stagesCSVReport').supress_failure() as c_builder:
             # use "App ID" column name on the injected apps
             c_builder.combiner.on_app_fields({'app_id': 'App ID'})
             self.stages_df = c_builder.build()
-        with APIHelpers.CombinedDFBuilder(
-                table='execCSVReport',
-                handlers=core_handler,
-                raise_on_empty=False,
-                raise_on_failure=False
-        ) as c_builder:
+        with core_handler.csv_combiner('execCSVReport').supress_failure() as c_builder:
             # 1- use "App ID" column name on the injected apps
             # 2- process successful entries by dropping na rows
             c_builder.combiner.on_app_fields(

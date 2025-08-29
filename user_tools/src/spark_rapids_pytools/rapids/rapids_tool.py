@@ -37,7 +37,8 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.api_v1 import ToolResultHandlerT, APIHelpers
+from spark_rapids_tools.api_v1 import ToolResultHandlerT
+from spark_rapids_tools.api_v1 import APIResHandler, QualCore, ProfCore
 from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
@@ -448,7 +449,7 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
     """
 
     @cached_property
-    def core_handler(self) -> ToolResultHandlerT:
+    def core_handler(self) -> APIResHandler[ToolResultHandlerT]:
         """
         Create and return a coreHandler instance for reading core reports.
         This property should always be called after the scala code has executed.
@@ -459,9 +460,9 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
         """
         normalized_tool_name = self.name.lower()
         if 'qualification' in normalized_tool_name:
-            return APIHelpers.QualCore.build_handler(dir_path=self.csp_output_path)
+            return QualCore(self.csp_output_path)
         if 'profiling' in normalized_tool_name:
-            return APIHelpers.ProfCore.build_handler(dir_path=self.csp_output_path)
+            return ProfCore(self.csp_output_path)
         raise ValueError(f'Tool name [{normalized_tool_name}] has no CoreHandler associated with it.')
 
     def _process_jar_arg(self):

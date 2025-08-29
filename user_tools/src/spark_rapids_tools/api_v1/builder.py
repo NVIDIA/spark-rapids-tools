@@ -17,7 +17,7 @@
 from dataclasses import dataclass, field
 from functools import partial, cached_property
 from logging import Logger
-from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, Any, Set
+from typing import Union, Optional, TypeVar, Generic, List, Dict, Callable, Any, Set, ClassVar
 
 import pandas as pd
 
@@ -35,51 +35,6 @@ from spark_rapids_tools.api_v1 import (
 from spark_rapids_tools.api_v1.report_loader import ReportLoader
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
 from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult
-
-
-@dataclass
-class APIResultHandler:
-    """Builder for API v1 components."""
-    _out_path: Optional[Union[str, BoundedCspPath]] = None
-    _report_id: Optional[str] = None
-
-    def report(self, rep_id: str) -> 'APIResultHandler':
-        """Set the report ID for the API v1 components."""
-        if not rep_id:
-            raise ValueError('Report ID cannot be empty.')
-        self._report_id = rep_id
-        return self
-
-    def with_path(self, out_arg: Union[str, BoundedCspPath]) -> 'APIResultHandler':
-        """Set the output path for the API v1 components."""
-        if not out_arg:
-            raise ValueError('Output path cannot be empty.')
-        self._out_path = out_arg
-        return self
-
-    def qual_core(self) -> 'APIResultHandler':
-        """Set the report type to Qual Core."""
-        self._report_id = 'qualCoreOutput'
-        return self
-
-    def prof_core(self) -> 'APIResultHandler':
-        """Set the report type to Qual Core."""
-        self._report_id = 'profCoreOutput'
-        return self
-
-    def qual_wrapper(self) -> 'APIResultHandler':
-        """Set the report type to Qual Wrapper."""
-        self._report_id = 'qualWrapperOutput'
-        return self
-
-    def build(self) -> ToolResultHandlerT:
-        if self._report_id is None:
-            raise ValueError('Report ID must be set before building.')
-        if self._out_path is None:
-            raise ValueError('Output path must be set before building.')
-        repo_defn = ReportLoader()
-        return repo_defn.create_result_handler(self._report_id, self._out_path)
-
 
 RepDataT = TypeVar('RepDataT')
 
@@ -784,20 +739,272 @@ class CSVReportCombiner(object):
             load_error=load_error)
 
 
-class GenericRH(Generic[ToolResultHandlerT]):
+class CombinedCSVBuilderMeta(type):
     """
-    A generic internal class for building API result handlers.
+    Metaclass for CombinedCSVBuilder to register subclasses.
     """
-    class Meta:  # pylint: disable=too-few-public-methods
-        report_id: str
+    def __call__(
+            cls,
+            table: str,
+            handlers: Union[ToolResultHandlerT, List['APIResHandler[ToolResultHandlerT]']],
+            *args,
+            **kwargs
+    ) -> 'CombinedCSVBuilder':
+        if isinstance(handlers, list):
+            handlers_arg = [r.handler for r in handlers]
+        else:
+            handlers_arg = handlers
+        instance: 'CombinedCSVBuilder' = super(CombinedCSVBuilderMeta, cls).__call__(
+            table=table, handlers=handlers_arg, *args, **kwargs)
+        return instance
 
-    @classmethod
-    def _init_builder(cls, dir_path: Union[str, BoundedCspPath]) -> 'APIResultHandler':
-        return APIResultHandler().with_path(dir_path)
 
-    @classmethod
-    def _set_handler_report(cls, builder: APIResultHandler, report_id: str) -> 'APIResultHandler':
-        return builder.report(report_id)
+@dataclass
+class CombinedCSVBuilder(metaclass=CombinedCSVBuilderMeta):
+    """
+    A builder class for creating and combining multiple CSVReport instances into a single DataFrame.
+
+    This builder simplifies the process of aggregating tabular report data from one or more result
+    handlers (e.g., qualification or profiling reports), configuring report options, and producing
+    a combined DataFrame with robust error handling.
+
+    Typical usage involves:
+        - Instantiating the builder with a table name and one or more ToolResultHandlerT objects
+          (handlers).
+        - Optionally configuring error handling, callbacks, or additional report options.
+        - Using the context manager to create and configure CSVReport objects for each handler.
+        - Calling build() to produce the combined DataFrame.
+
+    Parameters:
+        table (str): The table label to load from each handler.
+        handlers (ToolResultHandlerT or List[ToolResultHandlerT]): One or more result handlers to aggregate.
+        raise_on_failure (bool, optional): Raise an exception if the combination fails. Default: True.
+        raise_on_empty (bool, optional): Raise an exception if the resulting DataFrame is empty. Default: False.
+        res_container (LoadCombinedRepResult, optional): Optional container to collect success/failure results.
+
+    Example usages:
+        # Example 1: Combine qualification reports from multiple handlers
+        from spark_rapids_tools.api_v1.builder import APIHelpers
+        handlers = [qual_handler1, qual_handler2]
+        with CombinedCSVBuilder(
+            table='app_information',
+            handlers=handlers
+        ) as builder:
+            # Optionally configure each CSVReport
+            def configure_csv_report(rep):
+                return rep.pd_args({'usecols': ['col1', 'col2']})
+            builder.apply_on_report(configure_csv_report)
+            combined_df = builder.build()
+
+        # Example 2: Combine qualification reports from multiple handlers and configure
+          each report using inline lambda functions.
+        from spark_rapids_tools.api_v1.builder import APIHelpers
+        handlers = [qual_handler1, qual_handler2]
+        with CombinedCSVBuilder(
+            table='app_information',
+            handlers=handlers
+        ) as builder:
+            # Optionally pick specific columns from each report and rename columns
+            builder.apply_on_report(
+                lambda x: x.pd_args(
+                    {'usecols': ['col1', 'col2']}
+                ).map_cols({'col1': 'new_col1'})
+            )
+            combined_df = builder.build()
+
+        # Example 3: Combine a report and specify combination arguments
+        with CombinedCSVBuilder(
+            table='my_table',
+            handlers=qual_handler
+        ) as builder:
+            builder.raise_on_empty = True
+            # 1. use an empty DataFrame if the report fails to be combined
+            # 2. specify appID to be the injected column and app_name into the DataFrame
+            builder.combiner.empty_df_on_error(
+                fall_to_empty=True
+            ).on_app_fields({'app_id': 'appID'})
+            combined_df = builder.build()
+
+        # Example 4: Use with a result container for tracking failures
+        res_container = LoadCombinedRepResult(res_id='qual_run_001')
+        with CombinedCSVBuilder(
+            table='app_information',
+            handlers=handlers,
+            res_container=res_container
+        ) as builder:
+            combined_df = builder.build()
+            # res_container now contains details of failed/successful loads
+
+    See Also:
+        CSVReport, CSVReportCombiner, ToolResultHandlerT, LoadCombinedRepResult
+    """
+    table: str
+    handlers: Union[ToolResultHandlerT, List[ToolResultHandlerT]]
+    raise_on_failure: Optional[bool] = field(default=True)
+    raise_on_empty: Optional[bool] = field(default=False)
+    res_container: Optional[LoadCombinedRepResult] = field(default=None)
+    _csv_reports: List[CSVReport] = field(default_factory=list, init=False)
+    _combiner: Optional[CSVReportCombiner] = field(default=None, init=False)
+
+    @cached_property
+    def res_handlers(self) -> List[ToolResultHandlerT]:
+        """
+        Get the list of result handlers.
+        :return: A list of ToolResultHandlerT instances.
+        """
+        if isinstance(self.handlers, list):
+            return self.handlers
+        return [self.handlers]
+
+    def _init_reports(self) -> None:
+        """
+        Initialize the CSVReport instances for each result handler.
+        :return: None. The CSVReport instances are stored in the _csv_reports attribute.
+        """
+        if not self.res_handlers:
+            raise ValueError('No result handlers provided for CSVReportCombiner.')
+        # create a CSVReport for each result handler
+        for res_h in self.res_handlers:
+            self._csv_reports.append(
+                CSVReport(res_h, _tbl=self.table)
+            )
+
+    def __enter__(self) -> 'CombinedCSVBuilder':
+        """
+        Context manager entry point to start building the CSVReportCombiner.
+        It initializes the CSVReports for each result handler.
+        :return: The builder instance for chaining.
+        """
+        self._init_reports()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Propagate the exception if any occurred during the context.
+        """
+        return False
+
+    ###################################
+    # Public API for API Helpers
+    ###################################
+
+    def supress_failure(self) -> 'CombinedCSVBuilder':
+        """Set raise_on_failure to False."""
+        self.raise_on_failure = False
+        return self
+
+    def fail_on_empty(self) -> 'CombinedCSVBuilder':
+        """Set raise_on_empty to True."""
+        self.raise_on_empty = True
+        return self
+
+    def with_container_result(self, container: LoadCombinedRepResult) -> 'CombinedCSVBuilder':
+        """Set the result container."""
+        self.res_container = container
+        return self
+
+    def apply_on_report(self, csv_rep_cb: Callable[[CSVReport], CSVReport]) -> 'CombinedCSVBuilder':
+        """
+        Apply a callBack on the CSVReport to configure it.
+        This is useful to apply any custom configuration on each CSVReport before building the combiner.
+        Note that the callback is applied on each CSVReport instance created for each result handler.
+        :param csv_rep_cb: A callback that takes a CSVReport and returns a configured CSVReport.
+                           Example of inlined callback:
+                           lambda rep: rep.pd_args({'usecols': ['col1', 'col2']})
+        :return: The builder instance for chaining.
+        """
+        if not self.res_handlers:
+            raise ValueError('No result handlers provided for CSVReportCombiner.')
+        for rep in self._csv_reports:
+            csv_rep_cb(rep)
+        return self
+
+    @property
+    def combiner(self) -> CSVReportCombiner:
+        """
+        Build and return the CSVReportCombiner instance.
+        This is lazy initializer because the combiner construction need to be deferred until
+        the CSVReports are fully initialized.
+        :return: The constructed CSVReportCombiner.
+        """
+        if self._combiner is None:
+            self._combiner = CSVReportCombiner(self._csv_reports)
+        return self._combiner
+
+    def build(self) -> Optional[pd.DataFrame]:
+        """
+        Build and return the CSVReportCombiner instance.
+        :return: The constructed combined Dataframe.
+        :raises RuntimeError: If the combiner fails to build the final result and
+                raise_on_failure is True.
+        """
+        try:
+            # final_res is dictionary of [app_id: str, LoadDFResult] where each LoadDFResult
+            # contains the data and the success flag.
+            final_res = self.combiner.build()
+            # If the combiner failed to load the report, we should raise an exception
+            if not final_res.success and self.raise_on_failure:
+                if final_res.load_error:
+                    raise RuntimeError(
+                        f'Loading report {self.table} failed with error: {final_res.get_fail_cause()}'
+                    ) from final_res.get_fail_cause()  # use the get_fail_cause to get the original exception.
+                raise RuntimeError(f'Loading report {self.table} failed with unexpected error.')
+            # if dataframe is None, or dataframe is empty and raise_on_empty is True, raise an exception
+            if self.raise_on_empty and (final_res.data is None or final_res.data.empty):
+                detail_reason = 'a None DataFrame' if final_res.data is None else 'an empty DataFrame'
+                raise ValueError(
+                    f'Loading report {self.table} on dataset returned {detail_reason}.')
+            # If we reach this point, then there is no raise on exceptions, just proceed with
+            # wrapping up the report.
+            if self.res_container is not None:
+                # 1. Append failed apps: Loop on combiner_failed apps and append them to the res_container.
+                if self.combiner.failed_loads:
+                    for app_id, app_error in self.combiner.failed_loads.items():
+                        self.res_container.append_failure(app_id, self.table, app_error)
+                # 2. Append the resulting dataframe to the reports if it is successful. Else set the Dataframe to
+                # None.
+                if final_res.success:
+                    self.res_container.append_success(self.table, final_res)
+            return final_res.data
+        except Exception as e:  # pylint: disable=broad-except
+            # If we reach here, it means that the combiner failed to build the final result.
+            # We should raise an exception to inform the caller.
+            raise RuntimeError(f'Failed to create combined report {self.table}: {e}') from e
+
+
+class ResHandlerMeta(type):
+    """
+    Metaclass for ToolResultHandlerT to register subclasses.
+    """
+    def __call__(
+            cls,
+            out_path: Union[str, BoundedCspPath],
+            raise_on_empty: Optional[bool] = False
+    ) -> 'APIResHandler[ToolResultHandlerT]':
+        instance: 'APIResHandler[ToolResultHandlerT]' = (
+            super(ResHandlerMeta, cls).__call__(_out_path=out_path)
+        )
+        if cls.REPORT_LABEL == '':
+            # this is the base class, we do not need to build it
+            return instance
+        instance = instance.report(cls.REPORT_LABEL).build()
+        if raise_on_empty:
+            if instance.handler.is_empty():
+                raise RuntimeError(f'The result handler {instance.report_id} is empty.')
+        return instance
+
+
+@dataclass
+class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
+    """
+    A generic builder class for creating API v1 result handlers.
+    This class serves as a factory and builder for different types of result handlers
+    (e.g., profiling, qualification) based on the provided report ID and output path.
+    """
+    REPORT_LABEL: ClassVar[str] = ''
+    _out_path: Optional[Union[str, BoundedCspPath]] = None
+    _report_id: Optional[str] = None
+    _res_h: Optional[ToolResultHandlerT] = field(default=None, init=False)
 
     @classmethod
     def find_report_paths(
@@ -815,273 +1022,114 @@ class GenericRH(Generic[ToolResultHandlerT]):
         :return: A list of report paths (as str or BoundedCspPath) matching the report type and filter
                  criteria.
         """
-        impl_class = result_registry.get(cls.Meta.report_id)
+        impl_class = result_registry.get(cls.REPORT_LABEL)
         return impl_class.Meta.find_report_paths(
             root_path=root_path,
             filter_cb=filter_cb
         )
 
     @classmethod
-    def build_handler(
+    def from_id(
             cls,
-            dir_path: Union[str, BoundedCspPath],
-            raise_on_empty: bool = False
-    ) -> ToolResultHandlerT:
+            report_id: str,
+            out_path: Union[str, BoundedCspPath]) -> 'APIResHandler[ToolResultHandlerT]':
         """
-        Builds and returns a ToolResultHandlerT for the Qual Core report.
+        Factory method to create an instance of the appropriate subclass based on the provided report ID.
 
-        :param dir_path: The directory path or BoundedCspPath where the Qual Core report is located.
-        :param raise_on_empty: If True, raises a ValueError if the report is empty or does not exist.
-        :return: An instance of ToolResultHandlerT for the Qual Core report.
-        :raises ValueError: If raise_on_empty is True and the report is empty or missing.
+        :param report_id: The report ID to match against registered subclasses.
+        :param out_path: The output path for the result handler.
+        :return: An instance of the matching subclass of APIResHandler.
+        :raises ValueError: If no matching subclass is found for the given report ID.
         """
-        builder_obj = cls._init_builder(dir_path)
-        builder_obj = cls._set_handler_report(builder_obj, cls.Meta.report_id)
-        res_h = builder_obj.build()
-        if raise_on_empty and res_h.is_empty():
-            if not res_h.out_path.exists():
-                empty_reason = 'Directory does not exist'
-            else:
-                empty_reason = 'No apps found in the reports'
-            raise ValueError(f'Report at [{dir_path}] is empty. {empty_reason}.')
-        return res_h
+        if not issubclass(cls, APIResHandler):
+            raise TypeError('Invalid subclass of APIResHandler.')
+        impl_cls = result_registry.get(report_id)
+        if impl_cls is None:
+            raise ValueError(f'Unknown implementation for report ID: {report_id}')
+        instance = cls[impl_cls](out_path=out_path).report(report_id).build()
+        return instance
+
+    def report(self, rep_id: str) -> 'APIResHandler[ToolResultHandlerT]':
+        """Set the report ID for the API v1 components."""
+        if not rep_id:
+            raise ValueError('Report ID cannot be empty.')
+        self._report_id = rep_id
+        return self
+
+    def build(self) -> 'APIResHandler[ToolResultHandlerT]':
+        if self._report_id is None:
+            raise ValueError('Report ID must be set before building.')
+        if self._out_path is None:
+            raise ValueError('Output path must be set before building.')
+        repo_defn = ReportLoader()
+        self._res_h = repo_defn.create_result_handler(self._report_id, self._out_path)
+        return self
+
+    def _check_handler(self) -> None:
+        if self._res_h is None:
+            raise ValueError('Result handler is not built yet.')
+
+    @property
+    def report_id(self) -> Optional[str]:
+        return self._report_id
+
+    @property
+    def handler(self) -> ToolResultHandlerT:
+        return self._res_h
+
+    def txt(self, tbl: str) -> 'TXTReport':
+        """Create a TXTReport for the given table."""
+        self._check_handler()
+        return TXTReport(self._res_h).table(tbl)
+
+    def csv(self, tbl: str) -> 'CSVReport':
+        """Create a CSVReport for the given table."""
+        self._check_handler()
+        return CSVReport(self._res_h).table(tbl)
+
+    def csv_combiner(self, tbl: str) -> 'CombinedCSVBuilder':
+        """Create a CombinedCSVBuilder for the given table."""
+        self._check_handler()
+        return CombinedCSVBuilder(tbl, self._res_h)
+
+    def jprop(self, tbl: str) -> 'JPropsReport':
+        """Create a JPropsReport for the given table."""
+        self._check_handler()
+        return JPropsReport(self._res_h).table(tbl)
+
+    ##########################################################################
+    # Delegation to the underlying handler
+    # Later, this will be replaced by a dynamic proxy to delegate selected calls
+    ############################################################################
+
+    @property
+    def out_path(self) -> Optional[BoundedCspPath]:
+        if self._res_h is None:
+            return None
+        return self._res_h.out_path
+
+    def is_empty(self) -> bool:
+        return self._res_h.is_empty()
+
+    def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
+        return self._res_h.get_raw_metrics_path()
 
 
 @dataclass
-class APIHelpers(object):
-    """
-    A collection of helper classes and methods for building API reports and combining them.
-    """
+class ProfWrapper(APIResHandler[ProfWrapperResultHandler]):
+    REPORT_LABEL: ClassVar[str] = 'profWrapperOutput'
 
-    ###################################
-    # Public API for API Helpers
-    ###################################
 
-    class QualCore(GenericRH[QualCoreResultHandler]):
-        """
-        A helper class for building Qual Core reports.
-        It provides static methods to build ResultHandler for Qual Core reports.
-        """
-        class Meta(GenericRH[QualCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
-            report_id: str = 'qualCoreOutput'
+@dataclass
+class ProfCore(APIResHandler[ProfCoreResultHandler]):
+    REPORT_LABEL: ClassVar[str] = 'profCoreOutput'
 
-    class QualWrapper(GenericRH[QualWrapperResultHandler]):
-        """
-        A helper class for building Qual Wrapper reports.
-        It provides static methods to build Result Handler for Qual Wrapper reports.
-        """
-        class Meta(GenericRH[QualWrapperResultHandler].Meta):    # pylint: disable=too-few-public-methods
-            report_id: str = 'qualWrapperOutput'
 
-    class ProfWrapper(GenericRH[ProfWrapperResultHandler]):
-        """
-        A helper class for building Prof Wrapper reports.
-        It provides static methods to build Result Handler for Prof Wrapper reports.
-        """
-        class Meta(GenericRH[ProfWrapperResultHandler].Meta):    # pylint: disable=too-few-public-methods
-            report_id: str = 'profWrapperOutput'
+@dataclass
+class QualWrapper(APIResHandler[QualWrapperResultHandler]):
+    REPORT_LABEL: ClassVar[str] = 'qualWrapperOutput'
 
-    class ProfCore(GenericRH[ProfCoreResultHandler]):
-        """
-        A helper class for building Prof Wrapper reports.
-        It provides static methods to build Result Handler for Prof Wrapper reports.
-        """
-        class Meta(GenericRH[ProfCoreResultHandler].Meta):    # pylint: disable=too-few-public-methods
-            report_id: str = 'profCoreOutput'
 
-    @dataclass
-    class CombinedDFBuilder(object):
-        """
-        A builder class for creating and combining multiple CSVReport instances into a single DataFrame.
-
-        This builder simplifies the process of aggregating tabular report data from one or more result
-        handlers (e.g., qualification or profiling reports), configuring report options, and producing
-        a combined DataFrame with robust error handling.
-
-        Typical usage involves:
-            - Instantiating the builder with a table name and one or more ToolResultHandlerT objects
-              (handlers).
-            - Optionally configuring error handling, callbacks, or additional report options.
-            - Using the context manager to create and configure CSVReport objects for each handler.
-            - Calling build() to produce the combined DataFrame.
-
-        Parameters:
-            table (str): The table label to load from each handler.
-            handlers (ToolResultHandlerT or List[ToolResultHandlerT]): One or more result handlers to aggregate.
-            raise_on_failure (bool, optional): Raise an exception if the combination fails. Default: True.
-            raise_on_empty (bool, optional): Raise an exception if the resulting DataFrame is empty. Default: False.
-            res_container (LoadCombinedRepResult, optional): Optional container to collect success/failure results.
-
-        Example usages:
-            # Example 1: Combine qualification reports from multiple handlers
-            from spark_rapids_tools.api_v1.builder import APIHelpers
-            handlers = [qual_handler1, qual_handler2]
-            with APIHelpers.CombinedDFBuilder(
-                table='app_information',
-                handlers=handlers
-            ) as builder:
-                # Optionally configure each CSVReport
-                def configure_csv_report(rep):
-                    return rep.pd_args({'usecols': ['col1', 'col2']})
-                builder.apply_on_report(configure_csv_report)
-                combined_df = builder.build()
-
-            # Example 2: Combine qualification reports from multiple handlers and configure
-              each report using inline lambda functions.
-            from spark_rapids_tools.api_v1.builder import APIHelpers
-            handlers = [qual_handler1, qual_handler2]
-            with APIHelpers.CombinedDFBuilder(
-                table='app_information',
-                handlers=handlers
-            ) as builder:
-                # Optionally pick specific columns from each report and rename columns
-                builder.apply_on_report(
-                    lambda x: x.pd_args(
-                        {'usecols': ['col1', 'col2']}
-                    ).map_cols({'col1': 'new_col1'})
-                )
-                combined_df = builder.build()
-
-            # Example 3: Combine a report and specify combination arguments
-            with APIHelpers.CombinedDFBuilder(
-                table='my_table',
-                handlers=qual_handler
-            ) as builder:
-                builder.raise_on_empty = True
-                # 1. use an empty DataFrame if the report fails to be combined
-                # 2. specify appID to be the injected column and app_name into the DataFrame
-                builder.combiner.empty_df_on_error(
-                    fall_to_empty=True
-                ).on_app_fields({'app_id': 'appID'})
-                combined_df = builder.build()
-
-            # Example 4: Use with a result container for tracking failures
-            res_container = LoadCombinedRepResult(res_id='qual_run_001')
-            with APIHelpers.CombinedDFBuilder(
-                table='app_information',
-                handlers=handlers,
-                res_container=res_container
-            ) as builder:
-                combined_df = builder.build()
-                # res_container now contains details of failed/successful loads
-
-        See Also:
-            CSVReport, CSVReportCombiner, ToolResultHandlerT, LoadCombinedRepResult
-        """
-        table: str
-        handlers: Union[ToolResultHandlerT, List[ToolResultHandlerT]]
-        raise_on_failure: Optional[bool] = field(default=True)
-        raise_on_empty: Optional[bool] = field(default=False)
-        res_container: Optional[LoadCombinedRepResult] = field(default=None)
-        _csv_reports: List[CSVReport] = field(default_factory=list, init=False)
-        _combiner: Optional[CSVReportCombiner] = field(default=None, init=False)
-
-        @cached_property
-        def res_handlers(self) -> List[ToolResultHandlerT]:
-            """
-            Get the list of result handlers.
-            :return: A list of ToolResultHandlerT instances.
-            """
-            if isinstance(self.handlers, list):
-                return self.handlers
-            return [self.handlers]
-
-        def _init_reports(self) -> None:
-            """
-            Initialize the CSVReport instances for each result handler.
-            :return: None. The CSVReport instances are stored in the _csv_reports attribute.
-            """
-            if not self.res_handlers:
-                raise ValueError('No result handlers provided for CSVReportCombiner.')
-            # create a CSVReport for each result handler
-            for res_h in self.res_handlers:
-                self._csv_reports.append(
-                    CSVReport(res_h, _tbl=self.table)
-                )
-
-        def __enter__(self) -> 'APIHelpers.CombinedDFBuilder':
-            """
-            Context manager entry point to start building the CSVReportCombiner.
-            It initializes the CSVReports for each result handler.
-            :return: The builder instance for chaining.
-            """
-            self._init_reports()
-            return self
-
-        def __exit__(self, exc_type, exc_val, exc_tb):
-            """
-            Propagate the exception if any occurred during the context.
-            """
-            return False
-
-        ###################################
-        # Public API for API Helpers
-        ###################################
-
-        def apply_on_report(self, csv_rep_cb: Callable[[CSVReport], CSVReport]) -> 'APIHelpers.CombinedDFBuilder':
-            """
-            Apply a callBack on the CSVReport to configure it.
-            This is useful to apply any custom configuration on each CSVReport before building the combiner.
-            Note that the callback is applied on each CSVReport instance created for each result handler.
-            :param csv_rep_cb: A callback that takes a CSVReport and returns a configured CSVReport.
-                               Example of inlined callback:
-                               lambda rep: rep.pd_args({'usecols': ['col1', 'col2']})
-            :return: The builder instance for chaining.
-            """
-            if not self.res_handlers:
-                raise ValueError('No result handlers provided for CSVReportCombiner.')
-            for rep in self._csv_reports:
-                csv_rep_cb(rep)
-            return self
-
-        @property
-        def combiner(self) -> CSVReportCombiner:
-            """
-            Build and return the CSVReportCombiner instance.
-            This is lazy initializer because the combiner construction need to be deferred until
-            the CSVReports are fully initialized.
-            :return: The constructed CSVReportCombiner.
-            """
-            if self._combiner is None:
-                self._combiner = CSVReportCombiner(self._csv_reports)
-            return self._combiner
-
-        def build(self) -> Optional[pd.DataFrame]:
-            """
-            Build and return the CSVReportCombiner instance.
-            :return: The constructed combined Dataframe.
-            :raises RuntimeError: If the combiner fails to build the final result and
-                    raise_on_failure is True.
-            """
-            try:
-                # final_res is dictionary of [app_id: str, LoadDFResult] where each LoadDFResult
-                # contains the data and the success flag.
-                final_res = self.combiner.build()
-                # If the combiner failed to load the report, we should raise an exception
-                if not final_res.success and self.raise_on_failure:
-                    if final_res.load_error:
-                        raise RuntimeError(
-                            f'Loading report {self.table} failed with error: {final_res.get_fail_cause()}'
-                        ) from final_res.get_fail_cause()  # use the get_fail_cause to get the original exception.
-                    raise RuntimeError(f'Loading report {self.table} failed with unexpected error.')
-                # if dataframe is None, or dataframe is empty and raise_on_empty is True, raise an exception
-                if self.raise_on_empty and (final_res.data is None or final_res.data.empty):
-                    detail_reason = 'a None DataFrame' if final_res.data is None else 'an empty DataFrame'
-                    raise ValueError(
-                        f'Loading report {self.table} on dataset returned {detail_reason}.')
-                # If we reach this point, then there is no raise on exceptions, just proceed with
-                # wrapping up the report.
-                if self.res_container is not None:
-                    # 1. Append failed apps: Loop on combiner_failed apps and append them to the res_container.
-                    if self.combiner.failed_loads:
-                        for app_id, app_error in self.combiner.failed_loads.items():
-                            self.res_container.append_failure(app_id, self.table, app_error)
-                    # 2. Append the resulting dataframe to the reports if it is successful. Else set the Dataframe to
-                    # None.
-                    if final_res.success:
-                        self.res_container.append_success(self.table, final_res)
-                return final_res.data
-            except Exception as e:  # pylint: disable=broad-except
-                # If we reach here, it means that the combiner failed to build the final result.
-                # We should raise an exception to inform the caller.
-                raise RuntimeError(f'Failed to create combined report {self.table}: {e}') from e
+@dataclass
+class QualCore(APIResHandler[QualCoreResultHandler]):
+    REPORT_LABEL: ClassVar[str] = 'qualCoreOutput'
