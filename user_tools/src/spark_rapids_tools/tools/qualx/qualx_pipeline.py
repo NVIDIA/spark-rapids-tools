@@ -254,11 +254,12 @@ def train_and_evaluate(
         raise ValueError(f'Alignment CSV missing required columns: {missing_cols}')
 
     # get previous alignment files, if exist
-    prev_alignments = glob.glob(os.path.join(alignment_dir, f'{dataset_basename}_*.csv'))
+    prev_alignments = sorted(glob.glob(os.path.join(alignment_dir, f'{dataset_basename}_*.csv')))
     if len(prev_alignments) > 0:
         # load all previous alignment files, remove duplicates, and mark as processed
         prev_df = pd.concat([pd.read_csv(f) for f in prev_alignments])
-        prev_df = prev_df.drop_duplicates()
+        subset = [col for col in ['appId_cpu', 'sqlID_cpu'] if col in prev_df.columns]
+        prev_df = prev_df.drop_duplicates(subset=subset, keep='last')
         prev_df['processed'] = 1
 
         # merge with current alignment file
