@@ -234,10 +234,6 @@ tuningDefinitions:
     enabled: true
     level: cluster
     category: tuning
-    # The shuffle manager is not included in bootstrap configurations by default because
-    # it depends on the Spark version on the GPU cluster. This property can still be included
-    # if explicitly specified in target-cluster-info enforced properties.
-    bootstrapEntry: false
     confType:
       name: string
   - label: spark.sql.adaptive.enabled
@@ -403,3 +399,12 @@ tuningDefinitions:
       updated: |-
         should include the class name required for the RAPIDS Accelerator for Apache Spark.
           Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+  - label: spark.rapids.sql.incompatibleDateFormats.enabled
+    description: >-
+      When true, enables support for certain date formats that are incompatible with the GPU.
+      It is not guaranteed to produce the same results as Spark on CPU.
+    enabled: true
+    level: job
+    category: functionality
+    confType:
+      name: boolean

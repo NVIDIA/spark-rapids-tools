@@ -45,7 +45,6 @@ trait ValidatableProperties {
 class PropertiesLoader[T <: ValidatableProperties](implicit classTag: ClassTag[T]) extends Logging {
   def loadFromContent(content: String): Option[T] = {
     val representer = new Representer(new DumperOptions())
-    representer.getPropertyUtils.setSkipMissingProperties(true)
     val constructor = new Constructor(classTag.runtimeClass.asInstanceOf[Class[T]],
       new LoaderOptions())
     val yamlObjNested = new Yaml(constructor, representer)

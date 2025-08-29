@@ -65,6 +65,14 @@ class QualificationAutoTuner(
       appendComment(additionalSparkPluginsComment)
     }
   }
+
+  /**
+   * Override to indicate that shuffle manager cannot be recommended
+   * in Qualification Tool.
+   */
+  override def getShuffleManagerClassName: Either[String, String] = {
+    Left(shuffleManagerCommentForQualification)
+  }
 }
 
 /**
