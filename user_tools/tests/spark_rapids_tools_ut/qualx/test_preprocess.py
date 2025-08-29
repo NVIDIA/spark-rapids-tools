@@ -64,7 +64,13 @@ class TestPreprocess(SparkRapidsToolsUT):
         # Test get_alignment function
         with patch('spark_rapids_tools.tools.qualx.preprocess.get_config') as mock_config:
             # Create temporary alignment CSV file
-            test_alignment = pd.DataFrame({'appId': ['app1', 'app2'], 'sqlId': ['sql1', 'sql2']})
+            test_alignment = pd.DataFrame(
+                [
+                    ['app1', 'sql1', 'app3', 'sql3'],
+                    ['app2', 'sql2', 'app4', 'sql4']
+                ],
+                columns=['appId_cpu', 'sqlID_cpu', 'appId_gpu', 'sqlID_gpu'],
+            )
             with tempfile.TemporaryDirectory() as temp_dir:
                 alignment_file = os.path.join(temp_dir, 'alignment.csv')
                 test_alignment.to_csv(alignment_file, index=False)
@@ -77,9 +83,38 @@ class TestPreprocess(SparkRapidsToolsUT):
                 # Verify results
                 assert isinstance(align_df, pd.DataFrame)
                 assert len(align_df) == 2
-                assert list(align_df.columns) == ['appId', 'sqlId']
-                assert list(align_df['appId']) == ['app1', 'app2']
-                assert list(align_df['sqlId']) == ['sql1', 'sql2']
+                assert list(align_df.columns) == ['appId_cpu', 'sqlID_cpu', 'appId_gpu', 'sqlID_gpu']
+                assert list(align_df['appId_cpu']) == ['app1', 'app2']
+                assert list(align_df['sqlID_cpu']) == ['sql1', 'sql2']
+                assert list(align_df['appId_gpu']) == ['app3', 'app4']
+                assert list(align_df['sqlID_gpu']) == ['sql3', 'sql4']
+
+    def test_get_alignment_app_id_only(self):
+        # Test get_alignment function
+        with patch('spark_rapids_tools.tools.qualx.preprocess.get_config') as mock_config:
+            # Create temporary alignment CSV file
+            test_alignment = pd.DataFrame(
+                [
+                    ['app1', 'app3'],
+                    ['app2', 'app4']
+                ],
+                columns=['appId_cpu', 'appId_gpu'],
+            )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                alignment_file = os.path.join(temp_dir, 'alignment.csv')
+                test_alignment.to_csv(alignment_file, index=False)
+
+                mock_config.return_value.alignment_dir = temp_dir
+
+                # Call function
+                align_df = get_alignment()
+
+                # Verify results
+                assert isinstance(align_df, pd.DataFrame)
+                assert len(align_df) == 2
+                assert list(align_df.columns) == ['appId_cpu', 'appId_gpu']
+                assert list(align_df['appId_cpu']) == ['app1', 'app2']
+                assert list(align_df['appId_gpu']) == ['app3', 'app4']
 
     def test_get_featurizers(self):
         # Test get_featurizers function
