@@ -201,20 +201,15 @@ def init_environment(short_name: str) -> str:
         # LOG_FILE already set by external caller, respect it
         log_file = existing_log_file
         log_dir = str(Path(log_file).parent)
-        log_message_prefix = 'Location (External)'
-        usage_message = 'Using externally configured log file location.\n'
     else:
         # Set default LOG_FILE location
         log_dir = f'{tools_home_dir}/logs'
         log_file = f'{log_dir}/{short_name}_{uuid}.log'
         Utils.set_rapids_tools_env('LOG_FILE', log_file)
-        log_message_prefix = 'Location'
-        usage_message = 'In case of any errors, please share the log file with the Spark RAPIDS team.\n'
 
     FSUtil.make_dirs(log_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
-    print(f'{log_message_prefix}: {log_file}')
-    print(usage_message)
+    print(f'Location : {log_file}')
 
     return uuid
 
