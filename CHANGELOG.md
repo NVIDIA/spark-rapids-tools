@@ -1,6 +1,35 @@
 
 <br/>
 
+## Release [v25.08.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.1)
+Generated on 2025-09-02
+### Autotuner
+
+- Use enforced offheapLimit.size for pinned memory  ([#1871](https://github.com/NVIDIA/spark-rapids-tools/pull/1871))
+
+### QualX
+
+- Fix compute_sample_weights when LOG_LABEL=True ([#1892](https://github.com/NVIDIA/spark-rapids-tools/pull/1892))
+- Dedupe qualx alignments in more deterministic manner ([#1888](https://github.com/NVIDIA/spark-rapids-tools/pull/1888))
+
+### API Change
+
+- Add tuning summary to the profiler handler API ([#1884](https://github.com/NVIDIA/spark-rapids-tools/pull/1884))
+
+### Build and CI/CD
+
+- Update Python fire module dependency. ([#1890](https://github.com/NVIDIA/spark-rapids-tools/pull/1890))
+- Prefetching dependency jars for python unit tests ([#1875](https://github.com/NVIDIA/spark-rapids-tools/pull/1875))
+
+### User Tools
+
+- Unify the status CSV label across the tools ([#1883](https://github.com/NVIDIA/spark-rapids-tools/pull/1883))
+- Improve the construction of combined CSV reports in ToolsAPI ([#1878](https://github.com/NVIDIA/spark-rapids-tools/pull/1878))
+- Replace the legacy QualCoreHandler by toolsAPI in python wrapper ([#1874](https://github.com/NVIDIA/spark-rapids-tools/pull/1874))
+
+
+<br/>
+
 ## Release [v25.08.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.0)
 Generated on 2025-08-26
 ### Autotuner
