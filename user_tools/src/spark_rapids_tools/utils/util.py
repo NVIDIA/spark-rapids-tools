@@ -202,6 +202,7 @@ def init_environment(short_name: str) -> str:
     FSUtil.make_dirs(log_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f'Location : {log_file}')
+    print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
 
     return uuid
 
