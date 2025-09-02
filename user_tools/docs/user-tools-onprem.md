@@ -33,6 +33,22 @@ Before running any command, you can set environment variables to specify configu
   - `RAPIDS_USER_TOOLS_CACHE_FOLDER`: specifies the location of a local directory that the RAPIDS-cli uses to store and cache the downloaded resources. The default is `/var/tmp/spark_rapids_user_tools_cache`.  Note that caching the resources locally has an impact on the total execution time of the command.
   - `RAPIDS_USER_TOOLS_OUTPUT_DIRECTORY`: specifies the location of a local directory that the RAPIDS-cli uses to generate the output. The wrapper CLI arguments override that environment variable (`--local_folder` for Qualification).
 
+### 3.1 Logging (Python wrapper)
+
+- The Python wrapper writes its own logs to a file. By default, logs are written to
+  `~/.spark_rapids_tools/logs/<tool>_<timestamp>.log`.
+- Override the log file location by setting the environment variable
+  `RAPIDS_USER_TOOLS_LOG_FILE` to a local file path, for example:
+
+  ```bash
+  export RAPIDS_USER_TOOLS_LOG_FILE=/var/tmp/spark-rapids-tools.log
+  ```
+
+- The log file is opened in append mode, so subsequent runs append to the same file.
+- The provided path must be a local filesystem path (remote URIs like `s3://`, `gs://` are not supported).
+- If the parent directory does not exist, it will be created automatically.
+- To increase console verbosity, set `RAPIDS_USER_TOOLS_LOG_DEBUG=true`.
+
 ## Qualification command
 
 ### Local deployment
