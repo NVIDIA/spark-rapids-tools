@@ -71,18 +71,18 @@ App ID  SQL ID   Operator  Count StageTaskDuration TotalSQLTaskDuration  % of To
             raise ValueError('QualCoreHandler not found in context')
 
         self.logger.info('Using QualCoreHandler to read data...')
-        with core_handler.csv_combiner('unsupportedOpsCSVReport').supress_failure() as c_builder:
+        with core_handler.csv_combiner('unsupportedOpsCSVReport').suppress_failure() as c_builder:
             # 1- use "App ID" column name on the injected apps
             # 2- process successful entries by dropping na rows
             c_builder.combiner.on_app_fields(
                 {'app_id': 'App ID'}
             ).entry_success_cb(lambda x, y, z: z.dropna(subset=['Unsupported Operator']))
             self.unsupported_operators_df = c_builder.build()
-        with core_handler.csv_combiner('stagesCSVReport').supress_failure() as c_builder:
+        with core_handler.csv_combiner('stagesCSVReport').suppress_failure() as c_builder:
             # use "App ID" column name on the injected apps
             c_builder.combiner.on_app_fields({'app_id': 'App ID'})
             self.stages_df = c_builder.build()
-        with core_handler.csv_combiner('execCSVReport').supress_failure() as c_builder:
+        with core_handler.csv_combiner('execCSVReport').suppress_failure() as c_builder:
             # 1- use "App ID" column name on the injected apps
             # 2- process successful entries by dropping na rows
             c_builder.combiner.on_app_fields(

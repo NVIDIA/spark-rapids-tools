@@ -222,7 +222,7 @@ def _get_combined_qual_data(
     with CombinedCSVBuilder(
             table='execCSVReport',
             handlers=qual_handlers
-    ).supress_failure() as c_builder:
+    ).suppress_failure() as c_builder:
         # use "App ID" to fit with the remaining qualx code.
         c_builder.combiner.on_app_fields({'app_id': 'App ID'})
         comb_node_level_supp_df = c_builder.build()
@@ -242,7 +242,7 @@ def _get_combined_qual_data(
     with CombinedCSVBuilder(
             'qualCoreCSVSummary',
             qual_handlers,
-    ).supress_failure() as c_builder:
+    ).suppress_failure() as c_builder:
         # use-only those columns
         c_builder.apply_on_report(lambda x: x.pd_args({'usecols': ['App Name', 'App ID', 'App Duration']}))
         # No need to inject appIDs since "App ID" column is included in the report.

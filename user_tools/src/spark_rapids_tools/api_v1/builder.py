@@ -741,7 +741,18 @@ class CSVReportCombiner(object):
 
 class CombinedCSVBuilderMeta(type):
     """
-    Metaclass for CombinedCSVBuilder to register subclasses.
+    Metaclass for CombinedCSVBuilder to create instances with flexible handler input.
+    This metaclass allows the CombinedCSVBuilder to accept either a single ToolResultHandlerT
+    or a list of APIResHandler[ToolResultHandlerT] instances as the handlers argument.
+    It processes the input to extract the actual handlers and passes them to the CombinedCSVBuilder
+    constructor.
+    This design simplifies the instantiation of CombinedCSVBuilder by allowing users to provide
+    handlers in different formats without needing to manually extract the handler objects.
+    For example, users can pass a list of APIResHandler objects directly, and the metaclass will
+    handle the extraction of the underlying ToolResultHandlerT instances. This shields the users' code
+    from dealing with the internal structure of APIResHandler.
+    On the other hand, internally, initializations that need to create the CombinedCSVBuilder on a
+    single handler can benefit from passing the handler directly without wrapping it in a list.
     """
     def __call__(
             cls,
@@ -888,7 +899,7 @@ class CombinedCSVBuilder(metaclass=CombinedCSVBuilderMeta):
     # Public API for API Helpers
     ###################################
 
-    def supress_failure(self) -> 'CombinedCSVBuilder':
+    def suppress_failure(self) -> 'CombinedCSVBuilder':
         """Set raise_on_failure to False."""
         self.raise_on_failure = False
         return self
@@ -974,7 +985,14 @@ class CombinedCSVBuilder(metaclass=CombinedCSVBuilderMeta):
 
 class ResHandlerMeta(type):
     """
-    Metaclass for ToolResultHandlerT to register subclasses.
+    Metaclass for ToolResultHandlerT to dynamically create instances. This design allows the user
+    to create instances of APIResHandler subclasses without needing to know the specific subclass
+    at runtime. The metaclass intercepts the instantiation call, checks the REPORT_LABEL of the
+    subclass, and if it is not empty (indicating it's a concrete implementation), it automatically
+    calls the report() and build() methods to set up the instance. This approach simplifies the
+    instantiation process for users, as they can create fully configured instances of various
+    result handlers (e.g., profiling, qualification) without needing to manually call additional
+    methods after instantiation.
     """
     def __call__(
             cls,
@@ -997,9 +1015,19 @@ class ResHandlerMeta(type):
 @dataclass
 class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
     """
-    A generic builder class for creating API v1 result handlers.
-    This class serves as a factory and builder for different types of result handlers
-    (e.g., profiling, qualification) based on the provided report ID and output path.
+    Generic builder and factory for API v1 result handlers.
+
+    This class provides a unified interface for creating, configuring, and accessing
+    different types of report handlers (such as profiling and qualification) based on
+    report IDs and output paths. It supports dynamic instantiation via its metaclass,
+    delegation to underlying handler methods, and convenient creation of report objects
+    (CSV, TXT, JSON properties).
+
+    Attributes:
+        REPORT_LABEL (str): The label identifying the report type.
+        _out_path (str or BoundedCspPath): Output path for the report.
+        _report_id (str): The report ID.
+        _res_h (ToolResultHandlerT): The underlying result handler instance.
     """
     REPORT_LABEL: ClassVar[str] = ''
     _out_path: Optional[Union[str, BoundedCspPath]] = None

@@ -435,7 +435,7 @@ class Qualification(QualificationCore):
         try:
             with self.core_handler.csv_combiner(
                     'clusterInfoJSONReport'
-            ).supress_failure() as c_builder:
+            ).suppress_failure() as c_builder:
                 # convert the json columns to csv columns
                 c_builder.apply_on_report(lambda x: x.map_cols(Qualification.__map_cluster_info_table()))
                 # use "App ID" included in the json report
@@ -453,7 +453,7 @@ class Qualification(QualificationCore):
         # 3. Operations related to reading qualification output (unsupported operators and apps status)
         with self.core_handler.csv_combiner(
                 'unsupportedOpsCSVReport'
-        ).supress_failure() as c_builder:
+        ).suppress_failure() as c_builder:
             # use "App ID" column name on the injected apps
             c_builder.combiner.on_app_fields({'app_id': 'App ID'})
             unsupported_ops_df = c_builder.build()
@@ -679,7 +679,7 @@ class Qualification(QualificationCore):
         """
         with self.core_handler.csv_combiner(
                 'coreRawApplicationInformationCSV'
-        ).supress_failure() as c_builder:
+        ).suppress_failure() as c_builder:
             # customize the report loading to only select required columns and rename them
             c_builder.apply_on_report(
                 lambda r: r.pd_args(
