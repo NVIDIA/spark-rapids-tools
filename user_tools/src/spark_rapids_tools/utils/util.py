@@ -195,17 +195,10 @@ def init_environment(short_name: str) -> str:
     tools_home_dir = FSUtil.build_path(home_dir, '.spark_rapids_tools')
     Utils.set_rapids_tools_env('HOME', tools_home_dir)
 
-    # Check if LOG_FILE is already set (e.g., by external library usage)
-    existing_log_file = Utils.get_rapids_tools_env('LOG_FILE')
-    if existing_log_file:
-        # LOG_FILE already set by external caller, respect it
-        log_file = existing_log_file
-        log_dir = str(Path(log_file).parent)
-    else:
-        # Set default LOG_FILE location
-        log_dir = f'{tools_home_dir}/logs'
-        log_file = f'{log_dir}/{short_name}_{uuid}.log'
-        Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    default_log_dir = f'{tools_home_dir}/logs'
+    log_file = Utils.get_rapids_tools_env('LOG_FILE', f'{default_log_dir}/{short_name}_{uuid}.log')
+    Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    log_dir = str(Path(log_file).parent)
 
     FSUtil.make_dirs(log_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
