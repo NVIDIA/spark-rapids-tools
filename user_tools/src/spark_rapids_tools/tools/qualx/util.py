@@ -90,7 +90,7 @@ def find_paths(directory: str, filter_fn: Callable = None, return_directories: b
             else:
                 filtered_files = filter(filter_fn, files)
                 paths.extend([os.path.join(root, file) for file in filtered_files])
-    return paths
+    return sorted(paths)
 
 
 def find_eventlogs(path: str) -> List[str]:

@@ -133,6 +133,9 @@ def train(
     positive_weight = sample_weight.get('positive', 1.0)
     negative_weight = sample_weight.get('negative', 1.0)
 
+    if LOG_LABEL:
+        threshold = np.log(threshold)
+
     # automatically compute weights (if 'auto' is specified) to balance positive/negative samples
     positive_weight, negative_weight = compute_sample_weights(y_tune, threshold, positive_weight, negative_weight)
 
