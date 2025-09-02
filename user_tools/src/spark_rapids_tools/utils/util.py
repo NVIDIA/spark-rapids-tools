@@ -196,8 +196,7 @@ def init_environment(short_name: str) -> str:
     Utils.set_rapids_tools_env('HOME', tools_home_dir)
 
     default_log_dir = f'{tools_home_dir}/logs'
-    log_file = Utils.get_rapids_tools_env('LOG_FILE', f'{default_log_dir}/{short_name}_{uuid}.log')
-    Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    log_file = Utils.get_or_set_rapids_tools_env('LOG_FILE', f'{default_log_dir}/{short_name}_{uuid}.log')
     log_dir = str(Path(log_file).parent)
 
     FSUtil.make_dirs(log_dir)

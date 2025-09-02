@@ -118,6 +118,14 @@ class Utils:
         os.environ[cls.find_full_rapids_tools_env_key(k)] = str(val)
 
     @classmethod
+    def get_or_set_rapids_tools_env(cls, k: str, default_val) -> str:
+        current_val = cls.get_rapids_tools_env(k)
+        if current_val is None or (isinstance(current_val, str) and current_val == ''):
+            cls.set_rapids_tools_env(k, default_val)
+            return str(default_val)
+        return current_val
+
+    @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
         dash = ruler * line_width
         return cls.gen_multiline_str('', dash, f'{title:^{line_width}}', dash)
