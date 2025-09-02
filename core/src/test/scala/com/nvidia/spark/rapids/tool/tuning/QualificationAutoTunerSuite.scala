@@ -1431,6 +1431,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.sql.adaptive.enabled=true
             |--conf spark.sql.files.maxPartitionBytes=1644m
             |--conf spark.sql.shuffle.partitions=800
+            |--conf spark.task.resource.gpu.amount=0.001
             |
             |Comments:
             |- ${getPreservedPropertyComment("spark.dataproc.engine")}
