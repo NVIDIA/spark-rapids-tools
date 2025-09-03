@@ -222,6 +222,9 @@ class ResultHandler(object):
         # then check that the app_handlers are empty
         return not self.app_handlers
 
+    def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
+        return self.get_reader_path('coreRawMetrics')
+
 #########################
 # Type Definitions
 #########################

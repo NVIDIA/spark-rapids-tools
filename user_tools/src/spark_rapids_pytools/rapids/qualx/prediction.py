@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.qualx.qualx_tool import QualXTool
-from spark_rapids_tools.api_v1 import QualCoreResultHandler, APIHelpers
+from spark_rapids_tools.api_v1 import QualCore
 from spark_rapids_tools.tools.qualx.qualx_main import predict
 from spark_rapids_tools.tools.qualx.util import print_summary, print_speedup_summary
 
@@ -37,8 +37,8 @@ class Prediction(QualXTool):
     name = 'prediction'
 
     @property
-    def qual_handler(self) -> QualCoreResultHandler:
-        return APIHelpers.QualCore.build_handler(dir_path=self.qual_output)
+    def qual_handler(self) -> QualCore:
+        return QualCore(self.qual_output)
 
     def __prepare_prediction_output_info(self) -> dict:
         """

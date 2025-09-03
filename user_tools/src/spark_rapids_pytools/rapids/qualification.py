@@ -29,7 +29,6 @@ from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, co
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
-from spark_rapids_tools.api_v1 import APIHelpers, CSVReport
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
 from spark_rapids_tools.tools.cluster_config_recommender import ClusterConfigRecommender
@@ -418,7 +417,7 @@ class Qualification(QualificationCore):
             return TopCandidates(props=view_dic, total_apps=total_apps, tools_processed_apps=tools_processed_apps)
 
         # 1. Read summary report using QualCoreHandler
-        with CSVReport(self.core_handler, _tbl='qualCoreCSVSummary') as q_sum_res:
+        with self.core_handler.csv('qualCoreCSVSummary') as q_sum_res:
             df = q_sum_res.data
         # 1. Operations related to XGboost modelling
         if not df.empty and self.ctxt.get_ctxt('estimationModelArgs')['xgboostEnabled']:
@@ -434,12 +433,9 @@ class Qualification(QualificationCore):
                 ) from e
         # 2. Operations related to cluster information
         try:
-            with APIHelpers.CombinedDFBuilder(
-                    table='clusterInfoJSONReport',
-                    handlers=self.core_handler,
-                    raise_on_empty=False,
-                    raise_on_failure=False
-            ) as c_builder:
+            with self.core_handler.csv_combiner(
+                    'clusterInfoJSONReport'
+            ).suppress_failure() as c_builder:
                 # convert the json columns to csv columns
                 c_builder.apply_on_report(lambda x: x.map_cols(Qualification.__map_cluster_info_table()))
                 # use "App ID" included in the json report
@@ -455,17 +451,14 @@ class Qualification(QualificationCore):
                               'Reason - %s:%s', type(e).__name__, e)
 
         # 3. Operations related to reading qualification output (unsupported operators and apps status)
-        with APIHelpers.CombinedDFBuilder(
-                table='unsupportedOpsCSVReport',
-                handlers=self.core_handler,
-                raise_on_empty=False,
-                raise_on_failure=False
-        ) as c_builder:
+        with self.core_handler.csv_combiner(
+                'unsupportedOpsCSVReport'
+        ).suppress_failure() as c_builder:
             # use "App ID" column name on the injected apps
             c_builder.combiner.on_app_fields({'app_id': 'App ID'})
             unsupported_ops_df = c_builder.build()
 
-        with CSVReport(self.core_handler, _tbl='coreCSVStatus') as status_res:
+        with self.core_handler.csv('coreCSVStatus') as status_res:
             apps_status_df = status_res.data
 
         # 4. Operations related to output
@@ -684,12 +677,9 @@ class Qualification(QualificationCore):
         Assigns the Spark Runtime (Spark/Photon) to each application. This will be used to categorize
         applications into speedup categories (Small/Medium/Large).
         """
-        with APIHelpers.CombinedDFBuilder(
-            table='coreRawApplicationInformationCSV',
-            handlers=self.core_handler,
-            raise_on_empty=False,
-            raise_on_failure=False
-        ) as c_builder:
+        with self.core_handler.csv_combiner(
+                'coreRawApplicationInformationCSV'
+        ).suppress_failure() as c_builder:
             # customize the report loading to only select required columns and rename them
             c_builder.apply_on_report(
                 lambda r: r.pd_args(
