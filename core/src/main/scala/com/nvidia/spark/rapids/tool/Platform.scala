@@ -713,6 +713,20 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   /**
+   * Check if the property is preserved in the target cluster.
+   */
+  final def isPropertyPreserved(propertyKey: String): Boolean = {
+    targetCluster.exists(_.getSparkProperties.preservePropertiesSet.contains(propertyKey))
+  }
+
+  /**
+   * Check if the property is excluded in the target cluster.
+   */
+  final def isPropertyExcluded(propertyKey: String): Boolean = {
+    targetCluster.exists(_.getSparkProperties.excludePropertiesSet.contains(propertyKey))
+  }
+
+  /**
    * Set the default driver node type for the recommended cluster if it is missing.
    */
   final def setDefaultDriverNodeToRecommendedClusterIfMissing() : Unit = {

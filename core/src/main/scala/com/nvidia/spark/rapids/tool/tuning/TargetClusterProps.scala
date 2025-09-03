@@ -98,7 +98,7 @@ class DriverInfo (
 
 /**
  * Class to hold the Spark properties specified for the target cluster.
- * This includes both enforced properties and custom tuning definitions.
+ * This includes enforced properties, preserve/exclude lists, and custom tuning definitions.
  * The tuningDefinitions allow users to define custom Spark properties that will be merged
  * with the default tuning table. This is useful for:
  * - Legacy properties that have been replaced in newer Spark versions
@@ -110,6 +110,12 @@ class DriverInfo (
  *   enforced:
  *     spark.executor.cores: "8"
  *     spark.executor.memory: "16g"
+ *   preserve:
+ *     - spark.sql.shuffle.partitions
+ *     - spark.sql.files.maxPartitionBytes
+ *   exclude:
+ *     - spark.rapids.sql.incompatibleDateFormats.enabled
+ *     - spark.rapids.sql.explain
  *   tuningDefinitions:
  *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
  *       description: alias for spark.sql.adaptive.coalescePartitions.initialPartitionNum
@@ -120,31 +126,76 @@ class DriverInfo (
  *         name: int
  * }}}
  *
+ * Where:
+ * - enforced: User-specified values that override any recommendations
+ * - preserve: Properties whose values should be preserved from the source application
+ * - exclude: Properties that should be excluded from tuning recommendations
+ *
  * For more examples, see:
  * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
  * - Target cluster examples: core/src/main/resources/targetClusterInfo/
  */
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],
-  @BeanProperty var tuningDefinitions: java.util.List[TuningEntryDefinition]) {
+  @BeanProperty var preserve: java.util.List[String],
+  @BeanProperty var exclude: java.util.List[String],
+  @BeanProperty var tuningDefinitions: java.util.List[TuningEntryDefinition])
+  extends ValidatableProperties {
   def this() = this(new util.LinkedHashMap[String, String](),
+    new java.util.ArrayList[String](),
+    new java.util.ArrayList[String](),
     new java.util.ArrayList[TuningEntryDefinition]())
 
+  def isEmpty: Boolean = {
+    enforced.isEmpty && preserve.isEmpty && exclude.isEmpty && tuningDefinitions.isEmpty
+  }
+
   lazy val enforcedPropertiesMap: Map[String, String] = {
-    if (enforced == null || enforced.isEmpty) {
+    if (enforced.isEmpty) {
       Map.empty
     } else {
       enforced.asScala.toMap
     }
   }
 
+  lazy val preservePropertiesSet: Set[String] = {
+    if (preserve.isEmpty) {
+      Set.empty
+    } else {
+      preserve.asScala.toSet
+    }
+  }
+
+  lazy val excludePropertiesSet: Set[String] = {
+    if (exclude.isEmpty) {
+      Set.empty
+    } else {
+      exclude.asScala.toSet
+    }
+  }
+
   lazy val tuningDefinitionsMap: Map[String, TuningEntryDefinition] = {
-    if (tuningDefinitions == null || tuningDefinitions.isEmpty) {
+    if (tuningDefinitions.isEmpty) {
       Map.empty
     } else {
       tuningDefinitions.asScala.collect {
         case e if e.isEnabled() => (e.label, e)
       }.toMap
+    }
+  }
+
+  override def validate(): Unit = {
+    if (!isEmpty) {
+      // Validate that preserve, exclude and enforced properties do not have overlapping keys.
+      val overlappingKeys =
+        (preservePropertiesSet & excludePropertiesSet) ++
+          (preservePropertiesSet & enforcedPropertiesMap.keySet) ++
+          (excludePropertiesSet & enforcedPropertiesMap.keySet)
+      if (overlappingKeys.nonEmpty) {
+        throw new IllegalArgumentException(
+          "Found overlapping keys in preserve, exclude and enforced properties: " +
+            s"$overlappingKeys. Please remove the overlapping keys.")
+      }
     }
   }
 }
@@ -169,6 +220,12 @@ class SparkProperties(
  *   enforced:
  *     spark.executor.cores: "8"
  *     spark.executor.memory: "16g"
+ *   preserve:
+ *     - spark.sql.shuffle.partitions
+ *     - spark.sql.files.maxPartitionBytes
+ *   exclude:
+ *     - spark.rapids.sql.incompatibleDateFormats.enabled
+ *     - spark.rapids.sql.explain
  *   tuningDefinitions:
  *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
  *       description: Legacy property for initial shuffle partitions
@@ -190,6 +247,7 @@ class TargetClusterProps (
 
   override def validate(): Unit = {
     workerInfo.validate()
+    sparkProperties.validate()
     if (workerInfo.isOnpremInfo && !driverInfo.isEmpty) {
       throw new IllegalArgumentException(
         "OnPrem target cluster info does not support specifying driver instance type. " +
