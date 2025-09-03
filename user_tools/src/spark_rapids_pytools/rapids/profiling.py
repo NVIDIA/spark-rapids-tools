@@ -24,7 +24,6 @@ from tabulate import tabulate
 from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.profiling_core import ProfilingCore
-from spark_rapids_tools.api_v1.builder import TXTReport
 from spark_rapids_tools.utils.data_utils import TXTResult
 
 
@@ -130,7 +129,7 @@ class Profiling(ProfilingCore):
         sec_comments_head = ['\tComments:']
         log_lines.append('### Recommended configurations ###')
         headers = self.ctxt.get_value('local', 'output', 'summaryColumns')
-        with TXTReport(self.core_handler).table('appRawSummaryLog') as app_rawlogs_summaries:
+        with self.core_handler.txt('appRawSummaryLog') as app_rawlogs_summaries:
             # the result of the load operation is a dictionary [appid, data]
             for app_id, log_content in app_rawlogs_summaries.items():
                 app_name = ''

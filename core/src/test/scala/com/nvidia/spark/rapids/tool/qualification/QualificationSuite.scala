@@ -324,8 +324,8 @@ class QualificationSuite extends BaseWithSparkSuite {
             val rootDir = provider.rootDir.get
             val outParquetFile = s"$rootDir/person_info"
             val data = Seq((1, ("Person1", 30)), (2, ("Person2", 25))).toDF("id", "person")
-            data.write.parquet(s"$outParquetFile/person_info")
-            val df = spark.read.parquet(s"$outParquetFile/person_info")
+            data.write.parquet(s"$outParquetFile")
+            val df = spark.read.parquet(s"$outParquetFile")
             df.withColumn("person_json", to_json($"person"))
           })
       .withChecker(
@@ -791,6 +791,45 @@ class QualificationSuite extends BaseWithSparkSuite {
               val expStageCount = if (ToolUtils.isSpark320OrLater()) 6 else 5
               csvF.getColumn("Stage Ids").mkString.split(";") should have size expStageCount
               csvF.getColumn("ML Function Name") shouldBe Array("PCA")
+            }))
+      .build()
+  }
+
+  test("map_zip_with is supported") {
+    // While the RAPIDS plugin does not support all the TZ types, the evntlog won't show the
+    // information that helps in determining if the TZ type is used. So the test just
+    // makes sure that map_zip_with is not listed in the unsupported operators.
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with map_zip_with function")
+          .withAppName("mapZipWithIsSupported")
+          .withFunc { (provider, spark) =>
+            import spark.implicits._
+            val data = Seq(
+              (Map("a" -> 1, "b" -> 2), Map("a" -> 3, "b" -> 4))
+            ).toDF("m1", "m2")
+            val rootDir = provider.rootDir.get
+            val outParquetFile = s"$rootDir/mapFiles"
+            data.write.parquet(s"$outParquetFile")
+            val df = spark.read.parquet(s"$outParquetFile")
+            // Project [m1#13, m2#14, map_zip_with(m1#13, m2#14,
+            // lambdafunction((lambda y_1#19 + lambda z_2#20),
+            // lambda x_0#18, lambda y_1#19, lambda z_2#20, false)) AS merged_maps#17]
+            df.withColumn("merged_maps", org.apache.spark.sql.functions.map_zip_with(
+              $"m1", $"m2", (k, v1, v2) => v1 + v2))
+          })
+      .withChecker(
+        QToolResultCoreChecker("check app count and that the potential problems")
+          .withExpectedSize(1)
+          .withSuccessCode())
+      .withChecker(
+        QToolOutFileCheckerImpl("Unsupported operators should contain map_zip_with")
+          .withTableLabel("unsupportedOpsCSVReport")
+          .withContentVisitor(
+            "map_zip_with/ lambdaFunction does not appear in the Unsupported Operator column",
+            csvF => {
+              csvF.getColumn("Unsupported Operator") should not contain ("map_zip_with")
+              csvF.getColumn("Unsupported Operator") should not contain ("lambdafunction")
             }))
       .build()
   }
