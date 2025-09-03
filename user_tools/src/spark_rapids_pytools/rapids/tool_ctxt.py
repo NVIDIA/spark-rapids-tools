@@ -58,21 +58,22 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
+        # The common sessionUuid is currently only set in ProfilingCore
+        # and QualCore. Need to have the RUN_ID alignment for
+        # all tools that use ToolContext
         if self.platform_opts.get('sessionUuid'):
             self.uuid = self.platform_opts['sessionUuid']
             return
         # If RUN_ID is provided (in init_environment), align uuid with it
         # RUN_ID is expected to be in the format <name>_<time>_<unique_id>
-        # Safe access is needed in case of non-cli based context access
+        # Safe access is needed in case of non-cli based context access that
+        # do not trigger init_environment
         run_id = Utils.get_rapids_tools_env('RUN_ID')
-        if run_id:
-            try:
-                parts = run_id.split('_')
-                if len(parts) >= 3:
-                    self.uuid = '_'.join(parts[-2:])
-                    return
-            except Exception:
-                pass
+        if isinstance(run_id, str) and run_id:
+            parts = run_id.split('_')
+            if len(parts) >= 3:
+                self.uuid = '_'.join(parts[-2:])
+                return
         # Default behavior
         self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
