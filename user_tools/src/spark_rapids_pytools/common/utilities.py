@@ -209,15 +209,22 @@ class ToolLogging:
             'disable_existing_loggers': False,
             'formatters': {
                 'simple': {
-                    'format': '{asctime} {levelname} {name}: {message}',
+                    'format': '{asctime} {levelname} {name}{run_id_tag}: {message}',
                     'style': '{',
+                    'datefmt': '%H:%M:%S',
                 },
+            },
+            'filters': {
+                'run_id': {
+                    '()': 'spark_rapids_pytools.common.utilities.RunIdContextFilter'
+                }
             },
             'handlers': {
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'simple',
                     'level': 'DEBUG' if args.get('debug') else 'ERROR',
+                    'filters': ['run_id']
                 },
             },
             'root': {
@@ -246,7 +253,12 @@ class ToolLogging:
         if log_file and not logger.handlers:
             fh = logging.FileHandler(log_file)
             fh.setLevel(logging.DEBUG)
-            formatter = logging.Formatter('{asctime} {levelname} {name}: {message}', style='{')
+            fh.addFilter(RunIdContextFilter())
+            formatter = logging.Formatter(
+                '{asctime} {levelname} {name}{run_id_tag}: {message}',
+                style='{',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
             fh.setFormatter(formatter)
             logger.addHandler(fh)
         return logger
@@ -280,6 +292,18 @@ class ToolLogging:
                 else:
                     temp_file.write(line)
         return temp_file.name
+
+
+class RunIdContextFilter(logging.Filter):  # pylint: disable=too-few-public-methods
+    """
+    Pulls RUN_ID from environment; if absent, the tag is omitted entirely.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        run_id = Utils.get_rapids_tools_env('RUN_ID')
+        tag = f' [run_id={run_id}]' if run_id else ''
+        setattr(record, 'run_id_tag', tag)
+        return True
 
 
 class TemplateGenerator:

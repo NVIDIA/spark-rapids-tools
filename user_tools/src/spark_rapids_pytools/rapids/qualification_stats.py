@@ -66,12 +66,10 @@ class SparkQualStats(RapidsTool):
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
             self.output_folder = os.getcwd()
-        self.output_folder = FSUtil.get_abs_path(self.output_folder)
-        exec_dir_name = f'{self.name}_{self.ctxt.uuid}'
-        # It should never happen that the exec_dir_name exists
-        self.output_folder = FSUtil.build_path(self.output_folder, exec_dir_name)
-        FSUtil.make_dirs(self.output_folder, exist_ok=False)
-        self.ctxt.set_local('outputFolder', self.output_folder)
+        parent_dir = FSUtil.get_abs_path(self.output_folder)
+        # Use ToolContext; it ensures RUN_ID consistency safely
+        self.ctxt.set_local_directories(parent_dir)
+        self.output_folder = self.ctxt.get_output_folder()
         self.logger.info('Local output folder is set as: %s', self.output_folder)
         # Add QualCoreHandler to the context
         self.ctxt.set_ctxt('coreHandler', QualCore(self.qual_output))

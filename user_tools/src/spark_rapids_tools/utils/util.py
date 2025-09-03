@@ -241,9 +241,16 @@ def init_environment(short_name: str) -> str:
     tools_home_dir = FSUtil.build_path(home_dir, '.spark_rapids_tools')
     Utils.set_rapids_tools_env('HOME', tools_home_dir)
 
+    # 'RUN_ID' is used to create a common ID across a tools execution.
+    # This ID unifies -
+    #    * Appended to loggers for adding meta information
+    #    * For creating the output_directory with the same ID
+    #    * For creating local dependency work folders
+    Utils.set_rapids_tools_env('RUN_ID', f'{short_name}_{uuid}')
+
     log_file = resolve_and_prepare_log_file(short_name, uuid, tools_home_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
-    print(f'Location : {log_file}')
+    print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
 
     return uuid

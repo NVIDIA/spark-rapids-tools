@@ -235,6 +235,10 @@ class RapidsTool(object):
             # Ignore the exception here because this might be called toward the end/failure
             # and we do want to avoid nested exceptions.
             self.logger.debug('Failed to cleanup run')
+        finally:
+            # Clear RUN_ID to avoid leaking across runs in same process (single-run assumption)
+            env_key = Utils.find_full_rapids_tools_env_key('RUN_ID')
+            os.environ.pop(env_key, None)
 
     def _delete_local_dep_folder(self):
         # clean_up the local dependency folder
