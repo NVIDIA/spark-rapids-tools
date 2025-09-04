@@ -248,20 +248,30 @@ class ToolLogging:
         cls._ensure_configured(debug_enabled)
 
         logger = logging.getLogger(type_label)
-        log_file = Utils.get_rapids_tools_env('LOG_FILE')
-        # Ensure multiple handlers are not added
-        if log_file and not logger.handlers:
-            fh = logging.FileHandler(log_file)
-            fh.setLevel(logging.DEBUG)
-            fh.addFilter(RunIdContextFilter())
-            formatter = logging.Formatter(
-                '{asctime} {levelname} {name}{run_id_tag}: {message}',
-                style='{',
-                datefmt='%Y-%m-%d %H:%M:%S'
-            )
-            fh.setFormatter(formatter)
-            logger.addHandler(fh)
+
+        cls._rebind_file_handler(logger, Utils.get_rapids_tools_env('LOG_FILE'))
         return logger
+
+    @classmethod
+    def _rebind_file_handler(cls, logger: logging.Logger, log_file: str) -> None:
+        # Remove existing FileHandlers to avoid stale paths and duplicates
+        for handler in list(logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                logger.removeHandler(handler)
+                handler.close()
+        # Attach a FileHandler if LOG_FILE is set
+        if not log_file:
+            return
+        fh = logging.FileHandler(log_file)
+        fh.setLevel(logging.DEBUG)
+        fh.addFilter(RunIdContextFilter())
+        formatter = logging.Formatter(
+            '{asctime} {levelname} {name}{run_id_tag}: {message}',
+            style='{',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
 
     @classmethod
     def modify_log4j_properties(cls, prop_file_path: str, new_log_file: str) -> str:
