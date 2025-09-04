@@ -209,7 +209,7 @@ class ToolLogging:
             'disable_existing_loggers': False,
             'formatters': {
                 'simple': {
-                    'format': '{asctime} {levelname} {name}{run_id_tag}: {message}',
+                    'format': '{asctime} {levelname} {run_id_tag} {name}: {message}',
                     'style': '{',
                     'datefmt': '%H:%M:%S',
                 },
@@ -266,7 +266,7 @@ class ToolLogging:
         fh.setLevel(logging.DEBUG)
         fh.addFilter(RunIdContextFilter())
         formatter = logging.Formatter(
-            '{asctime} {levelname} {name}{run_id_tag}: {message}',
+            '{asctime} {levelname} {run_id_tag} {name}: {message}',
             style='{',
             datefmt='%Y-%m-%d %H:%M:%S'
         )

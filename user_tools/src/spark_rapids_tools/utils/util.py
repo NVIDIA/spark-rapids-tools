@@ -101,50 +101,13 @@ def stringify_path(fpath) -> str:
     return os.path.abspath(expanded_path)
 
 
-def validate_local_log_file_path(log_file_path: str) -> str:
-    """
-    - Must be a local path (no URI schemes like s3://, gs://, abfss://, http://)
-    - Must include a file name (not end with a directory)
-    - Parent path must be a directory (or creatable later)
-    - If the target exists, it must not be a directory
-    Returns the normalized absolute path.
-    """
-    if not log_file_path:
-        raise ValueError('Invalid LOG_FILE: path is empty')
-    if re.match(r'\w+://', str(log_file_path)):
-        raise ValueError('Invalid LOG_FILE: remote URIs are not supported; use a local file path')
-
-    normalized_path = stringify_path(log_file_path)
-    path_obj = Path(normalized_path)
-
-    if path_obj.name == '':
-        raise ValueError('Invalid LOG_FILE: must include a file name')
-
-    parent_dir = path_obj.parent
-    if parent_dir.exists() and not parent_dir.is_dir():
-        raise ValueError(f'Invalid LOG_FILE: parent path is not a directory: {parent_dir}')
-
-    if path_obj.exists() and path_obj.is_dir():
-        raise ValueError(f'Invalid LOG_FILE: points to a directory, not a file: {path_obj}')
-
-    return str(path_obj)
-
-
-def resolve_and_prepare_log_file(short_name: str, uuid: str, tools_home_dir: str):
-    """
-    Resolve LOG_FILE from env or default, validate/normalize it, set env to the
-    normalized value, ensure parent directory exists, and return the normalized value.
-    """
-    default_log_dir = f'{tools_home_dir}/logs'
-    default_log_file = f'{default_log_dir}/{short_name}_{uuid}.log'
-
-    # In case not already set, set to default
-    resolved = Utils.get_or_set_rapids_tools_env('LOG_FILE', default_log_file)
-    normalized = validate_local_log_file_path(resolved)
-    if normalized != resolved:
-        Utils.set_rapids_tools_env('LOG_FILE', normalized)
-    FSUtil.make_dirs(str(Path(normalized).parent))
-    return normalized
+def resolve_and_prepare_log_file(tools_home_dir: str):
+    run_id = Utils.get_rapids_tools_env('RUN_ID')
+    log_dir = f'{tools_home_dir}/logs'
+    log_file = f'{log_dir}/{run_id}.log'
+    Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    FSUtil.make_dirs(log_dir)
+    return log_file
 
 
 def is_http_file(value: Any) -> bool:
@@ -246,9 +209,10 @@ def init_environment(short_name: str) -> str:
     #    * Appended to loggers for adding meta information
     #    * For creating the output_directory with the same ID
     #    * For creating local dependency work folders
+    #    * For creating the log file with the same ID
     Utils.set_rapids_tools_env('RUN_ID', f'{short_name}_{uuid}')
 
-    log_file = resolve_and_prepare_log_file(short_name, uuid, tools_home_dir)
+    log_file = resolve_and_prepare_log_file(tools_home_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
     print(f"Run ID   : {Utils.get_rapids_tools_env('RUN_ID')}")
     print(f'Location: {log_file}')
