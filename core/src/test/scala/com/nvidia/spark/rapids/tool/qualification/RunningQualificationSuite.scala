@@ -201,9 +201,9 @@ class RunningQualificationSuite extends BaseTestSuite {
         // or Json.
         val sqlIdToLookup = allSQLIds.max
         val (csvOut, txtOut) = qualApp.getPerSqlTextAndCSVSummary(sqlIdToLookup)
-        assert(csvOut.contains("collect at ToolTestUtils.scala:73") && csvOut.contains(","),
+        assert(csvOut.contains("collect at ToolTestUtils.scala:83") && csvOut.contains(","),
           s"CSV output was: $csvOut")
-        assert(txtOut.contains("collect at ToolTestUtils.scala:73") && txtOut.contains("|"),
+        assert(txtOut.contains("collect at ToolTestUtils.scala:83") && txtOut.contains("|"),
           s"TXT output was: $txtOut")
         val sqlOut = qualApp.getPerSQLSummary(sqlIdToLookup, ":", prettyPrint = true, 5)
         assert(sqlOut.contains("colle:"), s"SQL output was: $sqlOut")

@@ -134,9 +134,9 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.head.gpuMode.equals(true))
     val rapidsJar =
       apps.head.classpathEntries.filterKeys(_ matches ".*rapids-4-spark_2.12-0.5.0.jar.*")
-    val cuDFJar = apps.head.classpathEntries.filterKeys(_ matches ".*cudf-0.19.2-cuda11.jar.*")
+    val cuDAJar = apps.head.classpathEntries.filterKeys(_ matches ".*cudf-0.19.2-cuda11.jar.*")
     assert(rapidsJar.size == 1, "Rapids jar check")
-    assert(cuDFJar.size == 1, "CUDF jar check")
+    assert(cuDAJar.size == 1, "CUDA jar check")
 
     val collect = new CollectInformation(apps)
     val rapidsJarResults = collect.getRapidsJARInfo

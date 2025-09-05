@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 package org.apache.spark.sql.rapids.tool.util
 
 import java.io.IOException
+import java.net.URL
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -33,7 +34,7 @@ import org.apache.spark.internal.Logging
  */
 object WebCrawlerUtil extends Logging {
   private val MAX_CRAWLER_DEPTH = 1
-  private val NV_MVN_BASE_URL = "https://repo1.maven.org/maven2/com/nvidia"
+  private val NV_MVN_BASE_URL = "https://edge.urm.nvidia.com/artifactory/sw-spark-maven/com/nvidia"
   // defines the artifacts of the RAPIDS libraries
   private val NV_ARTIFACTS_LOOKUP = Map(
     "rapids.plugin" -> "rapids-4-spark_2.12",
@@ -67,7 +68,16 @@ object WebCrawlerUtil extends Logging {
       webURL: String,
       regEx: Option[String],
       maxDepth: Int = MAX_CRAWLER_DEPTH): mutable.Set[String] = {
-
+    def removeDefaultPorts(rawLink: String): String = {
+      val jURL: URL = new URL(rawLink)
+      jURL.getProtocol match {
+        case "http" if jURL.getPort == 80 =>
+          rawLink.replace(":80", "")
+        case "https" if jURL.getPort == 443 =>
+          rawLink.replace(":443", "")
+        case _ => rawLink
+      }
+    }
     def processPageLinksInternal(currURL: String,
         cssQuery: String,
         currDepth: Int,
@@ -79,7 +89,8 @@ object WebCrawlerUtil extends Logging {
           val newDepth = currDepth + 1
           for (page <- pageURLs) {
             val newLink = page.attr("abs:href")
-            allLinks.add(newLink)
+            // remove the default port if any
+            allLinks.add(removeDefaultPorts(newLink))
             processPageLinksInternal(newLink, cssQuery, newDepth, allLinks)
           }
         } catch {

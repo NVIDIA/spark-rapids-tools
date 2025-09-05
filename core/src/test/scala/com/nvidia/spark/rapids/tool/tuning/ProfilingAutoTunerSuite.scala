@@ -121,8 +121,7 @@ abstract class ProfilingAutoTunerSuiteBase extends BaseAutoTunerSuite {
       case Some(v) => v
       case None => fail("Could not find pull the latest release successfully")
     }
-    "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/" +
-      s"$latestRelease/rapids-4-spark_2.12-$latestRelease.jar"
+    ToolTestUtils.pluginMvnPrefix(latestRelease) + ".jar"
   }
 }
 
