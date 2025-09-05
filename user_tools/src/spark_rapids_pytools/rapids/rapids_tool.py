@@ -160,7 +160,7 @@ class RapidsTool(object):
         self.logger.debug('Processing Output Arguments')
         # make sure output_folder is absolute
         if self.output_folder is None:
-            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_or_set_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         try:
             output_folder_path = LocalPath(self.output_folder)
             self.output_folder = output_folder_path.no_scheme

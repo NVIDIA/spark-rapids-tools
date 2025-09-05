@@ -61,7 +61,7 @@ class PriceProvider:
 
     def __post_init__(self):
         self.logger = ToolLogging.get_and_setup_logger(f'rapids.tools.price.{self.name}')
-        self.cache_directory = Utils.get_rapids_tools_env('CACHE_FOLDER')
+        self.cache_directory = Utils.get_or_set_rapids_tools_env('CACHE_FOLDER')
         self._process_configs()
         self._init_catalogs()
 

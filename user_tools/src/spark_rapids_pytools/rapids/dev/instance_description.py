@@ -53,7 +53,7 @@ class InstanceDescription(RapidsTool):
     def _process_output_args(self) -> None:
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
-            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_or_set_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         # make sure that output_folder is being absolute
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         FSUtil.make_dirs(self.output_folder)

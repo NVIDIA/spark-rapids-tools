@@ -102,7 +102,7 @@ def stringify_path(fpath) -> str:
 
 
 def resolve_and_prepare_log_file(tools_home_dir: str):
-    run_id = Utils.get_rapids_tools_env('RUN_ID')
+    run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
     log_dir = f'{tools_home_dir}/logs'
     log_file = f'{log_dir}/{run_id}.log'
     Utils.set_rapids_tools_env('LOG_FILE', log_file)
@@ -214,7 +214,7 @@ def init_environment(short_name: str) -> str:
 
     log_file = resolve_and_prepare_log_file(tools_home_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
-    print(f"Run ID   : {Utils.get_rapids_tools_env('RUN_ID')}")
+    print(f"Run ID  : {Utils.get_or_set_rapids_tools_env('RUN_ID')}")
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
 
