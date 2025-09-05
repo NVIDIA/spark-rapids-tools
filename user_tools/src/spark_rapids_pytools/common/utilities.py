@@ -120,7 +120,6 @@ class Utils:
             if default_val is not None:
                 cls.set_rapids_tools_env(k, default_val)
                 return str(default_val)
-            return current_val
         return current_val
 
     @classmethod
@@ -248,7 +247,7 @@ class ToolLogging:
         logger = logging.getLogger(type_label)
 
         # ToolLogging is a module level class
-        # For multiple instances of another class( Profiling/Qualification),
+        # For multiple instances of another class(Profiling/Qualification),
         # the logger corresponding to that is registered only once.
         # So any new/updated FileHandler are not updated. Hence, we need to
         # rebind the FileHandler every time we get a logger instance for a type_label
