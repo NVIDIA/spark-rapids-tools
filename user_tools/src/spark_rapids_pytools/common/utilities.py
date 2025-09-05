@@ -109,13 +109,18 @@ class Utils:
         return os.environ.get(k, def_val)
 
     @classmethod
-    def get_rapids_tools_env(cls, k: str, def_val=None):
-        val = cls.get_sys_env_var(cls.find_full_rapids_tools_env_key(k), def_val)
-        return val
-
-    @classmethod
     def set_rapids_tools_env(cls, k: str, val):
         os.environ[cls.find_full_rapids_tools_env_key(k)] = str(val)
+
+    @classmethod
+    def get_or_set_rapids_tools_env(cls, k: str, default_val=None) -> Optional[str]:
+        full_key = cls.find_full_rapids_tools_env_key(k)
+        current_val = cls.get_sys_env_var(full_key, None)
+        if current_val is None or (isinstance(current_val, str) and current_val == ''):
+            if default_val is not None:
+                cls.set_rapids_tools_env(k, default_val)
+                return str(default_val)
+        return current_val
 
     @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
@@ -201,15 +206,22 @@ class ToolLogging:
             'disable_existing_loggers': False,
             'formatters': {
                 'simple': {
-                    'format': '{asctime} {levelname} {name}: {message}',
+                    'format': '{asctime} {levelname} {run_id_tag} {name}: {message}',
                     'style': '{',
+                    'datefmt': '%H:%M:%S',
                 },
+            },
+            'filters': {
+                'run_id': {
+                    '()': 'spark_rapids_pytools.common.utilities.RunIdContextFilter'
+                }
             },
             'handlers': {
                 'console': {
                     'class': 'logging.StreamHandler',
                     'formatter': 'simple',
                     'level': 'DEBUG' if args.get('debug') else 'ERROR',
+                    'filters': ['run_id']
                 },
             },
             'root': {
@@ -224,24 +236,46 @@ class ToolLogging:
 
     @classmethod
     def is_debug_mode_enabled(cls):
-        return Utils.get_rapids_tools_env('LOG_DEBUG')
+        return Utils.get_or_set_rapids_tools_env('LOG_DEBUG')
 
     @classmethod
     def get_and_setup_logger(cls, type_label: str, debug_mode: bool = False):
-        debug_enabled = bool(Utils.get_rapids_tools_env('LOG_DEBUG', debug_mode))
+        debug_enabled = bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG', debug_mode))
 
         cls._ensure_configured(debug_enabled)
 
         logger = logging.getLogger(type_label)
-        log_file = Utils.get_rapids_tools_env('LOG_FILE')
-        # Ensure multiple handlers are not added
-        if log_file and not logger.handlers:
-            fh = logging.FileHandler(log_file)
-            fh.setLevel(logging.DEBUG)
-            formatter = logging.Formatter('{asctime} {levelname} {name}: {message}', style='{')
-            fh.setFormatter(formatter)
-            logger.addHandler(fh)
+
+        # ToolLogging is a module level class
+        # For multiple instances of another class(Profiling/Qualification),
+        # the logger corresponding to that is registered only once.
+        # So any new/updated FileHandler are not updated. Hence, we need to
+        # rebind the FileHandler every time we get a logger instance for a type_label
+        cls._rebind_file_handler(logger, Utils.get_or_set_rapids_tools_env('LOG_FILE'))
         return logger
+
+    @classmethod
+    def _rebind_file_handler(cls, logger: logging.Logger, log_file: str) -> None:
+        # Remove existing FileHandlers to avoid stale paths and duplicates
+        # Stale paths can occur if LOG_FILE env var changes between calls
+        # or if multiple instances of Profiling/Qualification are created.
+        for handler in list(logger.handlers):
+            if isinstance(handler, logging.FileHandler):
+                logger.removeHandler(handler)
+                handler.close()
+        # Attach a FileHandler if LOG_FILE is set
+        if not log_file:
+            return
+        fh = logging.FileHandler(log_file)
+        fh.setLevel(logging.DEBUG)
+        fh.addFilter(RunIdContextFilter())
+        formatter = logging.Formatter(
+            '{asctime} {levelname} {run_id_tag} {name}: {message}',
+            style='{',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
 
     @classmethod
     def modify_log4j_properties(cls, prop_file_path: str, new_log_file: str) -> str:
@@ -272,6 +306,18 @@ class ToolLogging:
                 else:
                     temp_file.write(line)
         return temp_file.name
+
+
+class RunIdContextFilter(logging.Filter):  # pylint: disable=too-few-public-methods
+    """
+    Pulls RUN_ID from environment; if absent, the tag is omitted entirely.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
+        tag = f' [{run_id}]' if run_id else ''
+        setattr(record, 'run_id_tag', tag)
+        return True
 
 
 class TemplateGenerator:

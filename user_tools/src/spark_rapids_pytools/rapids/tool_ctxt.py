@@ -58,14 +58,28 @@ class ToolContext(YAMLPropertiesContainer):
         self.platform = self.platform_cls(ctxt_args=self.platform_opts)
 
     def __create_and_set_uuid(self):
+        # The common sessionUuid is currently only set in ProfilingCore
+        # and QualCore. Need to have the RUN_ID alignment for
+        # all tools that use ToolContext
         if self.platform_opts.get('sessionUuid'):
             self.uuid = self.platform_opts['sessionUuid']
-        else:
-            self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
+            return
+        # If RUN_ID is provided (in init_environment), align uuid with it
+        # RUN_ID is expected to be in the format <name>_<time>_<unique_id>
+        # Safe access is needed in case of non-cli based context access that
+        # do not trigger init_environment
+        run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
+        if isinstance(run_id, str) and run_id:
+            parts = run_id.split('_')
+            if len(parts) >= 3:
+                self.uuid = '_'.join(parts[-2:])
+                return
+        # Default behavior
+        self.uuid = Utils.gen_uuid_with_ts(suffix_len=8)
 
     def __create_and_set_cache_folder(self):
         # get the cache folder from environment variables or set it to default
-        cache_folder = Utils.get_rapids_tools_env('CACHE_FOLDER', '/var/tmp/spark_rapids_user_tools_cache')
+        cache_folder = Utils.get_or_set_rapids_tools_env('CACHE_FOLDER', '/var/tmp/spark_rapids_user_tools_cache')
         # make sure the environment is set
         Utils.set_rapids_tools_env('CACHE_FOLDER', cache_folder)
         FSUtil.make_dirs(cache_folder)
@@ -154,7 +168,12 @@ class ToolContext(YAMLPropertiesContainer):
         :param output_parent_folder: the directory where the local output is going to be created.
         """
         short_name = self.get_value('platform', 'shortName')
-        exec_dir_name = f'{short_name}_{self.uuid}'
+        # If RUN_ID is provided, use it verbatim to ensure exact match with logging RUN_ID
+        run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
+        exec_dir_name = run_id if run_id else f'{short_name}_{self.uuid}'
+        # Ensure RUN_ID is set when absent (non-CLI usage); unify logs and folder names
+        if not run_id:
+            Utils.set_rapids_tools_env('RUN_ID', exec_dir_name)
         self.set_ctxt('execFullName', exec_dir_name)
         # create the local dependency folder
         self._set_local_dep_dir()
