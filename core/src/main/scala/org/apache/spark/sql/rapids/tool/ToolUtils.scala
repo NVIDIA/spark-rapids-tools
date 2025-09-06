@@ -49,7 +49,8 @@ object ToolUtils extends Logging {
     "330" -> new ComparableVersion("3.3.0"), // used to check for memoryOverheadFactor
     "331" -> new ComparableVersion("3.3.1"),
     "340" -> new ComparableVersion("3.4.0"), // introduces jsonProtocolChanges
-    "350" -> new ComparableVersion("3.5.0")  // default build version, introduces windowGroupLimit
+    "350" -> new ComparableVersion("3.5.0"), // introduces windowGroupLimit
+    "356" -> new ComparableVersion("3.5.6")  // default build version
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
