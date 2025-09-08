@@ -160,7 +160,7 @@ class RapidsTool(object):
         self.logger.debug('Processing Output Arguments')
         # make sure output_folder is absolute
         if self.output_folder is None:
-            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_or_set_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         try:
             output_folder_path = LocalPath(self.output_folder)
             self.output_folder = output_folder_path.no_scheme
@@ -235,6 +235,10 @@ class RapidsTool(object):
             # Ignore the exception here because this might be called toward the end/failure
             # and we do want to avoid nested exceptions.
             self.logger.debug('Failed to cleanup run')
+        finally:
+            # Clear RUN_ID to avoid leaking across runs in same process (single-run assumption)
+            env_key = Utils.find_full_rapids_tools_env_key('RUN_ID')
+            os.environ.pop(env_key, None)
 
     def _delete_local_dep_folder(self):
         # clean_up the local dependency folder
