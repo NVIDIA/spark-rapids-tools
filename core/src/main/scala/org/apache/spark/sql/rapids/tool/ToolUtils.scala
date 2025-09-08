@@ -17,6 +17,7 @@
 package org.apache.spark.sql.rapids.tool
 
 import scala.util.{Failure, Success, Try}
+import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.Platform
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
@@ -40,7 +41,13 @@ object ToolUtils extends Logging {
     "spark.executor.extraClassPath",
     "spark.yarn.dist.jars",
     "spark.repl.local.jars")
-  val RAPIDS_JAR_REGEX = "(.*rapids-4-spark.*jar)|(.*cudf.*jar)".r
+  // matches file paths or names of JAR files related to RAPIDS, cuDF, or CUDA:
+  // - .*rapids-4-spark.*\.jar: Matches any JAR file whose name contains rapids-4-spark.
+  // - .*cuda[0-9]+.*\.jar: Matches any JAR file whose name contains cuda followed by one or more
+  //   digits.
+  // Examples: rapids-4-spark_2.12-25.08.0.jar; rapids-4-spark_2.12-25.08.0-cuda12-arm64.jar
+  val RAPIDS_JAR_REGEX: Regex =
+    "(.*rapids-4-spark.*\\.jar)|(.*cuda[0-9]+.*\\.jar)".r
 
   // Add more entries to this lookup table as necessary.
   // There is no need to list all supported versions.

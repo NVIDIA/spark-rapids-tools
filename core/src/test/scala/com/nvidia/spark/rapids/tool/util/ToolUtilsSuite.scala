@@ -23,6 +23,7 @@ import java.util.Calendar
 import scala.concurrent.duration._
 import scala.xml.XML
 
+import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
 import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.FunSuite
@@ -32,52 +33,33 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.InvalidMemoryUnitFormatException
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, InPlaceMedianArrView, RapidsToolsConfUtil, StringUtils, WebCrawlerUtil}
+import org.apache.spark.sql.rapids.tool.util._
 
 class ToolUtilsSuite extends FunSuite with Logging {
   test("get page links of a url") {
     // Tests that getPageLinks return all the [href] in a page.
     // This is done manually by checking against a URL that won't likely change
     // (aka. an old release page should be stable).
-    val baseURL = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12"
-    val version = "23.04.0"
-    val filePrefix = s"rapids-4-spark_2.12-$version"
-    val mvnURL = s"$baseURL/$version"
 
-    val webURL = mvnURL
+    val version = "25.08.0"
+    val mvnPrefix = ToolTestUtils.pluginMvnPrefix(version)
+    val webURL = ToolTestUtils.pluginMvnURL(version)
     val allLinks = WebCrawlerUtil.getPageLinks(webURL, None)
+
     val expected = Set[String](
-      s"$baseURL/",
-      s"$mvnURL/$filePrefix-cuda11.jar.asc.sha1",
-      s"$mvnURL/$filePrefix-javadoc.jar.asc.md5",
-      s"$mvnURL/$filePrefix-sources.jar.md5",
-      s"$mvnURL/$filePrefix-cuda11.jar.sha1",
-      s"$mvnURL/$filePrefix-javadoc.jar.asc.sha1",
-      s"$mvnURL/$filePrefix-javadoc.jar.sha1",
-      s"$mvnURL/$filePrefix-sources.jar",
-      s"$mvnURL/$filePrefix.jar.asc",
-      s"$mvnURL/$filePrefix-sources.jar.sha1",
-      s"$mvnURL/$filePrefix.jar.sha1",
-      s"$mvnURL/$filePrefix.pom.asc.md5",
-      s"$mvnURL/$filePrefix-sources.jar.asc.sha1",
-      s"$mvnURL/$filePrefix-javadoc.jar",
-      s"$mvnURL/$filePrefix.jar",
-      s"$mvnURL/$filePrefix.jar.md5",
-      s"$mvnURL/$filePrefix.jar.asc.sha1",
-      s"$mvnURL/$filePrefix.jar.asc.md5",
-      s"$mvnURL/$filePrefix.pom.asc.sha1",
-      s"$mvnURL/$filePrefix.pom.md5",
-      s"$mvnURL/$filePrefix.pom.sha1",
-      s"$mvnURL/$filePrefix-javadoc.jar.asc",
-      s"$mvnURL/$filePrefix-cuda11.jar.asc",
-      s"$mvnURL/$filePrefix-cuda11.jar.asc.md5",
-      s"$mvnURL/$filePrefix-cuda11.jar",
-      s"$mvnURL/$filePrefix-javadoc.jar.md5",
-      s"$mvnURL/$filePrefix-cuda11.jar.md5",
-      s"$mvnURL/$filePrefix-sources.jar.asc",
-      s"$mvnURL/$filePrefix-sources.jar.asc.md5",
-      s"$mvnURL/$filePrefix.pom.asc",
-      s"$mvnURL/$filePrefix.pom")
+      s"${ToolTestUtils.RAPIDS_MVN_BASE_URL}",
+      s"$mvnPrefix-cuda12-arm64.jar",
+      s"$mvnPrefix-cuda12-arm64.jar.asc",
+      s"$mvnPrefix-cuda12.jar",
+      s"$mvnPrefix-cuda12.jar.asc",
+      s"$mvnPrefix-javadoc.jar",
+      s"$mvnPrefix-javadoc.jar.asc",
+      s"$mvnPrefix-sources.jar",
+      s"$mvnPrefix-sources.jar.asc",
+      s"$mvnPrefix.jar",
+      s"$mvnPrefix.jar.asc",
+      s"$mvnPrefix.pom.asc",
+      s"$mvnPrefix.pom")
     // all links should be matching
     allLinks shouldBe expected
   }
@@ -85,19 +67,17 @@ class ToolUtilsSuite extends FunSuite with Logging {
   // checks that regex is used correctly to filter the href pulled from a given url
   test("get page links of a url with regex") {
     // see the list of available regex in https://jsoup.org/cookbook/extracting-data/selector-syntax
-    val baseURL = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12"
-    val version = "23.04.0"
-    val filePrefix = s"rapids-4-spark_2.12-$version"
-    val mvnURL = s"$baseURL/$version"
-
-    val webURL = mvnURL
+    val version = "25.08.0"
+    val mvnPrefix = ToolTestUtils.pluginMvnPrefix(version)
+    val webURL = ToolTestUtils.pluginMvnURL(version)
     val jarFileRegEx = ".*\\.jar$"
     val allLinks = WebCrawlerUtil.getPageLinks(webURL, Some(jarFileRegEx))
     val expected = Set[String](
-      s"$mvnURL/$filePrefix-cuda11.jar",
-      s"$mvnURL/$filePrefix.jar",
-      s"$mvnURL/$filePrefix-javadoc.jar",
-      s"$mvnURL/$filePrefix-sources.jar"
+      s"$mvnPrefix-cuda12-arm64.jar",
+      s"$mvnPrefix-cuda12.jar",
+      s"$mvnPrefix-javadoc.jar",
+      s"$mvnPrefix-sources.jar",
+      s"$mvnPrefix.jar"
     )
     // all links should end with jar files
     allLinks shouldBe expected
@@ -107,7 +87,7 @@ class ToolUtilsSuite extends FunSuite with Logging {
   test("list available mvn releases") {
     // use mvn repo url got testing
     val artifactID = "rapids-4-spark_2.12"
-    val baseURL = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12"
+    val baseURL = ToolTestUtils.RAPIDS_MVN_BASE_URL
     val nvReleases = WebCrawlerUtil.getMvnReleasesForNVPackage(artifactID)
     // get all the links on the page
     val allLinks = WebCrawlerUtil.getPageLinks(baseURL, None).mkString("\n")
@@ -119,7 +99,7 @@ class ToolUtilsSuite extends FunSuite with Logging {
   test("get latest release") {
     // use mvn repo url got testing
     val artifactID = "rapids-4-spark_2.12"
-    val baseURL = "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12"
+    val baseURL = ToolTestUtils.RAPIDS_MVN_BASE_URL
     val latestRelease = WebCrawlerUtil.getLatestMvnReleaseForNVPackage(artifactID) match {
       case Some(v) => v
       case None => fail("Could not find pull the latest release successfully")
