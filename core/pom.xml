@@ -423,6 +423,22 @@
             </properties>
         </profile>
         <profile>
+            <id>spark356</id>
+            <activation>
+                <property>
+                    <name>buildver</name>
+                    <value>356</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>356</buildver>
+                <spark.version>${spark356.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
+                <delta.core.version>${delta31x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+            </properties>
+        </profile>
+        <profile>
             <id>spark400</id>
             <activation>
                 <property>
@@ -448,8 +464,8 @@
             -->
             <id>release</id>
             <properties>
-                <buildver>350</buildver>
-                <spark.version>${spark350.version}</spark.version>
+                <buildver>356</buildver>
+                <spark.version>${spark356.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta31x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
@@ -485,6 +501,7 @@
         <spark353.version>3.5.3</spark353.version>
         <spark354.version>3.5.4</spark354.version>
         <spark355.version>3.5.5</spark355.version>
+        <spark356.version>3.5.6</spark356.version>
         <spark400.version>4.0.0-SNAPSHOT</spark400.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>

@@ -602,8 +602,8 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
 
     @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
-        # Default timeout in seconds (30 minutes)
-        default_download_timeout = 1800
+        # Default timeout in seconds (60 minutes)
+        default_download_timeout = 3600
 
         def exception_handler(future):
             # Handle any exceptions raised by the task

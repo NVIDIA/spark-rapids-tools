@@ -367,6 +367,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     "3.5.3" -> "353",
     "3.5.4" -> "354",
     "3.5.5" -> "355",
+    "3.5.6" -> "356",
     "4.0.0" -> "400"
   )
 
