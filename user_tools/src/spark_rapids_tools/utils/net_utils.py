@@ -289,7 +289,7 @@ class DownloadTask:
         download_opts = {
             'srcUrl': str(self.src_url),
             'destPath': local_res.no_scheme,
-            # set default timeout of a single task to 1 hour
+            # set default timeout of a single task to 60 minutes
             'timeOut': self.configs.get('timeOut', 3600),
         }
         download_res = self._download_resource(download_opts)

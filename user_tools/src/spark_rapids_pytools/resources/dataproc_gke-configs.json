@@ -21,7 +21,7 @@
           },
           {
             "name": "GCS Connector Hadoop3",
-            "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.14/gcs-connector-hadoop3-2.2.14.jar",
+            "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.14/gcs-connector-hadoop3-2.2.14-shaded.jar",
             "verification": {
               "fileHash": {
                 "algorithm": "sha1",
