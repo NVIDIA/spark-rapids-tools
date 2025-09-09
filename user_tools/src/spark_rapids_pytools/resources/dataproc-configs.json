@@ -3,6 +3,34 @@
     "deployMode": {
       "LOCAL": {
         "//activeBuildVer": "Define this key in order to set the default buildVer for that platform",
+        "356": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "1b9ce1cd6e1b78d08f5f36a0b2b9b6802c1e22a20c6b0c6f53ef56bb352ad1b5812e0de7927cb0d2eadcca17cfaa701d6ee0b8ebf8f0689e80a36679e15cd3a3"
+              },
+              "size": 400923510
+            },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          },
+          {
+            "name": "GCS Connector Hadoop3",
+            "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.14/gcs-connector-hadoop3-2.2.14-shaded.jar",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "0cba424d7e107f92431ab7b7acf08c371d4aed52"
+              },
+              "size": 38298738
+            }
+          }
+        ],
         "350": [
           {
             "name": "Apache Spark",

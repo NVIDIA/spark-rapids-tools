@@ -319,3 +319,6 @@ BitwiseCount,1.5
 BitAndAgg,1.5
 BitOrAgg,1.5
 BitXorAgg,1.5
+MapZipWith,1.5
+Uuid,1.5
+Invoke,1.5

@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,7 +53,7 @@ class InstanceDescription(RapidsTool):
     def _process_output_args(self) -> None:
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
-            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_or_set_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         # make sure that output_folder is being absolute
         self.output_folder = FSUtil.get_abs_path(self.output_folder)
         FSUtil.make_dirs(self.output_folder)

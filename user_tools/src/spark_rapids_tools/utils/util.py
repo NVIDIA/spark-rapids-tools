@@ -101,6 +101,15 @@ def stringify_path(fpath) -> str:
     return os.path.abspath(expanded_path)
 
 
+def resolve_and_prepare_log_file(tools_home_dir: str):
+    run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
+    log_dir = f'{tools_home_dir}/logs'
+    log_file = f'{log_dir}/{run_id}.log'
+    Utils.set_rapids_tools_env('LOG_FILE', log_file)
+    FSUtil.make_dirs(log_dir)
+    return log_file
+
+
 def is_http_file(value: Any) -> bool:
     try:
         TypeAdapter(AnyHttpUrl).validate_python(value)
@@ -195,14 +204,17 @@ def init_environment(short_name: str) -> str:
     tools_home_dir = FSUtil.build_path(home_dir, '.spark_rapids_tools')
     Utils.set_rapids_tools_env('HOME', tools_home_dir)
 
-    # Set the 'LOG_FILE' environment variable and create the log directory.
-    log_dir = f'{tools_home_dir}/logs'
-    log_file = f'{log_dir}/{short_name}_{uuid}.log'
-    Utils.set_rapids_tools_env('LOG_FILE', log_file)
-    FSUtil.make_dirs(log_dir)
+    # 'RUN_ID' is used to create a common ID across a tools execution.
+    # This ID unifies -
+    #    * Appended to loggers for adding meta information
+    #    * For creating the output_directory with the same ID
+    #    * For creating local dependency work folders
+    #    * For creating the log file with the same ID
+    Utils.set_rapids_tools_env('RUN_ID', f'{short_name}_{uuid}')
 
-    # Print the log file location
+    log_file = resolve_and_prepare_log_file(tools_home_dir)
     print(Utils.gen_report_sec_header('Application Logs'))
+    print(f"Run ID  : {Utils.get_or_set_rapids_tools_env('RUN_ID')}")
     print(f'Location: {log_file}')
     print('In case of any errors, please share the log file with the Spark RAPIDS team.\n')
 

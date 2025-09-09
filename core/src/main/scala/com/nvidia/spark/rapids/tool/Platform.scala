@@ -367,6 +367,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     "3.5.3" -> "353",
     "3.5.4" -> "354",
     "3.5.5" -> "355",
+    "3.5.6" -> "356",
     "4.0.0" -> "400"
   )
 
@@ -710,6 +711,20 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
     userEnforcedRecommendations.get(propertyKey)
+  }
+
+  /**
+   * Check if the property is preserved in the target cluster.
+   */
+  final def isPropertyPreserved(propertyKey: String): Boolean = {
+    targetCluster.exists(_.getSparkProperties.preservePropertiesSet.contains(propertyKey))
+  }
+
+  /**
+   * Check if the property is excluded in the target cluster.
+   */
+  final def isPropertyExcluded(propertyKey: String): Boolean = {
+    targetCluster.exists(_.getSparkProperties.excludePropertiesSet.contains(propertyKey))
   }
 
   /**

@@ -24,7 +24,7 @@ import re
 
 import pandas as pd
 
-from spark_rapids_tools.api_v1 import APIHelpers
+from spark_rapids_tools.api_v1 import ProfWrapper
 from spark_rapids_tools.tools.qualx.config import get_config
 from spark_rapids_tools.tools.qualx.util import (
     ensure_directory,
@@ -276,7 +276,7 @@ def load_profiles(
             app_meta = ds_meta['app_meta']
         elif profile_dir is not None:
             # during training/evaluation, we expect profile_dir to point to the qualx_cache
-            profile_paths = APIHelpers.ProfWrapper.find_report_paths(f'{profile_dir}/{ds_name}')
+            profile_paths = ProfWrapper.find_report_paths(f'{profile_dir}/{ds_name}')
             # get app_meta, or infer from directory structure of eventlogs
             app_meta = ds_meta.get('app_meta', infer_app_meta(ds_meta['eventlogs']))
         else:

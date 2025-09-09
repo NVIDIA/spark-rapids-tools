@@ -22,7 +22,7 @@ from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.common.utilities import Utils
 from spark_rapids_pytools.rapids.rapids_tool import RapidsTool
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
-from spark_rapids_tools.api_v1 import APIHelpers
+from spark_rapids_tools.api_v1.builder import QualCore
 from spark_rapids_tools.tools.qualification_stats_report import SparkQualificationStats
 
 
@@ -66,16 +66,13 @@ class SparkQualStats(RapidsTool):
         self.logger.debug('Processing Output Arguments')
         if self.output_folder is None:
             self.output_folder = os.getcwd()
-        self.output_folder = FSUtil.get_abs_path(self.output_folder)
-        exec_dir_name = f'{self.name}_{self.ctxt.uuid}'
-        # It should never happen that the exec_dir_name exists
-        self.output_folder = FSUtil.build_path(self.output_folder, exec_dir_name)
-        FSUtil.make_dirs(self.output_folder, exist_ok=False)
-        self.ctxt.set_local('outputFolder', self.output_folder)
+        parent_dir = FSUtil.get_abs_path(self.output_folder)
+        # Use ToolContext; it ensures RUN_ID consistency safely
+        self.ctxt.set_local_directories(parent_dir)
+        self.output_folder = self.ctxt.get_output_folder()
         self.logger.info('Local output folder is set as: %s', self.output_folder)
         # Add QualCoreHandler to the context
-        self.ctxt.set_ctxt('coreHandler',
-                           APIHelpers.QualCore.build_handler(dir_path=self.qual_output))
+        self.ctxt.set_ctxt('coreHandler', QualCore(self.qual_output))
 
     def _run_rapids_tool(self) -> None:
         """

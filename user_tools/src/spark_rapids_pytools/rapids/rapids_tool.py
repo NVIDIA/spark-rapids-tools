@@ -37,7 +37,8 @@ from spark_rapids_pytools.common.utilities import ToolLogging, Utils, ToolsSpinn
 from spark_rapids_pytools.rapids.rapids_job import RapidsJobPropContainer
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_tools import CspEnv
-from spark_rapids_tools.api_v1 import ToolResultHandlerT, APIHelpers
+from spark_rapids_tools.api_v1 import ToolResultHandlerT
+from spark_rapids_tools.api_v1 import APIResHandler, QualCore, ProfCore
 from spark_rapids_tools.configuration.common import RuntimeDependency
 from spark_rapids_tools.configuration.submission.distributed_config import DistributedToolsConfig
 from spark_rapids_tools.configuration.tools_config import ToolsConfig
@@ -159,7 +160,7 @@ class RapidsTool(object):
         self.logger.debug('Processing Output Arguments')
         # make sure output_folder is absolute
         if self.output_folder is None:
-            self.output_folder = Utils.get_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
+            self.output_folder = Utils.get_or_set_rapids_tools_env('OUTPUT_DIRECTORY', os.getcwd())
         try:
             output_folder_path = LocalPath(self.output_folder)
             self.output_folder = output_folder_path.no_scheme
@@ -234,6 +235,10 @@ class RapidsTool(object):
             # Ignore the exception here because this might be called toward the end/failure
             # and we do want to avoid nested exceptions.
             self.logger.debug('Failed to cleanup run')
+        finally:
+            # Clear RUN_ID to avoid leaking across runs in same process (single-run assumption)
+            env_key = Utils.find_full_rapids_tools_env_key('RUN_ID')
+            os.environ.pop(env_key, None)
 
     def _delete_local_dep_folder(self):
         # clean_up the local dependency folder
@@ -448,7 +453,7 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
     """
 
     @cached_property
-    def core_handler(self) -> ToolResultHandlerT:
+    def core_handler(self) -> APIResHandler[ToolResultHandlerT]:
         """
         Create and return a coreHandler instance for reading core reports.
         This property should always be called after the scala code has executed.
@@ -459,9 +464,9 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
         """
         normalized_tool_name = self.name.lower()
         if 'qualification' in normalized_tool_name:
-            return APIHelpers.QualCore.build_handler(dir_path=self.csp_output_path)
+            return QualCore(self.csp_output_path)
         if 'profiling' in normalized_tool_name:
-            return APIHelpers.ProfCore.build_handler(dir_path=self.csp_output_path)
+            return ProfCore(self.csp_output_path)
         raise ValueError(f'Tool name [{normalized_tool_name}] has no CoreHandler associated with it.')
 
     def _process_jar_arg(self):
@@ -597,8 +602,8 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
 
     @timeit('Downloading dependencies for local Mode')  # pylint: disable=too-many-function-args
     def _download_dependencies(self):
-        # Default timeout in seconds (30 minutes)
-        default_download_timeout = 1800
+        # Default timeout in seconds (60 minutes)
+        default_download_timeout = 3600
 
         def exception_handler(future):
             # Handle any exceptions raised by the task

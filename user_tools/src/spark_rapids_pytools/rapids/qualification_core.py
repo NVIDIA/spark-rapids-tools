@@ -18,11 +18,11 @@ from dataclasses import dataclass
 from typing import List
 
 from spark_rapids_pytools.rapids.rapids_tool import RapidsJarTool
-from spark_rapids_tools.api_v1 import QualCoreResultHandler
+from spark_rapids_tools.api_v1 import QualCore
 
 
 @dataclass
-class QualificationCore(RapidsJarTool[QualCoreResultHandler]):
+class QualificationCore(RapidsJarTool[QualCore]):
     """
     Base class for qualification tools that provides core qualification functionality.
     """

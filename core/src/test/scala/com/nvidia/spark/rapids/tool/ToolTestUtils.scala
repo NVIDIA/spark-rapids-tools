@@ -18,14 +18,15 @@ package com.nvidia.spark.rapids.tool
 
 import java.io.{File, FilenameFilter, FileNotFoundException}
 
+import scala.collection.mutable.ArrayBuffer
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
-import com.nvidia.spark.rapids.tool.tuning.{DriverInfo, GpuWorkerProps, SparkProperties, TargetClusterProps, TuningConfigEntry, TuningConfigsProvider, TuningEntryDefinition, WorkerInfo}
+import com.nvidia.spark.rapids.tool.tuning._
 import org.apache.hadoop.fs.Path
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
-import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
@@ -36,6 +37,8 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
+  val RAPIDS_MVN_BASE_URL =
+    "https://edge.urm.nvidia.com/artifactory/sw-spark-maven/com/nvidia/rapids-4-spark_2.12/"
 
   // Scheme fields for Status Report file
   private val csvStatusFields = Seq(
@@ -46,6 +49,13 @@ object ToolTestUtils extends Logging {
 
   val statusReportSchema =
     new StructType(csvStatusFields.map(f => StructField(f._1, f._2)).toArray)
+
+  def pluginMvnURL(version: String): String = {
+    s"$RAPIDS_MVN_BASE_URL$version"
+  }
+  def pluginMvnPrefix(version: String): String = {
+    s"${pluginMvnURL(version)}/rapids-4-spark_2.12-$version"
+  }
 
   def getTestResourceFile(file: String): File = {
     new File(getClass.getClassLoader.getResource(file).getFile)
@@ -213,6 +223,8 @@ object ToolTestUtils extends Logging {
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
       enforcedSparkProperties: Map[String, String] = Map.empty,
+      preserveSparkProperties: List[String] = List.empty,
+      excludeSparkProperties: List[String] = List.empty,
       tuningDefinitions: java.util.List[TuningEntryDefinition] =
         new java.util.ArrayList[TuningEntryDefinition]()): TargetClusterProps = {
     val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
@@ -223,6 +235,8 @@ object ToolTestUtils extends Logging {
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
+    sparkProps.getPreserve.addAll(preserveSparkProperties.asJava)
+    sparkProps.getExclude.addAll(excludeSparkProperties.asJava)
     sparkProps.setTuningDefinitions(tuningDefinitions)
     new TargetClusterProps(driverProps, workerProps, sparkProps)
   }
@@ -236,11 +250,13 @@ object ToolTestUtils extends Logging {
       gpuMemory: Option[String] = None,
       gpuDevice: Option[String] = None,
       enforcedSparkProperties: Map[String, String] = Map.empty,
+      preserveSparkProperties: List[String] = List.empty,
+      excludeSparkProperties: List[String] = List.empty,
       tuningDefinitions: java.util.List[TuningEntryDefinition] =
         new java.util.ArrayList[TuningEntryDefinition]()): String = {
     val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
       cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties,
-      tuningDefinitions)
+      preserveSparkProperties, excludeSparkProperties, tuningDefinitions)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -262,6 +278,8 @@ object ToolTestUtils extends Logging {
        gpuMemory: Option[String] = None,
        gpuDevice: Option[String] = None,
        enforcedSparkProperties: Map[String, String] = Map.empty,
+       preserveSparkProperties: List[String] = List.empty,
+       excludeSparkProperties: List[String] = List.empty,
        tuningDefinitions: java.util.List[TuningEntryDefinition] =
          new java.util.ArrayList[TuningEntryDefinition]()): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
@@ -269,7 +287,7 @@ object ToolTestUtils extends Logging {
     try {
       val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
         workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
-        enforcedSparkProperties, tuningDefinitions)
+        enforcedSparkProperties, preserveSparkProperties, excludeSparkProperties, tuningDefinitions)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {

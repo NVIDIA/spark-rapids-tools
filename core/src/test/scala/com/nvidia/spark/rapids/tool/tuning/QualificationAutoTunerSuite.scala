@@ -297,7 +297,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- ${getEnforcedPropertyComment("spark.rapids.sql.batchSizeBytes")}
             |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-            |- 'spark.shuffle.manager' was not set.
+            |- $shuffleManagerCommentForQualification
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.files.maxPartitionBytes' was not set.
             |- 'spark.task.resource.gpu.amount' was not set.
@@ -398,7 +398,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
+          |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -543,7 +543,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
+          |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -807,7 +807,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -824,7 +823,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
+          |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -878,7 +877,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -895,7 +893,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
+          |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -957,7 +955,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.concurrentGpuTasks=3
           |--conf spark.rapids.sql.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
@@ -973,7 +970,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
           |- 'spark.rapids.sql.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
-          |- 'spark.shuffle.manager' was not set.
+          |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
@@ -1206,5 +1203,264 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     assertExpectedLinesExist(expectedResults, autoTunerOutput)
+  }
+
+  // This test verifies that an error is raised if there are overlapping keys
+  // between exclude, preserve and enforced properties. In this case,
+  // 'spark.sql.files.maxPartitionBytes' is in both exclude and preserve lists
+  // and 'spark.sql.shuffle.partitions' is in both preserve and enforced lists
+  test("test exclude, preserve and enforced properties in target cluster with " +
+    "overlapping keys raise error") {
+    val excludeProperties = List(
+      "spark.rapids.sql.concurrentGpuTasks",
+      "spark.rapids.shuffle.multiThreaded.writer.threads",
+      "spark.rapids.shuffle.multiThreaded.reader.threads",
+      "spark.sql.files.maxPartitionBytes"
+    )
+    val preserveProperties = List(
+      "spark.sql.files.maxPartitionBytes",
+      "spark.sql.shuffle.partitions"
+    )
+    val enforcedSparkProperties = Map(
+      "spark.sql.shuffle.partitions" -> "800"
+    )
+    val exception = intercept[IllegalArgumentException] {
+      ToolTestUtils.buildTargetClusterInfo(
+        cpuCores = Some(16),
+        memoryGB = Some(64L),
+        gpuCount = Some(1),
+        gpuDevice = Some(GpuTypes.A100),
+        preserveSparkProperties = preserveProperties,
+        enforcedSparkProperties = enforcedSparkProperties,
+        excludeSparkProperties = excludeProperties)
+    }
+
+    // Verify the exception message contains the expected overlapping keys
+    val expectedOverlappingKeys = Set(
+      "spark.sql.files.maxPartitionBytes",  // in both exclude and preserve
+      "spark.sql.shuffle.partitions"       // in both preserve and enforced
+    )
+
+    expectedOverlappingKeys.foreach { key =>
+      assert(exception.getMessage.contains(key),
+        s"Exception message should contain overlapping key: $key. Message: ${exception.getMessage}")
+    }
+  }
+
+  test("test preserve properties not found in source") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "40g"
+        // Note: spark.sql.shuffle.partitions is NOT in source properties
+      )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    // Try to preserve a property that doesn't exist in source
+    val preserveProperties = List(
+      "spark.sql.shuffle.partitions" // This doesn't exist in source
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16),
+      memoryGB = Some(64L),
+      gpuCount = Some(1),
+      gpuDevice = Some(GpuTypes.A100),
+      preserveSparkProperties = preserveProperties
+    )
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 16,
+      execsPerNode = 1,
+      numExecs = 2,
+      numExecutorNodes = 2,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=4
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- $shuffleManagerCommentForQualification
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- ${getPreservedPropertyNotFoundComment("spark.sql.shuffle.partitions")}
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.jars.missing")}
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |- $additionalSparkPluginsComment
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  test("test e2e exclude, preserve and enforced properties in target cluster") {
+    val testEventLog = s"$qualLogDir/nds_q72_dataproc_2_2.zstd"
+
+    val excludeProperties = List(
+      // Exclude a property that is set in event log
+      "spark.master",
+      // Exclude a property that is recommended by AutoTuner
+      "spark.rapids.sql.concurrentGpuTasks"
+    )
+    val preserveProperties = List(
+      // Preserve a property that is not present in event log
+      "spark.task.resource.gpu.amount",
+      // Preserve a property that is present and recommended by AutoTuner
+      "spark.executor.memory",
+      // Preserve a property that is present but not recommended by AutoTuner
+      "spark.dataproc.engine"
+    )
+    val enforcedSparkProperties = Map(
+      "spark.sql.shuffle.partitions" -> "800"
+    )
+
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        preserveSparkProperties = preserveProperties,
+        enforcedSparkProperties = enforcedSparkProperties,
+        excludeSparkProperties = excludeProperties)
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--auto-tuner",
+        testEventLog
+      ))
+
+      val result = QualificationMain.mainInternal(appArgs)
+      assert(!result.isFailed)
+      val appId = result.appSummaries.headOption.map(_.appId)
+        .getOrElse(throw new TestFailedException("No appId found in the result", 0))
+
+      // 1. Verify that enforced properties appear in the combined tuning log
+      val combinedResultPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId.conf"
+      ).toString
+      val actualCombinedResults = FSUtils.readFileContentAsUTF8(combinedResultPath)
+
+      enforcedSparkProperties.keys.foreach { propertyName =>
+        assert(actualCombinedResults.contains(s"--conf $propertyName="),
+          s"Property $propertyName should appear in tuning log")
+      }
+
+      excludeProperties.foreach { propertyName =>
+        assert(!actualCombinedResults.contains(s"--conf $propertyName="),
+          s"Excluded Property $propertyName should NOT appear in tuning log")
+      }
+
+      // 2. Verify the tuning results contain expected properties and comments
+      val tuningResultPath = Paths.get(
+        QualReportGenConfProvider.getTuningReportPath(tempDir.getAbsolutePath),
+        s"$appId.log"
+      ).toString
+      val actualTuningResults = FSUtils.readFileContentAsUTF8(tuningResultPath)
+
+      // scalastyle:off line.size.limit
+      val expectedResults =
+        s"""|
+            |### Recommended SPARK Configuration on GPU Cluster for App: $appId ###
+            |
+            |Spark Properties:
+            |--conf spark.dataproc.engine=default
+            |--conf spark.dataproc.enhanced.execution.enabled=true
+            |--conf spark.dataproc.enhanced.optimizer.enabled=true
+            |--conf spark.executor.cores=16
+            |--conf spark.executor.instances=8
+            |--conf spark.executor.memory=40g
+            |--conf spark.executor.memoryOverhead=15564m
+            |--conf spark.executor.resource.gpu.amount=1
+            |--conf spark.locality.wait=0
+            |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+            |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+            |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+            |--conf spark.rapids.sql.batchSizeBytes=1g
+            |--conf spark.rapids.sql.enabled=true
+            |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+            |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+            |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+            |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
+            |--conf spark.sql.adaptive.enabled=true
+            |--conf spark.sql.files.maxPartitionBytes=1644m
+            |--conf spark.sql.shuffle.partitions=800
+            |--conf spark.task.resource.gpu.amount=0.001
+            |
+            |Comments:
+            |- ${getPreservedPropertyComment("spark.dataproc.engine")}
+            |- ${getPreservedPropertyComment("spark.executor.memory")}
+            |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+            |- ${getExcludedPropertyComment("spark.master")}
+            |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+            |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+            |- 'spark.rapids.memory.pinnedPool.size' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+            |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+            |- 'spark.rapids.sql.batchSizeBytes' was not set.
+            |- ${getExcludedPropertyComment("spark.rapids.sql.concurrentGpuTasks")}
+            |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+            |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+            |- $shuffleManagerCommentForQualification
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.files.maxPartitionBytes' was not set.
+            |- ${getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
+            |- 'spark.task.resource.gpu.amount' was not set.
+            |- ${getPreservedPropertyNotFoundComment("spark.task.resource.gpu.amount")}
+            |- ${classPathComments("rapids.jars.missing")}
+            |- ${classPathComments("rapids.shuffle.jars")}
+            |- $additionalSparkPluginsComment
+            |""".stripMargin.trim
+      // scalastyle:on line.size.limit
+      compareOutput(expectedResults, actualTuningResults)
+    }
   }
 }
