@@ -1,6 +1,37 @@
 
 <br/>
 
+## Release [v25.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.2)
+Generated on 2025-09-09
+### Autotuner
+
+- Update rapids repo to edge-urm ([#1902](https://github.com/NVIDIA/spark-rapids-tools/pull/1902))
+- Add "preserve" and "exclude" sections to target cluster ([#1879](https://github.com/NVIDIA/spark-rapids-tools/pull/1879))
+
+### QualX
+
+- Qualx model updates from weekly KPI run 2025-09-07 ([#1904](https://github.com/NVIDIA/spark-rapids-tools/pull/1904))
+
+### API Change
+
+- Finalize the toolsAPI helper methods and classes ([#1893](https://github.com/NVIDIA/spark-rapids-tools/pull/1893))
+
+### Feature Request
+
+- Add Invoke to the supportedExprs in core-tools ([#1900](https://github.com/NVIDIA/spark-rapids-tools/pull/1900))
+- Add Qual's support to expressions uuid and mapZipWith ([#1897](https://github.com/NVIDIA/spark-rapids-tools/pull/1897))
+
+### Build and CI/CD
+
+- Upgrade default spark-version to 3.5.6 ([#1903](https://github.com/NVIDIA/spark-rapids-tools/pull/1903))
+
+### User Tools
+
+- Tools has common RUN_ID across execution + Output folder sync with RUN_ID ([#1895](https://github.com/NVIDIA/spark-rapids-tools/pull/1895))
+
+
+<br/>
+
 ## Release [v25.08.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.1)
 Generated on 2025-09-02
 ### Autotuner
