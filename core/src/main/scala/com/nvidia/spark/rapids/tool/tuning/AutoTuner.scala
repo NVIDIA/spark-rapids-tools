@@ -1316,7 +1316,7 @@ abstract class AutoTuner(
     if (shuffleStagesWithPosSpilling.nonEmpty) {
       val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
       if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-        appendOptionalComment(shufflePartitionProperty,
+        appendOptionalComment(shufflePartitionPropertyName,
           "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
             s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
             s"  case since keys will still hash to the same task.")
@@ -1324,7 +1324,7 @@ abstract class AutoTuner(
         inputShufflePartitions *=
           tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
         // Could be memory instead of partitions
-        appendOptionalComment(shufflePartitionProperty, shufflePartitionsCommentForSpilling)
+        appendOptionalComment(shufflePartitionPropertyName, shufflePartitionsCommentForSpilling)
       }
     }
     inputShufflePartitions
@@ -1346,7 +1346,7 @@ abstract class AutoTuner(
     // Apply shuffle-specific logic (spills, skew) if calculation is enabled
     // on all partition properties (i.e. spark.sql.shuffle.partitions and AQE initial partition)
     val isCalcEnabled = applyToAllPartitionProperties[Boolean](isCalculationEnabled(_))
-      .reduce(_ && _)
+      .forall(identity)
     val recommendedShufflePartitions = if (isCalcEnabled) {
       recommendShufflePartitionsInternal()
     } else {
@@ -1663,7 +1663,7 @@ abstract class AutoTuner(
    *   property name if it has a value.
    * - Otherwise, returns 'spark.sql.shuffle.partitions'.
    */
-  protected lazy val shufflePartitionProperty: String = {
+  protected lazy val shufflePartitionPropertyName: String = {
     applyToPartitionProperty[String] { prop =>
       // If the property has a value, return the property name
       getPropertyValue(prop).map(_ => prop)
@@ -1861,8 +1861,8 @@ class ProfilingAutoTuner(
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
       val recShufflePartitions = shufflePartitionValue *
         tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
-      appendOptionalComment(shufflePartitionProperty,
-        s"'$shufflePartitionProperty' should be increased since task OOM " +
+      appendOptionalComment(shufflePartitionPropertyName,
+        s"'$shufflePartitionPropertyName' should be increased since task OOM " +
           "occurred in shuffle stages.")
       math.max(calculatedValue, recShufflePartitions)
     } else {
