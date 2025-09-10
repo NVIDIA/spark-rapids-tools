@@ -1129,9 +1129,13 @@ abstract class AutoTuner(
 
     // Update the recommended shuffle partitions (both AQE initial partition number
     // and shuffle partitions) based on the AQE recommendations
-    val shufflePartitionValueWithAQE = Math.max(shufflePartitionValue, recInitialPartitionNum)
-    aqePartitionProperty.foreach(appendRecommendation(_, shufflePartitionValueWithAQE))
-    appendRecommendation("spark.sql.shuffle.partitions", shufflePartitionValueWithAQE)
+    val isSkipped = applyToAllPartitionProperties[Boolean](skippedRecommendations.contains(_))
+      .exists(identity)
+    if (!isSkipped) {
+      val shufflePartitionValueWithAQE = Math.max(shufflePartitionValue, recInitialPartitionNum)
+      aqePartitionProperty.foreach(appendRecommendation(_, shufflePartitionValueWithAQE))
+      appendRecommendation("spark.sql.shuffle.partitions", shufflePartitionValueWithAQE)
+    }
 
     // Handle Databricks-specific AQE auto shuffle
     if (platform.isInstanceOf[DatabricksPlatform]) {
@@ -1316,7 +1320,7 @@ abstract class AutoTuner(
     if (shuffleStagesWithPosSpilling.nonEmpty) {
       val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
       if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-        appendOptionalComment(shufflePartitionPropertyName,
+        appendComment(
           "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
             s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
             s"  case since keys will still hash to the same task.")
@@ -1324,7 +1328,7 @@ abstract class AutoTuner(
         inputShufflePartitions *=
           tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
         // Could be memory instead of partitions
-        appendOptionalComment(shufflePartitionPropertyName, shufflePartitionsCommentForSpilling)
+        appendComment(shufflePartitionsCommentForSpilling)
       }
     }
     inputShufflePartitions
@@ -1343,16 +1347,20 @@ abstract class AutoTuner(
    * setting multiple conflicting properties.
    */
   private def recommendShufflePartitions(): Unit = {
-    // Apply shuffle-specific logic (spills, skew) if calculation is enabled
-    // on all partition properties (i.e. spark.sql.shuffle.partitions and AQE initial partition)
-    val isCalcEnabled = applyToAllPartitionProperties[Boolean](isCalculationEnabled(_))
-      .forall(identity)
-    val recommendedShufflePartitions = if (isCalcEnabled) {
-      recommendShufflePartitionsInternal()
-    } else {
-      shufflePartitionValue
+    val isSkipped = applyToAllPartitionProperties[Boolean](skippedRecommendations.contains(_))
+      .exists(identity)
+    if (!isSkipped) {
+      // Apply shuffle-specific logic (spills, skew) if calculation is enabled
+      // on all partition properties (i.e. spark.sql.shuffle.partitions and AQE initial partition)
+      val isCalcEnabled = applyToAllPartitionProperties[Boolean](isCalculationEnabled(_))
+        .forall(identity)
+      val recommendedShufflePartitions = if (isCalcEnabled) {
+        recommendShufflePartitionsInternal()
+      } else {
+        shufflePartitionValue
+      }
+      appendRecommendation("spark.sql.shuffle.partitions", recommendedShufflePartitions)
     }
-    appendRecommendation("spark.sql.shuffle.partitions", recommendedShufflePartitions)
   }
 
   /**
@@ -1632,59 +1640,40 @@ abstract class AutoTuner(
   }
 
   /**
-   * Applies a function to partition property keys, depending on AQE and
+   * Applies a function to all relevant shuffle partition property keys, based on AQE and
    * coalescing settings.
    *
-   * - If AQE and coalescing are enabled, the relevant keys are:
-   *   'spark.sql.adaptive.maxNumPostShufflePartitions' or
-   *   'spark.sql.adaptive.coalescePartitions.initialPartitionNum'.
-   * - Otherwise, the relevant key is 'spark.sql.shuffle.partitions'.
+   * Logic:
+   *   - If AQE and coalescing are enabled, the relevant property is either
+   *     'spark.sql.adaptive.maxNumPostShufflePartitions' or
+   *     'spark.sql.adaptive.coalescePartitions.initialPartitionNum', depending on which is present
+   *     in the final tuning table.
+   *   - In all cases, 'spark.sql.shuffle.partitions' is also included as a relevant property.
    *
-   * @param fn Function to apply to each selected property key
-   * @tparam T Return type
+   * @param fn Function to apply to each selected property key.
+   * @tparam T Return type of the function.
+   * @return A sequence of results, one for each relevant property key.
    */
-  protected def applyToPartitionProperty[T](fn: String => T): T = {
-    aqePartitionProperty.map(fn).getOrElse(fn("spark.sql.shuffle.partitions"))
-  }
-
-  // Overloaded "Option" variant: applies the function to the relevant property key
-  protected def applyToPartitionProperty[T](fn: String => Option[T]): Option[T] = {
-    aqePartitionProperty.flatMap(fn).orElse(fn("spark.sql.shuffle.partitions"))
-  }
-
-  // "All" variant: applies the function to all relevant property keys and returns all results
   protected def applyToAllPartitionProperties[T](fn: String => T): Seq[T] = {
     (aqePartitionProperty.toSeq :+ "spark.sql.shuffle.partitions").map(fn)
   }
 
   /**
-   * Returns the shuffle partition property name that has a value as follows:
-   * - If AQE and coalescing are enabled, returns the appropriate AQE initial partition
-   *   property name if it has a value.
-   * - Otherwise, returns 'spark.sql.shuffle.partitions'.
-   */
-  protected lazy val shufflePartitionPropertyName: String = {
-    applyToPartitionProperty[String] { prop =>
-      // If the property has a value, return the property name
-      getPropertyValue(prop).map(_ => prop)
-    }.getOrElse("spark.sql.shuffle.partitions")
-  }
-
-  /**
-   * Returns the shuffle partition value as follows:
-   * - If AQE and coalescing are enabled, returns the value of the appropriate
-   *   AQE initial partition property if set either in the event log or in the
-   *   recommendations.
-   * - Otherwise, returns the value of 'spark.sql.shuffle.partitions' if set
-   *   either in the event log or in the recommendations.
-   * If neither is set, returns the default value from tuningConfigs.
+   * Returns the shuffle partition value using the following logic:
+   * - Considers all relevant partition properties (AQE initial partition properties and
+   *   'spark.sql.shuffle.partitions').
+   * - For each property, checks if a value is set (either in the event log or in recommendations).
+   * - If multiple properties have values, returns the maximum value among them.
+   * - If none are set, returns the default value from tuningConfigs.
    *
-   * Note: This is kept as a method (not a lazy val) to ensure it always reflects
-   *  the latest value, in case recommendations are updated.
+   * Note: This is a method (not a lazy val) to always reflect the latest value,
+   * as recommendations may be updated after initial evaluation.
    */
   protected def shufflePartitionValue: Int = {
-    applyToPartitionProperty[String](getPropertyValue(_))
-      .map(_.toInt)
+    // Gather all relevant partition property values, take the maximum if multiple are set
+    applyToAllPartitionProperties[Option[Int]](prop => getPropertyValue(prop).map(_.toInt))
+      .flatten
+      .reduceOption(_ max _)
       .getOrElse(tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault.toInt)
   }
 
@@ -1861,9 +1850,7 @@ class ProfilingAutoTuner(
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
       val recShufflePartitions = shufflePartitionValue *
         tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
-      appendOptionalComment(shufflePartitionPropertyName,
-        s"'$shufflePartitionPropertyName' should be increased since task OOM " +
-          "occurred in shuffle stages.")
+      appendComment(shufflePartitionsCommentForGpuOOM)
       math.max(calculatedValue, recShufflePartitions)
     } else {
       // Else, return the calculated value from the parent implementation
@@ -2047,6 +2034,10 @@ trait AutoTunerStaticComments {
 
   def shufflePartitionsCommentForSpilling: String = {
     "Shuffle partitions should be increased since spilling occurred in shuffle stages."
+  }
+
+  def shufflePartitionsCommentForGpuOOM: String = {
+    "Shuffle partitions should be increased since task OOM occurred in shuffle stages."
   }
 
   /**
