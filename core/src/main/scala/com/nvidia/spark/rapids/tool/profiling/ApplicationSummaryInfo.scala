@@ -93,11 +93,21 @@ trait AppInfoGpuOomCheck {
   def hasShuffleStagesWithOom: Boolean = false
 }
 
+trait AppInfoColumnarExchangeMetrics {
+  def getMaxColumnarExchangeDataSize: Option[Long]
+}
+
 /**
  * Base class for Profiling App Summary Info Provider.
  */
 class BaseProfilingAppSummaryInfoProvider
-  extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck
+  extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck with AppInfoColumnarExchangeMetrics {
+  /**
+   * Default implementation returns None. Subclasses should override this method
+   * to provide actual ColumnarExchange data size metrics.
+   */
+  override def getMaxColumnarExchangeDataSize: Option[Long] = None
+}
 
 /**
  * A wrapper class to process the information embedded in a valid instance of
@@ -294,6 +304,27 @@ class SingleAppSummaryInfoProvider(
         // Ignore if the failed task is not in a shuffle stage
         false
       }
+    }
+  }
+
+  /**
+   * Get the maximum data size from ColumnarExchange metrics.
+   * This method searches through SQLPlan metrics to find all ColumnarExchange nodes
+   * with "data size" metrics and returns the maximum total value.
+   *
+   * @return Option[Long] containing the maximum data size in bytes, or None if no
+   *         ColumnarExchange "data size" metrics are found
+   */
+  override def getMaxColumnarExchangeDataSize: Option[Long] = {
+    val columnarExchangeDataSizes = app.sqlMetrics.collect {
+      case metric if metric.nodeName == "ColumnarExchange" &&
+                      metric.name == "data size" =>
+        metric.total
+    }
+    if (columnarExchangeDataSizes.nonEmpty) {
+      Some(columnarExchangeDataSizes.max)
+    } else {
+      None
     }
   }
 }

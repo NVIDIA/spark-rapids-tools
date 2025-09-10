@@ -1310,4 +1310,321 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("AutoTuner adjusts initialPartitionNum based on ColumnarExchange data size") {
+    // Test case: max columnar exchange data size = 1000GB,
+    // original initialPartitionNum = 2560
+    // Expected: recommended initialPartitionNum = min(2560, 1000) = 1000
+
+    val maxColumnarExchangeDataSize = Some(1000L * 1024 * 1024 * 1024) // 1000GB in bytes
+    val originalInitialPartitionNum = "2560"
+
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.sql.adaptive.coalescePartitions.initialPartitionNum" -> originalInitialPartitionNum,
+        "spark.sql.adaptive.enabled" -> "true",
+        "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m",
+        "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+      )
+
+    val infoProvider = getMockInfoProvider(
+      maxInput = 1.0E9, // Large input to trigger AQE recommendations
+      spilledMetrics = Seq(0, 0),
+      jvmGCFractions = Seq(0.1, 0.1),
+      propsFromLog = logEventsProps,
+      sparkVersion = Some(testSparkVersion),
+      meanInput = 1.0E9, // Large mean input
+      meanShuffleRead = 1.0E9, // Large mean shuffle read
+      maxColumnarExchangeDataSize = maxColumnarExchangeDataSize
+    )
+
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    // Configure cluster info
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 16,
+      numWorkers = 1,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=501
+          |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
+          |--conf spark.sql.files.maxPartitionBytes=137m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' adjusted from 2560 to 501 based on ColumnarExchange data size (1073741824000 bytes) and GPU batch size (2147483647 bytes)
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- RAPIDS Accelerator for Apache Spark plugin jar is missing
+          |  from the classpath entries.
+          |  If the Spark RAPIDS jar is being bundled with your
+          |  Spark distribution, this step is not needed.
+          |- The RAPIDS Shuffle Manager requires spark.driver.extraClassPath
+          |  and spark.executor.extraClassPath settings to include the
+          |  path to the Spark RAPIDS plugin jar.
+          |  If the Spark RAPIDS jar is being bundled with your Spark
+          |  distribution, this step is not needed.
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  test("AutoTuner handles case when ColumnarExchange data size ratio is larger than " +
+    "original initialPartitionNum") {
+    // Test case: max columnar exchange data size = 6000GB,
+    // original initialPartitionNum = 2560
+    // Expected: ratio = ceil(6000GB / 2GB) = 3000, which is > 2560
+    // So recommended initialPartitionNum = min(2560, 3000) = 2560 (no change)
+
+    val maxColumnarExchangeDataSize = Some(6000L * 1024 * 1024 * 1024) // 6000GB in bytes
+    val originalInitialPartitionNum = "2560"
+
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.sql.adaptive.coalescePartitions.initialPartitionNum" -> originalInitialPartitionNum,
+        "spark.sql.adaptive.enabled" -> "true",
+        "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m",
+        "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+      )
+
+    val infoProvider = getMockInfoProvider(
+      maxInput = 1.0E9,
+      spilledMetrics = Seq(0, 0),
+      jvmGCFractions = Seq(0.1, 0.1),
+      propsFromLog = logEventsProps,
+      sparkVersion = Some(testSparkVersion),
+      meanInput = 1.0E9,
+      meanShuffleRead = 1.0E9,
+      maxColumnarExchangeDataSize = maxColumnarExchangeDataSize
+    )
+
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 16,
+      numWorkers = 1,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
+          |--conf spark.sql.files.maxPartitionBytes=137m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- RAPIDS Accelerator for Apache Spark plugin jar is missing
+          |  from the classpath entries.
+          |  If the Spark RAPIDS jar is being bundled with your
+          |  Spark distribution, this step is not needed.
+          |- The RAPIDS Shuffle Manager requires spark.driver.extraClassPath
+          |  and spark.executor.extraClassPath settings to include the
+          |  path to the Spark RAPIDS plugin jar.
+          |  If the Spark RAPIDS jar is being bundled with your Spark
+          |  distribution, this step is not needed.
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  test("AutoTuner handles case when no ColumnarExchange data size is available") {
+    // Test case: no ColumnarExchange data size available,
+    // original initialPartitionNum = 2560
+    // Expected: no adjustment should be made, original value should be preserved
+
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.sql.adaptive.coalescePartitions.initialPartitionNum" -> "2560",
+        "spark.sql.adaptive.enabled" -> "true",
+        "spark.sql.adaptive.coalescePartitions.minPartitionSize" -> "4m",
+        "spark.sql.adaptive.advisoryPartitionSizeInBytes" -> "64m",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.task.resource.gpu.amount" -> "0.25",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.concurrentGpuTasks" -> "1",
+        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+      )
+
+    val infoProvider = getMockInfoProvider(
+      maxInput = 1.0E9,
+      spilledMetrics = Seq(0, 0),
+      jvmGCFractions = Seq(0.1, 0.1),
+      propsFromLog = logEventsProps,
+      sparkVersion = Some(testSparkVersion),
+      meanInput = 1.0E9,
+      meanShuffleRead = 1.0E9,
+      maxColumnarExchangeDataSize = None // No ColumnarExchange data size
+    )
+
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 16,
+      numWorkers = 1,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dataproc.enhanced.execution.enabled=false
+          |--conf spark.dataproc.enhanced.optimizer.enabled=false
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
+          |--conf spark.sql.files.maxPartitionBytes=137m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.dataproc.enhanced.execution.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.execution.enabled' was not set.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' should be disabled. WARN: Turning this property on might case the GPU accelerated Dataproc cluster to hang.
+          |- 'spark.dataproc.enhanced.optimizer.enabled' was not set.
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- RAPIDS Accelerator for Apache Spark plugin jar is missing
+          |  from the classpath entries.
+          |  If the Spark RAPIDS jar is being bundled with your
+          |  Spark distribution, this step is not needed.
+          |- The RAPIDS Shuffle Manager requires spark.driver.extraClassPath
+          |  and spark.executor.extraClassPath settings to include the
+          |  path to the Spark RAPIDS plugin jar.
+          |  If the Spark RAPIDS jar is being bundled with your Spark
+          |  distribution, this step is not needed.
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
 }

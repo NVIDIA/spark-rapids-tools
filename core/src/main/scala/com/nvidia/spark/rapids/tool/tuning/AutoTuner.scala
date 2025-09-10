@@ -1063,7 +1063,7 @@ abstract class AutoTuner(
     }
   }
 
-  private def recommendAQEProperties(): Unit = {
+  protected def recommendAQEProperties(): Unit = {
     // Spark configuration (AQE is enabled by default)
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
       .getOrElse("false").toLowerCase
@@ -1619,7 +1619,7 @@ abstract class AutoTuner(
    * Gets the initial partition number property key.
    * @return the property key to use for initial partition number
    */
-  private def getInitialPartitionNumProperty: String = {
+  protected def getInitialPartitionNumProperty: String = {
     val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
     val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
     // check if maxNumPostShufflePartitions is in final tuning table
@@ -1830,6 +1830,60 @@ class ProfilingAutoTuner(
    */
   override def recommendPluginPropsInternal(): Unit = {
     recommendClassNameProperty("spark.plugins", autoTunerHelper.rapidsPluginClassName)
+  }
+
+  /**
+   * Overrides the AQE properties recommendation to include ColumnarExchange data size
+   * based optimization for initialPartitionNum.
+   */
+  override def recommendAQEProperties(): Unit = {
+    // Call the parent AQE recommendation logic first
+    super.recommendAQEProperties()
+
+    // Add ColumnarExchange data size based initialPartitionNum adjustment
+    adjustInitialPartitionNumBasedOnColumnarExchange()
+  }
+
+  /**
+   * Adjusts the initialPartitionNum based on ColumnarExchange data size metrics.
+   * This method:
+   * 1. Gets the maximum data size from ColumnarExchange "data size" metrics
+   * 2. Calculates ratio = ceil(maxDataSize / gpuDefaultBatchSize)
+   * 3. Recommends min(originalInitialPartitionNum, ratio) as the new value
+   */
+  private def adjustInitialPartitionNumBasedOnColumnarExchange(): Unit = {
+    val initialPartitionNumKey = getInitialPartitionNumProperty
+
+    // Get the original initialPartitionNum value
+    val originalInitialPartitionNum = getPropertyValue(initialPartitionNumKey)
+      .map(_.toInt)
+      .getOrElse(tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt)
+
+    // Get the maximum ColumnarExchange data size
+    appInfoProvider.getMaxColumnarExchangeDataSize match {
+      case Some(maxDataSize) =>
+        // Get GPU default batch size (usually 1GB)
+        val gpuDefaultBatchSize = tuningConfigs.getEntry("BATCH_SIZE_BYTES")
+          .getDefaultAsMemory(ByteUnit.BYTE)
+
+        // Calculate ratio
+        val ratio = (maxDataSize.toDouble / gpuDefaultBatchSize).ceil.toInt
+
+        // Take the smaller value as the recommended value
+        val recommendedValue = math.min(originalInitialPartitionNum, ratio)
+
+        // If the recommended value is different from the original, add recommendation
+        if (recommendedValue != originalInitialPartitionNum) {
+          appendRecommendation(initialPartitionNumKey, recommendedValue.toString)
+          appendComment(s"'$initialPartitionNumKey' adjusted from " +
+            s"$originalInitialPartitionNum to $recommendedValue based on " +
+            s"ColumnarExchange data size (${maxDataSize} bytes) and " +
+            s"GPU batch size (${gpuDefaultBatchSize} bytes)")
+        }
+
+      case None =>
+        // No ColumnarExchange data size metrics found, no adjustment needed
+    }
   }
 }
 
