@@ -96,6 +96,11 @@ PY
 
 echo "Found ${#URIS[@]} URIs to prefetch"
 
+# Add Hadoop tarball to prefetch list for HDFS E2E setup (use E2E_TEST_HADOOP_VERSION if set, else 3.3.6)
+HADOOP_VERSION_HINT="${E2E_TEST_HADOOP_VERSION:-3.3.6}"
+HADOOP_TARBALL_URL="https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION_HINT}/hadoop-${HADOOP_VERSION_HINT}.tar.gz"
+URIS+=("${HADOOP_TARBALL_URL}")
+
 for url in "${URIS[@]}"; do
   fname="$(basename "${url}")"
   dest="${CACHE_DIR}/${fname}"
