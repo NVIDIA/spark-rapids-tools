@@ -339,6 +339,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400
             |--conf spark.sql.files.maxPartitionBytes=1851m
             |--conf spark.sql.shuffle.partitions=400
             |--conf spark.task.resource.gpu.amount=0.001
@@ -361,9 +362,10 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.rapids.sql.enabled' was not set.
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-            |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+            |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- ${getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
             |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- $shufflePartitionsCommentForSpilling
             |- ${classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
@@ -460,6 +462,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400
             |--conf spark.sql.files.maxPartitionBytes=1851m
             |--conf spark.sql.shuffle.partitions=400
             |--conf spark.task.resource.gpu.amount=0.001
@@ -480,8 +483,9 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |- 'spark.rapids.sql.enabled' was not set.
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-            |- 'spark.sql.shuffle.partitions' should be increased since spilling occurred in shuffle stages.
+            |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- $shufflePartitionsCommentForSpilling
             |- ${classPathComments("rapids.shuffle.jars")}
             |""".stripMargin.trim
       // scalastyle:on line.size.limit
