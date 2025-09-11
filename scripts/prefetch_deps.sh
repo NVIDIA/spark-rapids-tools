@@ -98,7 +98,7 @@ echo "Found ${#URIS[@]} URIs to prefetch"
 
 # Add Hadoop tarball to prefetch list for HDFS E2E setup (use E2E_TEST_HADOOP_VERSION if set, else 3.3.6)
 HADOOP_VERSION_HINT="${E2E_TEST_HADOOP_VERSION:-3.3.6}"
-HADOOP_TARBALL_URL="https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION_HINT}/hadoop-${HADOOP_VERSION_HINT}.tar.gz"
+HADOOP_TARBALL_URL="https://dlcdn.apache.org/hadoop/common/hadoop-${HADOOP_VERSION_HINT}/hadoop-${HADOOP_VERSION_HINT}.tar.gz"
 URIS+=("${HADOOP_TARBALL_URL}")
 
 for url in "${URIS[@]}"; do
@@ -108,8 +108,31 @@ for url in "${URIS[@]}"; do
     echo "Already cached: ${fname}"
     continue
   fi
+  # Try dlcdn/apache mirrors first; if it fails, fall back to archive.apache.org when applicable
   echo "Downloading: ${url} -> ${dest}"
-  curl -L --retry 3 --retry-delay 5 -o "${dest}" "${url}"
+  if curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${url}"; then
+    continue
+  fi
+  # If URL is a Spark tarball and source was dlcdn, retry with archive
+  if [[ "${url}" =~ ^https://dlcdn.apache.org/spark/([^/]+)/([^/]+)/([^/]+)$ ]]; then
+    alt_url="https://archive.apache.org/dist/spark/${BASH_REMATCH[2]}/${BASH_REMATCH[3]}"
+    echo "Primary download failed. Retrying from archive: ${alt_url}"
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${alt_url}" || {
+      echo "Failed to download from both primary and archive: ${url}" >&2
+      rm -f "${dest}" || true
+    }
+    continue
+  fi
+  # If URL is a Hadoop tarball and source was dlcdn, retry with archive
+  if [[ "${url}" =~ ^https://dlcdn.apache.org/hadoop/common/(hadoop-[0-9.]+)/\1.tar.gz$ ]]; then
+    alt_url="https://archive.apache.org/dist/hadoop/common/${BASH_REMATCH[1]}/${BASH_REMATCH[1]}.tar.gz"
+    echo "Primary download failed. Retrying from archive: ${alt_url}"
+    curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${alt_url}" || {
+      echo "Failed to download from both primary and archive: ${url}" >&2
+      rm -f "${dest}" || true
+    }
+    continue
+  fi
 done
 
 echo "Prefetch complete. Files in ${CACHE_DIR}:"
