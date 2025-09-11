@@ -40,8 +40,30 @@ jobs:
           name: rapids-cache
           path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
 
+  prepare-tools:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: NVIDIA/spark-rapids-common/checkout@main
+
+      - name: Install Maven
+        run: sudo apt-get update && sudo apt-get install -y maven
+
+      - name: Build tools JAR and copy reports (prepare)
+        run: |
+          cd user_tools
+          TOOLS_MAVEN_ARGS="-Dbuildver=356 -Dhadoop.version=3.3.6" \
+          SKIP_WHEEL_PACKAGE_BUILD=1 \
+          ./build.sh non-fat
+
+      - name: Upload generated tools resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: tools-generated
+          path: user_tools/src/spark_rapids_pytools/resources/generated_files
+
   build:
-    needs: prepare-deps
+    needs: [prepare-deps, prepare-tools]
     runs-on: ubuntu-latest
     env:
       # Ensure all runtime downloads (Spark archives, jars, temp build artifacts) land in a
@@ -66,6 +88,12 @@ jobs:
           name: rapids-cache
           path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
 
+      - name: Restore generated tools resources
+        uses: actions/download-artifact@v4
+        with:
+          name: tools-generated
+          path: user_tools/src/spark_rapids_pytools/resources/generated_files
+
       - name: Install tox
         run: |
           python -m pip install --upgrade pip
@@ -73,4 +101,4 @@ jobs:
           python -m pip install --pre tox-gh-actions
 
       - name: Run tox test
-        run: cd user_tools && tox
+        run: cd user_tools && TOX_RUN_PREPARE= tox
