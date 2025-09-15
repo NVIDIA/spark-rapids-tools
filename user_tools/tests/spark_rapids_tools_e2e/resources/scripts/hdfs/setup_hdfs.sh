@@ -108,7 +108,7 @@ verify_checksum() {
 # Function to download and extract Hadoop
 download_and_extract_hadoop() {
     echo "Downloading and extracting Hadoop..."
-    local hadoop_url="https://dlcdn.apache.org/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
+    local hadoop_url="https://archive.apache.org/dist/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local hadoop_tar_file="${E2E_TEST_TMP_DIR}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
     local checksum_url="${hadoop_url}.sha512"
     local checksum_file="${hadoop_tar_file}.sha512"
