@@ -1333,8 +1333,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.task.resource.gpu.amount" -> "0.25",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "1",
-        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+        "spark.rapids.sql.concurrentGpuTasks" -> "1"
       )
 
     val infoProvider = getMockInfoProvider(
@@ -1381,7 +1380,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=501
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
@@ -1402,6 +1401,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' adjusted from 2560 to 501 based on ColumnarExchange data size (1073741824000 bytes) and GPU batch size (2147483647 bytes)
           |- 'spark.sql.files.maxPartitionBytes' was not set.
@@ -1443,8 +1443,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.task.resource.gpu.amount" -> "0.25",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "1",
-        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+        "spark.rapids.sql.concurrentGpuTasks" -> "1"
       )
 
     val infoProvider = getMockInfoProvider(
@@ -1490,7 +1489,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=137m
@@ -1510,6 +1509,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
@@ -1545,8 +1545,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.task.resource.gpu.amount" -> "0.25",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
-        "spark.rapids.sql.concurrentGpuTasks" -> "1",
-        "spark.shuffle.manager" -> "com.nvidia.spark.rapids.spark355.RapidsShuffleManager"
+        "spark.rapids.sql.concurrentGpuTasks" -> "1"
       )
 
     val infoProvider = getMockInfoProvider(
@@ -1592,7 +1591,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
-          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark334.RapidsShuffleManager
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=137m
@@ -1612,6 +1611,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
