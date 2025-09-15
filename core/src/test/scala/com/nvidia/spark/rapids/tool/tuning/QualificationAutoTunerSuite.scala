@@ -278,6 +278,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=40
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=128
             |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
             |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
             |--conf spark.sql.adaptive.enabled=true
@@ -299,6 +300,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
             |- $shuffleManagerCommentForQualification
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- 'spark.sql.files.maxPartitionBytes' was not set.
             |- 'spark.task.resource.gpu.amount' was not set.
             |- ${classPathComments("rapids.jars.missing")}
@@ -383,6 +385,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.task.resource.gpu.amount=0.001
@@ -401,7 +404,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
@@ -527,6 +530,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -546,7 +550,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
@@ -729,6 +733,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.shuffle.manager=org.apache.spark.shuffle.celeborn.SparkShuffleManager
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
           |--conf spark.task.resource.gpu.amount=0.001
@@ -754,6 +759,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- ${getEnforcedPropertyComment("spark.shuffle.manager")}
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- ${getEnforcedPropertyComment("spark.sql.adaptive.enabled")}
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
@@ -809,6 +815,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -826,7 +833,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
@@ -879,6 +886,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -896,7 +904,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
@@ -957,6 +965,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.task.resource.gpu.amount=0.001
           |
@@ -973,7 +982,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
@@ -1302,8 +1311,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.sql.shuffle.partitions=200
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1320,7 +1331,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shuffleManagerCommentForQualification
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.enabled' should be enabled for better performance.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- ${getPreservedPropertyNotFoundComment("spark.sql.shuffle.partitions")}
           |- 'spark.task.resource.gpu.amount' was not set.
@@ -1426,6 +1437,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
             |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
             |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=800
             |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
             |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
             |--conf spark.sql.adaptive.enabled=true
@@ -1451,6 +1463,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
             |- $shuffleManagerCommentForQualification
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- 'spark.sql.files.maxPartitionBytes' was not set.
             |- ${getEnforcedPropertyComment("spark.sql.shuffle.partitions")}
             |- 'spark.task.resource.gpu.amount' was not set.
@@ -1462,5 +1475,91 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       // scalastyle:on line.size.limit
       compareOutput(expectedResults, actualTuningResults)
     }
+  }
+
+  /**
+   * Test that AutoTuner recommends increasing 'spark.sql.shuffle.partitions' when shuffle stage
+   * spilling is detected. For example, if the original value is 200 and spilling occurs, the
+   * recommended value should be higher (e.g., 400).
+   */
+  test("test AutoTuner increases shuffle partitions recommendation when shuffle stage" +
+    " spilling is detected") {
+    // mock the properties loaded from eventLog
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "1",
+        "spark.executor.memory" -> "32g",
+        "spark.sql.shuffle.partitions" -> "200",
+        "spark.sql.files.maxPartitionBytes" -> "1g")
+    val infoProvider = getMockInfoProvider(3.7449728E7, Seq(1000L, 1000L), Seq(0.4, 0.4),
+      logEventsProps, Some(testSparkVersion), shuffleStagesWithPosSpilling = Set(1))
+
+    // Define 'spark.plugins' as an enforced property
+    val enforcedSparkProperties = Map(
+      "spark.plugins" -> "com.existing.plugin1,com.existing.plugin2"
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = enforcedSparkProperties
+    )
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.memory=16g
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.existing.plugin1,com.existing.plugin2
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=3669m
+          |--conf spark.sql.shuffle.partitions=400
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- ${getEnforcedPropertyComment("spark.plugins")}
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- $shuffleManagerCommentForQualification
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- Average JVM GC time is very high. Other Garbage Collectors can be used for better performance.
+          |- ${classPathComments("rapids.jars.missing")}
+          |- $shufflePartitionsCommentForSpilling
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
   }
 }

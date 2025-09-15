@@ -21,7 +21,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantGpuCountStrategy, GpuDevice, Platform, PlatformFactory}
+import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantGpuCountStrategy, DatabricksPlatform, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.yaml.snakeyaml.constructor.ConstructorException
 
@@ -994,6 +994,8 @@ abstract class AutoTuner(
     appendComment(classPathComments("rapids.shuffle.jars"))
     recommendFileCache()
     recommendMaxPartitionBytes()
+    // Recommend shuffle partitions here.
+    // Note that this may get overridden if AQE is enabled.
     recommendShufflePartitions()
     recommendKryoSerializerSetting()
     recommendGCProperty()
@@ -1066,7 +1068,7 @@ abstract class AutoTuner(
   protected def recommendAQEProperties(): Unit = {
     // Spark configuration (AQE is enabled by default)
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
-      .getOrElse("false").toLowerCase
+      .getOrElse("true").toLowerCase
     if (aqeEnabled == "false") {
       // TODO: Should we recommend enabling AQE if not set?
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
@@ -1117,8 +1119,7 @@ abstract class AutoTuner(
       platform.recommendedGpuDevice.getAdvisoryPartitionSizeInBytes.foreach { size =>
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
-      val initialPartitionNumValue = getInitialPartitionNumValue.map(_.toInt)
-      if (initialPartitionNumValue.getOrElse(0) <=
+      if (shufflePartitionValue <=
             tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
@@ -1126,26 +1127,26 @@ abstract class AutoTuner(
         tuningConfigs.getEntry("AQE_COALESCE_PARALLELISM_FIRST").getDefault)
     }
 
-    val recShufflePartitions = recommendations.get("spark.sql.shuffle.partitions")
-      .map(_.getTuneValue().toInt)
-
-    // scalastyle:off line.size.limit
-    // Determine whether to recommend initialPartitionNum based on shuffle partitions recommendation
-    recShufflePartitions match {
-      case Some(shufflePartitions) if shufflePartitions >= recInitialPartitionNum =>
-        // Skip recommending 'initialPartitionNum' when:
-        // - AutoTuner has already recommended 'spark.sql.shuffle.partitions' AND
-        // - The recommended shuffle partitions value is sufficient (>= recInitialPartitionNum)
-        // This is because AQE will use the recommended 'spark.sql.shuffle.partitions' by default.
-        // Reference: https://spark.apache.org/docs/latest/sql-performance-tuning.html#coalescing-post-shuffle-partitions
-      case _ =>
-        // Set 'initialPartitionNum' when either:
-        // - AutoTuner has not recommended 'spark.sql.shuffle.partitions' OR
-        // - Recommended shuffle partitions is small (< recInitialPartitionNum)
-        appendRecommendation(getInitialPartitionNumProperty, recInitialPartitionNum)
-        appendRecommendation("spark.sql.shuffle.partitions", recInitialPartitionNum)
+    // Update the recommended shuffle partitions (both AQE initial partition number
+    // and shuffle partitions) based on the AQE recommendations
+    val isSkipped = applyToAllPartitionProperties[Boolean](skippedRecommendations.contains(_))
+      .exists(identity)
+    if (!isSkipped) {
+      val shufflePartitionValueWithAQE = Math.max(shufflePartitionValue, recInitialPartitionNum)
+      aqePartitionProperty.foreach(appendRecommendation(_, shufflePartitionValueWithAQE))
+      appendRecommendation("spark.sql.shuffle.partitions", shufflePartitionValueWithAQE)
     }
-    // scalastyle:on line.size.limit
+
+    // Handle Databricks-specific AQE auto shuffle
+    if (platform.isInstanceOf[DatabricksPlatform]) {
+      val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
+      if (aqeAutoShuffle.isDefined) {
+        // If the user has enabled AQE auto shuffle, override with the default
+        // recommendation for that property.
+        appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled",
+          tuningConfigs.getEntry("DATABRICKS_AUTO_OPTIMIZE_SHUFFLE_ENABLED").getDefault)
+      }
+    }
 
     // TODO - can we set spark.sql.autoBroadcastJoinThreshold ???
     val autoBroadcastJoinKey = "spark.sql.adaptive.autoBroadcastJoinThreshold"
@@ -1313,50 +1314,53 @@ abstract class AutoTuner(
    * Internal method to recommend 'spark.sql.shuffle.partitions' based on spills and skew.
    * This method can be overridden by Profiling/Qualification AutoTuners to provide custom logic.
    */
-  protected def recommendShufflePartitionsInternal(inputShufflePartitions: Int): Int = {
-    var shufflePartitions = inputShufflePartitions
-    val lookup = "spark.sql.shuffle.partitions"
+  protected def recommendShufflePartitionsInternal(): Int = {
+    var inputShufflePartitions = shufflePartitionValue
     val shuffleStagesWithPosSpilling = appInfoProvider.getShuffleStagesWithPosSpilling
     if (shuffleStagesWithPosSpilling.nonEmpty) {
       val shuffleSkewStages = appInfoProvider.getShuffleSkewStages
       if (shuffleSkewStages.exists(id => shuffleStagesWithPosSpilling.contains(id))) {
-        appendOptionalComment(lookup,
+        appendComment(
           "Shuffle skew exists (when task's Shuffle Read Size > 3 * Avg Stage-level size) in\n" +
             s"  stages with spilling. Increasing shuffle partitions is not recommended in this\n" +
             s"  case since keys will still hash to the same task.")
       } else {
-        shufflePartitions *=
+        inputShufflePartitions *=
           tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
         // Could be memory instead of partitions
-        appendOptionalComment(lookup,
-          s"'$lookup' should be increased since spilling occurred in shuffle stages.")
+        appendComment(shufflePartitionsCommentForSpilling)
       }
     }
-    shufflePartitions
+    inputShufflePartitions
   }
 
   /**
-   * Recommendations for 'spark.sql.shuffle.partitions' based on spills and skew in shuffle stages.
-   * Note that the logic can be disabled by adding the property to "limitedLogicRecommendations"
-   * which is one of the arguments of [[getRecommendedProperties]].
+   * Coordinates recommendations for partition-related properties to ensure
+   * they are properly aligned.
+   *
+   * This method determines the appropriate partition property to set based on:
+   * - AQE initial partition requirements
+   * - Shuffle spills and skew requirements
+   * - Whether AQE coalescing is enabled
+   *
+   * Uses a unified approach to determine which property should be set rather than
+   * setting multiple conflicting properties.
    */
   private def recommendShufflePartitions(): Unit = {
-    val lookup = "spark.sql.shuffle.partitions"
-    var shufflePartitions = getPropertyValue(lookup).getOrElse(
-      tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault).toInt
-
-    // TODO: Need to look at other metrics for GPU spills (DEBUG mode), and batch sizes metric
-    if (isCalculationEnabled(lookup)) {
-      shufflePartitions = recommendShufflePartitionsInternal(shufflePartitions)
+    val isSkipped = applyToAllPartitionProperties[Boolean](skippedRecommendations.contains(_))
+      .exists(identity)
+    if (!isSkipped) {
+      // Apply shuffle-specific logic (spills, skew) if calculation is enabled
+      // on all partition properties (i.e. spark.sql.shuffle.partitions and AQE initial partition)
+      val isCalcEnabled = applyToAllPartitionProperties[Boolean](isCalculationEnabled(_))
+        .forall(identity)
+      val recommendedShufflePartitions = if (isCalcEnabled) {
+        recommendShufflePartitionsInternal()
+      } else {
+        shufflePartitionValue
+      }
+      appendRecommendation("spark.sql.shuffle.partitions", recommendedShufflePartitions)
     }
-    val aqeAutoShuffle = getPropertyValue("spark.databricks.adaptive.autoOptimizeShuffle.enabled")
-    if (aqeAutoShuffle.isDefined) {
-      // If the user has enabled AQE auto shuffle, override with the default
-      // recommendation for that property.
-      appendRecommendation("spark.databricks.adaptive.autoOptimizeShuffle.enabled",
-        tuningConfigs.getEntry("DATABRICKS_AUTO_OPTIMIZE_SHUFFLE_ENABLED").getDefault)
-    }
-    appendRecommendation("spark.sql.shuffle.partitions", s"$shufflePartitions")
   }
 
   /**
@@ -1615,28 +1619,62 @@ abstract class AutoTuner(
     }
   }
 
-  /**
-   * Gets the initial partition number property key.
-   * @return the property key to use for initial partition number
-   */
-  protected def getInitialPartitionNumProperty: String = {
-    val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
-    val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
-    // check if maxNumPostShufflePartitions is in final tuning table
-    if (finalTuningTable.contains(maxNumPostShufflePartitions)) {
-      maxNumPostShufflePartitions
+  protected lazy val aqePartitionProperty: Option[String] = {
+    val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
+      .getOrElse("true").toLowerCase == "true" // enabled by default in Spark
+    val coalesceEnabled = getPropertyValue("spark.sql.adaptive.coalescePartitions.enabled")
+      .getOrElse("true").toLowerCase == "true" // enabled by default when AQE is enabled
+
+    if (aqeEnabled && coalesceEnabled) {
+      val maxNumPostShufflePartitions = "spark.sql.adaptive.maxNumPostShufflePartitions"
+      val initialPartitionNumKey = "spark.sql.adaptive.coalescePartitions.initialPartitionNum"
+      // check if maxNumPostShufflePartitions is in final tuning table
+      if (finalTuningTable.contains(maxNumPostShufflePartitions)) {
+        Some(maxNumPostShufflePartitions)
+      } else {
+        Some(initialPartitionNumKey)
+      }
     } else {
-      initialPartitionNumKey
+      None
     }
   }
 
   /**
-   * Gets the initial partition number value using the appropriate property key.
-   * @return the initial partition number value if found
+   * Applies a function to all relevant shuffle partition property keys, based on AQE and
+   * coalescing settings.
+   *
+   * Logic:
+   *   - If AQE and coalescing are enabled, the relevant property is either
+   *     'spark.sql.adaptive.maxNumPostShufflePartitions' or
+   *     'spark.sql.adaptive.coalescePartitions.initialPartitionNum', depending on which is present
+   *     in the final tuning table.
+   *   - In all cases, 'spark.sql.shuffle.partitions' is also included as a relevant property.
+   *
+   * @param fn Function to apply to each selected property key.
+   * @tparam T Return type of the function.
+   * @return A sequence of results, one for each relevant property key.
    */
-  private def getInitialPartitionNumValue: Option[String] = {
-    val propertyKey = getInitialPartitionNumProperty
-    getPropertyValue(propertyKey)
+  protected def applyToAllPartitionProperties[T](fn: String => T): Seq[T] = {
+    (aqePartitionProperty.toSeq :+ "spark.sql.shuffle.partitions").map(fn)
+  }
+
+  /**
+   * Returns the shuffle partition value using the following logic:
+   * - Considers all relevant partition properties (AQE initial partition properties and
+   *   'spark.sql.shuffle.partitions').
+   * - For each property, checks if a value is set (either in the event log or in recommendations).
+   * - If multiple properties have values, returns the maximum value among them.
+   * - If none are set, returns the default value from tuningConfigs.
+   *
+   * Note: This is a method (not a lazy val) to always reflect the latest value,
+   * as recommendations may be updated after initial evaluation.
+   */
+  protected def shufflePartitionValue: Int = {
+    // Gather all relevant partition property values, take the maximum if multiple are set
+    applyToAllPartitionProperties[Option[Int]](prop => getPropertyValue(prop).map(_.toInt))
+      .flatten
+      .reduceOption(_ max _)
+      .getOrElse(tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault.toInt)
   }
 
   /**
@@ -1806,17 +1844,13 @@ class ProfilingAutoTuner(
    * This method checks for task OOM errors in shuffle stages and recommends to increase
    * shuffle partitions if task OOM errors occurred.
    */
-  override def recommendShufflePartitionsInternal(inputShufflePartitions: Int): Int = {
-    val calculatedValue = super.recommendShufflePartitionsInternal(inputShufflePartitions)
-    val lookup = "spark.sql.shuffle.partitions"
-    val currentValue = getPropertyValue(lookup).getOrElse(
-      tuningConfigs.getEntry("SHUFFLE_PARTITIONS").getDefault).toInt
+  override def recommendShufflePartitionsInternal(): Int = {
+    val calculatedValue = super.recommendShufflePartitionsInternal()
     if (appInfoProvider.hasShuffleStagesWithOom) {
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
-      val recShufflePartitions = currentValue *
+      val recShufflePartitions = shufflePartitionValue *
         tuningConfigs.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
-      appendOptionalComment(lookup,
-        s"'$lookup' should be increased since task OOM occurred in shuffle stages.")
+      appendComment(shufflePartitionsCommentForGpuOOM)
       math.max(calculatedValue, recShufflePartitions)
     } else {
       // Else, return the calculated value from the parent implementation
@@ -1852,37 +1886,74 @@ class ProfilingAutoTuner(
    * 3. Recommends min(originalInitialPartitionNum, ratio) as the new value
    */
   private def adjustInitialPartitionNumBasedOnColumnarExchange(): Unit = {
-    val initialPartitionNumKey = getInitialPartitionNumProperty
+    // Use the dynamic AQE partition property selector
+    aqePartitionProperty match {
+      case Some(initialPartitionNumKey) =>
+        // Get the original initialPartitionNum value, considering aliases
+        val (originalInitialPartitionNum, actualPropertyName) = 
+          getOriginalInitialPartitionNumValueWithPropertyName(initialPartitionNumKey)
 
-    // Get the original initialPartitionNum value
-    val originalInitialPartitionNum = getPropertyValue(initialPartitionNumKey)
-      .map(_.toInt)
-      .getOrElse(tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt)
+        // Get the maximum ColumnarExchange data size
+        appInfoProvider.getMaxColumnarExchangeDataSize match {
+          case Some(maxDataSize) =>
+            // Get GPU default batch size (usually 1GB)
+            val gpuDefaultBatchSize = tuningConfigs.getEntry("BATCH_SIZE_BYTES")
+              .getDefaultAsMemory(ByteUnit.BYTE)
 
-    // Get the maximum ColumnarExchange data size
-    appInfoProvider.getMaxColumnarExchangeDataSize match {
-      case Some(maxDataSize) =>
-        // Get GPU default batch size (usually 1GB)
-        val gpuDefaultBatchSize = tuningConfigs.getEntry("BATCH_SIZE_BYTES")
-          .getDefaultAsMemory(ByteUnit.BYTE)
+            // Calculate ratio
+            val ratio = (maxDataSize.toDouble / gpuDefaultBatchSize).ceil.toInt
 
-        // Calculate ratio
-        val ratio = (maxDataSize.toDouble / gpuDefaultBatchSize).ceil.toInt
+            // Take the smaller value as the recommended value
+            val recommendedValue = math.min(originalInitialPartitionNum, ratio)
 
-        // Take the smaller value as the recommended value
-        val recommendedValue = math.min(originalInitialPartitionNum, ratio)
+            // If the recommended value is different from the original, add recommendation
+            if (recommendedValue != originalInitialPartitionNum) {
+              appendRecommendation(actualPropertyName, recommendedValue.toString)
+              appendComment(s"'$actualPropertyName' adjusted from " +
+                s"$originalInitialPartitionNum to $recommendedValue based on " +
+                s"ColumnarExchange data size (${maxDataSize} bytes) and " +
+                s"GPU batch size (${gpuDefaultBatchSize} bytes)")
+            }
 
-        // If the recommended value is different from the original, add recommendation
-        if (recommendedValue != originalInitialPartitionNum) {
-          appendRecommendation(initialPartitionNumKey, recommendedValue.toString)
-          appendComment(s"'$initialPartitionNumKey' adjusted from " +
-            s"$originalInitialPartitionNum to $recommendedValue based on " +
-            s"ColumnarExchange data size (${maxDataSize} bytes) and " +
-            s"GPU batch size (${gpuDefaultBatchSize} bytes)")
+          case None =>
+            // No ColumnarExchange data size metrics found, no adjustment needed
         }
 
       case None =>
-        // No ColumnarExchange data size metrics found, no adjustment needed
+        // AQE or coalesce is not enabled, no adjustment needed
+    }
+  }
+
+  /**
+   * Get the original initialPartitionNum value and the actual property name used, considering aliases
+   */
+  private def getOriginalInitialPartitionNumValueWithPropertyName(propertyName: String): (Int, String) = {
+    // First try the main property
+    getPropertyValue(propertyName) match {
+      case Some(value) => (value.toInt, propertyName)
+      case None =>
+        // Try aliases
+        val aliases = getInitialPartitionNumAliases(propertyName)
+        aliases.find(alias => getPropertyValue(alias).isDefined) match {
+          case Some(alias) => (getPropertyValue(alias).get.toInt, alias)
+          case None => (tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt, propertyName)
+        }
+    }
+  }
+
+  /**
+   * Returns the list of aliases for the given initial partition number property.
+   */
+  private def getInitialPartitionNumAliases(primaryProperty: String): Seq[String] = {
+    primaryProperty match {
+      case "spark.sql.adaptive.coalescePartitions.initialPartitionNum" =>
+        Seq("spark.sql.adaptive.shuffle.minNumPostShufflePartitions")
+      case "spark.sql.adaptive.maxNumPostShufflePartitions" =>
+        Seq("spark.sql.adaptive.coalescePartitions.initialPartitionNum",
+            "spark.sql.adaptive.shuffle.minNumPostShufflePartitions")
+      case "spark.sql.adaptive.shuffle.minNumPostShufflePartitions" =>
+        Seq("spark.sql.adaptive.coalescePartitions.initialPartitionNum")
+      case _ => Seq.empty
     }
   }
 }
@@ -2050,6 +2121,14 @@ trait AutoTunerStaticComments {
   def shuffleManagerCommentForQualification: String = {
     "'spark.shuffle.manager' is not recommended because the Spark version on the " +
       "GPU cluster is unknown during Qualification."
+  }
+
+  def shufflePartitionsCommentForSpilling: String = {
+    "Shuffle partitions should be increased since spilling occurred in shuffle stages."
+  }
+
+  def shufflePartitionsCommentForGpuOOM: String = {
+    "Shuffle partitions should be increased since task OOM occurred in shuffle stages."
   }
 
   /**
