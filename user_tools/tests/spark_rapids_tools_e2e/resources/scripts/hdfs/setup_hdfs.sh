@@ -124,21 +124,11 @@ download_and_extract_hadoop() {
     fi
 
     if [ ! -f "${hadoop_tar_file}" ]; then
-        # Try dlcdn first, fallback to archive.apache.org if needed
-        if ! wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}"; then
-            local archive_url="https://archive.apache.org/dist/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
-            echo "Primary download failed. Retrying from archive: ${archive_url}"
-            wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${archive_url}" || err "Failed to download Hadoop tarball."
-            checksum_url="${archive_url}.sha512"
-        fi
+        wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
     fi
 
     # Verify checksum and re-download if needed
-    if ! wget --timeout=${WGET_TIMEOUT_SEC} -O"${checksum_file}" "${checksum_url}"; then
-        # if checksum from dlcdn fails, try archive
-        local archive_checksum_url="https://archive.apache.org/dist/hadoop/common/hadoop-${E2E_TEST_HADOOP_VERSION}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz.sha512"
-        wget --timeout=${WGET_TIMEOUT_SEC} -O"${checksum_file}" "${archive_checksum_url}" || err "Failed to download checksum file."
-    fi
+    wget --timeout=${WGET_TIMEOUT_SEC} -O"${checksum_file}" "${checksum_url}" || err "Failed to download checksum file."
     if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then
         wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
         if ! verify_checksum "${hadoop_tar_file}" "${checksum_file}"; then

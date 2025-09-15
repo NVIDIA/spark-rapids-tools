@@ -101,4 +101,8 @@ jobs:
           python -m pip install --pre tox-gh-actions
 
       - name: Run tox test
+        # Set TOX_RUN_PREPARE empty so tox does not depend on the "prepare" env.
+        # tox.ini contains: depends = {env:TOX_RUN_PREPARE:prepare}
+        # Leaving it empty removes that dependency because prepare artifacts were built earlier
+        # in the prepare-tools and prepare-deps jobs and downloaded above.
         run: cd user_tools && TOX_RUN_PREPARE= tox

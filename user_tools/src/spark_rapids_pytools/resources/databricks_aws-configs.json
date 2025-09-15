@@ -6,7 +6,7 @@
           "356": [
             {
               "name": "Apache Spark",
-              "uri": "https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz",
+              "uri": "https://dlcdn.apache.org/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3.tgz",
               "verification": {
                 "fileHash": {
                   "algorithm": "sha512",
