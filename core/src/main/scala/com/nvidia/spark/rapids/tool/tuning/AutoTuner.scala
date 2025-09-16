@@ -1120,7 +1120,7 @@ abstract class AutoTuner(
         appendRecommendation("spark.sql.adaptive.advisoryPartitionSizeInBytes", size)
       }
       if (shufflePartitionValue <=
-            tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt) {
+            tuningConfigs.getEntry("AQE_MAX_INITIAL_PARTITION_NUM").getDefault.toInt) {
         recInitialPartitionNum = platform.recommendedGpuDevice.getInitialPartitionNum.getOrElse(0)
       }
       appendRecommendation("spark.sql.adaptive.coalescePartitions.parallelismFirst",
@@ -1890,7 +1890,7 @@ class ProfilingAutoTuner(
     aqePartitionProperty match {
       case Some(initialPartitionNumKey) =>
         // Get the original initialPartitionNum value, considering aliases
-        val (originalInitialPartitionNum, actualPropertyName) = 
+        val (originalInitialPartitionNum, actualPropertyName) =
           getOriginalInitialPartitionNumValueWithPropertyName(initialPartitionNumKey)
 
         // Get the maximum ColumnarExchange data size
@@ -1925,9 +1925,11 @@ class ProfilingAutoTuner(
   }
 
   /**
-   * Get the original initialPartitionNum value and the actual property name used, considering aliases
+   * Get the original initialPartitionNum value and the actual property name used,
+   * considering aliases
    */
-  private def getOriginalInitialPartitionNumValueWithPropertyName(propertyName: String): (Int, String) = {
+  private def getOriginalInitialPartitionNumValueWithPropertyName(
+      propertyName: String): (Int, String) = {
     // First try the main property
     getPropertyValue(propertyName) match {
       case Some(value) => (value.toInt, propertyName)
@@ -1936,7 +1938,8 @@ class ProfilingAutoTuner(
         val aliases = getInitialPartitionNumAliases(propertyName)
         aliases.find(alias => getPropertyValue(alias).isDefined) match {
           case Some(alias) => (getPropertyValue(alias).get.toInt, alias)
-          case None => (tuningConfigs.getEntry("AQE_MIN_INITIAL_PARTITION_NUM").getDefault.toInt, propertyName)
+          case None => (tuningConfigs.getEntry("AQE_MAX_INITIAL_PARTITION_NUM")
+              .getDefault.toInt, propertyName)
         }
     }
   }
@@ -1947,11 +1950,8 @@ class ProfilingAutoTuner(
   private def getInitialPartitionNumAliases(primaryProperty: String): Seq[String] = {
     primaryProperty match {
       case "spark.sql.adaptive.coalescePartitions.initialPartitionNum" =>
-        Seq("spark.sql.adaptive.shuffle.minNumPostShufflePartitions")
+        Seq("spark.sql.adaptive.maxNumPostShufflePartitions")
       case "spark.sql.adaptive.maxNumPostShufflePartitions" =>
-        Seq("spark.sql.adaptive.coalescePartitions.initialPartitionNum",
-            "spark.sql.adaptive.shuffle.minNumPostShufflePartitions")
-      case "spark.sql.adaptive.shuffle.minNumPostShufflePartitions" =>
         Seq("spark.sql.adaptive.coalescePartitions.initialPartitionNum")
       case _ => Seq.empty
     }
