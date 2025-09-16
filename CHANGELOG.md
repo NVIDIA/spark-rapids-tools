@@ -1,6 +1,19 @@
 
 <br/>
 
+## Release [v25.08.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.3)
+Generated on 2025-09-16
+### Autotuner
+
+- AutoTuner: Align shuffle partition properties and increase partitions when CPU spills detected ([#1907](https://github.com/NVIDIA/spark-rapids-tools/pull/1907))
+
+### Build and CI/CD
+
+- set buildver-356 to be active by default ([#1906](https://github.com/NVIDIA/spark-rapids-tools/pull/1906))
+
+
+<br/>
+
 ## Release [v25.08.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.2)
 Generated on 2025-09-09
 ### Autotuner
