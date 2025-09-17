@@ -309,6 +309,6 @@ object OutHeaderRegistry {
     "WriteOpProfileResult" ->
       Array("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
           "location", "tableName", "dataBase", "outputColumns", "writeMode",
-          "partitionColumns", "fullDescription")
+          "partitionColumns", "compressionOption", "fullDescription")
   ) // End of outputHeaders map initialization
 }

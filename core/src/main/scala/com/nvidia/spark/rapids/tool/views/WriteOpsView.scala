@@ -59,6 +59,7 @@ case class WriteOpProfileResult(record: WriteOperationRecord) extends ProfileRes
       record.operationMeta.outputColumns(),
       record.operationMeta.writeMode(),
       record.operationMeta.partitions(),
+      record.operationMeta.compressOption(),
       // Escape special characters in the description
       StringUtils.renderStr(record.operationMeta.fullDescr(), doEscapeMetaCharacters = true,
         maxLength = 500, showEllipses = true))
@@ -82,6 +83,7 @@ case class WriteOpProfileResult(record: WriteOperationRecord) extends ProfileRes
       StringUtils.reformatCSVString(record.operationMeta.outputColumns()),
       record.operationMeta.writeMode(),
       StringUtils.reformatCSVString(record.operationMeta.partitions()),
+      record.operationMeta.compressOptionCSV(),
       StringUtils.reformatCSVString(
         // Escape special characters in the description and trim at 500 characters.
         StringUtils.renderStr(record.operationMeta.fullDescr(), doEscapeMetaCharacters = true,

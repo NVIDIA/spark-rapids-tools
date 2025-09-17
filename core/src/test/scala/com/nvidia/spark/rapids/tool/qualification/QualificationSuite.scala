@@ -25,6 +25,7 @@ import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
+import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.Matchers._
 
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
@@ -443,74 +444,88 @@ class QualificationSuite extends BaseWithSparkSuite {
     // The unit test loads text file into Hive table. Then it runs SQL hive query that generates
     // "Scan hive". If the Qualification fails to support the "Scan hive", then the format would
     // appear in the unsupportedOperators.csv file or the "non-supported read format" column
-
     TrampolineUtil.withTempDir { warehouseDir =>
       // text file is pair-key-value "key: val_$key"
       val textFilePath = ToolTestUtils.getTestResourcePath("key-value-pairs.txt")
       // set the directory where the store is kept
-      TrampolineUtil.withTempDir { outpath =>
+      TrampolineUtil.withTempPath { outpath =>
+        val prevDerbyHome = System.getProperty("derby.system.home")
         val derbyDir = s"${outpath.getAbsolutePath}/derby"
+        val warehouseDirPath = warehouseDir.getAbsolutePath
+        val metastorePath = warehouseDir.getAbsolutePath
         System.setProperty("derby.system.home", s"$derbyDir")
         val sparkConfs = Map(
-          "spark.sql.warehouse.dir" -> warehouseDir.getAbsolutePath,
+          "spark.sql.warehouse.dir" -> warehouseDirPath,
+          "hive.metastore.warehouse.dir" -> warehouseDirPath,
+          "javax.jdo.option.ConnectionURL" ->
+            s"jdbc:derby:;databaseName=$metastorePath/metastore_db;create=true",
           "spark.driver.extraJavaOptions" -> s"-Dderby.system.home='$derbyDir'")
-        QToolTestCtxtBuilder()
-          .withEvLogProvider(
-            EventlogProviderImpl("create an app with Hive Support")
-              .withHiveEnabled()
-              .withSparkConfigs(sparkConfs)
-              // set the name to "hiv3" on purpose to avoid any matches on "hive".
-              .withAppName("scanHiv3App")
-              .withFunc { (_, spark) =>
-                // scalastyle:off line.size.limit
-                // the following set of queries will generate the following physical plan:
-                //   [{"nodeName":"Scan hive default.src","simpleString":"Scan hive default.src [key#6, value#7],
-                //    HiveTableRelation [`default`.`src`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe,
-                //    Data Cols: [key#6, value#7], Partition Cols: []]","children":[],"metadata":{},
-                //    "metrics":[{"name":"number of output rows","accumulatorId":12,"metricType":"sum"}]}]
-                // scalastyle:on line.size.limit
-                spark.sql("DROP TABLE IF EXISTS src")
-                spark.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING) USING hive")
-                spark.sql(s"LOAD DATA LOCAL INPATH '$textFilePath' INTO TABLE src")
-                spark.sql("SELECT key, value FROM src WHERE key < 10 ORDER BY key")
-              })
-          .withChecker(QToolResultCoreChecker("check app count")
-            .withExpectedSize(1)
-            .withSuccessCode()
-            .withCheckBlock(
-              "verify the fields in the app summary. unsupported reads is empty",
-              qRes => {
-                val unsupReadFormats =
-                  qRes.appSummaries.flatMap(_.readFileFormatAndTypesNotSupported)
-                unsupReadFormats shouldBe empty
-              }))
-          .withChecker(
-            QToolOutFileCheckerImpl("The unsupported Ops should not have hive")
-              .withTableLabel("unsupportedOpsCSVReport")
-              .withContentVisitor(
-                "no scan appears in unsupported operator",
-                csvf => {
-                  csvf.csvRows.filter { r =>
-                    r("Unsupported Operator").contains("hive")
-                  } shouldBe empty
+        try {
+          QToolTestCtxtBuilder()
+            .withEvLogProvider(
+              EventlogProviderImpl("create an app with Hive Support")
+                .withHiveEnabled()
+                .withSparkConfigs(sparkConfs)
+                // set the name to "hiv3" on purpose to avoid any matches on "hive".
+                .withAppName("scanHiv3App")
+                .withFunc { (_, spark) =>
+                  // scalastyle:off line.size.limit
+                  // the following set of queries will generate the following physical plan:
+                  //   [{"nodeName":"Scan hive default.src","simpleString":"Scan hive default.src [key#6, value#7],
+                  //    HiveTableRelation [`default`.`src`, org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe,
+                  //    Data Cols: [key#6, value#7], Partition Cols: []]","children":[],"metadata":{},
+                  //    "metrics":[{"name":"number of output rows","accumulatorId":12,"metricType":"sum"}]}]
+                  // scalastyle:on line.size.limit
+                  spark.sql("DROP TABLE IF EXISTS src")
+                  spark.sql("CREATE TABLE IF NOT EXISTS src (key INT, value STRING) USING hive")
+                  spark.sql(s"LOAD DATA LOCAL INPATH '$textFilePath' INTO TABLE src")
+                  spark.sql("SELECT key, value FROM src WHERE key < 10 ORDER BY key")
+                })
+            .withChecker(QToolResultCoreChecker("check app count")
+              .withExpectedSize(1)
+              .withSuccessCode()
+              .withCheckBlock(
+                "verify the fields in the app summary. unsupported reads is empty",
+                qRes => {
+                  val unsupReadFormats =
+                    qRes.appSummaries.flatMap(_.readFileFormatAndTypesNotSupported)
+                  unsupReadFormats shouldBe empty
                 }))
-          .withChecker(
-            QToolOutFileCheckerImpl("The exec file contains supported scan hive")
-              .withTableLabel("execCSVReport")
-              .withContentVisitor(
-                "scan hive has supported flag set to true",
-                csvf => {
-                  csvf.csvRows.find { r =>
-                    r("Exec Name").startsWith("Scan hivetext")
-                  } match {
-                    case Some(r) =>
-                      // the row is found
-                      r("Exec Is Supported") shouldBe "true"
-                    case _ =>
-                      fail("Exec Scan hivetext was not found in Exec report")
-                  }
-                }))
-          .build()
+            .withChecker(
+              QToolOutFileCheckerImpl("The unsupported Ops should not have hive")
+                .withTableLabel("unsupportedOpsCSVReport")
+                .withContentVisitor(
+                  "no scan appears in unsupported operator",
+                  csvf => {
+                    csvf.csvRows.filter { r =>
+                      r("Unsupported Operator").contains("hive")
+                    } shouldBe empty
+                  }))
+            .withChecker(
+              QToolOutFileCheckerImpl("The exec file contains supported scan hive")
+                .withTableLabel("execCSVReport")
+                .withContentVisitor(
+                  "scan hive has supported flag set to true",
+                  csvf => {
+                    csvf.csvRows.find { r =>
+                      r("Exec Name").startsWith("Scan hivetext")
+                    } match {
+                      case Some(r) =>
+                        // the row is found
+                        r("Exec Is Supported") shouldBe "true"
+                      case _ =>
+                        fail("Exec Scan hivetext was not found in Exec report")
+                    }
+                  }))
+            .build()
+        } finally {
+          if (prevDerbyHome != null) {
+            System.setProperty("derby.system.home", prevDerbyHome)
+          } else {
+            System.clearProperty("derby.system.home")
+          }
+        }
+
       }
     }
   }
@@ -816,7 +831,7 @@ class QualificationSuite extends BaseWithSparkSuite {
             // lambdafunction((lambda y_1#19 + lambda z_2#20),
             // lambda x_0#18, lambda y_1#19, lambda z_2#20, false)) AS merged_maps#17]
             df.withColumn("merged_maps", org.apache.spark.sql.functions.map_zip_with(
-              $"m1", $"m2", (k, v1, v2) => v1 + v2))
+              $"m1", $"m2", (_, v1, v2) => v1 + v2))
           })
       .withChecker(
         QToolResultCoreChecker("check app count and that the potential problems")
@@ -828,10 +843,418 @@ class QualificationSuite extends BaseWithSparkSuite {
           .withContentVisitor(
             "map_zip_with/ lambdaFunction does not appear in the Unsupported Operator column",
             csvF => {
-              csvF.getColumn("Unsupported Operator") should not contain ("map_zip_with")
-              csvF.getColumn("Unsupported Operator") should not contain ("lambdafunction")
+              csvF.getColumn("Unsupported Operator") should not contain "map_zip_with"
+              csvF.getColumn("Unsupported Operator") should not contain "lambdafunction"
             }))
       .build()
+  }
+
+  test("InsertIntoHadoop CMD parquet file with compression") {
+    val compressionsItems = Seq(
+      ("uncompressed", true),
+      ("none", true),
+      ("zstd", true),
+      ("snappy", true),
+      // The following compressions should not be supported
+      // https://github.com/NVIDIA/spark-rapids-tools/issues/1750
+      // Note that hadoop-lzo needs a specific jar ("lzo", true)
+      ("lz4", false), ("gzip", false)
+      // No need to test the following 2 since they are incompatible with older spark releases.
+      // ("lz4raw", false), ("lz4_raw", false)
+    )
+    compressionsItems.foreach { case (compression, isSupported) =>
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl(s"create an app with parquet file write with $compression")
+            .withAppName(s"parquetWriteWith$compression")
+            .withFunc { (provider, spark) =>
+              import spark.implicits._
+              val rootDir = provider.rootDir.get
+              val outParquetFile = s"$rootDir/outparquet"
+              val df = Seq(("A", 20, 90), ("B", 25, 91), ("C", 30, 94)).toDF("name", "age", "score")
+              // The following plan will contain "InsertIntoHadoopCmd" along with options, format
+              // and columnPartitions.
+              // Execute InsertIntoHadoopFsRelationCommand file:/my/filepath/outparquet,
+              //   false,
+              //   [age#11, score#12],
+              //   Parquet,
+              //   [
+              //     compression=gzip,
+              //     __partition_columns=["age","score"],
+              //     path=/my/filepath/outparquet
+              //   ],
+              //   ErrorIfExists, [name, age, score]
+              df.write
+                .option("compression", compression)
+                .partitionBy("age", "score")
+                .parquet(s"$outParquetFile")
+              spark.read.parquet(s"$outParquetFile")
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count and potential problems")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl("Execs should contain Write operation")
+            .withTableLabel("execCSVReport")
+            .withContentVisitor(
+              "Execs should list the write ops",
+              csvF => {
+                val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                if (ToolUtils.isSpark340OrLater()) {
+                  // writeFiles is added in Spark 3.4+
+                  execNames :+ "WriteFiles"
+                }
+                csvF.getColumn("Exec Name") should contain allElementsOf execNames
+              }
+            )
+        )
+        .withChecker(
+          QToolOutFileCheckerImpl("Unsupported operators should contain parquet write")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "Parquet write appears in the Unsupported Operator column",
+              csvF => {
+                if (!isSupported) {
+                  csvF.getColumn("Unsupported Operator") should contain (
+                    "Execute InsertIntoHadoopFsRelationCommand parquet"
+                  )
+                  csvF.getColumn("Details") should contain (
+                    "Unsupported compression"
+                  )
+                } else {
+                  csvF.getColumn("Unsupported Operator") should not contain
+                    "Execute InsertIntoHadoopFsRelationCommand parquet"
+                }
+              }))
+        .build()
+    }
+  }
+
+  test("InsertIntoHadoop CMD ORC file with compression") {
+    // The unit writes into HIVE Table in ORC format. The resulting plan uses
+    // InsertIntoHadoopFsRelationCommand with ORC serde format (not InsertIntoHiveTable).
+    val compressionsItems = Seq(
+      ("uncompressed", true), ("none", true), ("zstd", true), ("snappy", true), ("zlib", true)
+    )
+    compressionsItems.foreach { case (compression, isSupported) =>
+      TrampolineUtil.withTempDir { warehouseDir =>
+        // set the directory where the store is kept
+        TrampolineUtil.withTempDir { outpath =>
+          val warehouseDirPath = warehouseDir.getAbsolutePath
+          val metastorePath = warehouseDir.getAbsolutePath
+          val prevDerbyHome = System.getProperty("derby.system.home")
+          val derbyDir = s"${outpath.getAbsolutePath}/derby_$compression"
+          System.setProperty("derby.system.home", s"$derbyDir")
+          try {
+            val sparkConfs = Map(
+              "spark.sql.warehouse.dir" -> warehouseDirPath,
+              "hive.metastore.warehouse.dir" -> warehouseDirPath,
+              "javax.jdo.option.ConnectionURL" ->
+                s"jdbc:derby:;databaseName=$metastorePath/metastore_db;create=true",
+              "spark.driver.extraJavaOptions" -> s"-Dderby.system.home='$derbyDir'")
+            QToolTestCtxtBuilder()
+              .withEvLogProvider(
+                EventlogProviderImpl("create an app with Hive Support")
+                  .withHiveEnabled()
+                  .withSparkConfigs(sparkConfs)
+                  // set the name to "hiv3" on purpose to avoid any matches on "hive".
+                  .withAppName(s"insertHiv3OrcApp$compression")
+                  .withFunc { (_, spark) =>
+                    // scalastyle:off line.size.limit
+                    // the following set of queries will generate the following physical plan:
+                    //   Execute InsertIntoHadoopFsRelationCommand " +
+                    //        "file:/path/to/orc_hive_table, " +
+                    //        "false, " +
+                    //        "ORC, " +
+                    //        "[orc.compress=SNAPPY, serialization.format=1, " +
+                    //        "__hive_compatible_bucketed_table_insertion__=true], " +
+                    //        "Append, " +
+                    //        "`spark_catalog`.`default`.`my_compressed_orc_table_sql`, " +
+                    //        "org.apache.hadoop.hive.ql.io.orc.OrcSerde, " +
+                    //        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(" +
+                    //        "file:/path/to/orc_hive_table), " +
+                    //        "[name, id]"
+                    // scalastyle:on line.size.limit
+                    val hive_table_name = s"hive_table_with_$compression"
+                    spark.sql(s"DROP TABLE IF EXISTS $hive_table_name")
+                    spark.sql(
+                      s"""
+                  CREATE TABLE  $hive_table_name (name STRING, id INT)
+                  STORED AS ORC
+                  TBLPROPERTIES ('orc.compress'='${compression.toUpperCase}')
+                  """)
+                    spark.sql(
+                      s"""
+                  INSERT INTO TABLE $hive_table_name VALUES ('Alice', 1), ('Bob', 2), ('Charlie', 3)
+                  """)
+                  })
+              .withPerSQL()
+              .withChecker(QToolResultCoreChecker("check app count")
+                .withExpectedSize(1)
+                .withSuccessCode())
+              .withChecker(
+                QToolOutFileCheckerImpl("Execs should contain Write operation")
+                  .withTableLabel("execCSVReport")
+                  .withContentVisitor(
+                    "Execs should list the write ops",
+                    csvF => {
+                      val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand orc")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
+                    }
+                  )
+              )
+              .withChecker(
+                QToolOutFileCheckerImpl("Unsupported operators should contain orc write")
+                  .withTableLabel("unsupportedOpsCSVReport")
+                  .withContentVisitor(
+                    "Parquet write appears in the Unsupported Operator column",
+                    csvF => {
+                      if (!isSupported) {
+                        csvF.getColumn("Unsupported Operator") should contain(
+                          "Execute InsertIntoHadoopFsRelationCommand orc"
+                        )
+                        csvF.getColumn("Details") should contain(
+                          "Unsupported compression"
+                        )
+                      } else {
+                        csvF.getColumn("Unsupported Operator") should not contain
+                          "Execute InsertIntoHadoopFsRelationCommand orc"
+                      }
+                    }))
+              .build()
+          } finally {
+            if (prevDerbyHome != null) {
+              System.setProperty("derby.system.home", prevDerbyHome)
+            } else {
+              System.clearProperty("derby.system.home")
+            }
+          }
+        }
+      }
+    }
+  }
+
+  test("Write hive Parquet table with compression") {
+    // The unit writes into HIVE Table in ORC format. The resulting plan uses
+    // InsertIntoHadoopFsRelationCommand with Parquet serde format (not InsertIntoHiveTable).
+    val compressionsItems = Seq(
+      // ("uncompressed", true), ("none", true), ("zstd", true), ("snappy", true),
+      // The following 2 compressions should not be supported
+      // https://github.com/NVIDIA/spark-rapids-tools/issues/1750
+      // Note that hadoop-lzo needs a specific jar ("lzo", true)
+      ("lz4", false), ("gzip", false), ("lz4raw", false), ("lz4_raw", false)
+    )
+    compressionsItems.foreach { case (compression, isSupported) =>
+      TrampolineUtil.withTempDir { warehouseDir =>
+        // set the directory where the store is kept
+        TrampolineUtil.withTempDir { outpath =>
+          val warehouseDirPath = warehouseDir.getAbsolutePath
+          val metastorePath = warehouseDir.getAbsolutePath
+          val prevDerbyHome = System.getProperty("derby.system.home")
+          val derbyDir = s"${outpath.getAbsolutePath}/derby_$compression"
+          System.setProperty("derby.system.home", s"$derbyDir")
+          try {
+            val sparkConfs = Map(
+              "spark.sql.warehouse.dir" -> warehouseDirPath,
+              "hive.metastore.warehouse.dir" -> warehouseDirPath,
+              "javax.jdo.option.ConnectionURL" ->
+                s"jdbc:derby:;databaseName=$metastorePath/metastore_db;create=true",
+              "spark.driver.extraJavaOptions" -> s"-Dderby.system.home='$derbyDir'")
+            QToolTestCtxtBuilder()
+              .withEvLogProvider(
+                EventlogProviderImpl("create an app with Hive Support")
+                  .withHiveEnabled()
+                  .withSparkConfigs(sparkConfs)
+                  // set the name to "hiv3" on purpose to avoid any matches on "hive".
+                  .withAppName(s"insertHiv3ParquetApp$compression")
+                  .withFunc { (_, spark) =>
+                    // scalastyle:off line.size.limit
+                    // the following set of queries will generate the following physical plan:
+                    //   Execute InsertIntoHadoopFsRelationCommand " +
+                    //        "file:/path/to/parquet_hive_table, " +
+                    //        "false, " +
+                    //        "Parquet, " +
+                    //        "[parquet.compress=SNAPPY, serialization.format=1, " +
+                    //        "__hive_compatible_bucketed_table_insertion__=true], " +
+                    //        "Append, " +
+                    //        "`spark_catalog`.`default`.`my_compressed_parquet_table_sql`, " +
+                    //        "org.apache.hadoop.hive.ql.io.parquet.ParquetSerde, " +
+                    //        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(" +
+                    //        "file:/path/to/parquet_hive_table), " +
+                    //        "[name, id]"
+                    // scalastyle:on line.size.limit
+                    val hive_table_name = s"hive_table_with_$compression"
+                    spark.sql(s"DROP TABLE IF EXISTS $hive_table_name")
+                    spark.sql(s"""
+                  CREATE TABLE  $hive_table_name (name STRING, id INT)
+                  STORED AS PARQUET
+                  TBLPROPERTIES ('parquet.compress'='${compression.toUpperCase}')
+                  """)
+                    spark.sql(s"""
+                  INSERT INTO TABLE $hive_table_name VALUES ('Alice', 1), ('Bob', 2), ('Charlie', 3)
+                  """)
+                  })
+              .withPerSQL()
+              .withChecker(QToolResultCoreChecker("check app count")
+                .withExpectedSize(1)
+                .withSuccessCode())
+              .withChecker(
+                QToolOutFileCheckerImpl("Execs should contain Write operation")
+                  .withTableLabel("execCSVReport")
+                  .withContentVisitor(
+                    "Execs should list the write ops",
+                    csvF => {
+                      val execNames =
+                        Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
+                    }
+                  )
+              )
+              .withChecker(
+                QToolOutFileCheckerImpl("Unsupported operators should contain parquet write")
+                  .withTableLabel("unsupportedOpsCSVReport")
+                  .withContentVisitor(
+                    "Parquet write appears in the Unsupported Operator column",
+                    csvF => {
+                      if (!isSupported) {
+                        csvF.getColumn("Unsupported Operator") should contain (
+                          "Execute InsertIntoHadoopFsRelationCommand parquet"
+                        ) withClue s"Write op should be unsupported for compression $compression"
+                        csvF.getColumn("Details") should contain (
+                          "Unsupported compression"
+                        )
+                      } else {
+                        csvF.getColumn("Unsupported Operator") should not contain
+                          "Execute InsertIntoHadoopFsRelationCommand parquet"
+                      }
+                    }))
+              .build()
+          } finally {
+            if (prevDerbyHome != null) {
+              System.setProperty("derby.system.home", prevDerbyHome)
+            } else {
+              System.clearProperty("derby.system.home")
+            }
+          }
+        }
+      }
+    }
+  }
+
+  test("InsertIntoHive table parquet with compression") {
+    // The unit writes into HIVE Table in Parquet format. The resulting plan uses
+    // InsertIntoHive with Parquet serde format.
+    // Compression does not show up in the eventlog. That's why the qualification cannot definitely
+    // tell the compression of the written file.
+    val compressionsItems = Seq(
+      ("uncompressed", true),
+      ("snappy", true)
+    )
+    compressionsItems.foreach { case (compression, isSupported) =>
+      TrampolineUtil.withTempDir { warehouseDir =>
+        // set the directory where the store is kept
+        TrampolineUtil.withTempDir { outpath =>
+          val warehouseDirPath = warehouseDir.getAbsolutePath
+          val metastorePath = warehouseDir.getAbsolutePath
+          val prevDerbyHome = System.getProperty("derby.system.home")
+          val derbyDir = s"${outpath.getAbsolutePath}/derby_$compression"
+          System.setProperty("derby.system.home", s"$derbyDir")
+          try {
+            val sparkConfs = Map(
+              "spark.sql.warehouse.dir" -> warehouseDirPath,
+              "hive.metastore.warehouse.dir" -> warehouseDirPath,
+              "javax.jdo.option.ConnectionURL" ->
+                s"jdbc:derby:;databaseName=$metastorePath/metastore_db;create=true",
+              "spark.sql.hive.convertMetastoreParquet" -> "false",
+              "spark.driver.extraJavaOptions" -> s"-Dderby.system.home='$derbyDir'")
+            QToolTestCtxtBuilder()
+              .withEvLogProvider(
+                EventlogProviderImpl("create an app with Hive Support")
+                  .withHiveEnabled()
+                  .withSparkConfigs(sparkConfs + ("parquet.compression" -> compression))
+                  // set the name to "hiv3" on purpose to avoid any matches on "hive".
+                  .withAppName(s"insertHiv3OrcApp$compression")
+                  .withFunc { (_, spark) =>
+                    // scalastyle:off line.size.limit
+                    // the following set of queries will generate the following physical plan:
+                    //   Execute InsertIntoHiveTable `spark_catalog`.`default`.`hive_table_with_snappy`,
+                    //   org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe,
+                    //   false,
+                    //   false,
+                    //   [name, id],
+                    //   org.apache.spark.sql.hive.execution.HiveFileFormat@7f93fce1,
+                    //   org.apache.spark.sql.hive.execution.HiveTempPath@5457123a"
+                    // scalastyle:on line.size.limit
+                    val hive_table_name = s"hive_table_with_$compression"
+                    spark.sql(s"DROP TABLE IF EXISTS $hive_table_name")
+                    spark.sql(s"""
+                  CREATE TABLE  $hive_table_name (name STRING, id INT)
+                  STORED AS PARQUET
+                  TBLPROPERTIES ('parquet.compress'='${compression.toUpperCase}')
+                  """)
+                    val data = Seq(("Alice", 1), ("Bob", 2), ("Charlie", 3))
+                    val df = spark.createDataFrame(data).toDF("col1", "col2")
+                    df.write
+                      .option("compression", compression)
+                      .mode("append")
+                      .insertInto(hive_table_name)
+                    df
+                  })
+              .withPerSQL()
+              .withChecker(QToolResultCoreChecker("check app count")
+                .withExpectedSize(1)
+                .withSuccessCode())
+              .withChecker(
+                QToolOutFileCheckerImpl("Execs should contain Write operation")
+                  .withTableLabel("execCSVReport")
+                  .withContentVisitor(
+                    "Execs should list the write ops",
+                    csvF => {
+                      val execNames = Seq[String]("Execute InsertIntoHiveTable hiveparquet")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
+                    }
+                  )
+              )
+              .withChecker(
+                QToolOutFileCheckerImpl("Unsupported operators should contain orc write")
+                  .withTableLabel("unsupportedOpsCSVReport")
+                  .withContentVisitor(
+                    "Parquet write appears in the Unsupported Operator column",
+                    csvF => {
+                      if (!isSupported) {
+                        csvF.getColumn("Unsupported Operator") should contain (
+                          "Execute InsertIntoHiveTable hiveparquet"
+                        )
+                      } else {
+                        csvF.getColumn("Unsupported Operator") should not contain
+                          "Execute InsertIntoHiveTable hiveparquet"
+                      }
+                    }))
+              .build()
+          } finally {
+            if (prevDerbyHome != null) {
+              System.setProperty("derby.system.home", prevDerbyHome)
+            } else {
+              System.clearProperty("derby.system.home")
+            }
+          }
+        }
+      }
+    }
   }
 }
 

@@ -157,21 +157,23 @@ case class EventlogProviderImpl(descr: String) extends EventlogProviderTrait {
       .config("spark.eventLog.enabled", "true")
       .config("spark.eventLog.dir", eventlogDirAbsPath)
 
+    sparkConfigs.foreach(_.foreach { case (k, v) => sparkBuilder.config(k, v) })
+
     if (isHiveEnabled) {
       sparkBuilder.enableHiveSupport()
     }
-    sparkConfigs.foreach(_.foreach { case (k, v) => sparkBuilder.config(k, v) })
+
     lazy val spark = sparkBuilder.getOrCreate()
-
-    // execute the query and generate events
-    val df = selfRefFunc.get(this, spark)
-    df.collect()
-
-    val newAppId = spark.sparkContext.applicationId
-
-    // close the event log
-    spark.close()
-
+    var newAppId = "UNKNOWN"
+    try {
+      // execute the query and generate events
+      val df = selfRefFunc.get(this, spark)
+      df.collect()
+      newAppId = spark.sparkContext.applicationId
+    } finally {
+      // close the event log
+      spark.close()
+    }
     // find the event log
     val files = listFilesMatching(eventLogDir, !_.startsWith("."))
     if (files.length != 1) {

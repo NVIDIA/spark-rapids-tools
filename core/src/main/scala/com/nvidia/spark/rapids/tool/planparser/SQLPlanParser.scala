@@ -50,7 +50,8 @@ object UnsupportedReasons extends Enumeration {
   val IS_UDF, CONTAINS_UDF,
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
-      UNSUPPORTED_IO_FORMAT = Value
+      UNSUPPORTED_IO_FORMAT,
+      UNSUPPORTED_COMPRESSION = Value
 
   // Mutable map to cache custom reasons
   // this cache has to be concurrent to be threadSafe. Otherwise, multiple threads can cause
@@ -71,6 +72,7 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+      case UNSUPPORTED_COMPRESSION => "Unsupported compression"
       case customReason @ _ => customReason.toString
     }
   }
@@ -619,8 +621,10 @@ object SQLPlanParser extends Logging {
         // is a duplicate
         execInfo.setShouldRemove(isDupNode)
         // Set the custom reasons for unsupported execs
-        val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfo.exec)
-        execInfo.setUnsupportedExecReason(unsupportedExecsReason)
+        if (!execInfo.isSupported && execInfo.unsupportedExecReason.isEmpty) {
+          val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfo.exec)
+          execInfo.setUnsupportedExecReason(unsupportedExecsReason)
+        }
         Seq(execInfo)
     }
   }
