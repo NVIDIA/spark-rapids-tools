@@ -95,8 +95,6 @@ PY
 )
 
 # Add Hadoop tarball to prefetch list for HDFS E2E setup.
-# Use archive URL in repo; at download time we try dlcdn first,
-# and if unavailable, fall back to this archive URL. Use
 # E2E_TEST_HADOOP_VERSION if set, else 3.3.6.
 HADOOP_VERSION_HINT="${E2E_TEST_HADOOP_VERSION:-3.3.6}"
 HADOOP_TARBALL_URL="https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION_HINT}/hadoop-${HADOOP_VERSION_HINT}.tar.gz"
