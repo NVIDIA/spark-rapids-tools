@@ -36,12 +36,14 @@ case class UniqueNameRef(value: String) {
 object CompressionCodec {
   val UNCOMPRESSED: String = "uncompressed"
   val CODEC_OPTION_KEYS: Set[String] = Set(
-    "orc.compress",
     "compression"
   )
 
   def compressKeys(dataFormat: String): Set[String] = {
-    CODEC_OPTION_KEYS + s"${dataFormat.toLowerCase}.compress"
+    // remove "hive" from the data format if it exists because the option keys does not include the
+    // hive prefix
+    val dataFormatNoHive = dataFormat.toLowerCase.replace("hive", "")
+    CODEC_OPTION_KEYS + s"$dataFormatNoHive.compress"
   }
   // A concurrent hash map to store compression codec references.
   private val COMPRESSION_CODECS: ConcurrentHashMap[String, UniqueNameRef] = {

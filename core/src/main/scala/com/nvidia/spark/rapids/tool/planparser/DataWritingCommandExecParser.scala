@@ -37,14 +37,14 @@ case class DataWritingCommandExecParser(
     val writeOpMeta =
       DataWritingCommandExecParser.buildWriteOpMetaInternal(node, Option(cmdWrapper))
     writeOpMeta.dataFormat() match {
-      case "Parquet" =>
+      case "Parquet" | "HiveParquet" =>
         // Parquet supports compression, so we need to check if the compression is supported.
         writeOpMeta.compressOption() match {
           case StringUtils.UNKNOWN_EXTRACT | CompressionCodec.UNCOMPRESSED | "zstd" | "snappy" =>
             true
           case _ => false // something does not match, so return false.
         }
-      case "ORC" =>
+      case "ORC" | "HiveORC" =>
         // ORC supports compression, so we need to check if the compression is supported.
         writeOpMeta.compressOption() match {
           case StringUtils.UNKNOWN_EXTRACT | CompressionCodec.UNCOMPRESSED |

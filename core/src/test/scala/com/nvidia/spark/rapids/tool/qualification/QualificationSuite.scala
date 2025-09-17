@@ -25,6 +25,7 @@ import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
+import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.Matchers._
 
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
@@ -857,7 +858,9 @@ class QualificationSuite extends BaseWithSparkSuite {
       // The following compressions should not be supported
       // https://github.com/NVIDIA/spark-rapids-tools/issues/1750
       // Note that hadoop-lzo needs a specific jar ("lzo", true)
-      ("lz4", false), ("gzip", false), ("lz4raw", false), ("lz4_raw", false)
+      ("lz4", false), ("gzip", false)
+      // No need to test the following 2 since they are incompatible with older spark releases.
+      // ("lz4raw", false), ("lz4_raw", false)
     )
     compressionsItems.foreach { case (compression, isSupported) =>
       QToolTestCtxtBuilder()
@@ -898,10 +901,12 @@ class QualificationSuite extends BaseWithSparkSuite {
             .withContentVisitor(
               "Execs should list the write ops",
               csvF => {
-                csvF.getColumn("Exec Name") should contain allOf (
-                  "WriteFiles",
-                  "Execute InsertIntoHadoopFsRelationCommand parquet"
-                )
+                val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                if (ToolUtils.isSpark340OrLater()) {
+                  // writeFiles is added in Spark 3.4+
+                  execNames :+ "WriteFiles"
+                }
+                csvF.getColumn("Exec Name") should contain allElementsOf execNames
               }
             )
         )
@@ -995,10 +1000,12 @@ class QualificationSuite extends BaseWithSparkSuite {
                   .withContentVisitor(
                     "Execs should list the write ops",
                     csvF => {
-                      csvF.getColumn("Exec Name") should contain allOf(
-                        "WriteFiles",
-                        "Execute InsertIntoHadoopFsRelationCommand orc"
-                      )
+                      val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand orc")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
                   )
               )
@@ -1037,7 +1044,7 @@ class QualificationSuite extends BaseWithSparkSuite {
     // The unit writes into HIVE Table in ORC format. The resulting plan uses
     // InsertIntoHadoopFsRelationCommand with Parquet serde format (not InsertIntoHiveTable).
     val compressionsItems = Seq(
-      ("uncompressed", true), ("none", true), ("zstd", true), ("snappy", true),
+      // ("uncompressed", true), ("none", true), ("zstd", true), ("snappy", true),
       // The following 2 compressions should not be supported
       // https://github.com/NVIDIA/spark-rapids-tools/issues/1750
       // Note that hadoop-lzo needs a specific jar ("lzo", true)
@@ -1103,10 +1110,13 @@ class QualificationSuite extends BaseWithSparkSuite {
                   .withContentVisitor(
                     "Execs should list the write ops",
                     csvF => {
-                      csvF.getColumn("Exec Name") should contain allOf (
-                        "WriteFiles",
-                        "Execute InsertIntoHadoopFsRelationCommand parquet"
-                      )
+                      val execNames =
+                        Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
                   )
               )
@@ -1119,7 +1129,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                       if (!isSupported) {
                         csvF.getColumn("Unsupported Operator") should contain (
                           "Execute InsertIntoHadoopFsRelationCommand parquet"
-                        )
+                        ) withClue s"Write op should be unsupported for compression $compression"
                         csvF.getColumn("Details") should contain (
                           "Unsupported compression"
                         )
@@ -1210,10 +1220,12 @@ class QualificationSuite extends BaseWithSparkSuite {
                   .withContentVisitor(
                     "Execs should list the write ops",
                     csvF => {
-                      csvF.getColumn("Exec Name") should contain allOf (
-                        "WriteFiles",
-                        "Execute InsertIntoHiveTable hiveparquet"
-                      )
+                      val execNames = Seq[String]("Execute InsertIntoHiveTable hiveparquet")
+                      if (ToolUtils.isSpark340OrLater()) {
+                        // writeFiles is added in Spark 3.4+
+                        execNames :+ "WriteFiles"
+                      }
+                      csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
                   )
               )

@@ -304,9 +304,24 @@ case class InsertIntoHadoopExtractWithCatalog(
     val serdeDescr = getPropertyFromCatalog("Serde Library")
     // TODO: check if the provider is Hive. Otherwise, the format might be different.
     //       If native Spark is used, then we should map HiveParquet to Parquet.
-    serdeDescr
-      .flatMap(x => HiveParseHelper.getOptionalHiveFormat(x).map(processGPUFormat))
-      .getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    serdeDescr.flatMap(
+      x => HiveParseHelper.getOptionalHiveFormat(x).map(processGPUFormat)) match {
+      case Some(f) =>
+        // update the format index to point to the correct index
+        val actualFormat =
+          if (f == "HiveParquet" || f == "HiveORC") {
+            f.replaceFirst("Hive", "")
+          } else {
+            f
+          }
+        for (i <- components.indices) {
+          if (components(i) == actualFormat) {
+            formatIndex = i
+          }
+        }
+        f
+      case _ => StringUtils.UNKNOWN_EXTRACT
+    }
   }
 
   // Extracts the location information from the catalog information.
