@@ -33,6 +33,47 @@ case class UniqueNameRef(value: String) {
   lazy val csvValue: String = StringUtils.reformatCSVString(value)
 }
 
+object CompressionCodec {
+  val UNCOMPRESSED: String = "uncompressed"
+  val CODEC_OPTION_KEYS: Set[String] = Set(
+    "orc.compress",
+    "compression"
+  )
+
+  def compressKeys(dataFormat: String): Set[String] = {
+    CODEC_OPTION_KEYS + s"${dataFormat.toLowerCase}.compress"
+  }
+  // A concurrent hash map to store compression codec references.
+  private val COMPRESSION_CODECS: ConcurrentHashMap[String, UniqueNameRef] = {
+    val initMap = new ConcurrentHashMap[String, UniqueNameRef]()
+    // scalastyle:off line.size.limit
+    // The Spark IO compressed codecs
+    // https://github.com/apache/spark/blob/0494dc90af48ce7da0625485a4dc6917a244d580/core/src/main/scala/org/apache/spark/io/CompressionCodec.scala#L67
+    // scalastyle:on line.size.limit
+    for (codec <- Seq("lz4", "lzf", "snappy", "zstd")) {
+      // your code here, e.g., println(codec)
+      val codecRef = UniqueNameRef(codec)
+      initMap.put(codec, codecRef)
+    }
+    // also add the uncompressed/none compression
+    val nonCodec = UniqueNameRef(UNCOMPRESSED)
+    initMap.put(UNCOMPRESSED, nonCodec)
+    initMap.put("none", nonCodec)
+    // put the unknown extract codec
+    val unknownExtract = UniqueNameRef(StringUtils.UNKNOWN_EXTRACT)
+    initMap.put(unknownExtract.value, unknownExtract)
+    initMap
+  }
+  lazy val uncompressed: UniqueNameRef = COMPRESSION_CODECS.get(UNCOMPRESSED)
+  private def defaultIfUnknown(value: String): String = {
+    if (value == null || value.isEmpty) StringUtils.UNKNOWN_EXTRACT else value.toLowerCase
+  }
+  def getCodecRef(codec: String): UniqueNameRef = {
+    val processedCodec = defaultIfUnknown(codec)
+    COMPRESSION_CODECS.computeIfAbsent(processedCodec, UniqueNameRef(_))
+  }
+}
+
 /**
  * Trait defining metadata for write operations.
  * This trait provides default implementations for metadata fields
@@ -50,6 +91,10 @@ trait WriteOperationMetadataTrait {
   def execNameCSV: String // CSV-compatible execution name
   def formatCSV: String // CSV-compatible data format
   def partitions(): String = StringUtils.UNKNOWN_EXTRACT // Partitions involved in the operation
+  def options(): String = StringUtils.UNKNOWN_EXTRACT // Additional options as a string
+  def compressOption(): String = CompressionCodec.UNCOMPRESSED  // Compression option (if any)
+  // CSV-compatible compression option
+  def compressOptionCSV(): String = CompressionCodec.uncompressed.csvValue
 }
 
 /**
@@ -78,6 +123,8 @@ class WriteOperationMetaWithFormat(
  * @param saveMode Optional save mode.
  * @param tableName Table name (if applicable).
  * @param dataBaseName Database name (if applicable).
+ * @param partitionCols Optional partition columns.
+ * @param opOptions Additional options as a map.
  * @param descr Optional description of the operation.
  */
 case class WriteOperationMeta(
@@ -89,14 +136,40 @@ case class WriteOperationMeta(
     tableName: String,
     dataBaseName: String,
     partitionCols: Option[String],
+    opOptions: Map[String, String],
     override val descr: Option[String]) extends WriteOperationMetaWithFormat(
       writeExecName, format, descr) {
+
+  lazy val codecObj: UniqueNameRef = {
+    opOptions.collectFirst {
+      case (k, v) if CompressionCodec.compressKeys(dataFormat()).contains(k) =>
+        CompressionCodec.getCodecRef(v)
+    }.getOrElse(CompressionCodec.uncompressed)
+  }
+
   override def writeMode(): String = {
     saveMode match {
       case Some(w) => w.toString
       case _ => StringUtils.UNKNOWN_EXTRACT
     }
   }
+
+  override def options(): String = {
+    if (opOptions.isEmpty) {
+      StringUtils.UNKNOWN_EXTRACT
+    } else {
+      opOptions.map {
+        case (k, v) => s"$k=$v"
+      }.mkString(",")
+    }
+  }
+  override def compressOption(): String = {
+    codecObj.value
+  }
+  override def compressOptionCSV(): String = {
+    codecObj.csvValue
+  }
+
   override def outputPath(): String = outputPathValue.getOrElse(StringUtils.UNKNOWN_EXTRACT)
   override def outputColumns(): String = outputColumnsValue.getOrElse(StringUtils.UNKNOWN_EXTRACT)
   override def table(): String = tableName
@@ -196,6 +269,7 @@ object WriteOperationMetaBuilder {
    * @param tableName The table name.
    * @param dataBaseName The database name.
    * @param partitionCols Optional partition columns.
+   * @param opOptions Optional operation options as a map.
    * @param fullDescr Optional full description.
    * @return A WriteOperationMetadataTrait instance.
    */
@@ -205,11 +279,12 @@ object WriteOperationMetaBuilder {
     tableName: String,
     dataBaseName: String,
     partitionCols: Option[String],
+    opOptions: Option[Map[String, String]],
     fullDescr: Option[String]): WriteOperationMetadataTrait = {
     WriteOperationMeta(getOrCreateExecRef(execName), getOrCreateFormatRef(dataFormat),
       outputPath, outputColumns, getSaveModeFromString(writeMode),
       defaultIfUnknown(tableName), defaultIfUnknown(dataBaseName),
-      partitionCols, fullDescr)
+      partitionCols, opOptions.getOrElse(Map.empty), fullDescr)
   }
 
   /**
