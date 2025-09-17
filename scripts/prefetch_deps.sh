@@ -112,21 +112,6 @@ for url in "${URIS[@]}"; do
     echo "Already cached: ${fname}"
     continue
   fi
-  # Optimization for Apache artifacts:
-  # - We store stable archive.apache.org URLs in-repo because dlcdn prunes old releases.
-  # - At download time, for any archive.apache.org/dist URL, we first try the CDN
-  #   (dlcdn.apache.org) for better performance/availability, then fall back to archive.
-  # - Implementation detail: swap only the host and keep the exact path so the artifact
-  #   remains identical between CDN and archive.
-  if [[ "${url}" == https://archive.apache.org/dist/* ]]; then
-    # Extract the path portion after ".../dist/" and rebuild the CDN URL with the same path.
-    rest_path="${url#https://archive.apache.org/dist/}"
-    dlcdn_url="https://dlcdn.apache.org/${rest_path}"
-    echo "Trying DLCDN first: ${dlcdn_url} -> ${dest}"
-    if curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${dlcdn_url}"; then
-      continue
-    fi
-  fi
   echo "Downloading from source: ${url} -> ${dest}"
   if curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${url}"; then
     continue
