@@ -94,7 +94,14 @@ for u in uris:
 PY
 )
 
-echo "Found ${#URIS[@]} URIs to prefetch"
+# Add Hadoop tarball to prefetch list for HDFS E2E setup.
+# E2E_TEST_HADOOP_VERSION if set, else 3.3.6.
+HADOOP_VERSION_HINT="${E2E_TEST_HADOOP_VERSION:-3.3.6}"
+HADOOP_TARBALL_URL="https://archive.apache.org/dist/hadoop/common/hadoop-${HADOOP_VERSION_HINT}/hadoop-${HADOOP_VERSION_HINT}.tar.gz"
+URIS+=("${HADOOP_TARBALL_URL}")
+
+echo "Prepared ${#URIS[@]} URIs to prefetch"
+echo "Includes Hadoop ${HADOOP_VERSION_HINT} tarball for HDFS E2E"
 
 for url in "${URIS[@]}"; do
   fname="$(basename "${url}")"
@@ -103,8 +110,12 @@ for url in "${URIS[@]}"; do
     echo "Already cached: ${fname}"
     continue
   fi
-  echo "Downloading: ${url} -> ${dest}"
-  curl -L --retry 3 --retry-delay 5 -o "${dest}" "${url}"
+  echo "Downloading from source: ${url} -> ${dest}"
+  if curl -fsSL --retry 3 --retry-all-errors --retry-delay 5 -o "${dest}" "${url}"; then
+    continue
+  fi
+  echo "Download failed: ${url}" >&2
+  rm -f "${dest}" || true
 done
 
 echo "Prefetch complete. Files in ${CACHE_DIR}:"

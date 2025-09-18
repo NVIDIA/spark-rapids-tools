@@ -337,7 +337,7 @@
                 <buildver>350</buildver>
                 <spark.version>${spark350.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -353,7 +353,7 @@
                 <buildver>351</buildver>
                 <spark.version>${spark351.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -369,7 +369,7 @@
                 <buildver>352</buildver>
                 <spark.version>${spark352.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -385,7 +385,7 @@
                 <buildver>353</buildver>
                 <spark.version>${spark353.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -401,7 +401,7 @@
                 <buildver>354</buildver>
                 <spark.version>${spark354.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -417,7 +417,7 @@
                 <buildver>355</buildver>
                 <spark.version>${spark355.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -434,23 +434,7 @@
                 <buildver>356</buildver>
                 <spark.version>${spark356.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
-                <hadoop.version>3.3.6</hadoop.version>
-            </properties>
-        </profile>
-        <profile>
-            <id>spark400</id>
-            <activation>
-                <property>
-                    <name>buildver</name>
-                    <value>400</value>
-                </property>
-            </activation>
-            <properties>
-                <buildver>400</buildver>
-                <spark.version>${spark400.version}</spark.version>
-                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
             </properties>
         </profile>
@@ -467,7 +451,7 @@
                 <buildver>356</buildver>
                 <spark.version>${spark356.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
-                <delta.core.version>${delta31x.version}</delta.core.version>
+                <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
                 <elide.level>${elide.level.release}</elide.level>
             </properties>
@@ -624,7 +608,6 @@
         <spark354.version>3.5.4</spark354.version>
         <spark355.version>3.5.5</spark355.version>
         <spark356.version>3.5.6</spark356.version>
-        <spark400.version>4.0.0-SNAPSHOT</spark400.version>
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
@@ -654,6 +637,7 @@
         <delta23x.version>2.3.0</delta23x.version>
         <delta24x.version>2.4.0</delta24x.version>
         <delta31x.version>3.1.0</delta31x.version>
+        <delta33x.version>3.3.2</delta33x.version>
         <delta.core.version>${delta24x.version}</delta.core.version>
         <delta.core.artifactory>delta-core_${scala.binary.version}</delta.core.artifactory>
         <delta.core.artifactory.post35>delta-spark_${scala.binary.version}</delta.core.artifactory.post35>

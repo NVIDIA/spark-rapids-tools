@@ -113,6 +113,16 @@ download_and_extract_hadoop() {
     local checksum_url="${hadoop_url}.sha512"
     local checksum_file="${hadoop_tar_file}.sha512"
 
+    # Prefer cached tarball if available (e.g., from CI prefetch step)
+    local cache_dir="${RAPIDS_USER_TOOLS_CACHE_FOLDER:-}"
+    if [ -n "${cache_dir}" ]; then
+        local cached_tar="${cache_dir}/hadoop-${E2E_TEST_HADOOP_VERSION}.tar.gz"
+        if [ -f "${cached_tar}" ] && [ ! -f "${hadoop_tar_file}" ]; then
+            echo "Using prefetched Hadoop tarball from cache: ${cached_tar}"
+            cp -f "${cached_tar}" "${hadoop_tar_file}"
+        fi
+    fi
+
     if [ ! -f "${hadoop_tar_file}" ]; then
         wget --timeout=${WGET_TIMEOUT_SEC} -O"${hadoop_tar_file}" "${hadoop_url}" || err "Failed to download Hadoop tarball."
     fi

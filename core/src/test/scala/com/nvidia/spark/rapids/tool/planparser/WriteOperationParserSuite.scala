@@ -20,7 +20,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.execution.ui
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
-import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
+import org.apache.spark.sql.rapids.tool.store.{CompressionCodec, WriteOperationMetadataTrait}
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 
@@ -47,7 +47,8 @@ class WriteOperationParserSuite extends AnyFunSuite {
     expectedWriteMode: String,
     expectedTableName: String,
     expectedDatabaseName: String,
-    expectedPartitionCols: String): Unit = {
+    expectedPartitionCols: String,
+    expectedCompressionOpt: String = CompressionCodec.UNCOMPRESSED): Unit = {
 
     val metadata: WriteOperationMetadataTrait =
       DataWritingCommandExecParser.getWriteOpMetaFromNode(node)
@@ -60,6 +61,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
     assert(metadata.table() == expectedTableName, "tableName")
     assert(metadata.dataBase() == expectedDatabaseName, "databaseName")
     assert(metadata.partitions() == expectedPartitionCols, "partitionCols")
+    assert(metadata.compressOption() == expectedCompressionOpt, "compressOptions")
   }
 
   // scalastyle:off line.size.limit
@@ -229,6 +231,72 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedTableName = "tableName",
       expectedDatabaseName = "database1",
       expectedPartitionCols = "pcol_00"
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — With Compression Codec") {
+    // Tests CPU eventlog that has defined compression codec in the options
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand " +
+        "file:/path/to/outparquet, " +
+        "false, " +
+        "[age#11, score#12], " +
+        "Parquet, " +
+        "[compression=zstd, __partition_columns=[\"age\",\"score\"], path=/path/to/outparquet], " +
+        "ErrorIfExists, " +
+        "[name, age, score]",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "Parquet",
+      expectedOutputPath = "file:/path/to/outparquet",
+      expectedOutputColumns = "name;age;score",
+      expectedWriteMode = "ErrorIfExists",
+      expectedTableName = StringUtils.INAPPLICABLE_EXTRACT,
+      expectedDatabaseName = StringUtils.INAPPLICABLE_EXTRACT,
+      expectedPartitionCols = "age#11, score#12",
+      expectedCompressionOpt = "zstd"
+    )
+  }
+
+  test("InsertIntoHadoopFsRelationCommand — With ORC and Compression Codec") {
+    // Tests CPU eventlog that has defined compression codec in the options.
+    // This tests the InsertHadoopFsRelationCommand with hive ORC serde library.
+    // In addition it tests that the compression is enabled to SNAPPY
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHadoopFsRelationCommand",
+      desc = "Execute InsertIntoHadoopFsRelationCommand " +
+        "file:/path/to/orc_hive_table, " +
+        "false, " +
+        "ORC, " +
+        "[orc.compress=SNAPPY, serialization.format=1, " +
+        "__hive_compatible_bucketed_table_insertion__=true], " +
+        "Append, " +
+        "`spark_catalog`.`default`.`my_compressed_orc_table_sql`, " +
+        "org.apache.hadoop.hive.ql.io.orc.OrcSerde, " +
+        "org.apache.spark.sql.execution.datasources.InMemoryFileIndex(" +
+        "file:/path/to/orc_hive_table), " +
+        "[name, id]",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHadoopFsRelationCommand",
+      expectedDataFormat = "ORC",
+      expectedOutputPath = "file:/path/to/orc_hive_table",
+      expectedOutputColumns = "name;id",
+      expectedWriteMode = "Append",
+      expectedTableName = "my_compressed_orc_table_sql",
+      expectedDatabaseName = "default",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT,
+      expectedCompressionOpt = "snappy"
     )
   }
 
@@ -446,9 +514,40 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedWriteMode = "Overwrite",
       expectedTableName = "table1",
       expectedDatabaseName = "database1",
-      expectedPartitionCols = "dt=Some(2025-01-01)"
+      expectedPartitionCols = "dt=Some(2025-01-01)",
+      expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
     )
   }
+
+  test("InsertIntoHiveTable cmd — With compression codec") {
+    // The plan resulting from inserting into a Hive table with Snappy compression and Parquet
+    // format
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "Execute InsertIntoHiveTable",
+      desc = "Execute InsertIntoHiveTable `spark_catalog`.`default`.`hive_table_with_snappy`, " +
+        "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe, " +
+        "false, " +
+        "false, " +
+        "[name, id], " +
+        "org.apache.spark.sql.hive.execution.HiveFileFormat@7f93fce1, " +
+        "org.apache.spark.sql.hive.execution.HiveTempPath@5457123a",
+      Seq.empty
+    )
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "InsertIntoHiveTable",
+      expectedDataFormat = "HiveParquet",
+      expectedOutputPath = StringUtils.INAPPLICABLE_EXTRACT,
+      expectedOutputColumns = "name;id",
+      expectedWriteMode = "Append",
+      expectedTableName = "hive_table_with_snappy",
+      expectedDatabaseName = "default",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT,
+      expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
 
   test("InsertIntoHiveTable cmd — Catalog prefix") {
     // The catalog piece has `spark_catalog`.`database`.`table`
@@ -469,7 +568,8 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedWriteMode = "Append",
       expectedTableName = "table1",
       expectedDatabaseName = "database1",
-      expectedPartitionCols = "dt=Some(2025-01-01)"
+      expectedPartitionCols = "dt=Some(2025-01-01)",
+      expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
     )
   }
 
@@ -492,7 +592,8 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedWriteMode = "Append",
       expectedTableName = "table1",
       expectedDatabaseName = "database1",
-      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT,
+      expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
     )
   }
 
@@ -522,7 +623,8 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedWriteMode = "Overwrite",
       expectedTableName = "table1",
       expectedDatabaseName = "database1",
-      expectedPartitionCols = "date=Some(20240621)"
+      expectedPartitionCols = "date=Some(20240621)",
+      expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
     )
   }
   // scalastyle:on line.size.limit

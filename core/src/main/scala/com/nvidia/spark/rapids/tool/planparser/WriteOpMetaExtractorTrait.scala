@@ -89,13 +89,17 @@ trait WriteOpMetaExtractorTrait {
       }
     }.getOrElse(StringUtils.UNKNOWN_EXTRACT)
   }
-
+  // Where does the format exist in the components?
+  var formatIndex: Int
+  // where the output columns exist in the components?
+  var outColumnsIndex: Int = -1
   def extractFormat(components: Seq[String]): String
   def extractLocation(components: Seq[String]): Option[String] = None
   def extractCatalog(components: Seq[String]): (String, String)
   def extractOutputColumns(components: Seq[String]): Option[String]
   def extractWriteMode(components: Seq[String]): String
   def extractPartitions(components: Seq[String]): Option[String] = None
+  def extractOptions(components: Seq[String]): Map[String, String] = Map.empty
 }
 
 // This abstract class extracts metadata for Hadoop write operations from log nodes.
@@ -177,6 +181,7 @@ abstract class InsertIntoHadoopExtract(val nodeDescr: String) extends WriteOpMet
     for (i <- components.indices.reverse) {
       if (components(i).startsWith("[") && components(i).endsWith("]")) {
         // this is the output columns
+        outColumnsIndex = i
         val cols = components(i).substring(1, components(i).length - 1)
         return Some(cols.replaceAll(",\\s*", ";"))
       }
@@ -210,6 +215,30 @@ abstract class InsertIntoHadoopExtract(val nodeDescr: String) extends WriteOpMet
     StringUtils.UNKNOWN_EXTRACT
   }
 
+  override def extractOptions(components: Seq[String]): Map[String, String] = {
+    // Options are available following the format argument.
+    // If the format is the 3rd argument, then options are in the 4th
+    components.lift(formatIndex + 1).flatMap { optsStr =>
+      if (!optsStr.startsWith("[")) {
+        // Not an options string.
+        None
+      } else {
+        // remove the brackets
+        val optsContent = optsStr.substring(1, optsStr.length - 1).trim
+        // The options are in the form of Map(key = value, key2 = value2)
+        // Split the options content by comma and trim each entry
+        Some(
+          optsContent.split(",").flatMap { entry =>
+            entry.split("=", 2) match {
+              case Array(key, value) => Some(key.trim -> value.trim)
+              case _ => None
+            }
+          }.toMap
+        )
+      }
+    }.getOrElse(Map.empty[String, String])
+  }
+
   /**
    * Builds the WriteOperationMetadataTrait object from the extracted components.
    * @return a WriteOperationMetadataTrait object.
@@ -225,6 +254,7 @@ abstract class InsertIntoHadoopExtract(val nodeDescr: String) extends WriteOpMet
       tableName = tableName,
       dataBaseName = databaseName,
       partitionCols = extractPartitions(components),
+      opOptions = Some(extractOptions(components)),
       fullDescr = Some(nodeDescr)
     )
   }
@@ -240,6 +270,8 @@ abstract class InsertIntoHadoopExtract(val nodeDescr: String) extends WriteOpMet
  */
 case class InsertIntoHadoopExtractWithCatalog(
     override val nodeDescr: String) extends InsertIntoHadoopExtract(nodeDescr) {
+
+  override var formatIndex: Int = 0
 
   // Determines if a component string contains catalog information.
   // It returns true if the string starts with "CatalogTable(".
@@ -272,9 +304,24 @@ case class InsertIntoHadoopExtractWithCatalog(
     val serdeDescr = getPropertyFromCatalog("Serde Library")
     // TODO: check if the provider is Hive. Otherwise, the format might be different.
     //       If native Spark is used, then we should map HiveParquet to Parquet.
-    serdeDescr
-      .flatMap(x => HiveParseHelper.getOptionalHiveFormat(x).map(processGPUFormat))
-      .getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    serdeDescr.flatMap(
+      x => HiveParseHelper.getOptionalHiveFormat(x).map(processGPUFormat)) match {
+      case Some(f) =>
+        // update the format index to point to the correct index
+        val actualFormat =
+          if (f == "HiveParquet" || f == "HiveORC") {
+            f.replaceFirst("Hive", "")
+          } else {
+            f
+          }
+        for (i <- components.indices) {
+          if (components(i) == actualFormat) {
+            formatIndex = i
+          }
+        }
+        f
+      case _ => StringUtils.UNKNOWN_EXTRACT
+    }
   }
 
   // Extracts the location information from the catalog information.
@@ -310,6 +357,18 @@ class InsertIntoHadoopExtractNoCatalog(
 
   import InsertIntoHadoopExtract._
 
+  // The format exists as the 3rd argument in most cases.
+  // However, if the 3rd argument is an array (partitions), then the format is in the 4th argument.
+  // This index is used as a reference in extract methods.
+  // Note that this index is not always valid, so it should be used with caution.
+  private var _formatIndex = 2
+
+  override def formatIndex: Int = _formatIndex
+
+  override def formatIndex_=(value: Int): Unit = {
+    _formatIndex = value
+  }
+
   // Determines if a string component contains catalog information based on backticks.
   // It finds all strings between backticks and returns true if there are two or more,
   // which indicates both database and table are present.
@@ -323,11 +382,12 @@ class InsertIntoHadoopExtractNoCatalog(
   // The selected raw format string is processed using processGPUFormat.
   override def extractFormat(components: Seq[String]): String = {
     // Attempt to get the third argument; if not available, default to an empty string.
-    val thirdArg = components.lift(2).getOrElse("")
+    val thirdArg = components.lift(formatIndex).getOrElse("")
     // Determine which argument likely contains the format.
     val rawFormat = if (thirdArg.startsWith("[")) {
       // If the third argument is an array, the format might be in the following argument.
-      components.lift(3).getOrElse("")
+      formatIndex += 1
+      components.lift(formatIndex).getOrElse("")
     } else {
       // Otherwise, use the third argument.
       thirdArg
@@ -403,12 +463,17 @@ case class InsertIntoHiveExtractor(
 
   import InsertIntoHadoopExtract._
 
+  // The format exists as the 2nd argument in most cases.
+  private var _formatIndex = 1
+  override def formatIndex: Int = _formatIndex
+  override def formatIndex_=(value: Int): Unit = { _formatIndex = value }
+
   // Overrides extractFormat to obtain the Hive SerDe format.
   // The second element in the components sequence is expected to hold the Hive SerDe class string.
   // HiveParseHelper.getOptionalHiveFormat extracts the user-friendly format,
   // returning UNKNOWN_EXTRACT if not found.
   override def extractFormat(components: Seq[String]): String = {
-    components.lift(1).flatMap { comp =>
+    components.lift(formatIndex).flatMap { comp =>
       HiveParseHelper.getOptionalHiveFormat(comp)
     }.getOrElse(StringUtils.UNKNOWN_EXTRACT)
   }
@@ -429,9 +494,9 @@ case class InsertIntoHiveExtractor(
     // The write mode in the cmd exists as boolean as the 3rd to last argument.
     // The value is interpreted as a boolean whether the query overwrites existing data
     // (false means it's an append operation).
-    if (components.length >= 3 && components.last.startsWith("[")) {
+    if (components.length >= 3 && outColumnsIndex != -1) {
       // the last component is the output columns. Then we need the 3rd to last.
-      components.lift(components.length - 3)
+      components.lift(outColumnsIndex - 2)
         .flatMap(flag => Try(flag.toBoolean).toOption)
         .map { writeModeFlag =>
           if (writeModeFlag) {
@@ -444,6 +509,12 @@ case class InsertIntoHiveExtractor(
     } else {
       StringUtils.UNKNOWN_EXTRACT
     }
+  }
+
+  override def extractOptions(components: Seq[String]): Map[String, String] = {
+    val rawOptions = super.extractOptions(components)
+    // Hive options do not show the compression. So, we inject unknown compression by default.
+    rawOptions + ("compression" -> StringUtils.UNKNOWN_EXTRACT)
   }
 }
 

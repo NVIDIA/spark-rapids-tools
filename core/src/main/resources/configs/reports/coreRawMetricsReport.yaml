@@ -1321,6 +1321,12 @@ reportDefinitions:
             dataType: String
             description: >-
               TBD
+          - name: compressionOption
+            dataType: String
+            description: >-
+              Contains the compression codec used if any. The compression is defined as one of the options.
+              If no compression codec is used, the value is "uncompressed".
+              This field can be used as a clue to determine the reason a write Op is not supported.
           - name: fullDescription
             dataType: String
             description: >-
