@@ -55,7 +55,7 @@ abstract class WholeStageExecParserBase(
     val anySupported = childNodes.exists(_.isSupported == true)
     // average speedup across the execs in the WholeStageCodegen for now
     val supportedChildren = childNodes.filterNot(_.shouldRemove)
-    val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor))
+    val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor).toSeq)
     // The node should be marked as shouldRemove when all the children of the
     // wholeStageCodeGen are marked as shouldRemove.
     val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
@@ -74,7 +74,7 @@ abstract class WholeStageExecParserBase(
       duration = maxDuration,
       nodeId = node.id,
       isSupported = anySupported,
-      children = Some(childNodes),
+      children = Some(childNodes.toSeq),
       stages = stagesInNode,
       shouldRemove = removeNode,
       // unsupported expressions should not be set for the cluster nodes.

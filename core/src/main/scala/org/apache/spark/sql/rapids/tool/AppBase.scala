@@ -296,9 +296,9 @@ abstract class AppBase(
         val allOtherStageIds = allOtherJobs.values.flatMap(_.stageIds).toSet
         stagesInJobToRemove.filter(!allOtherStageIds.contains(_))
       }
-      stagesNotInOtherJobs.foreach(cleanupStages(_))
-      jobIdToSqlID.remove(_)
-      jobIdToInfo.remove(_)
+      stagesNotInOtherJobs.foreach(cleanupStages)
+      jobIdToSqlID.remove(jobId)
+      jobIdToInfo.remove(jobId)
     }
   }
 
@@ -380,7 +380,7 @@ abstract class AppBase(
 
   def findPotentialIssues(desc: String): Set[String] = {
     val potentialIssuesRegexs = potentialIssuesRegexMap
-    val issues = potentialIssuesRegexs.filterKeys(desc.matches(_))
+    val issues = potentialIssuesRegexs.iterator.filter { case (k, _) => desc.matches(k) }.toMap
     issues.values.toSet
   }
 
@@ -393,7 +393,7 @@ abstract class AppBase(
   def buildClusterInfo(): Unit = {
     // try to figure out number of executors per node based on the executor info
     // Group by host name, find max executors per host
-    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).mapValues(_.size).values
+    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).iterator.map { case (k, v) => k -> v.size }.toMap.values
     // if we have different number of execs per node, then we blank it out to indicate
     // not applicable (like when dynamic allocation is on in multi-tenant cluster)
     // Since with dynamic allocation you could end up with more executors on a node then it
@@ -662,7 +662,7 @@ object AppBase {
         ""
       }
     }
-    val schemaTypes = completeTypes ++ incompleteTypes
+    val schemaTypes = (completeTypes ++ incompleteTypes).toSeq
 
     // Filter only complex types.
     // Example: array<string>, array<struct<string, string>>

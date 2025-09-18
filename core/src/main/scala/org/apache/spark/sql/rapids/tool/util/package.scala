@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 /**
  * RAPIDS tools utilities.

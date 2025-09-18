@@ -228,7 +228,7 @@ object ToolTestUtils extends Logging {
       tuningDefinitions: java.util.List[TuningEntryDefinition] =
         new java.util.ArrayList[TuningEntryDefinition]()): TargetClusterProps = {
     val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
    val workerProps = new WorkerInfo(workerNodeInstanceType.getOrElse(""), cpuCores.getOrElse(0),
@@ -299,7 +299,7 @@ object ToolTestUtils extends Logging {
       default: List[TuningConfigEntry] = List.empty,
       qualification: List[TuningConfigEntry] = List.empty,
       profiling: List[TuningConfigEntry] = List.empty): TuningConfigsProvider = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     new TuningConfigsProvider(default.asJava, qualification.asJava, profiling.asJava, None)
   }
 

@@ -131,7 +131,7 @@ object GenerateDot {
  * @param plan Query plan.
  * @param metrics Map of accumulatorId to metric.
  */
-case class QueryPlanWithMetrics(plan: SparkPlanInfoWithStage, metrics: Map[Long, Long])
+  case class QueryPlanWithMetrics(plan: SparkPlanInfoWithStage, metrics: Map[Long, Long])
 
 /**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
@@ -191,7 +191,7 @@ object SparkPlanGraph {
     val exchanges = mutable.HashMap[SparkPlanInfoWithStage, SparkPlanGraphNode]()
     buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, null, exchanges,
       stageIdToStageMetrics)
-    SparkPlanGraphForDot(nodes, edges, appId, sqlId, physicalPlan)
+    SparkPlanGraphForDot(nodes.toSeq, edges.toSeq, appId, sqlId, physicalPlan)
   }
 
   @tailrec

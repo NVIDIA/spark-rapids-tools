@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import scala.collection.breakOut
 
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.ProfileResult
@@ -109,9 +108,9 @@ trait WriteOpsViewTrait extends ViewableTrait[WriteOpProfileResult] {
    * @return A sequence of `WriteOpProfileResult` instances.
    */
   def getRawView(app: AppBase, index: Int): Seq[WriteOpProfileResult] = {
-    app.getWriteOperationRecords().map { w =>
+    app.getWriteOperationRecords().iterator.map { w =>
       WriteOpProfileResult(w)
-    }(breakOut)
+    }.toSeq
   }
 
   /**

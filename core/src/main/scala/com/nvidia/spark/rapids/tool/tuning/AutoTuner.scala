@@ -1461,7 +1461,7 @@ abstract class AutoTuner(
     val existingClasses = getPropertyValue(propertyKey)
       .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
       .getOrElse(Array.empty)
-      .to[scala.collection.immutable.ListSet]
+      .to(scala.collection.immutable.ListSet)
 
     if (!existingClasses.contains(className)) {
       appendRecommendation(propertyKey, (existingClasses + className).mkString(","))
@@ -1517,7 +1517,7 @@ abstract class AutoTuner(
   }
 
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
-    comments.map(RecommendedCommentResult).sortBy(_.comment)
+    comments.map(RecommendedCommentResult).toSeq.sortBy(_.comment)
   }
 
   private def toRecommendationsProfileResult: Seq[TuningEntryTrait] = {

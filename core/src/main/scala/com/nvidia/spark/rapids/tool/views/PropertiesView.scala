@@ -88,7 +88,7 @@ trait RapidsPropertiesView extends AppPropertiesViewTrait {
   override def getLabel: String = "Spark Rapids parameters set explicitly"
   override def getDescription: String = "Spark Rapids parameters"
   override def getRelevantProperties(app: AppBase): Map[String, String] = {
-    app.sparkProperties.filterKeys(ToolUtils.isRapidsPropKey)
+    app.sparkProperties.iterator.filter { case (k, _) => ToolUtils.isRapidsPropKey(k) }.toMap
   }
 }
 
@@ -97,7 +97,7 @@ trait SparkPropertiesView extends AppPropertiesViewTrait {
   override def getLabel: String = "Spark Properties"
   override def getDescription: String = "Spark Properties"
   override def getRelevantProperties(app: AppBase): Map[String, String] = {
-    app.sparkProperties.filterKeys(key => !key.contains(ToolUtils.PROPS_RAPIDS_KEY_PREFIX))
+    app.sparkProperties.iterator.filter { case (key, _) => !key.contains(ToolUtils.PROPS_RAPIDS_KEY_PREFIX) }.toMap
   }
 }
 

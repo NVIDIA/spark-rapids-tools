@@ -21,7 +21,7 @@ import java.io.File
 import com.nvidia.spark.rapids.tool.ToolTestUtils.findFilesRecursively
 import com.nvidia.spark.rapids.tool.views.qualification.{QualOutputTableDefinition, QualYamlConfigLoader}
 import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider.TABLES_CONFIG_PATH
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 
 /**
  * An implementation to check the output json file.

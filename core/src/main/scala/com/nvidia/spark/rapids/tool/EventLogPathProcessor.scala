@@ -298,7 +298,7 @@ object EventLogPathProcessor extends Logging {
           "log level to DEBUG for more details."
         Map(FailedEventLog(inputPath, message) -> None)
       } else {
-        eventLogInfos.toMap.mapValues(Some(_))
+        eventLogInfos.toMap.iterator.map { case (k, v) => k -> Some(v) }.toMap
       }
     } catch {
       case fnfEx: FileNotFoundException =>
@@ -355,7 +355,7 @@ object EventLogPathProcessor extends Logging {
     // Filter the event logs to be processed based on the criteria. If it is not provided in the
     // command line, then return all the event logs processed above.
     val matchedLogs = matchlogs.map { strMatch =>
-      logsWithTimestamp.filterKeys(_.eventLog.getName.contains(strMatch))
+      logsWithTimestamp.iterator.filter { case (k, _) => k.eventLog.getName.contains(strMatch) }.toMap
     }.getOrElse(logsWithTimestamp)
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
@@ -370,7 +370,7 @@ object EventLogPathProcessor extends Logging {
           Some(ByteUnit.MiB))
         val (matched, filtered) = validMatchedLogs.partition(info => info._2.size >= minSizeInBytes)
         logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. The logs " +
-          s"filtered out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+          s"filtered out include: ${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
         matched
       } else {
         validMatchedLogs
@@ -382,7 +382,7 @@ object EventLogPathProcessor extends Logging {
         val (matched, filtered) =
           filteredByMinSize.partition(info => info._2.size <= maxSizeInBytes)
         logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +
-          s"out include: ${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+          s"out include: ${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
         matched
       } else {
         filteredByMinSize
@@ -397,7 +397,7 @@ object EventLogPathProcessor extends Logging {
           }
           logInfo(s"Filtered out event logs based on both fs start time: ${fsStartTime.get} " +
             s"and fs end time: ${fsEndTime.get}. The logs filtered out include: " +
-            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+            s"${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
           matched
         } else if (fsStartTime.isDefined) {
           val startTimeMs = AppFilterImpl.parseDateTimePeriod(fsStartTime.get).get
@@ -405,7 +405,7 @@ object EventLogPathProcessor extends Logging {
             filteredByMaxSize.partition { case (_, v) => v.timestamp >= startTimeMs }
           logInfo(s"Filtered out event logs based on fs start time: ${fsStartTime.get} " +
             s"The logs filtered out include: " +
-            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+            s"${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
           matched
         } else {
           val endTimeMs = AppFilterImpl.parseDateTimePeriod(fsEndTime.get).get
@@ -413,7 +413,7 @@ object EventLogPathProcessor extends Logging {
             filteredByMaxSize.partition { case (_, v) => v.timestamp <= endTimeMs }
           logInfo(s"Filtered out event logs based on fs end time: ${fsEndTime.get} " +
             s"The logs filtered out include: " +
-            s"${filtered.keys.map(_.eventLog.toString).mkString(",")}")
+            s"${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
           matched
         }
       } else {
@@ -440,7 +440,7 @@ object EventLogPathProcessor extends Logging {
     } else {
       matchedLogs
     }
-    (filteredLogs.keys.toSeq, logsWithTimestamp.keys.toSeq)
+    (filteredLogs.iterator.map(_._1).toSeq, logsWithTimestamp.iterator.map(_._1).toSeq)
   }
 
   def filterByAppCriteria(filterNLogs: Option[String]): Boolean = {

@@ -25,7 +25,7 @@ import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}

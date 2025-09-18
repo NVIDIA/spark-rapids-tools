@@ -20,7 +20,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.nvidia</groupId>
-    <artifactId>rapids-4-spark-tools_2.12</artifactId>
+    <artifactId>rapids-4-spark-tools_${scala.binary.version}</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
     <version>25.08.4-SNAPSHOT</version>
@@ -472,6 +472,128 @@
                 <elide.level>${elide.level.release}</elide.level>
             </properties>
         </profile>
+        <profile>
+            <id>scala213</id>
+            <properties>
+                <scala.binary.version>2.13</scala.binary.version>
+                <scala.version>2.13.12</scala.version>
+                <scalatest.version>3.2.19</scalatest.version>
+                <maven.scalastyle.skip>true</maven.scalastyle.skip>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>net.alchim31.maven</groupId>
+                        <artifactId>scala-maven-plugin</artifactId>
+                        <version>${scala.plugin.version}</version>
+                        <configuration>
+                            <encoding>${platform-encoding}</encoding>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                            <recompileMode>incremental</recompileMode>
+                            <args>
+                                <arg>-unchecked</arg>
+                                <arg>-deprecation</arg>
+                                <arg>-feature</arg>
+                                <arg>-explaintypes</arg>
+                                <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
+                                <arg>-Xlint:missing-interpolator</arg>
+                                <arg>-Xfatal-warnings</arg>
+                                <arg>-Wconf:cat=deprecation:s,cat=lint-adapted-args:e</arg>
+                                <arg>-Xelide-below</arg>
+                                <arg>${elide.level}</arg>
+                            </args>
+                            <jvmArgs>
+                                <jvmArg>-Xms1024m</jvmArg>
+                                <jvmArg>-Xmx1024m</jvmArg>
+                            </jvmArgs>
+                            <addJavacArgs>${scala.javac.args}</addJavacArgs>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <dependencies combine.self="override"/>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>enforce-scala212-buildvers</id>
+            <activation>
+                <property>
+                    <name>scala.binary.version</name>
+                    <value>2.12</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-buildver-for-scala212</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireProperty>
+                                            <property>buildver</property>
+                                            <regex>^(320|321|322|323|324|325|330|331|332|333|334|335|340|341|342|343|344|350|351|352|353|354|355|356)$</regex>
+                                            <message>Scala 2.12 is not compatible with Spark 4.0 (buildver=400). Choose a supported Spark buildver.</message>
+                                        </requireProperty>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>enforce-scala213-buildvers</id>
+            <activation>
+                <property>
+                    <name>scala.binary.version</name>
+                    <value>2.13</value>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-buildver-for-scala213</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <requireProperty>
+                                            <property>buildver</property>
+                                            <regex>^(333|334|335|340|341|342|343|344|350|351|352|353|354|355|356|400)$</regex>
+                                            <message>Scala 2.13 requires Spark 3.3+ (buildver >= 333) or Spark 4.0 (400). Choose a supported Spark buildver.</message>
+                                        </requireProperty>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
     <properties>
         <spark311.version>3.1.1</spark311.version>
@@ -521,6 +643,7 @@
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
         <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
+        <scala.collection.compat.version>2.12.0</scala.collection.compat.version>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>
         <delta11x.version>1.1.0</delta11x.version>
@@ -607,6 +730,11 @@
             <artifactId>scalatest_${scala.binary.version}</artifactId>
             <version>${scalatest.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-collection-compat_${scala.binary.version}</artifactId>
+            <version>${scala.collection.compat.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.tototoshi</groupId>
@@ -808,7 +936,7 @@
                             <args>
                                 <arg>-doc-external-doc:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar#https://docs.oracle.com/javase/8/docs/api/index.html</arg>
                                 <arg>-doc-external-doc:${settings.localRepository}/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar#https://scala-lang.org/api/${scala.version}/</arg>
-                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_2.12/${spark.version}/spark-sql_2.12-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_${scala.binary.version}/${spark.version}/spark-sql_${scala.binary.version}-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
                             </args>
                             <scalaVersion>${scala.version}</scalaVersion>
                             <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
@@ -874,17 +1002,17 @@
                             </target>
                         </configuration>
                     </execution>
+                    <!--
+                    This is an alternative implementation of the scalastyle check invocation,
+                    a replacement for scalastyle-maven-plugin. It's motivated to address the following:
+                    - All scala files are checked at once regardless of the module, so the developer
+                    can focus on addressing violations without being distracted by the build issues
+                    in-between
+                    - We don't have to hardcode the source code roots added dynamically by other maven
+                    plugins to the project
+                    - The scalastyle launch cost is amortized across all modules
+                    -->
                     <execution>
-                        <!--
-                        This is an alternative implementation of the scalastyle check invocation,
-                        a replacement for scalastyle-maven-plugin. It's motivated to address the following:
-                        - All scala files are checked at once regardless of the module, so the developer
-                        can focus on addressing violations without being distracted by the build issues
-                        in-between
-                        - We don't have to hardcode the source code roots added dynamically by other maven
-                        plugins to the project
-                        - The scalastyle launch cost is amortized across all modules
-                        -->
                         <id>scalastyle-all-modules</id>
                         <phase>verify</phase>
                         <goals><goal>run</goal></goals>
@@ -913,13 +1041,6 @@
                         </configuration>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.scalastyle</groupId>
-                        <artifactId>scalastyle_${scala.binary.version}</artifactId>
-                        <version>1.0.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

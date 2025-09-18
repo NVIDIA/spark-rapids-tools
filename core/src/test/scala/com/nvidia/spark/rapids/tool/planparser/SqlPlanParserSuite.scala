@@ -24,7 +24,7 @@ import scala.util.control.NonFatal
 import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
+import org.scalatest.matchers.should.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2

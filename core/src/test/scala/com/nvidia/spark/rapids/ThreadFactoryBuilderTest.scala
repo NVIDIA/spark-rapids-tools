@@ -18,9 +18,9 @@ package com.nvidia.spark.rapids
 
 import java.util.concurrent.{Callable, Executors}
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class ThreadFactoryBuilderTest extends FunSuite {
+class ThreadFactoryBuilderTest extends AnyFunSuite {
 
   test("test thread factory builder") {
     val pool1 = Executors.newFixedThreadPool(2,

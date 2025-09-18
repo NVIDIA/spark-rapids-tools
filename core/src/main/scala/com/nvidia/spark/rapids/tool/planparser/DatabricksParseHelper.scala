@@ -143,7 +143,10 @@ object DatabricksParseHelper extends Logging {
     // TODO: Currently, only the first mapping in the list is used.
     //       This limitation exists because we cannot differentiate between
     //       these operators in the SparkPlan.
-    json.extract[Map[String, List[String]]].mapValues(_.head)
+    json.extract[Map[String, List[String]]]
+      .iterator
+      .map { case (k, v) => k -> v.head }
+      .toMap
   }
 
   def isPhotonNode(nodeName: String): Boolean = PHOTON_PATTERN.findFirstIn(nodeName).isDefined

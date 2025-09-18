@@ -26,6 +26,10 @@ case class ExprOpRef(opRef: OpRef, count: Int = 1) extends OpRefWrapperBase(opRe
 object ExprOpRef extends OpRefWrapperBaseTrait[ExprOpRef] {
   def fromRawExprSeq(exprArr: Seq[String]): Seq[ExprOpRef] = {
     exprArr.groupBy(identity)
-      .mapValues(expr => ExprOpRef(OpRef.fromExpr(expr.head), expr.size)).values.toSeq
+      .iterator
+      .map { case (k, expr) => k -> ExprOpRef(OpRef.fromExpr(expr.head), expr.size) }
+      .toMap
+      .values
+      .toSeq
   }
 }

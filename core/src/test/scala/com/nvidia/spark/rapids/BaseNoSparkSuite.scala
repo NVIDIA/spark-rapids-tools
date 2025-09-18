@@ -20,7 +20,8 @@ import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import org.scalatest.BeforeAndAfterEach
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -30,7 +31,7 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 /**
  * Base class containing all non-Spark common methods used for testing.
  */
-class BaseNoSparkSuite extends FunSuite with BeforeAndAfterEach with Logging {
+class BaseNoSparkSuite extends AnyFunSuite with BeforeAndAfterEach with Logging {
 
   protected def checkDeltaLakeSparkRelease(): (Boolean, String) = {
     // deltaLake is supported until Spark-340
