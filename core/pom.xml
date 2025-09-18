@@ -586,6 +586,15 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>java9plus</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <scalatest.jvm.args>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED</scalatest.jvm.args>
+            </properties>
+        </profile>
     </profiles>
     <properties>
         <spark311.version>3.1.1</spark311.version>
@@ -683,6 +692,8 @@
         <tools.qual.test.keep.per_app.summary>false</tools.qual.test.keep.per_app.summary>
         <!-- enable/disable cleanup of temporary directories created during testing -->
         <tools.test.cleanup.tmp.dir>true</tools.test.cleanup.tmp.dir>
+        <!-- ScalaTest JVM arguments - conditionally set based on Java version -->
+        <scalatest.jvm.args></scalatest.jvm.args>
     </properties>
 
     <dependencies>
@@ -801,7 +812,7 @@
                     <junitxml>.</junitxml>
                     <filereports>scala-test-output.txt</filereports>
                     <stderr/>
-                    <argLine>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
+                    <argLine>${scalatest.jvm.args}</argLine>
                     <systemProperties>
                         <java.awt.headless>true</java.awt.headless>
                         <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
