@@ -462,7 +462,8 @@
                 <scala.binary.version>2.13</scala.binary.version>
                 <scala.version>2.13.12</scala.version>
                 <scalatest.version>3.2.19</scalatest.version>
-                <maven.scalastyle.skip>true</maven.scalastyle.skip>
+                <!-- Use scalastyle_2.12 for cross-compilation compatibility -->
+                <scalastyle.scala.binary.version>2.12</scalastyle.scala.binary.version>
             </properties>
             <build>
                 <plugins>
@@ -499,7 +500,14 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
                         <version>3.0.0</version>
-                        <dependencies combine.self="override"/>
+                        <dependencies>
+                            <!-- Use scalastyle_2.12 for cross-compilation - scalastyle tool itself doesn't need to match target Scala version -->
+                            <dependency>
+                                <groupId>org.scalastyle</groupId>
+                                <artifactId>scalastyle_${scalastyle.scala.binary.version}</artifactId>
+                                <version>1.0.0</version>
+                            </dependency>
+                        </dependencies>
                     </plugin>
                 </plugins>
             </build>
@@ -613,10 +621,12 @@
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
         <maven.clean.plugin.version>3.2.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
+        <!-- Default scalastyle binary version - overridden in scala213 profile -->
+        <scalastyle.scala.binary.version>${scala.binary.version}</scalastyle.scala.binary.version>
         <spark.test.version>${spark333.version}</spark.test.version>
         <snakeyaml.version>2.0</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
-        <scalatest.version>3.0.5</scalatest.version>
+        <scalatest.version>3.2.19</scalatest.version>
         <spark.version.classifier>spark${buildver}</spark.version.classifier>
         <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
@@ -791,6 +801,7 @@
                     <junitxml>.</junitxml>
                     <filereports>scala-test-output.txt</filereports>
                     <stderr/>
+                    <argLine>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED</argLine>
                     <systemProperties>
                         <java.awt.headless>true</java.awt.headless>
                         <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
@@ -965,6 +976,14 @@
                 <version>3.0.0</version>
                 <!-- parent-pom only executions -->
                 <inherited>false</inherited>
+                <dependencies>
+                    <!-- Include scalastyle for cross-compilation -->
+                    <dependency>
+                        <groupId>org.scalastyle</groupId>
+                        <artifactId>scalastyle_${scalastyle.scala.binary.version}</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>copy-notice</id>

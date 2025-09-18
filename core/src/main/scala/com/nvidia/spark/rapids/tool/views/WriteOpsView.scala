@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-
 import com.nvidia.spark.rapids.tool.analysis.{ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.ProfileResult
 

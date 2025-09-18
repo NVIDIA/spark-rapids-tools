@@ -20,6 +20,7 @@ import java.io.FileNotFoundException
 import java.util.Properties
 
 import scala.jdk.CollectionConverters._
+
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging

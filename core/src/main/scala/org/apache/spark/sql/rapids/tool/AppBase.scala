@@ -393,7 +393,8 @@ abstract class AppBase(
   def buildClusterInfo(): Unit = {
     // try to figure out number of executors per node based on the executor info
     // Group by host name, find max executors per host
-    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).iterator.map { case (k, v) => k -> v.size }.toMap.values
+    val execsPerNodeList = executorIdToInfo.values.groupBy(_.host).iterator
+      .map { case (k, v) => k -> v.size }.toMap.values
     // if we have different number of execs per node, then we blank it out to indicate
     // not applicable (like when dynamic allocation is on in multi-tenant cluster)
     // Since with dynamic allocation you could end up with more executors on a node then it

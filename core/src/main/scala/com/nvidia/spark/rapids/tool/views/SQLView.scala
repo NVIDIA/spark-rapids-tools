@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, SQLPlanGraphProfileResult, SQLPlanInfoProfileResult, WholeStageCodeGenResults}
 

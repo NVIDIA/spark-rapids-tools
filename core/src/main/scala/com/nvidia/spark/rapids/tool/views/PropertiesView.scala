@@ -97,7 +97,8 @@ trait SparkPropertiesView extends AppPropertiesViewTrait {
   override def getLabel: String = "Spark Properties"
   override def getDescription: String = "Spark Properties"
   override def getRelevantProperties(app: AppBase): Map[String, String] = {
-    app.sparkProperties.iterator.filter { case (key, _) => !key.contains(ToolUtils.PROPS_RAPIDS_KEY_PREFIX) }.toMap
+    app.sparkProperties.iterator
+      .filter { case (key, _) => !key.contains(ToolUtils.PROPS_RAPIDS_KEY_PREFIX) }.toMap
   }
 }
 

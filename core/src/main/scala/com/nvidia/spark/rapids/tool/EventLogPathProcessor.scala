@@ -355,7 +355,8 @@ object EventLogPathProcessor extends Logging {
     // Filter the event logs to be processed based on the criteria. If it is not provided in the
     // command line, then return all the event logs processed above.
     val matchedLogs = matchlogs.map { strMatch =>
-      logsWithTimestamp.iterator.filter { case (k, _) => k.eventLog.getName.contains(strMatch) }.toMap
+      logsWithTimestamp.iterator
+        .filter { case (k, _) => k.eventLog.getName.contains(strMatch) }.toMap
     }.getOrElse(logsWithTimestamp)
 
     val filteredLogs = if ((filterNLogs.nonEmpty && !filterByAppCriteria(filterNLogs)) ||
@@ -369,8 +370,9 @@ object EventLogPathProcessor extends Logging {
         val minSizeInBytes = StringUtils.convertMemorySizeToBytes(minEventLogSize.get,
           Some(ByteUnit.MiB))
         val (matched, filtered) = validMatchedLogs.partition(info => info._2.size >= minSizeInBytes)
-        logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. The logs " +
-          s"filtered out include: ${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
+        logInfo(s"Filtering eventlogs by size, minimum size is ${minSizeInBytes}b. " +
+          s"The logs filtered out include: " +
+          s"${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
         matched
       } else {
         validMatchedLogs
@@ -381,8 +383,9 @@ object EventLogPathProcessor extends Logging {
           Some(ByteUnit.MiB))
         val (matched, filtered) =
           filteredByMinSize.partition(info => info._2.size <= maxSizeInBytes)
-        logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. The logs filtered " +
-          s"out include: ${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
+        logInfo(s"Filtering eventlogs by size, max size is ${maxSizeInBytes}b. " +
+          s"The logs filtered out include: " +
+          s"${filtered.iterator.map { case (info, _) => info.eventLog.toString }.mkString(",")}")
         matched
       } else {
         filteredByMinSize

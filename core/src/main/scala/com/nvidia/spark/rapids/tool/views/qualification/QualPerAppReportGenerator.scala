@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views.qualification
 
-
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.planparser.UnsupportedExecSummary
 import com.nvidia.spark.rapids.tool.planparser.ops.OperatorCounter

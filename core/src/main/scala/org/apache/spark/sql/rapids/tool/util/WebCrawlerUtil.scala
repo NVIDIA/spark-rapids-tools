@@ -19,8 +19,8 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.IOException
 import java.net.URL
 
-import scala.jdk.CollectionConverters._
 import scala.collection.mutable
+import scala.jdk.CollectionConverters._
 import scala.util.control.NonFatal
 import scala.xml.XML
 

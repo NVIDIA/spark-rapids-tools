@@ -164,7 +164,8 @@ class SQLPlanModelManager {
    * @return map between executionId and the physical description of the last version.
    */
   def getPhysicalPlans: immutable.Map[Long, String] = {
-    immutable.SortedMap[Long, String]() ++ sqlPlans.iterator.map { case (k, v) => k -> v.physicalPlanDesc }.toMap
+    immutable.SortedMap[Long, String]() ++ sqlPlans.iterator
+      .map { case (k, v) => k -> v.physicalPlanDesc }.toMap
   }
 
   /**
@@ -200,7 +201,8 @@ class SQLPlanModelManager {
    * @return map between executionId and the SparkPlanVersion of the last version.
    */
   def getPlanInfos: immutable.Map[Long, SparkPlanInfo] = {
-    immutable.SortedMap[Long, SparkPlanInfo]() ++ sqlPlans.iterator.map { case (k, v) => k -> v.planInfo }.toMap
+    immutable.SortedMap[Long, SparkPlanInfo]() ++ sqlPlans.iterator
+      .map { case (k, v) => k -> v.planInfo }.toMap
   }
 
   /**

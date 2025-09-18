@@ -23,8 +23,8 @@ import scala.collection.mutable
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.exceptions.TestFailedException
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
