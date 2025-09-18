@@ -17,6 +17,8 @@ venv.bak/
 # intellij
 .idea/
 *.iml
+# ignore directory .run where intellij keeps its run configurations
+**/.run/
 
 # vscode
 .vscode/
