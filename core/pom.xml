@@ -462,138 +462,31 @@
                 <scala.binary.version>2.13</scala.binary.version>
                 <scala.version>2.13.12</scala.version>
                 <scalatest.version>3.2.19</scalatest.version>
-                <!-- Use scalastyle_2.12 for cross-compilation compatibility -->
-                <scalastyle.scala.binary.version>2.12</scalastyle.scala.binary.version>
+                <scala.wconf.args>-Wconf:cat=deprecation:s,cat=lint-adapted-args:e</scala.wconf.args>
             </properties>
             <build>
                 <plugins>
                     <plugin>
                         <groupId>net.alchim31.maven</groupId>
                         <artifactId>scala-maven-plugin</artifactId>
-                        <version>${scala.plugin.version}</version>
                         <configuration>
-                            <encoding>${platform-encoding}</encoding>
-                            <scalaVersion>${scala.version}</scalaVersion>
-                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
-                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
-                            <recompileMode>incremental</recompileMode>
                             <args>
                                 <arg>-unchecked</arg>
                                 <arg>-deprecation</arg>
                                 <arg>-feature</arg>
                                 <arg>-explaintypes</arg>
+                                <!-- Skip -Yno-adapted-args for Scala 2.13 -->
                                 <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
                                 <arg>-Xlint:missing-interpolator</arg>
                                 <arg>-Xfatal-warnings</arg>
-                                <arg>-Wconf:cat=deprecation:s,cat=lint-adapted-args:e</arg>
+                                <arg>${scala.wconf.args}</arg>
                                 <arg>-Xelide-below</arg>
                                 <arg>${elide.level}</arg>
                             </args>
-                            <jvmArgs>
-                                <jvmArg>-Xms1024m</jvmArg>
-                                <jvmArg>-Xmx1024m</jvmArg>
-                            </jvmArgs>
-                            <addJavacArgs>${scala.javac.args}</addJavacArgs>
                         </configuration>
                     </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.0.0</version>
-                        <dependencies>
-                            <!-- Use scalastyle_2.12 for cross-compilation - scalastyle tool itself doesn't need to match target Scala version -->
-                            <dependency>
-                                <groupId>org.scalastyle</groupId>
-                                <artifactId>scalastyle_${scalastyle.scala.binary.version}</artifactId>
-                                <version>1.0.0</version>
-                            </dependency>
-                        </dependencies>
-                    </plugin>
                 </plugins>
             </build>
-        </profile>
-        <profile>
-            <id>enforce-scala212-buildvers</id>
-            <activation>
-                <property>
-                    <name>scala.binary.version</name>
-                    <value>2.12</value>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-enforcer-plugin</artifactId>
-                        <version>3.3.0</version>
-                        <executions>
-                            <execution>
-                                <id>enforce-buildver-for-scala212</id>
-                                <phase>validate</phase>
-                                <goals>
-                                    <goal>enforce</goal>
-                                </goals>
-                                <configuration>
-                                    <rules>
-                                        <requireProperty>
-                                            <property>buildver</property>
-                                            <regex>^(320|321|322|323|324|325|330|331|332|333|334|335|340|341|342|343|344|350|351|352|353|354|355|356)$</regex>
-                                            <message>Scala 2.12 is not compatible with Spark 4.0 (buildver=400). Choose a supported Spark buildver.</message>
-                                        </requireProperty>
-                                    </rules>
-                                    <fail>true</fail>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>enforce-scala213-buildvers</id>
-            <activation>
-                <property>
-                    <name>scala.binary.version</name>
-                    <value>2.13</value>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-enforcer-plugin</artifactId>
-                        <version>3.3.0</version>
-                        <executions>
-                            <execution>
-                                <id>enforce-buildver-for-scala213</id>
-                                <phase>validate</phase>
-                                <goals>
-                                    <goal>enforce</goal>
-                                </goals>
-                                <configuration>
-                                    <rules>
-                                        <requireProperty>
-                                            <property>buildver</property>
-                                            <regex>^(333|334|335|340|341|342|343|344|350|351|352|353|354|355|356|400)$</regex>
-                                            <message>Scala 2.13 requires Spark 3.3+ (buildver >= 333) or Spark 4.0 (400). Choose a supported Spark buildver.</message>
-                                        </requireProperty>
-                                    </rules>
-                                    <fail>true</fail>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>java9plus</id>
-            <activation>
-                <jdk>[9,)</jdk>
-            </activation>
-            <properties>
-                <scalatest.jvm.args>--add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED</scalatest.jvm.args>
-            </properties>
         </profile>
     </profiles>
     <properties>
@@ -630,8 +523,6 @@
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
         <maven.clean.plugin.version>3.2.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
-        <!-- Default scalastyle binary version - overridden in scala213 profile -->
-        <scalastyle.scala.binary.version>${scala.binary.version}</scalastyle.scala.binary.version>
         <spark.test.version>${spark333.version}</spark.test.version>
         <snakeyaml.version>2.0</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
@@ -692,8 +583,8 @@
         <tools.qual.test.keep.per_app.summary>false</tools.qual.test.keep.per_app.summary>
         <!-- enable/disable cleanup of temporary directories created during testing -->
         <tools.test.cleanup.tmp.dir>true</tools.test.cleanup.tmp.dir>
-        <!-- ScalaTest JVM arguments - conditionally set based on Java version -->
-        <scalatest.jvm.args></scalatest.jvm.args>
+        <!-- Scala compiler warning configuration - overridden for Scala 2.13 -->
+        <scala.wconf.args>-Wconf:cat=lint-adapted-args:e</scala.wconf.args>
     </properties>
 
     <dependencies>
@@ -812,7 +703,6 @@
                     <junitxml>.</junitxml>
                     <filereports>scala-test-output.txt</filereports>
                     <stderr/>
-                    <argLine>${scalatest.jvm.args}</argLine>
                     <systemProperties>
                         <java.awt.headless>true</java.awt.headless>
                         <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
@@ -970,7 +860,7 @@
                         <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
                         <arg>-Xlint:missing-interpolator</arg>
                         <arg>-Xfatal-warnings</arg>
-                        <arg>-Wconf:cat=lint-adapted-args:e</arg>
+                        <arg>${scala.wconf.args}</arg>
                         <arg>-Xelide-below</arg>
                         <arg>${elide.level}</arg>
                     </args>
@@ -988,10 +878,10 @@
                 <!-- parent-pom only executions -->
                 <inherited>false</inherited>
                 <dependencies>
-                    <!-- Include scalastyle for cross-compilation -->
+                    <!-- Include scalastyle for cross-compilation (only available for Scala 2.12) -->
                     <dependency>
                         <groupId>org.scalastyle</groupId>
-                        <artifactId>scalastyle_${scalastyle.scala.binary.version}</artifactId>
+                        <artifactId>scalastyle_2.12</artifactId>
                         <version>1.0.0</version>
                     </dependency>
                 </dependencies>
