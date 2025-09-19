@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
@@ -30,8 +31,9 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     checker: PluginTypeChecker,
     sqlID: Long) extends ExecParser {
+  private val cleanedUpNodeName = GenericExecParser.cleanupNodeName(node)
   // We use "DataWritingCommandExec" to get the speedupFactor of AppendDataExecV1
-  val fullExecName: String = DataWritingCommandExecParser.getPhysicalExecName(node.name)
+  val fullExecName: String = DataWritingCommandExecParser.getPhysicalExecName(cleanedUpNodeName)
   override def parse: ExecInfo = {
     // The node description has information about the table schema and its format.
     // We do not want the op to me marked as RDD or UDF if the node description contains some
@@ -45,9 +47,8 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
     val writeSupported = checker.isWriteFormatSupported(dataFormat)
     val finalSpeedupFactor = if (writeSupported) speedupFactor else 1.0
 
-    // execs like SaveIntoDataSourceCommand has prefix "Execute". So, we need to get rid of it.
-    val nodeName = node.name.replaceFirst("Execute\\s*", "")
-    ExecInfo.createExecNoNode(sqlID, nodeName,
+    // Do not remove prefix Execute to be consistent with other execs.
+    ExecInfo.createExecNoNode(sqlID, cleanedUpNodeName,
       s"Format: $dataFormat", finalSpeedupFactor, None, node.id, OpTypes.WriteExec,
       isSupported = writeSupported && isExecSupported, children = None, expressions = Seq.empty)
   }
@@ -70,16 +71,6 @@ object DeltaLakeHelper {
   private val atomicReplaceTableExec = DataWritingCommandExecParser.atomicReplaceTableExec
   private val appendDataExecV1 = DataWritingCommandExecParser.appendDataExecV1
   private val overwriteByExprExecV1 = DataWritingCommandExecParser.overwriteByExprExecV1
-  private val mergeIntoCommandEdgeExec = "MergeIntoCommandEdge"
-  private val writeIntoDeltaCommandExec = "WriteIntoDeltaCommand"
-  val saveIntoDataSrcCMD = "SaveIntoDataSourceCommand"
-  // Note that the SaveIntoDataSourceCommand node name appears as
-  // "Execute SaveIntoDataSourceCommand"
-  // Same for Execute MergeIntoCommandEdge
-  private val exclusiveDeltaExecs = Set(
-    saveIntoDataSrcCMD,
-    mergeIntoCommandEdgeExec,
-    writeIntoDeltaCommandExec)
   // define the list of writeExecs that also exist in Spark
   private val deltaExecsFromSpark = Set(
     appendDataExecV1,
@@ -89,15 +80,21 @@ object DeltaLakeHelper {
 
   // keywords used to verify that the operator provider is DeltaLake
   private val nodeDescKeywords = Set(
-    "DeltaTableV2",
-    "WriteIntoDeltaBuilder")
+    // WriteIntoDeltaBuilder is a databricks keyword specific, it does not exist in open source.
+    // "WriteIntoDeltaBuilder"
+    // The following entries are for open source DeltaLake
+    "DeltaTableV2")
+
+  def acceptsExclusiveWriteOp(nodeName: String): Boolean = {
+    DeltaLakeOps.isExclusiveDeltaWriteOp(nodeName)
+  }
 
   def accepts(nodeName: String): Boolean = {
-    exclusiveDeltaExecs.exists(k => nodeName.contains(k)) || deltaExecsFromSpark.contains(nodeName)
+    acceptsExclusiveWriteOp(nodeName) || deltaExecsFromSpark.contains(nodeName)
   }
 
   def acceptsWriteOp(node: SparkPlanGraphNode): Boolean = {
-    if (exclusiveDeltaExecs.exists(k => node.name.contains(k))) {
+    if (acceptsExclusiveWriteOp(node.name)) {
       true
     } else if (deltaExecsFromSpark.contains(node.name)) {
       if (node.name.contains(appendDataExecV1) || node.name.contains(overwriteByExprExecV1)) {
@@ -151,7 +148,7 @@ object DeltaLakeHelper {
    * @return the write command wrapper
    */
   def getWriteCMDWrapper(node: SparkPlanGraphNode): Option[DataWritingCmdWrapper] = {
-    val wcmd = exclusiveDeltaExecs.find(node.name.contains(_)) match {
+    val wcmd = DeltaLakeOps.getExecNoPrefix(node.name) match {
       case Some(cmd) => cmd
       case _ =>
         deltaExecsFromSpark.find(node.name.contains(_)) match {

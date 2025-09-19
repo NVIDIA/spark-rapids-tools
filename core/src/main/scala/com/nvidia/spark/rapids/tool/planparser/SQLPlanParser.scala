@@ -23,6 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OperatorRefTrait, OpRef, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.planparser.photon.{PhotonPlanParser, PhotonStageExecParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
@@ -539,7 +540,7 @@ object SQLPlanParser extends Logging {
       case "SubqueryBroadcast" =>
         SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
       case sqe if SubqueryExecParser.accepts(sqe) =>
-        SubqueryExecParser.parseNode(node, checker, sqlID, app)
+        SubqueryExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
       case "TakeOrderedAndProject" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseTakeOrderedExpressions)).parse
@@ -548,8 +549,13 @@ object SQLPlanParser extends Logging {
           node, checker, sqlID, expressionFunction = Some(parseWindowExpressions)).parse
       case "WindowGroupLimit" =>
         WindowGroupLimitParser(node, checker, sqlID).parse
-      case wfe if WriteFilesExecParser.accepts(wfe) =>
-        WriteFilesExecParser(node, checker, sqlID).parse
+      case wfe if SupportedBlankExec.accepts(wfe) =>
+        SupportedBlankExec.createExecParser(
+          node = node, checker = checker, sqlID = sqlID, app = Some(app)).parse
+      case dlo if DeltaLakeOps.accepts(dlo) =>
+        // Delta Lake ops such as DeltaScan, DeltaMerge, etc.
+        DeltaLakeOps.createExecParser(
+          node = node, checker = checker, sqlID = sqlID, app = Some(app)).parse
       case _ =>
         // Execs that are members of reuseExecs (i.e., ReusedExchange) should be marked as
         // supported but with shouldRemove flag set to True.

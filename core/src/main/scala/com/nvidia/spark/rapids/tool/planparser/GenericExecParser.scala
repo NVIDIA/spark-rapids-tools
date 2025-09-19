@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,9 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
 
+/**
+ * A parser meant to be used for generic exec nodes that do not have a specific parser.
+ */
 class GenericExecParser(
     val node: SparkPlanGraphNode,
     val checker: PluginTypeChecker,
@@ -31,18 +34,27 @@ class GenericExecParser(
     val app: Option[AppBase] = None
 ) extends ExecParser {
 
-  val fullExecName: String = execName.getOrElse(node.name + "Exec")
+  lazy val trimmedNodeName: String = GenericExecParser.cleanupNodeName(node)
+
+  val fullExecName: String = execName.getOrElse(trimmedNodeName + "Exec")
+
+  def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
+    checker.isExecSupported(registeredName.getOrElse(fullExecName))
+  }
+
+  def pullSpeedupFactor(registeredName: Option[String] = None): Double = {
+    checker.getSpeedupFactor(registeredName.getOrElse(fullExecName))
+  }
 
   override def parse: ExecInfo = {
     val duration = computeDuration
     val expressions = parseExpressions()
 
     val notSupportedExprs = getNotSupportedExprs(expressions)
-    val isExecSupported = checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty
+    val isExecSupported = pullSupportedFlag() && notSupportedExprs.isEmpty
 
     val (speedupFactor, isSupported) = if (isExecSupported) {
-      (checker.getSpeedupFactor(fullExecName), true)
+      (pullSpeedupFactor(), true)
     } else {
       (1.0, false)
     }
@@ -61,6 +73,9 @@ class GenericExecParser(
     }
   }
 
+  // By default, there are no children. Override this method if there are children.
+  def getChildren: Option[Seq[ExecInfo]] = None
+
   protected def getExprString: String = {
     node.desc.replaceFirst(s"^${node.name}\\s*", "")
   }
@@ -69,8 +84,10 @@ class GenericExecParser(
     checker.getNotSupportedExprs(expressions)
   }
 
+  protected def getDurationSqlMetrics: Set[String] = Set.empty
+
   protected def getDurationMetricIds: Seq[Long] = {
-    Seq.empty
+    node.metrics.find(m => getDurationSqlMetrics.contains(m.name)).map(_.accumulatorId).toSeq
   }
 
   protected def computeDuration: Option[Long] = {
@@ -80,6 +97,9 @@ class GenericExecParser(
     }
     durations.reduceOption(_ + _)
   }
+
+  // The value that will be reported as ExecName in the ExecInfo object created by this parser.
+  def reportedExecName: String = trimmedNodeName
 
   protected def createExecInfo(
       speedupFactor: Double,
@@ -92,13 +112,13 @@ class GenericExecParser(
       node,
       sqlID,
       // Remove trailing spaces from node name if any
-      node.name.trim,
+      reportedExecName,
       "",
       speedupFactor,
       duration,
       node.id,
       isSupported,
-      None,
+      children = getChildren,
       unsupportedExprs = notSupportedExprs,
       expressions = expressions
     )
@@ -106,6 +126,12 @@ class GenericExecParser(
 }
 
 object GenericExecParser {
+  def cleanupNodeName(nodeName: String): String = {
+    nodeName.trim
+  }
+  def cleanupNodeName(node: SparkPlanGraphNode): String = {
+    cleanupNodeName(node.name)
+  }
   def apply(
       node: SparkPlanGraphNode,
       checker: PluginTypeChecker,

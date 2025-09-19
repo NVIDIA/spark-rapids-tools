@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,5 @@ case class ObjectHashAggregateExecParser(
     GenericExecParser(node, checker, sqlID,
       expressionFunction = expressionFunction, app = Some(appBase)) with Logging {
 
-  override def getDurationMetricIds: Seq[Long] = {
-    node.metrics.find(_.name == "time in aggregation build").map(_.accumulatorId).toSeq
-  }
+  override def getDurationSqlMetrics: Set[String] = Set("time in aggregation build")
 }
