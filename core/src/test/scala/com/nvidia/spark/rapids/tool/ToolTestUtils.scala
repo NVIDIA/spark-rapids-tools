@@ -214,6 +214,32 @@ object ToolTestUtils extends Logging {
     mapper.readValue(jsonFile, classOf[ClusterSummary])
   }
 
+  /**
+   * Compares two JSON strings for equality, ignoring field ordering within objects.
+   * This is useful for testing JSON output where field order may vary between
+   * different JSON library versions or configurations.
+   *
+   * @param actualJson   The actual JSON string
+   * @param expectedJson The expected JSON string
+   * @return true if the JSON structures are equivalent, false otherwise
+   */
+  def compareJsonIgnoringFieldOrder(actualJson: String, expectedJson: String): Boolean = {
+    try {
+      val mapper = new ObjectMapper().registerModule(DefaultScalaModule)
+
+      // Parse both JSON strings into JsonNode objects
+      val actualNode = mapper.readTree(actualJson)
+      val expectedNode = mapper.readTree(expectedJson)
+
+      // JsonNode.equals() compares structure and values but ignores field order
+      actualNode.equals(expectedNode)
+    } catch {
+      case _: Exception =>
+        // If JSON parsing fails, fall back to string comparison
+        actualJson.trim == expectedJson.trim
+    }
+  }
+
   def buildTargetClusterInfo(
       driverNodeInstanceType: Option[String] = None,
       workerNodeInstanceType: Option[String] = None,

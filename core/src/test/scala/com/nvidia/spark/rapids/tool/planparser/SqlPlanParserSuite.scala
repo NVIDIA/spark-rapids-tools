@@ -1358,8 +1358,10 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     // scalastyle:on line.size.limit
     for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
       val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
-      val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2)).toSet
-      val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions).toSet
+      val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+        .toSeq.sortBy(_.getOpName)
+      val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
+        .sortBy(_.getOpName)
       actualExpressions should ===(expected)
     }
   }

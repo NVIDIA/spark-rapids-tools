@@ -466,16 +466,58 @@
             </properties>
             <build>
                 <plugins>
+                    <!-- Enforce Scala 2.13 compatibility requirements -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <version>3.0.0</version>
+                        <executions>
+                            <execution>
+                                <id>enforce-scala213-spark-compatibility</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <phase>validate</phase>
+                                <configuration>
+                                    <rules>
+                                        <requireProperty>
+                                            <property>buildver</property>
+                                            <regex>^(33[0-9]|34[0-9]|35[0-9]|[4-9][0-9][0-9])$</regex>
+                                            <regexMessage>
+                                                Scala 2.13 is only supported with Spark 3.3.0 and above.
+                                                Current buildver: ${buildver}
+
+                                                Supported combinations:
+                                                - Scala 2.12: Spark 3.2.0 - 3.5.x only
+                                                - Scala 2.13: Spark 3.3.0+ (including 4.0+)
+
+                                                To build with Scala 2.13, use buildver 330 or higher:
+                                                mvn clean install -Dbuildver=330 -Pscala213
+
+                                                Note: Spark 4.0+ REQUIRES Scala 2.13 (Scala 2.12 not supported)
+                                            </regexMessage>
+                                        </requireProperty>
+                                    </rules>
+                                    <fail>true</fail>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>net.alchim31.maven</groupId>
                         <artifactId>scala-maven-plugin</artifactId>
                         <configuration>
+                            <encoding>${platform-encoding}</encoding>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                            <recompileMode>incremental</recompileMode>
                             <args>
                                 <arg>-unchecked</arg>
                                 <arg>-deprecation</arg>
                                 <arg>-feature</arg>
                                 <arg>-explaintypes</arg>
-                                <!-- Skip -Yno-adapted-args for Scala 2.13 -->
+                                <!-- Skip -Yno-adapted-args for Scala 2.13 (not supported) -->
                                 <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
                                 <arg>-Xlint:missing-interpolator</arg>
                                 <arg>-Xfatal-warnings</arg>
@@ -483,6 +525,11 @@
                                 <arg>-Xelide-below</arg>
                                 <arg>${elide.level}</arg>
                             </args>
+                            <jvmArgs>
+                                <jvmArg>-Xms1024m</jvmArg>
+                                <jvmArg>-Xmx1024m</jvmArg>
+                            </jvmArgs>
+                            <addJavacArgs>${scala.javac.args}</addJavacArgs>
                         </configuration>
                     </plugin>
                 </plugins>
@@ -694,6 +741,42 @@
             </resource>
         </resources>
         <plugins>
+            <!-- Enforce Scala 2.12 compatibility requirements -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-scala212-spark-compatibility</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <phase>validate</phase>
+                        <configuration>
+                            <rules>
+                                <requireProperty>
+                                    <property>buildver</property>
+                                    <regex>^(3[0-9][0-9])$</regex>
+                                    <regexMessage>
+                                        Scala 2.12 is only supported with Spark 3.x versions.
+                                        Spark 4.0+ requires Scala 2.13.
+                                        Current buildver: ${buildver}
+
+                                        Supported combinations:
+                                        - Scala 2.12: Spark 3.2.0 - 3.5.x only
+                                        - Scala 2.13: Spark 3.3.0+ (including 4.0+)
+
+                                        For Spark 4.0+, use Scala 2.13:
+                                        mvn clean install -Dbuildver=400 -Pscala213
+                                    </regexMessage>
+                                </requireProperty>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>

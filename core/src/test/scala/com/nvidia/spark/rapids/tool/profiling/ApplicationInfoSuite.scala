@@ -1070,26 +1070,10 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
             |    "user" : "root"
             |  }
             |} ]""".stripMargin
-      // assert that the spark rapids build info json file is same as expected
-      // Compare JSON content by normalizing field ordering differences
-      // Extract key-value pairs and sort them to handle different field orders
-      def normalizeJsonFields(json: String): String = {
-        // Find all "key":"value" patterns and sort them within each object
-        val keyValuePattern = """"([^"]+)"\s*:\s*"([^"]+)"""".r
-        val objectPattern = """\{([^{}]*)\}""".r
-
-        objectPattern.replaceAllIn(json, m => {
-          val objectContent = m.group(1)
-          val keyValues = keyValuePattern.findAllMatchIn(objectContent).map(_.matched).toSeq.sorted
-          "{" + keyValues.mkString(",") + "}"
-        }).replaceAll("\\s+", "")
-      }
-
-      val actualNormalized = normalizeJsonFields(actualResult)
-      val expectedNormalized = normalizeJsonFields(expectedResult)
-      assert(actualNormalized == expectedNormalized,
-        s"JSON content differs after " +
-          s"normalization:\nActual: $actualNormalized\nExpected: $expectedNormalized")
+      // Assert that the spark rapids build info json file is same as expected
+      // Use proper JSON comparison that ignores field ordering differences
+      assert(ToolTestUtils.compareJsonIgnoringFieldOrder(actualResult, expectedResult),
+        s"JSON content differs:\nActual: $actualResult\nExpected: $expectedResult")
     }
   }
 

@@ -131,7 +131,7 @@ object GenerateDot {
  * @param plan Query plan.
  * @param metrics Map of accumulatorId to metric.
  */
-  case class QueryPlanWithMetrics(plan: SparkPlanInfoWithStage, metrics: Map[Long, Long])
+case class QueryPlanWithMetrics(plan: SparkPlanInfoWithStage, metrics: Map[Long, Long])
 
 /**
  * This code is mostly copied from org.apache.spark.sql.execution.ui.SparkPlanGraph
