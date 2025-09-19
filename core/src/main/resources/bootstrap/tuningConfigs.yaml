@@ -190,6 +190,12 @@ default:
     default: 50000b
     usedBy: spark.sql.adaptive.advisoryPartitionSizeInBytes
 
+  - name: AQE_MIN_INITIAL_PARTITION_NUM
+    description: >-
+      Minimum initial partition number for AQE coalescing
+    default: 200
+    usedBy: spark.sql.adaptive.coalescePartitions.initialPartitionNum, spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+
   - name: AQE_MAX_INITIAL_PARTITION_NUM
     description: >-
       Maximum initial partition number for AQE coalescing

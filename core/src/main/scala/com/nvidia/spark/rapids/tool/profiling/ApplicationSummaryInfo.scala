@@ -94,19 +94,36 @@ trait AppInfoGpuOomCheck {
 }
 
 trait AppInfoColumnarExchangeMetrics {
-  def getMaxColumnarExchangeDataSize: Option[Long]
+  def getMaxColumnarExchangeDataSizeBytes: Option[Long] = None
+  /**
+   * Helper method to extract maximum ColumnarExchange data size from SQL plan metrics.
+   * This method can be used by implementations to avoid code duplication.
+   */
+  protected def extractMaxColumnarExchangeDataSizeFromMetrics(
+    metrics: Seq[SQLAccumProfileResults]): Option[Long] = {
+    val columnarExchangeDataSizesBytes = metrics.collect {
+      case metric if metric.nodeName.contains("ColumnarExchange") &&
+                      metric.name == "data size" =>
+        metric.total
+    }
+    if (columnarExchangeDataSizesBytes.nonEmpty) {
+      Some(columnarExchangeDataSizesBytes.max)
+    } else {
+      None
+    }
+  }
 }
 
 /**
  * Base class for Profiling App Summary Info Provider.
  */
 class BaseProfilingAppSummaryInfoProvider
-  extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck with AppInfoColumnarExchangeMetrics {
+  extends AppSummaryInfoBaseProvider with AppInfoGpuOomCheck {
   /**
    * Default implementation returns None. Subclasses should override this method
    * to provide actual ColumnarExchange data size metrics.
    */
-  override def getMaxColumnarExchangeDataSize: Option[Long] = None
+  override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = None
 }
 
 /**
@@ -315,16 +332,7 @@ class SingleAppSummaryInfoProvider(
    * @return Option[Long] containing the maximum data size in bytes, or None if no
    *         ColumnarExchange "data size" metrics are found
    */
-  override def getMaxColumnarExchangeDataSize: Option[Long] = {
-    val columnarExchangeDataSizes = app.sqlMetrics.collect {
-      case metric if metric.nodeName == "ColumnarExchange" &&
-                      metric.name == "data size" =>
-        metric.total
-    }
-    if (columnarExchangeDataSizes.nonEmpty) {
-      Some(columnarExchangeDataSizes.max)
-    } else {
-      None
-    }
+  override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = {
+    extractMaxColumnarExchangeDataSizeFromMetrics(app.sqlMetrics)
   }
 }

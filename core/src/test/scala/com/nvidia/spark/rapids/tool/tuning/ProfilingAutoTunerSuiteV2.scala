@@ -1322,11 +1322,11 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   }
 
   test("AutoTuner adjusts initialPartitionNum based on ColumnarExchange data size") {
-    // Test case: max columnar exchange data size = 1000GB,
+    // Test case: max columnar exchange data size = 1000GB, batch size is default value 2gb
     // original initialPartitionNum = 2560
-    // Expected: recommended initialPartitionNum = min(2560, 1000) = 1000
+    // Expected: recommended initialPartitionNum = min(2560, 500) = 500
 
-    val maxColumnarExchangeDataSize = Some(1000L * 1024 * 1024 * 1024) // 1000GB in bytes
+    val maxColumnarExchangeDataSizeBytes = Some(1000L * 1024 * 1024 * 1024) // 1000GB in bytes
     val originalInitialPartitionNum = "2560"
 
     val logEventsProps: mutable.Map[String, String] =
@@ -1354,7 +1354,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       sparkVersion = Some(testSparkVersion),
       meanInput = 1.0E9, // Large mean input
       meanShuffleRead = 1.0E9, // Large mean shuffle read
-      maxColumnarExchangeDataSize = maxColumnarExchangeDataSize
+      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes
     )
 
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
@@ -1395,7 +1395,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=501
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=137m
-          |--conf spark.sql.shuffle.partitions=2560
+          |--conf spark.sql.shuffle.partitions=501
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1437,7 +1437,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // Expected: ratio = ceil(6000GB / 2GB) = 3000, which is > 2560
     // So recommended initialPartitionNum = min(2560, 3000) = 2560 (no change)
 
-    val maxColumnarExchangeDataSize = Some(6000L * 1024 * 1024 * 1024) // 6000GB in bytes
+    val maxColumnarExchangeDataSizeBytes = Some(6000L * 1024 * 1024 * 1024) // 6000GB in bytes
     val originalInitialPartitionNum = "2560"
 
     val logEventsProps: mutable.Map[String, String] =
@@ -1465,7 +1465,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       sparkVersion = Some(testSparkVersion),
       meanInput = 1.0E9,
       meanShuffleRead = 1.0E9,
-      maxColumnarExchangeDataSize = maxColumnarExchangeDataSize
+      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes
     )
 
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
@@ -1568,7 +1568,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       sparkVersion = Some(testSparkVersion),
       meanInput = 1.0E9,
       meanShuffleRead = 1.0E9,
-      maxColumnarExchangeDataSize = None // No ColumnarExchange data size
+      maxColumnarExchangeDataSizeBytes = None // No ColumnarExchange data size
     )
 
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
@@ -1692,7 +1692,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       shuffleSkewStages = Set.empty,
       scanStagesWithGpuOom = false,
       shuffleStagesWithOom = false,
-      maxColumnarExchangeDataSize = Some(1000L * 1024 * 1024 * 1024) // 1000GB
+      maxColumnarExchangeDataSizeBytes = Some(1000L * 1024 * 1024 * 1024) // 1000GB
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
@@ -1735,7 +1735,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.adaptive.maxNumPostShufflePartitions=501
           |--conf spark.sql.files.maxPartitionBytes=4g
-          |--conf spark.sql.shuffle.partitions=2000
+          |--conf spark.sql.shuffle.partitions=501
           |--conf spark.task.resource.gpu.amount=0.25
           |
           |Comments:
