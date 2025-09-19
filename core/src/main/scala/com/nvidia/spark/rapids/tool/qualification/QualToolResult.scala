@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import java.util.concurrent.ConcurrentHashMap
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.{QualAppMainSummary, QualificationSummaryInfo}

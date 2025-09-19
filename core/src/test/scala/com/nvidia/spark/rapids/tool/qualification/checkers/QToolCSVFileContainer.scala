@@ -21,7 +21,7 @@ import java.io.File
 import com.github.tototoshi.csv.CSVReader
 import com.nvidia.spark.rapids.tool.ToolTestUtils.findFilesRecursively
 import com.nvidia.spark.rapids.tool.views.qualification.QualOutputTableDefinition
-import org.scalatest.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 trait QToolCSVVisitorTrait {
   def visit(csvContainer: QToolCSVFileContainer): Unit

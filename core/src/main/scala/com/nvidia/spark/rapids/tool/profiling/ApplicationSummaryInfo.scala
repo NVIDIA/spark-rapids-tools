@@ -192,10 +192,12 @@ class SingleAppSummaryInfoProvider(
 
   override def getRedundantReadSize: Long = {
     distinctLocations
-      .filter {
-        case(_, objects) => objects.size > 1 && objects.exists(_.format.contains("Parquet"))
+      .filter { case (_, objects) =>
+        objects.size > 1 && objects.exists(_.format.contains("Parquet"))
       }
-      .mapValues(_.map(_.data_size).sum)
+      .iterator
+      .map { case (k, v) => k -> v.map(_.data_size).sum }
+      .toMap
       .values
       .sum
   }

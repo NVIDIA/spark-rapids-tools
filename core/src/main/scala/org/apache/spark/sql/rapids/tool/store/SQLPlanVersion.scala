@@ -16,8 +16,6 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.breakOut
-
 import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ReadParser}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
@@ -120,7 +118,7 @@ class SQLPlanVersion(
 
   // Converts the writeRecords into a write formats.
   def getWriteDataFormats: Set[String] = {
-    writeRecords.map(_.operationMeta.dataFormat())(breakOut)
+    writeRecords.iterator.map(_.operationMeta.dataFormat()).toSet
   }
 
   /**

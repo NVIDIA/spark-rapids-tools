@@ -27,7 +27,7 @@ trait AppIndexMapperTrait {
 trait QualAppIndexMapperTrait extends AppIndexMapperTrait {
   def zipAppsWithIndex(apps: Seq[AppBase]): Seq[(AppBase, Int)] = {
     // we did not use zipWithIndex because we want to start from 1 instead of 0
-    apps.zip(Stream.from(1))
+    apps.zipWithIndex.map { case (app, idx) => (app, idx + 1) }
   }
 }
 

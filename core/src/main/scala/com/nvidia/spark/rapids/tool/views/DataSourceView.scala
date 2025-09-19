@@ -86,7 +86,7 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
     val allRows = zipAppsWithIndex(apps).flatMap { case (app, _) =>
       getRawView(app, appSqlAccums)
-    }
+    }.toSeq
     if (allRows.isEmpty) {
       allRows
     } else {
@@ -127,7 +127,7 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
         ds.location, ds.pushedFilters, ds.schema, ds.dataFilters, ds.partitionFilters,
         ds.isFromFinalPlan)
     }
-    dsFromLastPlan ++ dsFromOrigPlans
+    (dsFromLastPlan ++ dsFromOrigPlans).toSeq
   }
 
   override def sortView(rows: Seq[DataSourceProfileResult]): Seq[DataSourceProfileResult] = {

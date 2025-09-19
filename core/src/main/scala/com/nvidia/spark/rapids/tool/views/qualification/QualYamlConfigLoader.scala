@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.views.qualification
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 import org.yaml.snakeyaml.representer.Representer
@@ -53,9 +53,9 @@ object QualYamlConfigLoader {
           dataType = col.get("dataType").asInstanceOf[String],
           description = col.get("description").asInstanceOf[String]
         )
-      }
+      }.toSeq
       QualOutputTableDefinition(label, description, fileName, fileFormat, scope, columns)
-    }
+    }.toSeq
 
     QualTableYaml(definitions)
   }

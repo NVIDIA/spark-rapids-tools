@@ -20,7 +20,7 @@ import java.io.File
 
 import com.nvidia.spark.rapids.tool.{PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.types._
@@ -103,7 +103,7 @@ case class TestIODiagnosticResult(
     gpuDecodeTimeMax: Long,
     gpuDecodeTimeSum: Long)
 
-class AnalysisSuite extends FunSuite {
+class AnalysisSuite extends AnyFunSuite {
 
   private def createTestStageDiagnosticResult(diagnosticsResults: Seq[StageDiagnosticResult]):
       Seq[TestStageDiagnosticResult] = {
@@ -244,11 +244,11 @@ class AnalysisSuite extends FunSuite {
 
     // This step is to compute stage to node names and diagnostic metrics mappings,
     // which is used in collecting diagnostic metrics.
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     collect.getSQLToStage
     collect.getStageLevelMetrics
 
-    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps)
+    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     import org.apache.spark.sql.functions._
     import sparkSession.implicits._
     val actualDf = createTestStageDiagnosticResult(diagnosticResults.stageDiagnostics).toDF.
@@ -261,11 +261,11 @@ class AnalysisSuite extends FunSuite {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     collect.getSQLToStage
     collect.getStageLevelMetrics
 
-    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps)
+    val diagnosticResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     assert(diagnosticResults.stageDiagnostics.isEmpty)
   }
 
@@ -276,7 +276,7 @@ class AnalysisSuite extends FunSuite {
     val apps = ToolTestUtils.processProfileApps(logsWithArgs, sparkSession)
     assert(apps.size == logs.size)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     // Computes IO diagnostic metrics mapping which is later used in getIODiagnosticMetrics
     collect.getSQLPlanMetrics
     val diagnosticResults = collect.getIODiagnosticMetrics
@@ -291,7 +291,7 @@ class AnalysisSuite extends FunSuite {
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
     assert(apps.size == logs.size)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     collect.getSQLPlanMetrics
     val diagnosticResults = collect.getIODiagnosticMetrics
     assert(diagnosticResults.isEmpty)
@@ -303,7 +303,7 @@ class AnalysisSuite extends FunSuite {
     val args = Array("--platform", platformName) ++ logs
     val apps = ToolTestUtils.processProfileApps(args, sparkSession)
     assert(apps.size == logs.size)
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     import sparkSession.implicits._
     // Check the SQL metrics
     val sqlAggsFiltered = aggResults.sqlAggs.toDF.drop(skippedColumnsInSqlAggProfile: _*)
@@ -325,7 +325,7 @@ class AnalysisSuite extends FunSuite {
     val expectFile = "rapids_duration_and_cpu_expectation.csv"
 
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     import sparkSession.implicits._
     val sqlAggDurCpu = aggResults.sqlDurAggs
     val resultExpectation = new File(expRoot, expectFile)
@@ -351,7 +351,7 @@ class AnalysisSuite extends FunSuite {
       ToolTestUtils.processProfileApps(Array(s"$logDir/rapids_join_eventlog.zstd"), sparkSession)
     assert(apps.size == 1)
 
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     val shuffleSkewInfo = aggResults.taskShuffleSkew
     assert(shuffleSkewInfo.isEmpty)
   }
@@ -361,7 +361,7 @@ class AnalysisSuite extends FunSuite {
     val logs = Array(s"$qualLogDir/nds_q86_test")
 
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     val sqlDurAndCpu = aggResults.sqlDurAggs
     val containsDs = sqlDurAndCpu.filter(_.containsDataset === true)
     assert(containsDs.isEmpty)
@@ -372,7 +372,7 @@ class AnalysisSuite extends FunSuite {
     val logs = Array(s"$qualLogDir/dataset_eventlog")
 
     val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     val sqlDurAndCpu = aggResults.sqlDurAggs
     val containsDs = sqlDurAndCpu.filter(_.containsDataset === true)
     assert(containsDs.size == 1)
@@ -386,7 +386,7 @@ class AnalysisSuite extends FunSuite {
     apps.foreach { app =>
       app.appMetaData = None
     }
-    val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+    val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
     val metrics = aggResults.sqlDurAggs
     metrics.foreach(m => assert(m.appDuration.get == 0L))
   }
@@ -398,7 +398,7 @@ class AnalysisSuite extends FunSuite {
       s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
     )
     val apps = ToolTestUtils.processProfileApps(args, sparkSession)
-    val dataSourceResults = ProfDataSourceView.getRawView(apps)
+    val dataSourceResults = ProfDataSourceView.getRawView(apps.toSeq)
     assert(dataSourceResults.exists(_.scan_time > 0))
   }
 }

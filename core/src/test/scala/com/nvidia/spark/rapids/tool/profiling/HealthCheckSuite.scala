@@ -22,13 +22,13 @@ import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, ToolTestUtils}
 import org.apache.hadoop.conf.Configuration
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.rapids.tool.profiling._
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
-class HealthCheckSuite extends FunSuite {
+class HealthCheckSuite extends AnyFunSuite {
 
   lazy val sparkSession: SparkSession = {
     SparkSession
@@ -54,7 +54,7 @@ class HealthCheckSuite extends FunSuite {
     }
     assert(apps.size == 1)
 
-    val healthCheck = new HealthCheck(apps)
+    val healthCheck = new HealthCheck(apps.toSeq)
     for (_ <- apps) {
       val failedTasks = healthCheck.getFailedTasks
       import sparkSession.implicits._
@@ -97,7 +97,7 @@ class HealthCheckSuite extends FunSuite {
         EventLogPathProcessor.getEventLogInfo(path, hadoopConf).head._1)
     }
     assert(apps.size == 1)
-    val healthCheck = new HealthCheck(apps)
+    val healthCheck = new HealthCheck(apps.toSeq)
     for (_ <- apps) {
       val removedBMs = healthCheck.getRemovedBlockManager
       import sparkSession.implicits._
@@ -129,7 +129,7 @@ class HealthCheckSuite extends FunSuite {
     }
     assert(apps.size == 1)
 
-    val healthCheck = new HealthCheck(apps)
+    val healthCheck = new HealthCheck(apps.toSeq)
     for (_ <- apps) {
       val unsupported = healthCheck.getPossibleUnsupportedSQLPlan
       import sparkSession.implicits._

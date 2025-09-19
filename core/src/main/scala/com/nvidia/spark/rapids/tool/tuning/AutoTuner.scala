@@ -1458,10 +1458,10 @@ abstract class AutoTuner(
    * @return True if a recommendation was made, false if the class name was already present
    */
   protected def recommendClassNameProperty(propertyKey: String, className: String): Boolean = {
-    val existingClasses = getPropertyValue(propertyKey)
-      .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
-      .getOrElse(Array.empty)
-      .to[scala.collection.immutable.ListSet]
+    val existingClasses = scala.collection.immutable.ListSet(
+      getPropertyValue(propertyKey)
+        .map(v => v.split(",").map(_.trim).filter(_.nonEmpty))
+        .getOrElse(Array.empty): _*)
 
     if (!existingClasses.contains(className)) {
       appendRecommendation(propertyKey, (existingClasses + className).mkString(","))
@@ -1517,7 +1517,7 @@ abstract class AutoTuner(
   }
 
   private def toCommentProfileResult: Seq[RecommendedCommentResult] = {
-    comments.map(RecommendedCommentResult).sortBy(_.comment)
+    comments.map(RecommendedCommentResult).toSeq.sortBy(_.comment)
   }
 
   private def toRecommendationsProfileResult: Seq[TuningEntryTrait] = {

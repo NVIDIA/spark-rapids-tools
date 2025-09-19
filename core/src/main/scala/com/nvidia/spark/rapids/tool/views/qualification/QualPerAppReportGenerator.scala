@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views.qualification
 
-import scala.collection.breakOut
-
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import com.nvidia.spark.rapids.tool.planparser.UnsupportedExecSummary
 import com.nvidia.spark.rapids.tool.planparser.ops.OperatorCounter
@@ -174,9 +172,9 @@ class AppQualUnsupportedOpsTable(
     val emptyStages: Seq[Int] = Seq(-1)
 
     val stageInfoMap: Map[Int, String] = {
-      rec.origPlanStageInfo.map { sInfo =>
+      rec.origPlanStageInfo.iterator.map { sInfo =>
         sInfo.stageId -> sInfo.stageWallclockDuration.toString
-      }(breakOut)
+      }.toMap
     }
 
     def getStageDuration(stageId: Int): String = {

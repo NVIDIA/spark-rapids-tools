@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.qualification.checkers
 
 import com.nvidia.spark.rapids.tool.qualification.QualToolResult
-import org.scalatest.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 /**
  * Checkers for the core information in the result of the qualification tool.

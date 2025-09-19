@@ -22,8 +22,9 @@ import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
-import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.exceptions.TestFailedException
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
@@ -82,7 +83,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
 /**
  * Base class for AutoTuner test suites
  */
-abstract class BaseAutoTunerSuite extends FunSuite with BeforeAndAfterEach
+abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
   with Logging with AutoTunerStaticComments {
 
   // Spark runtime version used for testing
