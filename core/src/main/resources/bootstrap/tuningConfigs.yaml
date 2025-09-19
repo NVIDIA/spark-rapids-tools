@@ -194,7 +194,13 @@ default:
     description: >-
       Minimum initial partition number for AQE coalescing
     default: 200
-    usedBy: spark.sql.adaptive.coalescePartitions.minPartitionNum, spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+    usedBy: spark.sql.adaptive.coalescePartitions.initialPartitionNum, spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+
+  - name: AQE_MAX_INITIAL_PARTITION_NUM
+    description: >-
+      Maximum initial partition number for AQE coalescing
+    default: 200
+    usedBy: spark.sql.adaptive.coalescePartitions.initialPartitionNum, spark.sql.adaptive.shuffle.maxNumPostShufflePartitions
 
   - name: AQE_AUTO_BROADCAST_JOIN_THRESHOLD
     description: >-

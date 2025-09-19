@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool
 
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
-import com.nvidia.spark.rapids.tool.profiling.{AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, ProfilerResult, SingleAppSummaryInfoProvider}
+import com.nvidia.spark.rapids.tool.profiling.{AppInfoColumnarExchangeMetrics, AppInfoJobStageAggMetricsVisitor, AppInfoPropertyGetter, AppInfoReadMetrics, AppInfoSqlTaskAggMetricsVisitor, AppInfoSQLTaskInputSizes, BaseProfilingAppSummaryInfoProvider, DataSourceProfileResult, ProfilerResult, SingleAppSummaryInfoProvider}
 import com.nvidia.spark.rapids.tool.tuning.QualAppSummaryInfoProvider
 
 import org.apache.spark.sql.rapids.tool.ToolUtils
@@ -31,7 +31,8 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   with AppInfoJobStageAggMetricsVisitor
   with AppInfoSqlTaskAggMetricsVisitor
   with AppInfoSQLTaskInputSizes
-  with AppInfoReadMetrics {
+  with AppInfoReadMetrics
+  with AppInfoColumnarExchangeMetrics {
   def isAppInfoAvailable = false
   override def getAllProperties: Map[String, String] = Map[String, String]()
   override def getSparkProperty(propKey: String): Option[String] = None
@@ -57,6 +58,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getRapidsJars: Seq[String] = Seq()
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
+  override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = None
 }
 
 

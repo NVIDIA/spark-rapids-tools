@@ -117,7 +117,7 @@ class DriverInfo (
  *     - spark.rapids.sql.incompatibleDateFormats.enabled
  *     - spark.rapids.sql.explain
  *   tuningDefinitions:
- *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *     - label: spark.sql.adaptive.shuffle.maxNumPostShufflePartitions
  *       description: alias for spark.sql.adaptive.coalescePartitions.initialPartitionNum
  *       enabled: true
  *       level: job
@@ -227,7 +227,7 @@ class SparkProperties(
  *     - spark.rapids.sql.incompatibleDateFormats.enabled
  *     - spark.rapids.sql.explain
  *   tuningDefinitions:
- *     - label: spark.sql.adaptive.shuffle.minNumPostShufflePartitions
+ *     - label: spark.sql.adaptive.shuffle.maxNumPostShufflePartitions
  *       description: Legacy property for initial shuffle partitions
  *       enabled: true
  *       level: job
