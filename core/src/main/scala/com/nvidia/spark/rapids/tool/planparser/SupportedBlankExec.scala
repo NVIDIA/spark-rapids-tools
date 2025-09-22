@@ -71,9 +71,6 @@ class SupportedBlankExec(
     }
   }
 
-  // The value that will be reported as ExecName in the ExecInfo object created by this parser.
-  override def reportedExecName: String = fullExecName
-
   // No expressions to parse for this exec.
   override def parseExpressions(): Array[String] = Array.empty[String]
 
@@ -112,7 +109,7 @@ class SupportedBlankExec(
 }
 
 object SupportedBlankExec extends GroupParserTrait {
-  val EXEC_TYPES: Map[String, OpTypes.Value] = Map(
+  private val EXEC_TYPES: Map[String, OpTypes.Value] = Map(
     EX_NAME_WRITE_FILES -> OpTypes.WriteExec
   )
 

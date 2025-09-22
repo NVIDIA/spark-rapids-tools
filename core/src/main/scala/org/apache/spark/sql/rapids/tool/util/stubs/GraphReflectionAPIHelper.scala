@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ object GraphReflectionAPIHelper extends Logging {
     }
     // Log this information or show an error to be aware of incompatible runtimes.
     if (res.isDefined) {
-      logInfo(s"Using runtime API [${res.get._1}] to Construct SparkPlan Graph")
+      logDebug(s"Using runtime API [${res.get._1}] to Construct SparkPlan Graph")
     } else {
       logError("No runtime Graph API found. Falling to the spark runtime constructor")
     }
