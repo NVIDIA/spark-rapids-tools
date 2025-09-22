@@ -174,9 +174,9 @@ build_jar_from_source() {
     bail "Failed to build the tools jar from source"
   fi
   # rename jar file stripping snapshot
-  TOOLS_JAR_FILE=( "$( find "${jar_dir}" -type f \( -iname "rapids-4-spark-tools_*.jar" ! -iname "*sources.jar" ! -iname "*tests.jar" ! -iname "original-rapids-4*.jar" ! -iname "*javadoc.jar" \) )" )
+  TOOLS_JAR_FILE=$(find "${jar_dir}" -type f \( -iname "rapids-4-spark-tools_*.jar" ! -iname "*sources.jar" ! -iname "*tests.jar" ! -iname "original-rapids-4*.jar" ! -iname "*javadoc.jar" \) | head -n 1)
 
-  if [ ${#TOOLS_JAR_FILE[@]} -eq 0 ]; then
+  if [ -z "$TOOLS_JAR_FILE" ]; then
     bail "Failing because tools jar could not be located"
   else
     log_info "Tools jar file: $TOOLS_JAR_FILE"
