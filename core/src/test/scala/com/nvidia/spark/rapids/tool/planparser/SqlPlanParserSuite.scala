@@ -25,8 +25,8 @@ import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
-import org.scalatest.Matchers.{be, contain, convertToAnyShouldWrapper}
 import org.scalatest.exceptions.TestFailedException
+import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 
@@ -38,7 +38,7 @@ import org.apache.spark.sql.rapids.tool.ExecHelper._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, ToolsPlanGraph, UTF8Source}
 
-class SQLPlanParserSuite extends BasePlanParserSuite {
+class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
 
   test("Error parser does not cause entire app to fail") {
     // The purpose of this test is to make sure that the SQLParser won't trigger an exception that
@@ -1361,7 +1361,9 @@ class SQLPlanParserSuite extends BasePlanParserSuite {
     for ((condExpr, expectedExpressionCounts) <- expressionsMap) {
       val rawExpressions = SQLPlanParser.parseConditionalExpressions(condExpr)
       val expected = expectedExpressionCounts.map(e => ExprOpRef(OpRef.fromExpr(e._1), e._2))
+        .toSeq.sortBy(_.getOpName)
       val actualExpressions = ExprOpRef.fromRawExprSeq(rawExpressions)
+        .sortBy(_.getOpName)
       actualExpressions should ===(expected)
     }
   }

@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.util
 import java.util
 
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class EventToolsConf(
     // The simple class name of the tool

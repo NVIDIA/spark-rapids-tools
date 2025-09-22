@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.breakOut
 import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
 
 import com.nvidia.spark.rapids.tool.analysis.util.{AggAccumHelper, AggAccumPhotonHelper}
@@ -127,7 +126,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             perJobRec.swWriteTimeSum))
         }
       }
-    }(breakOut)
+    }.toSeq
   }
 
   private case class AverageStageInfo(avgDuration: Double, avgShuffleReadBytes: Double)
@@ -163,7 +162,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           tc.taskId, tc.attempt, tc.duration, avg.avgDuration, tc.sr_totalBytesRead,
           avg.avgShuffleReadBytes, tc.peakExecutionMemory, tc.successful, tc.endReason)
       }
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -227,7 +226,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       } else {
         None
       }
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -250,7 +249,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sqlAgg.memoryBytesSpilledSum,
         sqlAgg.srTotalBytesReadSum,
         sqlAgg.swBytesWrittenSum)
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -297,7 +296,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       SQLDurationExecutorTimeProfileResult(app.appId, sqlCase.rootExecutionID,
         sqlId, sqlCase.duration, sqlCase.hasDatasetOrRDD,
         app.getAppDuration.orElse(Option(0L)), sqlIssues, sqlCase.sqlCpuTimePercent)
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -335,7 +334,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           .getOrElse(sm.stageInfo.stageId, emptyDiagnosticMetrics)
           .withDefaultValue(zeroAccumProfileResults)
       val srTotalBytesMetrics =
-        StatisticsMetrics.createFromArr(tasksInStage.map(_.sr_totalBytesRead)(breakOut))
+        StatisticsMetrics.createFromArr(tasksInStage.iterator.map(_.sr_totalBytesRead).toArray)
 
       StageDiagnosticResult(
         app.getAppName,
@@ -356,7 +355,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         diagnosticMetricsMap(SW_WRITE_TIME_METRIC),
         diagnosticMetricsMap(GPU_SEMAPHORE_WAIT_METRIC),
         nodeNames)
-    }(breakOut)
+    }.toSeq
   }
 
   /**

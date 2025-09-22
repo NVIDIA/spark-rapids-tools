@@ -21,12 +21,12 @@ import java.nio.file.{Files, Paths}
 
 import com.nvidia.spark.rapids.tool._
 import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, SQLPlanParser}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.TrampolineUtil
 
-class PluginTypeCheckerSuite extends FunSuite with Logging {
+class PluginTypeCheckerSuite extends AnyFunSuite with Logging {
 
   test("read not supported datatype") {
     val checker = new PluginTypeChecker

@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.views
 
-import scala.collection.breakOut
-
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
 import com.nvidia.spark.rapids.tool.profiling.{IODiagnosticResult, SQLAccumProfileResults, SQLCleanAndAlignIdsProfileResult, SQLPlanClassifier, SQLPlanGraphProfileResult, SQLPlanInfoProfileResult, WholeStageCodeGenResults}
 
@@ -78,9 +76,9 @@ trait AppSQLPlanInfoViewTrait extends ViewableTrait[SQLPlanInfoProfileResult] {
   override def getDescription: String = "SQLPlanInfo object Information"
 
   def getRawView(app: AppBase, index: Int): Seq[SQLPlanInfoProfileResult] = {
-    app.getPrimarySQLPlanInfo().map { case (sqlID, sqlPlan) =>
+    app.getPrimarySQLPlanInfo().iterator.map { case (sqlID, sqlPlan) =>
       SQLPlanInfoProfileResult(sqlID, sqlPlan)
-    }(breakOut)
+    }.toSeq
   }
 
   override def sortView(
@@ -130,10 +128,11 @@ object ProfSQLPlanAlignedView extends AppSQLPlanNonDeltaOpsViewTrait with ProfAp
     val sqlPlanTypeAnalysis = new SQLPlanClassifier(app.asInstanceOf[ApplicationInfo])
     // Walk through the SQLPlans to identify the delta-op SQIds
     sqlPlanTypeAnalysis.walkPlans(app.sqlManager.sqlPlans.values)
-    app.sqlPlans.filterKeys(!sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(_)).
-      map { case (sqlID, _) =>
-        SQLCleanAndAlignIdsProfileResult(sqlID)
-      }.toSeq
+    app.sqlPlans.iterator.filter { case (k, _) =>
+      !sqlPlanTypeAnalysis.sqlCategories("deltaOp").contains(k)
+    }.map { case (sqlID, _) =>
+      SQLCleanAndAlignIdsProfileResult(sqlID)
+    }.toSeq
   }
 }
 
@@ -142,7 +141,7 @@ object ProfSQLCodeGenView extends AppSQLCodeGenViewTrait with ProfAppIndexMapper
   override def getRawView(app: AppBase, index: Int): Seq[WholeStageCodeGenResults] = {
     app match {
       case app: ApplicationInfo =>
-        app.planMetricProcessor.wholeStage
+        app.planMetricProcessor.wholeStage.toSeq
       case _ => Seq.empty
     }
   }
@@ -159,7 +158,7 @@ object QualSQLCodeGenView extends AppSQLCodeGenViewTrait with QualAppIndexMapper
 
   def getRawViewFromSqlProcessor(
       sqlAnalyzer: AppSQLPlanAnalyzer): Seq[WholeStageCodeGenResults] = {
-    sortView(sqlAnalyzer.wholeStage)
+    sortView(sqlAnalyzer.wholeStage.toSeq)
   }
 }
 

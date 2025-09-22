@@ -21,7 +21,7 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 
 import com.nvidia.spark.rapids.tool.views.qualification.{QualOutputTableDefinition, QualYamlConfigLoader}
 import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider.TABLES_CONFIG_PATH
-import org.scalatest.Matchers._
+import org.scalatest.matchers.should.Matchers._
 
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
