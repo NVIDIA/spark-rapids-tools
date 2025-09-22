@@ -22,6 +22,7 @@ import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.exceptions.TestFailedException
@@ -33,6 +34,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.rapids.tool.ExecHelper._
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, ToolsPlanGraph, UTF8Source}
 
@@ -394,7 +396,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         }
         // For Spark.3.4.0+, the new operator WriteFilesExec is added.
         // Q tool handles this operator as supported regardless of the type of the exec operation.
-        val writeFileExecs = allExecInfo.filter(_.exec.contains(WriteFilesExecParser.execName))
+        val writeFileExecs = allExecInfo.filter(_.exec.contains(EX_NAME_WRITE_FILES))
         // we have 5 write operations, so we should have 5 WriteFilesExec.
         assertSizeAndSupported(5, writeFileExecs)
       }
@@ -1372,7 +1374,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     // It is ignored for Spark-340+ because delta releases are not available.
     TrampolineUtil.withTempDir { outputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
-        val dataWriteCMD = DeltaLakeHelper.saveIntoDataSrcCMD
+        val dataWriteCMD = DeltaLakeOps.execSaveIntoDataSourceCMD
         val deltaConfs = Map(
           "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
           "spark.sql.catalog.spark_catalog" ->

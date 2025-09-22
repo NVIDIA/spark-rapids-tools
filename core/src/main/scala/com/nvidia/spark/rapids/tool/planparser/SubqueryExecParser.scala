@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ case class SubqueryExecParser(
     checker: PluginTypeChecker,
     sqlID: Long,
     app: AppBase) extends ExecParser {
-  val fullExecName = node.name + "Exec"
+  override val fullExecName: String = node.name + "Exec"
 
   override def parse: ExecInfo = {
     // Note: the name of the metric may not be trailed by "(ms)" So, we only check for the prefix
@@ -44,17 +44,31 @@ case class SubqueryExecParser(
   }
 }
 
-object SubqueryExecParser {
+object SubqueryExecParser extends GroupParserTrait {
   val execName = "Subquery"
 
-  def accepts(nodeName: String): Boolean = {
+  override def accepts(nodeName: String): Boolean = {
     nodeName.equals(execName)
   }
 
-  def parseNode(node: SparkPlanGraphNode,
+  /**
+   * Create an ExecParser for the given node.
+   *
+   * @param node     spark plan graph node
+   * @param checker  plugin type checker
+   * @param sqlID    SQL ID
+   * @param execName optional exec name override
+   * @param opType   optional op type override
+   * @param app      optional AppBase instance
+   * @return an ExecParser for the given node
+   */
+  override def createExecParser(
+      node: SparkPlanGraphNode,
       checker: PluginTypeChecker,
       sqlID: Long,
-      app: AppBase): ExecInfo = {
-    SubqueryExecParser(node, checker, sqlID, app).parse
+      execName: Option[String] = None,
+      opType: Option[OpTypes.Value] = None,
+      app: Option[AppBase]): ExecParser = {
+    SubqueryExecParser(node, checker, sqlID, app.get)
   }
 }
