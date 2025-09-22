@@ -555,7 +555,7 @@
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
         <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
-        <!-- properties used for IceBerg (mainly for testing) -->
+        <!-- properties used for Iceberg (mainly for testing) -->
         <!--
           Iceberg artifacts are suffixed by the spark major version they are built against and the
           scala binaries.

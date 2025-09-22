@@ -1050,7 +1050,7 @@ object PlatformFactory extends Logging {
     }
     val platform = createPlatformInstance(platformName, gpuDevice,
       targetClusterProps)
-    logInfo(s"Using platform: $platform")
+    logDebug(s"Using platform: $platform")
     platform
   }
 }

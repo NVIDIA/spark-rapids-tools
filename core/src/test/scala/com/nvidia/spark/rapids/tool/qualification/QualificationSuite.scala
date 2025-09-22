@@ -905,7 +905,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                   ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
                 if (ToolUtils.isSpark340OrLater()) {
                   // writeFiles is added in Spark 3.4+
-                  execNames += "WriteFilesExec"
+                  execNames += "WriteFiles"
                 }
                 csvF.getColumn("Exec Name") should contain allElementsOf execNames
               }
@@ -1005,7 +1005,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                         ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand orc")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames += "WriteFilesExec"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1116,7 +1116,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                         ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames += "WriteFilesExec"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1226,7 +1226,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                         ArrayBuffer[String]("Execute InsertIntoHiveTable hiveparquet")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames += "WriteFilesExec"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1301,7 +1301,7 @@ class QualificationSuite extends BaseWithSparkSuite {
                 ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
               if (ToolUtils.isSpark340OrLater()) {
                 // writeFiles is added in Spark 3.4+
-                execNames += "WriteFilesExec"
+                execNames += "WriteFiles"
               }
               csvF.getColumn("Exec Name") should contain allElementsOf execNames
             }
@@ -1313,7 +1313,7 @@ class QualificationSuite extends BaseWithSparkSuite {
             "Parquet write appears in the Unsupported Operator column",
             csvF => {
               csvF.getColumn("Unsupported Operator") should contain noneOf (
-                "writeFilesExec", "Execute InsertIntoHadoopFsRelationCommand parquet"
+                "writeFiles", "Execute InsertIntoHadoopFsRelationCommand parquet"
               )
             }))
       .build()
@@ -1385,7 +1385,7 @@ class QualificationSuite extends BaseWithSparkSuite {
   }
 
   test("AppendDataExec is not Supported with Iceberg") {
-    // This UT configures Spark to use IceBerg.
+    // This UT configures Spark to use Iceberg.
     // It must use the writeToAPI to generate the AppendDataExec operator. This is the V2 version.
     // Otherwise, it will use the V1 version which is AppendDataExecV1.
     TrampolineUtil.withTempDir { warehouseDir =>
