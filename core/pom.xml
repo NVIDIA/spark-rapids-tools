@@ -83,6 +83,8 @@
                 <spark.version>${spark320.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -98,6 +100,8 @@
                 <spark.version>${spark321.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -113,6 +117,8 @@
                 <spark.version>${spark322.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -128,6 +134,8 @@
                 <spark.version>${spark323.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -143,6 +151,8 @@
                 <spark.version>${spark324.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -158,6 +168,8 @@
                 <spark.version>${spark325.version}</spark.version>
                 <delta.core.version>${delta20x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark32x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark32x.runtime.version}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -173,6 +185,8 @@
                 <spark.version>${spark330.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -188,6 +202,8 @@
                 <spark.version>${spark331.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -203,6 +219,8 @@
                 <spark.version>${spark332.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -218,6 +236,8 @@
                 <spark.version>${spark333.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -233,6 +253,8 @@
                 <spark.version>${spark334.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -248,6 +270,8 @@
                 <spark.version>${spark335.version}</spark.version>
                 <delta.core.version>${delta23x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark33x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -263,6 +287,8 @@
                 <spark.version>${spark340.version}</spark.version>
                 <delta.core.version>${delta24x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark34x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -278,6 +304,8 @@
                 <spark.version>${spark341.version}</spark.version>
                 <delta.core.version>${delta24x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark34x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -293,6 +321,8 @@
                 <spark.version>${spark342.version}</spark.version>
                 <delta.core.version>${delta24x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark34x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -308,6 +338,8 @@
                 <spark.version>${spark343.version}</spark.version>
                 <delta.core.version>${delta24x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark34x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -323,6 +355,8 @@
                 <spark.version>${spark344.version}</spark.version>
                 <delta.core.version>${delta24x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark34x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -339,6 +373,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -355,6 +391,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -371,6 +409,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -387,6 +427,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -403,6 +445,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -419,6 +463,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -436,6 +482,8 @@
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
         <profile>
@@ -454,10 +502,15 @@
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
                 <elide.level>${elide.level.release}</elide.level>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
     </profiles>
     <properties>
+        <java.version>1.8</java.version>
+        <platform-encoding>UTF-8</platform-encoding>
+        <!-- Define all spark versions we might want to build against -->
         <spark311.version>3.1.1</spark311.version>
         <spark312.version>3.1.2</spark312.version>
         <spark313.version>3.1.3</spark313.version>
@@ -486,17 +539,15 @@
         <spark354.version>3.5.4</spark354.version>
         <spark355.version>3.5.5</spark355.version>
         <spark356.version>3.5.6</spark356.version>
+        <!-- Define default versions for other dependencies -->
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
         <scalatest-maven-plugin.version>2.0.2</scalatest-maven-plugin.version>
         <maven.clean.plugin.version>3.2.0</maven.clean.plugin.version>
         <scala.version>2.12.15</scala.version>
-        <spark.test.version>${spark333.version}</spark.test.version>
         <snakeyaml.version>2.0</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
         <scalatest.version>3.0.5</scalatest.version>
-        <spark.version.classifier>spark${buildver}</spark.version.classifier>
-        <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
@@ -504,6 +555,23 @@
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
         <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
+        <!-- properties used for Iceberg (mainly for testing) -->
+        <!--
+          Iceberg artifacts are suffixed by the spark major version they are built against and the
+          scala binaries.
+        -->
+        <iceberg.spark35x.artifact>iceberg-spark-runtime-3.5_${scala.binary.version}</iceberg.spark35x.artifact>
+        <iceberg.spark34x.artifact>iceberg-spark-runtime-3.4_${scala.binary.version}</iceberg.spark34x.artifact>
+        <iceberg.spark33x.artifact>iceberg-spark-runtime-3.3_${scala.binary.version}</iceberg.spark33x.artifact>
+        <iceberg.spark32x.artifact>iceberg-spark-runtime-3.2_${scala.binary.version}</iceberg.spark32x.artifact>
+        <!--
+             Iceberg 1.7.0+ requires Java 11+.
+             Since we use jdk 1.8 as default, we need to use an older version of Iceberg.
+             For Spark-3.2, the version is 1.4.3
+        -->
+        <iceberg.spark32x.runtime.version>1.4.3</iceberg.spark32x.runtime.version>
+        <iceberg.spark.runtime.java.8>1.6.1</iceberg.spark.runtime.java.8>
+        <iceberg.spark.runtime.java.11>1.10.0</iceberg.spark.runtime.java.11>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>
         <delta11x.version>1.1.0</delta11x.version>
@@ -532,8 +600,6 @@
             that to disable non-production code (i.e., Scala asserts).
         -->
         <elide.level>${elide.level.dev}</elide.level>
-        <java.version>1.8</java.version>
-        <platform-encoding>UTF-8</platform-encoding>
         <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -596,6 +662,12 @@
             <groupId>com.github.tototoshi</groupId>
             <artifactId>scala-csv_${scala.binary.version}</artifactId>
             <version>2.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>${iceberg.spark.artifact}</artifactId>
+            <version>${iceberg.spark.runtime.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>

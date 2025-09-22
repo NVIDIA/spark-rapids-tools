@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.qualification
 import java.io.{File, PrintWriter}
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
@@ -29,7 +29,7 @@ import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.Matchers._
 
 import org.apache.spark.scheduler.{SparkListener, SparkListenerStageCompleted, SparkListenerTaskEnd}
-import org.apache.spark.sql.{SparkSession, TrampolineUtil}
+import org.apache.spark.sql.{SaveMode, SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
@@ -901,10 +901,11 @@ class QualificationSuite extends BaseWithSparkSuite {
             .withContentVisitor(
               "Execs should list the write ops",
               csvF => {
-                val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                val execNames =
+                  ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
                 if (ToolUtils.isSpark340OrLater()) {
                   // writeFiles is added in Spark 3.4+
-                  execNames :+ "WriteFiles"
+                  execNames += "WriteFiles"
                 }
                 csvF.getColumn("Exec Name") should contain allElementsOf execNames
               }
@@ -1000,10 +1001,11 @@ class QualificationSuite extends BaseWithSparkSuite {
                   .withContentVisitor(
                     "Execs should list the write ops",
                     csvF => {
-                      val execNames = Seq[String]("Execute InsertIntoHadoopFsRelationCommand orc")
+                      val execNames =
+                        ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand orc")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames :+ "WriteFiles"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1111,10 +1113,10 @@ class QualificationSuite extends BaseWithSparkSuite {
                     "Execs should list the write ops",
                     csvF => {
                       val execNames =
-                        Seq[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+                        ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames :+ "WriteFiles"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1220,10 +1222,11 @@ class QualificationSuite extends BaseWithSparkSuite {
                   .withContentVisitor(
                     "Execs should list the write ops",
                     csvF => {
-                      val execNames = Seq[String]("Execute InsertIntoHiveTable hiveparquet")
+                      val execNames =
+                        ArrayBuffer[String]("Execute InsertIntoHiveTable hiveparquet")
                       if (ToolUtils.isSpark340OrLater()) {
                         // writeFiles is added in Spark 3.4+
-                        execNames :+ "WriteFiles"
+                        execNames += "WriteFiles"
                       }
                       csvF.getColumn("Exec Name") should contain allElementsOf execNames
                     }
@@ -1254,6 +1257,183 @@ class QualificationSuite extends BaseWithSparkSuite {
           }
         }
       }
+    }
+  }
+
+  test("InsertIntoHadoopFsRelationCommand parquet is supported with legacy V1 operator") {
+    // Legacy V1 operator InsertIntoHadoopFsRelationCommand is used when the write API is used
+    // to write into a parquet file. Append/Overwrite won't generate the AppendDataExec operator.
+    // In that case, we test that we support the cmd.
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl(s"create an app with parquet file write with")
+          .withAppName(s"AppendDataExecParquet")
+          .withFunc { (provider, spark) =>
+            import spark.implicits._
+            val rootDir = provider.rootDir.get
+            val outParquetFile = s"$rootDir/outparquet.parquet"
+            // 1. Create an initial DataFrame and save it
+            val initialData = Seq(("Alice", 30), ("Bob", 25)).toDF("name", "age")
+            initialData.write
+              .mode("Overwrite") // Overwrite if file exists for initial save
+              .parquet(outParquetFile)
+            // 2. Create new data to append
+            val newData = Seq(("Charlie", 35), ("David", 40)).toDF("name", "age")
+            // 3. Append the new data to the existing data source
+            newData.write
+              .mode("Append") // Append mode
+              .parquet(outParquetFile)
+            // 4. Read the combined data to verify
+            spark.read.parquet(outParquetFile)
+          })
+      .withPerSQL()
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(1)
+          .withSuccessCode())
+      .withChecker(
+        QToolOutFileCheckerImpl("Execs should contain Write operation")
+          .withTableLabel("execCSVReport")
+          .withContentVisitor(
+            "Execs should list the write ops",
+            csvF => {
+              val execNames =
+                ArrayBuffer[String]("Execute InsertIntoHadoopFsRelationCommand parquet")
+              if (ToolUtils.isSpark340OrLater()) {
+                // writeFiles is added in Spark 3.4+
+                execNames += "WriteFiles"
+              }
+              csvF.getColumn("Exec Name") should contain allElementsOf execNames
+            }
+          ))
+      .withChecker(
+        QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
+          .withTableLabel("unsupportedOpsCSVReport")
+          .withContentVisitor(
+            "Parquet write appears in the Unsupported Operator column",
+            csvF => {
+              csvF.getColumn("Unsupported Operator") should contain noneOf (
+                "writeFiles", "Execute InsertIntoHadoopFsRelationCommand parquet"
+              )
+            }))
+      .build()
+  }
+
+  test("AppendDataExecV1 DeltaLake is supported") {
+    // This UT configures Spark to use DeltaLake and uses the write API to generate the
+    // AppendDataExecV1 operator.
+    // Till the day the test was written, there was no clear way on how generate the V2
+    // AppendDataExec operator when using DeltaLake.
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl(s"create an app with parquet file write with")
+          .withAppName(s"TestAppAppendDataExecDeltaLake")
+          .withSparkConfigs(
+            Map(
+              "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
+              "spark.sql.catalog.spark_catalog" ->
+                "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+            )
+          )
+          .withFunc { (provider, spark) =>
+            import spark.implicits._
+            val rootDir = provider.rootDir.get
+            val outDeltaPath = s"$rootDir/out_delta"
+            // 1. Create an initial DataFrame and save it to Delta table
+            val initialData = Seq(("apples", 100)).toDF("fruit", "quantity")
+            initialData.write.format("delta").mode(SaveMode.Overwrite).save(outDeltaPath)
+            // 2. Create new data to append
+            val newData = Seq(("bananas", 200)).toDF("fruit", "quantity")
+            // 3. Append new data
+            // This shows an AppenDataExecV1 because the usage of writeTo API.
+            newData.writeTo(s"delta.`$outDeltaPath`").append()
+            spark.sql(s"SELECT * FROM delta.`$outDeltaPath`")
+          })
+      .withPerSQL()
+      .withChecker(
+        QToolResultCoreChecker("check app count")
+          .withExpectedSize(1)
+          .withSuccessCode())
+      .withChecker(
+        QToolOutFileCheckerImpl("Execs should contain Write operation")
+          .withTableLabel("execCSVReport")
+          .withContentVisitor(
+            "Execs should list the write ops",
+            csvF => {
+              val execNames = Seq[String](
+                "Execute SaveIntoDataSourceCommand",
+                "AppendDataExecV1")
+              csvF.getColumn("Exec Name") should contain allElementsOf execNames
+              csvF.csvRows.count { r =>
+                execNames.contains(r("Exec Name")) &&
+                  r("Expression Name").toLowerCase.contains("delta")
+              } shouldBe 2
+            }
+          ))
+      .withChecker(
+        QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
+          .withTableLabel("unsupportedOpsCSVReport")
+          .withContentVisitor(
+            "Parquet write appears in the Unsupported Operator column",
+            csvF => {
+              csvF.getColumn("Unsupported Operator") should contain noneOf (
+                "Execute SaveIntoDataSourceCommand",
+                "AppendDataExecV1"
+              )
+            }))
+      .build()
+  }
+
+  test("AppendDataExec is not Supported with Iceberg") {
+    // This UT configures Spark to use Iceberg.
+    // It must use the writeToAPI to generate the AppendDataExec operator. This is the V2 version.
+    // Otherwise, it will use the V1 version which is AppendDataExecV1.
+    TrampolineUtil.withTempDir { warehouseDir =>
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl(s"create an app with parquet file write with")
+            .withAppName(s"TestAppAppendDataExecDeltaLake")
+            .withSparkConfigs(
+              Map(
+                "spark.sql.extensions" ->
+                  "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+                "spark.sql.catalog.local" -> "org.apache.iceberg.spark.SparkCatalog",
+                "spark.sql.catalog.local.type" ->  "hadoop",
+                "spark.sql.catalog.local.warehouse" -> warehouseDir.getAbsolutePath))
+            .withFunc { (_, spark) =>
+              import spark.implicits._
+              // 1. Create an initial DataFrame and save it to iceberg table
+              spark.sql(
+                "CREATE TABLE local.db.my_iceberg_table (id BIGINT, data STRING) USING iceberg")
+              val df = Seq((3, "iceberg"), (4, "rocks")).toDF("id", "data")
+              // Use writeTo to use the Datasource V2 and generate AppendDataExec
+              df.writeTo("local.db.my_iceberg_table").append()
+              spark.sql("SELECT * FROM local.db.my_iceberg_table")
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl("Execs should contain Write operations such as AppendData")
+            .withTableLabel("execCSVReport")
+            .withContentVisitor(
+              "Execs should list the write ops",
+              csvF => {
+                val execNames = Seq[String]("AppendData")
+                csvF.getColumn("Exec Name") should contain allElementsOf execNames
+              }
+            ))
+        .withChecker(
+          QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "AppendData appears in the Unsupported Operator column",
+              csvF => {
+                csvF.getColumn("Unsupported Operator") should contain ("AppendData")
+              }))
+        .build()
     }
   }
 }

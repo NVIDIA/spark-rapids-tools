@@ -1028,7 +1028,7 @@ object QualificationAppInfo extends Logging {
       if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
-      logInfo(s"${path.eventLog.toString} has App: ${app.appId}")
+      logDebug(s"${path.eventLog.toString} has App: ${app.appId}")
       Right(app)
     } catch {
       case e: Exception =>
