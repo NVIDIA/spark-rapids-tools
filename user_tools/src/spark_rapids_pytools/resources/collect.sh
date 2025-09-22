@@ -127,16 +127,28 @@ fi
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
+# Determine the appropriate path based on the platform
 if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
-    if [ -f $DATABRICKS_HOME/jars/rapids-4-spark*.jar ]; then
-        ls -l $DATABRICKS_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
-    else
-        echo 'not found' >> $OUTPUT_NODE_INFO
-    fi
-elif [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
-    ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
+    jar_dir="$DATABRICKS_HOME/jars"
 else
-    echo 'not found' >> $OUTPUT_NODE_INFO
+    jar_dir="$SPARK_HOME/jars"
+fi
+
+# Check for the jar file(s) and output the result
+found_files=0
+
+# Use for loop to handle potential multiple jar files
+for jar_file in "$jar_dir"/rapids-4-spark*.jar; do
+    # Check if the file exists (handles case where no files match)
+    if [ -f "$jar_file" ]; then
+        ls -l "$jar_file" >> "$OUTPUT_NODE_INFO"
+        found_files=1
+    fi
+done
+
+# If no files were found, output 'not found'
+if [ $found_files -eq 0 ]; then
+    echo 'not found' >> "$OUTPUT_NODE_INFO"
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
