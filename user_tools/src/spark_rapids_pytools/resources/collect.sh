@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -193,5 +193,5 @@ echo "Archive '${TEMP_PATH}_info.tgz' is successfully created!"
 # 2. exclude core files in pattern: *.out or *.out.*
 # 3. exclude 'lastlog' which will block tar command on Dataproc
 # 4. ignore exit code 1 as it happened if found file changed during read
-cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf ${TEMP_PATH}_log.tgz * || [[ $? -eq 1 ]]
+cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf "${TEMP_PATH}_log.tgz" -- * || [[ $? -eq 1 ]]
 echo "Archive '${TEMP_PATH}_log.tgz' is successfully created!"
