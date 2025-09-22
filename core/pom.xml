@@ -585,6 +585,13 @@
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
+        <!--
+            Project-level defaults so builds with -Pscala213 (and no -Dbuildver)
+            still resolve Spark/Hadoop versions. These match the current default
+            Spark profile (spark356). Individual spark3xx profiles will override.
+        -->
+        <spark.version>${spark356.version}</spark.version>
+        <hadoop.version>3.3.6</hadoop.version>
         <!-- Testing properties -->
         <!-- define the location to generate the golden-sets -->
         <tools.qual.test.generate.golden.dir>${project.basedir}/golden-sets/${buildver}/qual</tools.qual.test.generate.golden.dir>
