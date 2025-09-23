@@ -33,13 +33,8 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 class BaseNoSparkSuite extends FunSuite with BeforeAndAfterEach with Logging {
 
   protected def checkDeltaLakeSparkRelease(): (Boolean, String) = {
-    // deltaLake is supported until Spark-340
-    val supportsDeltaLake = if (ToolUtils.isSpark340OrLater()) {
-      ToolUtils.runtimeIsSparkVersion("3.4.0")
-    } else {
-      true
-    }
-    (supportsDeltaLake, "DeltaLake release is not supported in Spark Version")
+    // deltaLake tests supported for spark35+
+    (ToolUtils.isSpark350OrLater(), "DeltaLake release is not supported in Spark Version")
   }
 
   protected def checkUDFDetectionSupportForSpark(): (Boolean, String) = {

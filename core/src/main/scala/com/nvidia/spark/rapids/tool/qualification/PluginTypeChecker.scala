@@ -124,7 +124,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
   private def readOperatorsScore: Map[String, Double] = {
     speedupFactorFile match {
       case None =>
-        logInfo(s"Trying to read operators scores with platform: $platform")
+        logDebug(s"Trying to read operators scores with platform: $platform")
         val file = platform.getOperatorScoreFile
         try {
           val source = UTF8Source.fromResource(file)
@@ -138,7 +138,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
             readOperators(source, "score", true).map(x => (x._1, x._2.toDouble))
         }
       case Some(file) =>
-        logInfo(s"Reading operators scores from custom speedup factor file: $file")
+        logDebug(s"Reading operators scores from custom speedup factor file: $file")
         try {
           val path = new Path(file)
           val fs = FileSystem.get(path.toUri, new Configuration())

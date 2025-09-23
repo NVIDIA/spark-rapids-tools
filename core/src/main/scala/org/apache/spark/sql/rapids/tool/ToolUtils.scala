@@ -21,6 +21,7 @@ import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.Platform
 import com.nvidia.spark.rapids.tool.planparser.SubqueryExecParser
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 import org.apache.maven.artifact.versioning.ComparableVersion
@@ -353,6 +354,13 @@ object ExecHelper {
   }
 
   ///////////////////////////////////////////
+  // Start definitions of blank execs supported by the plugin
+  val EX_NAME_WRITE_FILES: String = "WriteFiles"
+  val LIST_OF_SUPPORTED_BLANK_EXECS: Set[String] = Set(
+    EX_NAME_WRITE_FILES
+  )
+
+  ///////////////////////////////////////////
   // start definitions of execs to be ignored
   // Collect Limit replacement can be slower on the GPU. Disabled by default.
   private val CollectLimit = "CollectLimit"
@@ -370,7 +378,6 @@ object ExecHelper {
   private val ExecuteSetCommand = "Execute SetCommand"
   private val ResultQueryStage = "ResultQueryStage"
   private val ExecAddJarsCommand = "Execute AddJarsCommand"
-  private val ExecInsertIntoHadoopFSRelationCommand = "Execute InsertIntoHadoopFsRelationCommand"
   private val ScanJDBCRelation = "Scan JDBCRelation"
   private val ScanOneRowRelation = "Scan OneRowRelation"
   private val CommandResult = "CommandResult"
@@ -384,12 +391,6 @@ object ExecHelper {
   private val ExecuteRepairTableCommand = "Execute RepairTableCommand"
   private val ExecuteShowPartitionsCommand = "Execute ShowPartitionsCommand"
   private val ExecuteClearCacheCommand = "Execute ClearCacheCommand"
-  private val ExecuteOptimizeTableCommandEdge = "Execute OptimizeTableCommandEdge"
-  // DeltaLakeOperations
-  private val ExecUpdateCommandEdge = "Execute UpdateCommandEdge"
-  private val ExecDeleteCommandEdge = "Execute DeleteCommandEdge"
-  private val ExecDescribeDeltaHistoryCommand = "Execute DescribeDeltaHistoryCommand"
-  private val ExecShowPartitionsDeltaCommand = "Execute ShowPartitionsDeltaCommand"
 
   def getAllIgnoreExecs: Set[String] = Set(CollectLimit,
     ExecuteCreateViewCommand, LocalTableScan, ExecuteCreateTableCommand,
@@ -398,14 +399,11 @@ object ExecHelper {
     SetCatalogAndNamespace, ExecuteSetCommand,
     ResultQueryStage,
     ExecAddJarsCommand,
-    ExecInsertIntoHadoopFSRelationCommand,
     ScanJDBCRelation,
     ScanOneRowRelation,
     CommandResult,
-    ExecUpdateCommandEdge,
-    ExecDeleteCommandEdge,
-    ExecDescribeDeltaHistoryCommand,
-    ExecShowPartitionsDeltaCommand,
+    DeltaLakeOps.execDescribeDeltaHistoryCMD,
+    DeltaLakeOps.execShowPartitionsDeltaCMD,
     ExecuteAlterTableRecoverPartitionsCommand,
     ExecuteCreateFunctionCommand,
     CreateHiveTableAsSelectCommand,
@@ -415,7 +413,6 @@ object ExecHelper {
     ExecuteRepairTableCommand,
     ExecuteShowPartitionsCommand,
     ExecuteClearCacheCommand,
-    ExecuteOptimizeTableCommandEdge,
     SubqueryExecParser.execName
   )
 
