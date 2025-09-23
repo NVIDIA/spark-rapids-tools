@@ -24,8 +24,33 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java-version: [8, 11]
-        spark-version: ['321', '356']
+        include:
+          # Scala 2.12 builds
+          - java-version: 8
+            spark-version: '321'
+            scala: '2.12'
+            profile_flag: ''
+          - java-version: 11
+            spark-version: '321'
+            scala: '2.12'
+            profile_flag: ''
+          - java-version: 8
+            spark-version: '356'
+            scala: '2.12'
+            profile_flag: ''
+          - java-version: 11
+            spark-version: '356'
+            scala: '2.12'
+            profile_flag: ''
+          # Scala 2.13 builds (Spark 3.5.x only)
+          - java-version: 8
+            spark-version: '356'
+            scala: '2.13'
+            profile_flag: '-Pscala213'
+          - java-version: 11
+            spark-version: '356'
+            scala: '2.13'
+            profile_flag: '-Pscala213'
     steps:
     - name: Checkout code
       uses: NVIDIA/spark-rapids-common/checkout@main
@@ -36,5 +61,5 @@ jobs:
         distribution: adopt
         java-version: ${{ matrix.java-version }}
 
-    - name: Run mvn verify with Spark ${{ matrix.spark-version }}
-      run: cd core && mvn -Dbuildver=${{ matrix.spark-version }} verify
+    - name: Run mvn verify with Spark ${{ matrix.spark-version }} (Scala ${{ matrix.scala }})
+      run: cd core && mvn ${{ matrix.profile_flag }} -Dbuildver=${{ matrix.spark-version }} verify
