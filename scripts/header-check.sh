@@ -46,7 +46,7 @@ if [ -n "$NEW_FILES" ]; then
     done
 fi
 
-if [ -n "$INVALID_FILES" ]; then
+if [ ${#INVALID_FILES[@]} -gt 0 ]; then
     echo "Found new files with incorrect headers:"
     for f in "${INVALID_FILES[@]}"; do
         echo "    $f"
