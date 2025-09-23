@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2023-2025, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,16 +127,28 @@ fi
 echo "" >> $OUTPUT_NODE_INFO
 echo "[Spark rapids plugin]" >> $OUTPUT_NODE_INFO
 
+# Determine the appropriate path based on the platform
 if [[ "$PLATFORM_TYPE" == *"databricks"* ]]; then
-    if [ -f $DATABRICKS_HOME/jars/rapids-4-spark*.jar ]; then
-        ls -l $DATABRICKS_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
-    else
-        echo 'not found' >> $OUTPUT_NODE_INFO
-    fi
-elif [ -f $SPARK_HOME/jars/rapids-4-spark*.jar ]; then
-    ls -l $SPARK_HOME/jars/rapids-4-spark*.jar >> $OUTPUT_NODE_INFO
+    jar_dir="$DATABRICKS_HOME/jars"
 else
-    echo 'not found' >> $OUTPUT_NODE_INFO
+    jar_dir="$SPARK_HOME/jars"
+fi
+
+# Check for the jar file(s) and output the result
+found_files=0
+
+# Use for loop to handle potential multiple jar files
+for jar_file in "$jar_dir"/rapids-4-spark*.jar; do
+    # Check if the file exists (handles case where no files match)
+    if [ -f "$jar_file" ]; then
+        ls -l "$jar_file" >> "$OUTPUT_NODE_INFO"
+        found_files=1
+    fi
+done
+
+# If no files were found, output 'not found'
+if [ $found_files -eq 0 ]; then
+    echo 'not found' >> "$OUTPUT_NODE_INFO"
 fi
 
 echo "" >> $OUTPUT_NODE_INFO
@@ -181,5 +193,5 @@ echo "Archive '${TEMP_PATH}_info.tgz' is successfully created!"
 # 2. exclude core files in pattern: *.out or *.out.*
 # 3. exclude 'lastlog' which will block tar command on Dataproc
 # 4. ignore exit code 1 as it happened if found file changed during read
-cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf ${TEMP_PATH}_log.tgz * || [[ $? -eq 1 ]]
+cd /var/log && sudo tar --exclude='*.out' --exclude='*.out.*' --exclude='lastlog' --warning=no-file-changed -zcf "${TEMP_PATH}_log.tgz" -- * || [[ $? -eq 1 ]]
 echo "Archive '${TEMP_PATH}_log.tgz' is successfully created!"
