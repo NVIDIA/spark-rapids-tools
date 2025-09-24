@@ -38,6 +38,13 @@
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"
+            },
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "f329dae37a8e57397ac583c2ade9c6bd7e6c18f15042167afb6ef8b6a388511e5d73071e467c042e0e549011c481ba5f74c278b978240190586677f48cbf36b0"
+              },
+              "size": 409919265
             }
           },
           {
