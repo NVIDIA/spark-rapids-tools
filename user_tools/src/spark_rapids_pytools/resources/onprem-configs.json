@@ -20,6 +20,16 @@
             }
           }
         ],
+        "356_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          }
+        ],
         "350": [
           {
             "name": "Apache Spark",
@@ -31,6 +41,16 @@
               },
               "size": 400395283
             },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          }
+        ],
+        "350_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3-scala2.13.tgz",
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"
@@ -54,6 +74,16 @@
             }
           }
         ],
+        "342_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.4.2/spark-3.4.2-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          }
+        ],
         "333": [
           {
             "name": "Apache Spark",
@@ -65,6 +95,16 @@
               },
               "size": 299426263
             },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          }
+        ],
+        "333_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3-scala2.13.tgz",
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"

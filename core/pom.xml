@@ -617,6 +617,9 @@
         <iceberg.spark32x.runtime.version>1.4.3</iceberg.spark32x.runtime.version>
         <iceberg.spark.runtime.java.8>1.6.1</iceberg.spark.runtime.java.8>
         <iceberg.spark.runtime.java.11>1.10.0</iceberg.spark.runtime.java.11>
+        <!-- Default Iceberg properties -->
+        <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+        <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>
         <delta11x.version>1.1.0</delta11x.version>
