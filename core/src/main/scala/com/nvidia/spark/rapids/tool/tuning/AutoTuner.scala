@@ -1065,7 +1065,7 @@ abstract class AutoTuner(
     }
   }
 
-  private def recommendAQEProperties(): Unit = {
+  protected def recommendAQEProperties(): Unit = {
     // Spark configuration (AQE is enabled by default)
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
       .getOrElse("true").toLowerCase
@@ -1128,13 +1128,42 @@ abstract class AutoTuner(
     }
 
     // Update the recommended shuffle partitions (both AQE initial partition number
-    // and shuffle partitions) based on the AQE recommendations
+    // and shuffle partitions) based on the AQE recommendations and ColumnarExchange data size
     val isSkipped = applyToAllPartitionProperties[Boolean](skippedRecommendations.contains(_))
       .exists(identity)
     if (!isSkipped) {
-      val shufflePartitionValueWithAQE = Math.max(shufflePartitionValue, recInitialPartitionNum)
-      aqePartitionProperty.foreach(appendRecommendation(_, shufflePartitionValueWithAQE))
-      appendRecommendation("spark.sql.shuffle.partitions", shufflePartitionValueWithAQE)
+      var finalPartitionValue = Math.max(shufflePartitionValue, recInitialPartitionNum)
+      // Adjust based on ColumnarExchange data size if available
+      aqePartitionProperty.foreach { initialPartitionNumKey =>
+        appInfoProvider.getMaxColumnarExchangeDataSizeBytes match {
+          case Some(maxDataSize) =>
+            // Get GPU batch size (use actual value if set, otherwise use default)
+            val gpuBatchSize: Long = getPropertyValue("spark.rapids.sql.batchSizeBytes") match {
+              case Some(value) =>
+                // Parse the actual batch size value (could be with units like "2g", "1GB", etc.)
+                StringUtils.convertMemorySizeToBytes(value, Some(ByteUnit.BYTE))
+              case None =>
+                // Use default batch size from tuning configs
+                tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefaultAsMemory(ByteUnit.BYTE)
+            }
+            // Calculate ratio
+            val ratio = (maxDataSize.toDouble / gpuBatchSize).ceil.toInt
+            // Take the smaller value as the recommended value
+            val columnarExchangeAdjustedValue = math.min(shufflePartitionValue, ratio)
+            // Use the ColumnarExchange-adjusted value if it's different
+            if (columnarExchangeAdjustedValue != shufflePartitionValue) {
+              finalPartitionValue = Math.min(shufflePartitionValue, columnarExchangeAdjustedValue)
+              appendComment(s"'$initialPartitionNumKey' adjusted from " +
+                s"$shufflePartitionValue to $columnarExchangeAdjustedValue based on " +
+                s"ColumnarExchange data size (${maxDataSize} bytes) and " +
+                s"GPU batch size (${gpuBatchSize} bytes)")
+            }
+          case None =>
+            // No ColumnarExchange data size metrics found, use original logic
+        }
+      }
+      aqePartitionProperty.foreach(appendRecommendation(_, finalPartitionValue))
+      appendRecommendation("spark.sql.shuffle.partitions", finalPartitionValue)
     }
 
     // Handle Databricks-specific AQE auto shuffle
@@ -1619,7 +1648,7 @@ abstract class AutoTuner(
     }
   }
 
-  private lazy val aqePartitionProperty: Option[String] = {
+  protected lazy val aqePartitionProperty: Option[String] = {
     val aqeEnabled = getPropertyValue("spark.sql.adaptive.enabled")
       .getOrElse("true").toLowerCase == "true" // enabled by default in Spark
     val coalesceEnabled = getPropertyValue("spark.sql.adaptive.coalescePartitions.enabled")
@@ -1865,6 +1894,7 @@ class ProfilingAutoTuner(
   override def recommendPluginPropsInternal(): Unit = {
     recommendClassNameProperty("spark.plugins", autoTunerHelper.rapidsPluginClassName)
   }
+
 }
 
 /**
