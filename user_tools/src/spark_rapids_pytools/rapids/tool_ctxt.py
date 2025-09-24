@@ -102,7 +102,7 @@ class ToolContext(YAMLPropertiesContainer):
         # create cache_folder that will be used to hold large downloaded files
         self.__create_and_set_cache_folder()
         # set scala binary version preference based on environment flag (default 2.12)
-        scala_213_flag = Utils.get_or_set_rapids_tools_env('RAPIDS_USER_TOOLS_SCALA_213', 'false')
+        scala_213_flag = Utils.get_or_set_rapids_tools_env('SCALA_213', 'false')
         use_scala_213 = Utilities.string_to_bool(scala_213_flag)
         scala_bin = '2.13' if use_scala_213 else '2.12'
         self.set_ctxt('scalaBinaryVersion', scala_bin)
