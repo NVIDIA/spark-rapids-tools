@@ -21,6 +21,7 @@ import java.lang.reflect.InvocationTargetException
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 import org.json4s.jackson.JsonMethods.parse
 
@@ -31,6 +32,10 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
  * Utility containing the implementation of helpers used for parsing data from event.
  */
 object EventUtils extends Logging {
+  // A valid Spark catalog name must start with a letter, can contain letters, digits,
+  // underscores, or dashes, and must not end with a dot.
+  val SPARK_CATALOG_REGEX: Regex = """spark\\.sql\\.catalog\\.([A-Za-z][A-Za-z0-9_-]*)$""".r
+
   // Set to keep track of missing classes
   private val missingEventClasses = mutable.HashSet[String]()
 

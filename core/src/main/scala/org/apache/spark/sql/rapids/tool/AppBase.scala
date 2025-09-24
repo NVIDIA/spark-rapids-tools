@@ -545,7 +545,7 @@ abstract class AppBase(
    * @note This should only be called once.
    */
   protected def buildPlanGraphs(): Unit = {
-    sqlManager.buildPlanGraph(this)
+    sqlManager.buildPlanGraph(this, this)
   }
 
   /**
