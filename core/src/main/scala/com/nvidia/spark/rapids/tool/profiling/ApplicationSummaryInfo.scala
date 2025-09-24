@@ -95,23 +95,6 @@ trait AppInfoGpuOomCheck {
 
 trait AppInfoColumnarExchangeMetrics {
   def getMaxColumnarExchangeDataSizeBytes: Option[Long] = None
-  /**
-   * Helper method to extract maximum ColumnarExchange data size from SQL plan metrics.
-   * This method can be used by implementations to avoid code duplication.
-   */
-  protected def extractMaxColumnarExchangeDataSizeFromMetrics(
-    metrics: Seq[SQLAccumProfileResults]): Option[Long] = {
-    val columnarExchangeDataSizesBytes = metrics.collect {
-      case metric if metric.nodeName.contains("ColumnarExchange") &&
-                      metric.name == "data size" =>
-        metric.total
-    }
-    if (columnarExchangeDataSizesBytes.nonEmpty) {
-      Some(columnarExchangeDataSizesBytes.max)
-    } else {
-      None
-    }
-  }
 }
 
 /**
@@ -333,6 +316,15 @@ class SingleAppSummaryInfoProvider(
    *         ColumnarExchange "data size" metrics are found
    */
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = {
-    extractMaxColumnarExchangeDataSizeFromMetrics(app.sqlMetrics)
+    val columnarExchangeDataSizesBytes = app.sqlMetrics.collect {
+      case metric if metric.nodeName.contains("ColumnarExchange") &&
+                      metric.name == "data size" =>
+        metric.total
+    }
+    if (columnarExchangeDataSizesBytes.nonEmpty) {
+      Some(columnarExchangeDataSizesBytes.max)
+    } else {
+      None
+    }
   }
 }

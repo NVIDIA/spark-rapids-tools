@@ -1141,8 +1141,7 @@ abstract class AutoTuner(
             val gpuBatchSize: Long = getPropertyValue("spark.rapids.sql.batchSizeBytes") match {
               case Some(value) =>
                 // Parse the actual batch size value (could be with units like "2g", "1GB", etc.)
-                // Convert to MB first, then to bytes
-                StringUtils.convertToMB(value, Some(ByteUnit.BYTE)) * 1024 * 1024
+                StringUtils.convertMemorySizeToBytes(value, Some(ByteUnit.BYTE))
               case None =>
                 // Use default batch size from tuning configs
                 tuningConfigs.getEntry("BATCH_SIZE_BYTES").getDefaultAsMemory(ByteUnit.BYTE)
