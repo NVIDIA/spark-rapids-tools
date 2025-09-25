@@ -1,6 +1,40 @@
 
 <br/>
 
+## Release [v25.08.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.5)
+Generated on 2025-09-25
+### Autotuner
+
+- Add a new rule to recommend AQE post shuffle partition num ([#1908](https://github.com/NVIDIA/spark-rapids-tools/pull/1908))
+
+### API Change
+
+- Extract compression from InsertIntoHadoop cmd ([#1912](https://github.com/NVIDIA/spark-rapids-tools/pull/1912))
+
+### Feature Request
+
+- Add AppendData parser for Iceberg ([#1933](https://github.com/NVIDIA/spark-rapids-tools/pull/1933))
+
+### Bug Fixes
+
+- Support writeOps in DeltaLake ([#1921](https://github.com/NVIDIA/spark-rapids-tools/pull/1921))
+
+### Build and CI/CD
+
+- Bump default spark to 3.5.7 ([#1940](https://github.com/NVIDIA/spark-rapids-tools/pull/1940))
+- enable shellcheck and fix existed issues ([#1922](https://github.com/NVIDIA/spark-rapids-tools/pull/1922))
+- Upgrade dependencies in of DeltaLake in core-tools ([#1918](https://github.com/NVIDIA/spark-rapids-tools/pull/1918))
+- Move Core jar build to a single step ([#1910](https://github.com/NVIDIA/spark-rapids-tools/pull/1910))
+
+### Core
+
+- Remove noise from core tools log messages ([#1939](https://github.com/NVIDIA/spark-rapids-tools/pull/1939))
+- Add TableCacheQueryStageExec to the list of static execs file ([#1936](https://github.com/NVIDIA/spark-rapids-tools/pull/1936))
+- Add Iceberg to core pom dependency ([#1923](https://github.com/NVIDIA/spark-rapids-tools/pull/1923))
+
+
+<br/>
+
 ## Release [v25.08.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.3)
 Generated on 2025-09-16
 ### Autotuner
