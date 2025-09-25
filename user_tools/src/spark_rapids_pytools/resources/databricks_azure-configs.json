@@ -31,6 +31,34 @@
               }
             }
           ],
+          "356_213": [
+            {
+              "name": "Apache Spark",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3-scala2.13.tgz",
+              "dependencyType": {
+                "depType": "archive",
+                "relativePath": "jars/*"
+              },
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha512",
+                  "value": "f329dae37a8e57397ac583c2ade9c6bd7e6c18f15042167afb6ef8b6a388511e5d73071e467c042e0e549011c481ba5f74c278b978240190586677f48cbf36b0"
+                },
+                "size": 409919265
+              }
+            },
+            {
+              "name": "Hadoop Azure",
+              "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "a23f621bca9b2100554150f6b0b521f94b8b419e"
+                },
+                "size": 574116
+              }
+            }
+          ],
           "350": [
             {
               "name": "Apache Spark",
@@ -59,6 +87,34 @@
               }
             }
           ],
+          "350_213": [
+            {
+              "name": "Apache Spark",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3-scala2.13.tgz",
+              "dependencyType": {
+                "depType": "archive",
+                "relativePath": "jars/*"
+              },
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha512",
+                  "value": "b8ed2e5d2994493bd06aea4414057d6c92d8d01d2763626bb2a618d8c026990f155d6414ba0215cc593d991f762d30f55e0eaa1269c123d90f3a8f2cbd3f683c"
+                },
+                "size": 409358620
+              }
+            },
+            {
+              "name": "Hadoop Azure",
+              "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "a23f621bca9b2100554150f6b0b521f94b8b419e"
+                },
+                "size": 574116
+              }
+            }
+          ],
           "333": [
             {
               "name": "Apache Spark",
@@ -73,6 +129,34 @@
               "dependencyType": {
                 "depType": "archive",
                 "relativePath": "jars/*"
+              }
+            },
+            {
+              "name": "Hadoop Azure",
+              "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "a23f621bca9b2100554150f6b0b521f94b8b419e"
+                },
+                "size": 574116
+              }
+            }
+          ],
+          "333_213": [
+            {
+              "name": "Apache Spark",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3-scala2.13.tgz",
+              "dependencyType": {
+                "depType": "archive",
+                "relativePath": "jars/*"
+              },
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha512",
+                  "value": "afec0ba2d9bd253290eab881590ce78f56c8e3871b9eae3fd71204b177e83eb5c28eb218f6162a314e5d72565ac4540c2e4d0ef52995d2a0356fa6117700d18f"
+                },
+                "size": 306449719
               }
             },
             {

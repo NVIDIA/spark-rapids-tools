@@ -107,7 +107,7 @@ PREPACKAGED_FOLDER="csp-resources"
 CORE_DIR="$WORK_DIR/../core"
 CORE_RESOURCES_DIR="${CORE_DIR}/src/main/resources"
 SRC_CORE_REPORTS_REL_PATH="configs/reports"
-TOOLS_JAR_FILE=""
+declare -a TOOLS_JAR_FILES
 BUILD_DIR="/var/tmp/spark_rapids_user_tools_cache/build_$(date +%Y%m%d_%H%M%S)"
 
 # Function to download JAR from URL
@@ -135,8 +135,8 @@ download_jar_from_url() {
     bail "Failed to download JAR from URL: $url"
   fi
 
-  TOOLS_JAR_FILE="${output_path}"
-  log_info "Tools JAR download complete from url into: ${TOOLS_JAR_FILE}"
+  TOOLS_JAR_FILES+=("${output_path}")
+  log_info "Tools JAR download complete from url into: ${output_path}"
 }
 
 clean_up_build_jars() {
@@ -157,30 +157,39 @@ build_jar_from_source() {
   cd "${CORE_DIR}" || exit
 
   # Construct Maven command with optional arguments from environment
-  local mvn_cmd="mvn clean package -DskipTests"
-
-  # Add additional Maven arguments if provided via environment variable
-  if [ -n "${TOOLS_MAVEN_ARGS}" ]; then
-    log_debug "Using additional Maven arguments: ${TOOLS_MAVEN_ARGS}"
-    mvn_cmd="${mvn_cmd} ${TOOLS_MAVEN_ARGS}"
-  fi
-
-  log_debug "Running Maven command: ${mvn_cmd}"
-
-  # build mvn
-  eval "${mvn_cmd}"
-  mvn_exit_code=$?
-  if [ $mvn_exit_code -ne 0 ]; then
-    bail "Failed to build the tools jar from source"
-  fi
-  # rename jar file stripping snapshot
-  TOOLS_JAR_FILE=$(find "${jar_dir}" -type f \( -iname "rapids-4-spark-tools_*.jar" ! -iname "*sources.jar" ! -iname "*tests.jar" ! -iname "original-rapids-4*.jar" ! -iname "*javadoc.jar" \) | head -n 1)
-
-  if [ -z "$TOOLS_JAR_FILE" ]; then
-    bail "Failing because tools jar could not be located"
-  else
-    log_info "Tools jar file: $TOOLS_JAR_FILE"
-  fi
+  # Build both Scala 2.12 and 2.13 variants and stage them (2.13 via scala213 profile)
+  local staged_dir="${BUILD_DIR}/staged_jars"
+  mkdir -p "${staged_dir}"
+  TOOLS_JAR_FILES=()
+  for profile in default scala213; do
+    local mvn_cmd="mvn clean package -DskipTests"
+    if [ "${profile}" = "scala213" ]; then
+      mvn_cmd="${mvn_cmd} -Pscala213"
+    fi
+    if [ -n "${TOOLS_MAVEN_ARGS}" ]; then
+      log_debug "Using additional Maven arguments: ${TOOLS_MAVEN_ARGS}"
+      mvn_cmd="${mvn_cmd} ${TOOLS_MAVEN_ARGS}"
+    fi
+    log_debug "Running Maven command: ${mvn_cmd}"
+    eval "${mvn_cmd}"
+    mvn_exit_code=$?
+    if [ $mvn_exit_code -ne 0 ]; then
+      bail "Failed to build the tools jar from source for profile ${profile}"
+    fi
+    local scala_bin="2.12"
+    if [ "${profile}" = "scala213" ]; then
+      scala_bin="2.13"
+    fi
+    local built_jar
+    built_jar=$(find "${jar_dir}" -type f \( -iname "rapids-4-spark-tools_${scala_bin}-*.jar" ! -iname "*sources.jar" ! -iname "*tests.jar" ! -iname "original-rapids-4*.jar" ! -iname "*javadoc.jar" \))
+    if [ -z "${built_jar}" ]; then
+      bail "Failing because tools jar for Scala ${scala_bin} (profile ${profile}) could not be located"
+    fi
+    cp -f "${built_jar}" "${staged_dir}/"
+    local staged_jar="${staged_dir}/$(basename "${built_jar}")"
+    TOOLS_JAR_FILES+=("${staged_jar}")
+    log_info "Tools jar file (Scala ${scala_bin}): ${staged_jar}"
+  done
   # restore the current directory
   cd "${curr_dir}" || exit
 }
@@ -195,11 +204,17 @@ download_web_dependencies() {
   local is_fat_mode="$2"
   local web_downloader_script="$res_dir/dev/prepackage_mgr.py"
   log_section "Downloading dependencies"
-  python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="${TOOLS_JAR_FILE}" --fetch_all_csp="$is_fat_mode"
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-    bail "Dependency download failed. Exiting"
+  # Run the downloader once for each tools jar
+  if [ ${#TOOLS_JAR_FILES[@]} -eq 0 ]; then
+    bail "No tools jars available to package."
   fi
+  for tj in "${TOOLS_JAR_FILES[@]}"; do
+    python "$web_downloader_script" run --resource_dir="$res_dir" --tools_jar="${tj}" --fetch_all_csp="$is_fat_mode"
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      bail "Dependency download failed for ${tj}. Exiting"
+    fi
+  done
 }
 
 # Function to remove dependencies from the fat directory
@@ -243,8 +258,12 @@ prepare_resources() {
   # Build or download the tools JAR
   log_section "Building the tools jar...."
   if [ -n "$jar_url" ]; then
-    log_info "Using provided JAR URL"
-    download_jar_from_url "$jar_url" "$BUILD_DIR"
+    log_info "Using provided JAR URL(s)"
+    # Now accepts a comma-separated list of JAR URLs
+    IFS=',' read -r -a jar_urls <<< "$jar_url"
+    for u in "${jar_urls[@]}"; do
+      download_jar_from_url "$u" "$BUILD_DIR"
+    done
   else
     log_info "Building JAR from source"
     build_jar_from_source
@@ -253,7 +272,9 @@ prepare_resources() {
   # Create destination jars directory and copy the built tools jar
   local dest_jars_dir="${WRAPPER_RESOURCES_DIR}/${DEST_CORE_JARS_REL_PATH}"
   mkdir -p "${dest_jars_dir}"
-  cp -f "${TOOLS_JAR_FILE}" "${dest_jars_dir}/"
+  for tj in "${TOOLS_JAR_FILES[@]}"; do
+    cp -f "${tj}" "${dest_jars_dir}/"
+  done
 
   # Copy core reports into generated_files
   copy_reports_from_core "$WRAPPER_RESOURCES_DIR"
@@ -283,8 +304,12 @@ build() {
   # Build the tools jar from source
   log_section "Building the tools jar...."
   if [ -n "$jar_url" ]; then
-    log_info "Using provided JAR URL"
-    download_jar_from_url "$jar_url" "$BUILD_DIR"
+    log_info "Using provided JAR URL(s)"
+    # Accepts a comma-separated list of JAR URLs
+    IFS=',' read -r -a jar_urls <<< "$jar_url"
+    for u in "${jar_urls[@]}"; do
+      download_jar_from_url "$u" "$BUILD_DIR"
+    done
   else
     log_info "Building JAR from source"
     build_jar_from_source
@@ -338,7 +363,11 @@ if [ $build_exit_code -eq 0 ]; then
   log_msg "$GREEN" " Product                   : ${PRODUCT_NAME}"
   log_msg "$GREEN" " Jar URL                   : ${jar_url}"
   log_msg "$GREEN" " Build Mode                : ${build_mode}"
-  log_msg "$GREEN" " Tools Jar                 : ${TOOLS_JAR_FILE}"
+  if [ ${#TOOLS_JAR_FILES[@]} -gt 0 ]; then
+    for tj in "${TOOLS_JAR_FILES[@]}"; do
+      log_msg "$GREEN" " Tools Jar                 : ${tj}"
+    done
+  fi
   log_msg "$GREEN" " Wrapper generated reports : ${DEST_CORE_REPORTS_REL_PATH}"
   echo
 else

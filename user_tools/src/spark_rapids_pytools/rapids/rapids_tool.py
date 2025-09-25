@@ -431,16 +431,26 @@ class RapidsTool(object):
 
     @classmethod
     def get_rapids_tools_dependencies(cls, deploy_mode: str,
-                                      json_props: AbstractPropertiesContainer) -> Optional[list]:
+                                      json_props: AbstractPropertiesContainer,
+                                      scala_bin: Optional[str] = None) -> Optional[list]:
         """
         Get the tools dependencies from the platform configuration.
+        Convention:
+          - Scala 2.12 uses the base key: <buildver>
+          - Scala 2.13 uses a suffixed key: <buildver>_213
+        Behavior:
+          - If scala_bin indicates 2.13, try the suffixed key first, then fall back to base key.
+          - For 2.12 (or when scala_bin is absent), use the base key.
         """
         # allow defining default buildver per platform
         buildver_from_conf = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, 'activeBuildVer')
         active_buildver = get_spark_dep_version(buildver_from_conf)
-        depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, active_buildver)
+        dep_key = (f"{active_buildver}_{scala_bin.replace('.', '')}"
+                   if scala_bin and scala_bin.replace('.', '') != '212'
+                   else active_buildver)
+        depend_arr = json_props.get_value_silent('dependencies', 'deployMode', deploy_mode, dep_key)
         if depend_arr is None:
-            raise ValueError(f'Invalid SPARK dependency version [{active_buildver}]')
+            raise ValueError(f'Invalid SPARK dependency key [{dep_key}] (activeBuildVer={active_buildver})')
         # convert the json array to a list of RuntimeDependency objects
         runtime_dep_arr = [RuntimeDependency(**dep) for dep in depend_arr]
         return runtime_dep_arr
@@ -674,16 +684,21 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
             return results
 
         def populate_dependency_list() -> List[RuntimeDependency]:
-            # check if the dependencies is defined in a config file
+            # 1) If user provided dependencies via ToolsConfig, use them as-is
             config_obj = self.get_tools_config_obj()
             if config_obj is not None:
                 if config_obj.runtime and config_obj.runtime.dependencies:
                     return config_obj.runtime.dependencies
                 self.logger.info('The ToolsConfig did not specify the dependencies. '
                                  'Falling back to the default dependencies.')
-            # load dependency list from the platform configuration
+            # 2) Resolve platform defaults, honoring scalaBinaryVersion flag in one shot
             deploy_mode = DeployMode.tostring(self.ctxt.get_deploy_mode())
-            return self.get_rapids_tools_dependencies(deploy_mode, self.ctxt.platform.configs)
+            scala_bin = self.ctxt.get_ctxt('scalaBinaryVersion')
+            return self.get_rapids_tools_dependencies(
+                deploy_mode,
+                self.ctxt.platform.configs,
+                scala_bin=scala_bin,
+            )
 
         depend_arr = populate_dependency_list()
         if depend_arr:

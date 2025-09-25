@@ -101,6 +101,12 @@ class ToolContext(YAMLPropertiesContainer):
         self.props['wrapperCtx']['jobArgs'] = {}
         # create cache_folder that will be used to hold large downloaded files
         self.__create_and_set_cache_folder()
+        # set scala binary version preference based on environment flag (default 2.12)
+        scala_213_flag = Utils.get_or_set_rapids_tools_env('SCALA_213', 'false')
+        use_scala_213 = Utilities.string_to_bool(scala_213_flag)
+        scala_bin = '2.13' if use_scala_213 else '2.12'
+        self.set_ctxt('scalaBinaryVersion', scala_bin)
+        self.logger.info('Scala binary version preference set to: %s', scala_bin)
 
     def get_deploy_mode(self) -> Any:
         return self.platform_opts.get('deployMode')
@@ -203,12 +209,21 @@ class ToolContext(YAMLPropertiesContainer):
         tools_jar_regex_str = self.get_value('sparkRapids', 'toolsJarRegex')
         tools_jar_regex = re.compile(tools_jar_regex_str)
         matched_files = [f for f in resource_files if tools_jar_regex.search(f)]
-        assert len(matched_files) == 1, \
-            (f'Expected exactly one tools JAR file, found {len(matched_files)}. '
-             'Rebuild the wheel package with the correct tools JAR file.')
+        if len(matched_files) == 0:
+            raise AssertionError(
+                'No matching tools JAR file found. '
+                'Rebuild the wheel package with the correct tools JAR file.'
+            )
+        # Prefer jar based on requested scala version; default to 2.12
+        requested_scala_bin = self.get_ctxt('scalaBinaryVersion')
+        preferred = [f for f in matched_files if re.search(fr'rapids-4-spark-tools_{requested_scala_bin}-.*\.jar$', f)]
+        if preferred:
+            selected = preferred[0]
+        else:
+            selected = matched_files[0]
         # set the tools JAR file path in the context
         self.set_ctxt('useLocalToolsJar', True)
-        self.set_ctxt('toolsJarFilePath', matched_files[0])
+        self.set_ctxt('toolsJarFilePath', selected)
 
     def load_tools_jar_resources(self):
         """

@@ -20,6 +20,23 @@
             }
           }
         ],
+        "356_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.6/spark-3.5.6-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            },
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "f329dae37a8e57397ac583c2ade9c6bd7e6c18f15042167afb6ef8b6a388511e5d73071e467c042e0e549011c481ba5f74c278b978240190586677f48cbf36b0"
+              },
+              "size": 409919265
+            }
+          }
+        ],
         "350": [
           {
             "name": "Apache Spark",
@@ -34,6 +51,23 @@
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"
+            }
+          }
+        ],
+        "350_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            },
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "b8ed2e5d2994493bd06aea4414057d6c92d8d01d2763626bb2a618d8c026990f155d6414ba0215cc593d991f762d30f55e0eaa1269c123d90f3a8f2cbd3f683c"
+              },
+              "size": 409358620
             }
           }
         ],
@@ -54,6 +88,23 @@
             }
           }
         ],
+        "342_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.4.2/spark-3.4.2-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            },
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "de89176a8f69065f20491a0f2a338f1cb1e082141789c51b4baf8c7e856d38acf47626ab25dedb5f7295348808a4f98c0ea1a409f9107599af8fb9a3fd8d6f05"
+              },
+              "size": 397602735
+            }
+          }
+        ],
         "333": [
           {
             "name": "Apache Spark",
@@ -68,6 +119,23 @@
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"
+            }
+          }
+        ],
+        "333_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.3.3/spark-3.3.3-bin-hadoop3-scala2.13.tgz",
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            },
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "afec0ba2d9bd253290eab881590ce78f56c8e3871b9eae3fd71204b177e83eb5c28eb218f6162a314e5d72565ac4540c2e4d0ef52995d2a0356fa6117700d18f"
+              },
+              "size": 306449719
             }
           }
         ]
