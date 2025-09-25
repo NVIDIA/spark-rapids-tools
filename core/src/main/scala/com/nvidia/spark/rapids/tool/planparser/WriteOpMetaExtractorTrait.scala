@@ -85,6 +85,7 @@ trait WriteOpMetaExtractorTrait {
     components.headOption.flatMap { p =>
       p.split("\\s+") match {
         case Array(pref, cmd, _*) if pref.startsWith("Execute") => Some(cmd)
+        case Array(cmd, _*) => Some(cmd) // No Execute prefix
         case _ => None
       }
     }.getOrElse(StringUtils.UNKNOWN_EXTRACT)

@@ -16,44 +16,12 @@
 
 package com.nvidia.spark.rapids.tool.planparser.delta
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecParser, GroupParserTrait, OpTypes}
+import com.nvidia.spark.rapids.tool.planparser.{ExecParser, GroupParserTrait, OpTypes, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
 
-/**
- * A stub class to hold the static information about a Delta Lake operator.
- * @param nodeName the exact name of the SparkPlanGraphNode
- * @param isSupported whether this operator is supported in the plugin
- * @param opType the type of the operator, default to OpTypes.Exec
- * @param sqlMetricNames the set of SQL metric names to be used to compute the duration
- * @param deltaSpecific whether this operator is specific to Delta Lake. Default to true.
- */
-case class SupportedOpStub(
-    nodeName: String,
-    isSupported: Boolean = true,
-    opType: Option[OpTypes.Value] = Option(OpTypes.Exec),
-    sqlMetricNames: Set[String] = Set.empty,
-    deltaSpecific: Boolean = true) {
-  // The name without the "Execute " prefix if any.
-  val execNoPrefix: String = if (nodeName.startsWith("Execute ")) {
-      nodeName.stripPrefix("Execute ")
-    } else {
-      nodeName
-    }
-  // The ID used by the plugin. This is useful to match with the PluginTypeChecker.
-  val execID: String = {
-    execNoPrefix + "Exec"
-  }
-  // Get the OpType, default to OpTypes.Exec
-  def pullOpType: OpTypes.Value = {
-    opType match {
-      case Some(v) => v
-      case None => OpTypes.Exec
-    }
-  }
-}
 
 /**
  * Delta Lake operators.
