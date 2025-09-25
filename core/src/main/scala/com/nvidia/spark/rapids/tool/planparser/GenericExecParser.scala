@@ -34,9 +34,11 @@ class GenericExecParser(
     val app: Option[AppBase] = None
 ) extends ExecParser {
 
+  var unsupportedReason = ""
+
   lazy val trimmedNodeName: String = GenericExecParser.cleanupNodeName(node)
 
-  val fullExecName: String = execName.getOrElse(trimmedNodeName + "Exec")
+  lazy val fullExecName: String = execName.getOrElse(trimmedNodeName + "Exec")
 
   def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     checker.isExecSupported(registeredName.getOrElse(fullExecName))
@@ -44,6 +46,10 @@ class GenericExecParser(
 
   def pullSpeedupFactor(registeredName: Option[String] = None): Double = {
     checker.getSpeedupFactor(registeredName.getOrElse(fullExecName))
+  }
+
+  def setUnsupportedReason(r: String): Unit = {
+    unsupportedReason = r
   }
 
   override def parse: ExecInfo = {

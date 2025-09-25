@@ -1388,6 +1388,7 @@ class QualificationSuite extends BaseWithSparkSuite {
     // This UT configures Spark to use Iceberg.
     // It must use the writeToAPI to generate the AppendDataExec operator. This is the V2 version.
     // Otherwise, it will use the V1 version which is AppendDataExecV1.
+    val expectedWriteExec = "AppendData IcebergParquet"
     TrampolineUtil.withTempDir { warehouseDir =>
       QToolTestCtxtBuilder()
         .withEvLogProvider(
@@ -1419,9 +1420,9 @@ class QualificationSuite extends BaseWithSparkSuite {
           QToolOutFileCheckerImpl("Execs should contain Write operations such as AppendData")
             .withTableLabel("execCSVReport")
             .withContentVisitor(
-              "Execs should list the write ops",
+              "Execs should list the write ops along with the format IcebergParquet",
               csvF => {
-                val execNames = Seq[String]("AppendData")
+                val execNames = Seq[String](expectedWriteExec)
                 csvF.getColumn("Exec Name") should contain allElementsOf execNames
               }
             ))
@@ -1429,9 +1430,12 @@ class QualificationSuite extends BaseWithSparkSuite {
           QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
             .withTableLabel("unsupportedOpsCSVReport")
             .withContentVisitor(
-              "AppendData appears in the Unsupported Operator column",
+              "AppendData appears in the Unsupported Operator column with correct reason",
               csvF => {
-                csvF.getColumn("Unsupported Operator") should contain ("AppendData")
+                csvF.csvRows.count { r =>
+                  expectedWriteExec.equals(r("Unsupported Operator")) &&
+                    r("Details").equals("Unsupported IO format")
+                } shouldBe 1
               }))
         .build()
     }
