@@ -122,8 +122,8 @@ def default_download_options(custom_opts: dict = None) -> dict:
     default_opts = {
         # force the download even teh file exists
         'forceDownload': False,
-        # 3600 is 1 hour
-        'timeOut': 3600,
+        # 7200 is 2 hours
+        'timeOut': 7200,
         # number of retries
         'retryCount': 3
     }
@@ -289,8 +289,8 @@ class DownloadTask:
         download_opts = {
             'srcUrl': str(self.src_url),
             'destPath': local_res.no_scheme,
-            # set default timeout of a single task to 60 minutes
-            'timeOut': self.configs.get('timeOut', 3600),
+            # set default timeout of a single task to 7200 minutes
+            'timeOut': self.configs.get('timeOut', 7200),
         }
         download_res = self._download_resource(download_opts)
         return download_res
@@ -339,8 +339,8 @@ class DownloadManager:
     download_tasks: List[DownloadTask]
     # set it to 1 to avoid parallelism
     max_workers: Optional[int] = 4
-    # set the timeout to 60 minutes.
-    time_out: Optional[int] = 3600
+    # set the timeout to 120 minutes.
+    time_out: Optional[int] = 7200
     raise_on_error: Optional[bool] = True
     enable_logging: Optional[bool] = False
 
@@ -362,7 +362,7 @@ class DownloadManager:
                 for task in self.download_tasks:
                     self.loginfo(f'Submitting download task: {task.src_url}')
                     task.async_submit(executor, futures_list)
-                # set the timeout to 30 minutes.
+                # set the timeout to 120 minutes.
                 for future in concurrent.futures.as_completed(futures_list, timeout=self.time_out):
                     results.append(future.result())
                 for res in results:
