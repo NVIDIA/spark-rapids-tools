@@ -1440,6 +1440,48 @@ class QualificationSuite extends BaseWithSparkSuite {
         .build()
     }
   }
+
+  test("TableCacheQueryStage does not show up in the Qual report") {
+    // TableCacheQueryStage is a wrapper that is skipped during the construction of the graph.
+    // this unit test is to make sure that the exec does not show up at all in the report.
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with TableCacheQueryStage function")
+          .withAppName("tableCacheQueryStageHidden")
+          .withFunc { (provider, spark) =>
+            import spark.implicits._
+            val df1 = spark.range(100).select($"id".as("a")).cache()
+            val df2 = spark.range(100).select($"id".as("r_a")).cache()
+            // Create join and show plan
+            df1.join(df2, $"a" === $"r_a", "Outer")
+          })
+      .withChecker(
+        QToolResultCoreChecker("check app count and that the potential problems")
+          .withExpectedSize(1)
+          .withSuccessCode())
+      .withChecker(
+        QToolOutFileCheckerImpl("Unsupported operators does not TableCacheQueryStage")
+          .withTableLabel("unsupportedOpsCSVReport")
+          .withContentVisitor(
+            "TableCacheQueryStage does not appear in the Unsupported Operator column",
+            csvF => {
+              csvF.getColumn("Unsupported Operator").count {
+                _.contains("TableCacheQueryStage")
+              } shouldBe 0
+            }
+            ))
+      .withChecker(
+        QToolOutFileCheckerImpl("Execs should not contain TableCacheQueryStage")
+          .withTableLabel("execCSVReport")
+          .withContentVisitor(
+            "TableCacheQueryStage should not show up in the Exec Name column",
+            csvF => {
+              csvF.getColumn("Exec Name").count {_.contains("TableCacheQueryStage")
+              } shouldBe 0
+            }
+          ))
+      .build()
+  }
 }
 
 class ToolTestListener extends SparkListener {
