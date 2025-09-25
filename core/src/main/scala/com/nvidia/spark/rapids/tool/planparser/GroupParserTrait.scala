@@ -20,6 +20,7 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
 
 trait GroupParserTrait {
   /**
@@ -28,6 +29,31 @@ trait GroupParserTrait {
    * @return true if this parserGroup can handle the node, false otherwise
    */
   def accepts(nodeName: String): Boolean = false
+
+  /**
+   * Checks whether this parserGroup should handle the given node name.
+   * This is used when the node name alone is not sufficient to determine
+   * if the node should be handled by this parserGroup.
+   * @param nodeName name of the node to check
+   * @param confProvider optional configuration provider.
+   * @return true if this parserGroup can handle the node, false otherwise
+   */
+  def accepts(
+      nodeName: String,
+      confProvider: Option[CacheablePropsHandler]): Boolean = false
+
+  /**
+   * Checks whether this parserGroup should handle the given node.
+   * @param node spark plan graph node
+   * @param confProvider optional configuration provider.
+   *                     This is used to access the spark configurations to decide whether
+   *                     the node is handled by the parserGroup. For example, check if the
+   *                     providerImpl is Iceberg/DeltaLake
+   * @return true if this parserGroup can handle the node, false otherwise
+   */
+  def accepts(
+      node: SparkPlanGraphNode,
+      confProvider: Option[CacheablePropsHandler]): Boolean = false
 
   /**
    * Create an ExecParser for the given node.

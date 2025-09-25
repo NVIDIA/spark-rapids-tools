@@ -48,7 +48,9 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val shuffleStagesWithPosSpilling: Set[Long],
     val shuffleSkewStages: Set[Long],
     val scanStagesWithGpuOom: Boolean,
-    val shuffleStagesWithOom: Boolean) extends BaseProfilingAppSummaryInfoProvider {
+    val shuffleStagesWithOom: Boolean,
+    val maxColumnarExchangeDataSizeBytes: Option[Long] = None)
+    extends BaseProfilingAppSummaryInfoProvider {
   override def isAppInfoAvailable = true
   override def getMaxInput: Double = maxInput
   override def getMeanInput: Double = meanInput
@@ -67,6 +69,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
   override def hasScanStagesWithGpuOom: Boolean = scanStagesWithGpuOom
   override def hasShuffleStagesWithOom: Boolean = shuffleStagesWithOom
+  override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = maxColumnarExchangeDataSizeBytes
 
   /**
    * Sets the spark master property in the properties map.
@@ -131,10 +134,12 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       shuffleStagesWithPosSpilling: Set[Long] = Set(),
       shuffleSkewStages: Set[Long] = Set(),
       scanStagesWithGpuOom: Boolean = false,
-      shuffleStagesWithOom: Boolean = false): AppInfoProviderMockTest = {
+      shuffleStagesWithOom: Boolean = false,
+      maxColumnarExchangeDataSizeBytes: Option[Long] = None): AppInfoProviderMockTest = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
-      shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom, shuffleStagesWithOom)
+      shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom,
+      shuffleStagesWithOom, maxColumnarExchangeDataSizeBytes)
   }
 
   /**
