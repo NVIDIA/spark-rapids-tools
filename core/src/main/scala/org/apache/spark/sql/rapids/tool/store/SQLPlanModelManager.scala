@@ -20,6 +20,7 @@ import scala.collection.{immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.AccumToStageRetriever
+import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
 
 // This SparkPlanInfoTruncated is used to trim and serialize
 // SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
@@ -228,10 +229,14 @@ class SQLPlanModelManager {
    * in the plan and it will only process the most recent version of the given plan.
    * @note This should be called only once to avoid recreating the SparkPlanGraph.
    * @param accumStageMapper The AccumToStageRetriever used to find the stage for each accumulator
+   * @param sparkConfigProvider An object that provides access to the Spark configuration of the
+   *                            analyzed app.
    */
-  def buildPlanGraph(accumStageMapper: AccumToStageRetriever): Unit = {
+  def buildPlanGraph(
+      accumStageMapper: AccumToStageRetriever,
+      sparkConfigProvider: CacheablePropsHandler): Unit = {
     sqlPlans.values.foreach { planModel =>
-      planModel.plan.buildSparkGraph(accumStageMapper)
+      planModel.plan.buildSparkGraph(accumStageMapper, sparkConfigProvider)
     }
   }
 }

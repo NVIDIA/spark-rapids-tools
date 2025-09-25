@@ -35,20 +35,20 @@ jobs:
             scala: '2.12'
             profile_flag: ''
           - java-version: 8
-            spark-version: '356'
+            spark-version: '357'
             scala: '2.12'
             profile_flag: ''
           - java-version: 11
-            spark-version: '356'
+            spark-version: '357'
             scala: '2.12'
             profile_flag: ''
           # Scala 2.13 builds (Spark 3.5.x only)
           - java-version: 8
-            spark-version: '356'
+            spark-version: '357'
             scala: '2.13'
             profile_flag: '-Pscala213'
           - java-version: 11
-            spark-version: '356'
+            spark-version: '357'
             scala: '2.13'
             profile_flag: '-Pscala213'
     steps:

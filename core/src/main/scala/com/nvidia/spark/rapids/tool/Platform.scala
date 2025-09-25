@@ -368,6 +368,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     "3.5.4" -> "354",
     "3.5.5" -> "355",
     "3.5.6" -> "356",
+    "3.5.7" -> "357",
     "4.0.0" -> "400"
   )
 
@@ -943,7 +944,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
           gpuDevice = gpuDevice)
       }
     }.orElse {
-      logInfo("Worker info or Gpu info is not provided in the target cluster. " +
+      logDebug("Worker info or Gpu info is not provided in the target cluster. " +
         "Skipping recommended instance info creation.")
       None
     }

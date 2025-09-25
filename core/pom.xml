@@ -23,7 +23,7 @@
     <artifactId>rapids-4-spark-tools_${scala.binary.version}</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>25.08.4-SNAPSHOT</version>
+    <version>25.08.6-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -470,7 +470,6 @@
         <profile>
             <id>spark356</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
                 <property>
                     <name>buildver</name>
                     <value>356</value>
@@ -479,6 +478,25 @@
             <properties>
                 <buildver>356</buildver>
                 <spark.version>${spark356.version}</spark.version>
+                <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
+                <delta.core.version>${delta33x.version}</delta.core.version>
+                <hadoop.version>3.3.6</hadoop.version>
+                <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+                <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>spark357</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+                <property>
+                    <name>buildver</name>
+                    <value>357</value>
+                </property>
+            </activation>
+            <properties>
+                <buildver>357</buildver>
+                <spark.version>${spark357.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
@@ -496,8 +514,8 @@
             -->
             <id>release</id>
             <properties>
-                <buildver>356</buildver>
-                <spark.version>${spark356.version}</spark.version>
+                <buildver>357</buildver>
+                <spark.version>${spark357.version}</spark.version>
                 <delta.core.artifactory>${delta.core.artifactory.post35}</delta.core.artifactory>
                 <delta.core.version>${delta33x.version}</delta.core.version>
                 <hadoop.version>3.3.6</hadoop.version>
@@ -581,6 +599,7 @@
         <spark354.version>3.5.4</spark354.version>
         <spark355.version>3.5.5</spark355.version>
         <spark356.version>3.5.6</spark356.version>
+        <spark357.version>3.5.7</spark357.version>
         <!-- Define default versions for other dependencies -->
         <scala.binary.version>2.12</scala.binary.version>
         <scala.plugin.version>4.3.0</scala.plugin.version>
@@ -617,6 +636,9 @@
         <iceberg.spark32x.runtime.version>1.4.3</iceberg.spark32x.runtime.version>
         <iceberg.spark.runtime.java.8>1.6.1</iceberg.spark.runtime.java.8>
         <iceberg.spark.runtime.java.11>1.10.0</iceberg.spark.runtime.java.11>
+        <!-- Default Iceberg properties -->
+        <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+        <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
         <!-- properties used for DeltaLake -->
         <delta10x.version>1.0.1</delta10x.version>
         <delta11x.version>1.1.0</delta11x.version>
@@ -658,7 +680,7 @@
             still resolve Spark/Hadoop versions. These match the current default
             Spark profile (spark356). Individual spark3xx profiles will override.
         -->
-        <spark.version>${spark356.version}</spark.version>
+        <spark.version>${spark357.version}</spark.version>
         <hadoop.version>3.3.6</hadoop.version>
         <!-- Testing properties -->
         <!-- define the location to generate the golden-sets -->

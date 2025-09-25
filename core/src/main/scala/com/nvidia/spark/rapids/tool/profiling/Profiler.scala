@@ -218,7 +218,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       if (!app.isAppMetaDefined) {
         throw IncorrectAppStatusException()
       }
-      logInfo(s"Took ${endTime - startTime}ms to create App for ${path.eventLog.toString}")
+      logDebug(s"Took ${endTime - startTime}ms to create App for ${path.eventLog.toString}")
       Right(app)
     } catch {
       case e: Exception =>
@@ -277,7 +277,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val endTime = System.currentTimeMillis()
     val appInfo = collect.getAppInfo
     val sqlMetrics = collect.getSQLPlanMetrics
-    logInfo(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
+    logDebug(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
       appInfo = appInfo,
       dsInfo = collect.getDataSourceInfo(sqlMetrics),

@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.execution.ui
@@ -51,7 +52,8 @@ class WriteOperationParserSuite extends AnyFunSuite {
     expectedCompressionOpt: String = CompressionCodec.UNCOMPRESSED): Unit = {
 
     val metadata: WriteOperationMetadataTrait =
-      DataWritingCommandExecParser.getWriteOpMetaFromNode(node)
+      IcebergWriteOps.extractOpMeta(node, confProvider = None)
+        .getOrElse(DataWritingCommandExecParser.getWriteOpMetaFromNode(node))
 
     assert(metadata.execName() == expectedExecName, "execName")
     assert(metadata.dataFormat() == expectedDataFormat, "dataFormat")
@@ -625,6 +627,29 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedDatabaseName = "database1",
       expectedPartitionCols = "date=Some(20240621)",
       expectedCompressionOpt = StringUtils.UNKNOWN_EXTRACT
+    )
+  }
+
+  test("AppendData — Iceberg table Parquet format") {
+    // Test that AppendData is parsed correctly for Iceberg tables.
+    val node = new ui.SparkPlanGraphNode(
+      id = 5,
+      name = "AppendData",
+      desc = "AppendData org.apache.spark.sql.execution.datasources.v2.DataSourceV2Strategy$$Lambda$2293/1470843699@46290193, " +
+        "IcebergWrite(table=local.db.my_iceberg_table, format=PARQUET)",
+      Seq.empty
+    )
+
+    testGetWriteOpMetaFromNode(
+      node,
+      expectedExecName = "AppendData",
+      expectedDataFormat = "IcebergParquet",
+      expectedOutputPath = StringUtils.UNKNOWN_EXTRACT,
+      expectedOutputColumns = StringUtils.UNKNOWN_EXTRACT,
+      expectedWriteMode = StringUtils.UNKNOWN_EXTRACT,
+      expectedTableName = "my_iceberg_table",
+      expectedDatabaseName = "db",
+      expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
     )
   }
   // scalastyle:on line.size.limit
