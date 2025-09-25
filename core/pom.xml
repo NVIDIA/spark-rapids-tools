@@ -680,7 +680,7 @@
             still resolve Spark/Hadoop versions. These match the current default
             Spark profile (spark356). Individual spark3xx profiles will override.
         -->
-        <spark.version>${spark356.version}</spark.version>
+        <spark.version>${spark357.version}</spark.version>
         <hadoop.version>3.3.6</hadoop.version>
         <!-- Testing properties -->
         <!-- define the location to generate the golden-sets -->
