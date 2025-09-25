@@ -31,6 +31,34 @@
             }
           }
         ],
+        "357_213": [
+          {
+            "name": "Apache Spark",
+            "uri": "https://archive.apache.org/dist/spark/spark-3.5.7/spark-3.5.7-bin-hadoop3-scala2.13.tgz",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha512",
+                "value": "b1f3812bee0f27be0cea588f7da82a9e69633bb69f7b8abbdf66b9196dedc2508824bbe8233cc1e47a047041afbd2ec42a1692fba12e4d8c601daf829760d11e"
+              },
+              "size": 409925453
+            },
+            "dependencyType": {
+              "depType": "archive",
+              "relativePath": "jars/*"
+            }
+          },
+          {
+            "name": "GCS Connector Hadoop3",
+            "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.14/gcs-connector-hadoop3-2.2.14-shaded.jar",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "0cba424d7e107f92431ab7b7acf08c371d4aed52"
+              },
+              "size": 38298738
+            }
+          }
+        ],
         "356_213": [
           {
             "name": "Apache Spark",

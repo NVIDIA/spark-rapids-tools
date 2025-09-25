@@ -31,6 +31,34 @@
               }
             }
           ],
+          "357_213": [
+            {
+              "name": "Apache Spark",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.5.7/spark-3.5.7-bin-hadoop3-scala2.13.tgz",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha512",
+                  "value": "b1f3812bee0f27be0cea588f7da82a9e69633bb69f7b8abbdf66b9196dedc2508824bbe8233cc1e47a047041afbd2ec42a1692fba12e4d8c601daf829760d11e"
+                },
+                "size": 409925453
+              },
+              "dependencyType": {
+                "depType": "archive",
+                "relativePath": "jars/*"
+              }
+            },
+            {
+              "name": "Hadoop Azure",
+              "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "a23f621bca9b2100554150f6b0b521f94b8b419e"
+                },
+                "size": 574116
+              }
+            }
+          ],
           "356": [
             {
               "name": "Apache Spark",
