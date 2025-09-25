@@ -345,7 +345,7 @@ class RunningQualificationApp(
   def buildPlanGraphsInternal(): Unit = {
     this.synchronized {
       if (!_graphBuilt) {
-        sqlManager.buildPlanGraph(this)
+        sqlManager.buildPlanGraph(this, this)
         _graphBuilt = true
       }
     }

@@ -1388,6 +1388,7 @@ class QualificationSuite extends BaseWithSparkSuite {
     // This UT configures Spark to use Iceberg.
     // It must use the writeToAPI to generate the AppendDataExec operator. This is the V2 version.
     // Otherwise, it will use the V1 version which is AppendDataExecV1.
+    val expectedWriteExec = "AppendData IcebergParquet"
     TrampolineUtil.withTempDir { warehouseDir =>
       QToolTestCtxtBuilder()
         .withEvLogProvider(
@@ -1419,9 +1420,9 @@ class QualificationSuite extends BaseWithSparkSuite {
           QToolOutFileCheckerImpl("Execs should contain Write operations such as AppendData")
             .withTableLabel("execCSVReport")
             .withContentVisitor(
-              "Execs should list the write ops",
+              "Execs should list the write ops along with the format IcebergParquet",
               csvF => {
-                val execNames = Seq[String]("AppendData")
+                val execNames = Seq[String](expectedWriteExec)
                 csvF.getColumn("Exec Name") should contain allElementsOf execNames
               }
             ))
@@ -1429,12 +1430,57 @@ class QualificationSuite extends BaseWithSparkSuite {
           QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
             .withTableLabel("unsupportedOpsCSVReport")
             .withContentVisitor(
-              "AppendData appears in the Unsupported Operator column",
+              "AppendData appears in the Unsupported Operator column with correct reason",
               csvF => {
-                csvF.getColumn("Unsupported Operator") should contain ("AppendData")
+                csvF.csvRows.count { r =>
+                  expectedWriteExec.equals(r("Unsupported Operator")) &&
+                    r("Details").equals("Unsupported IO format")
+                } shouldBe 1
               }))
         .build()
     }
+  }
+
+  test("TableCacheQueryStage does not show up in the Qual report") {
+    // TableCacheQueryStage is a wrapper that is skipped during the construction of the graph.
+    // this unit test is to make sure that the exec does not show up at all in the report.
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("create an app with TableCacheQueryStage function")
+          .withAppName("tableCacheQueryStageHidden")
+          .withFunc { (provider, spark) =>
+            import spark.implicits._
+            val df1 = spark.range(100).select($"id".as("a")).cache()
+            val df2 = spark.range(100).select($"id".as("r_a")).cache()
+            // Create join and show plan
+            df1.join(df2, $"a" === $"r_a", "Outer")
+          })
+      .withChecker(
+        QToolResultCoreChecker("check app count and that the potential problems")
+          .withExpectedSize(1)
+          .withSuccessCode())
+      .withChecker(
+        QToolOutFileCheckerImpl("Unsupported operators does not TableCacheQueryStage")
+          .withTableLabel("unsupportedOpsCSVReport")
+          .withContentVisitor(
+            "TableCacheQueryStage does not appear in the Unsupported Operator column",
+            csvF => {
+              csvF.getColumn("Unsupported Operator").count {
+                _.contains("TableCacheQueryStage")
+              } shouldBe 0
+            }
+            ))
+      .withChecker(
+        QToolOutFileCheckerImpl("Execs should not contain TableCacheQueryStage")
+          .withTableLabel("execCSVReport")
+          .withContentVisitor(
+            "TableCacheQueryStage should not show up in the Exec Name column",
+            csvF => {
+              csvF.getColumn("Exec Name").count {_.contains("TableCacheQueryStage")
+              } shouldBe 0
+            }
+          ))
+      .build()
   }
 }
 

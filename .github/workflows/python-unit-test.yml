@@ -52,7 +52,6 @@ jobs:
       - name: Build tools JAR and copy reports (prepare)
         run: |
           cd user_tools
-          TOOLS_MAVEN_ARGS="-Dbuildver=356 -Dhadoop.version=3.3.6" \
           SKIP_WHEEL_PACKAGE_BUILD=1 \
           ./build.sh non-fat
 

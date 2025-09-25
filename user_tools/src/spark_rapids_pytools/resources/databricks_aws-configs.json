@@ -3,6 +3,45 @@
       "deployMode": {
         "LOCAL": {
           "//activeBuildVer": "Define this key in order to set the default buildVer for that platform",
+          "357": [
+            {
+              "name": "Apache Spark",
+              "uri": "https://archive.apache.org/dist/spark/spark-3.5.7/spark-3.5.7-bin-hadoop3.tgz",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha512",
+                  "value": "f3b7d5974d746b9aaecb19104473da91068b698a4d292177deb75deb83ef9dc7eb77062446940561ac9ab7ee3336fb421332b1c877292dab4ac1b6ca30f4f2e0"
+                },
+                "size": 400914067
+              },
+              "dependencyType": {
+                "depType": "archive",
+                "relativePath": "jars/*"
+              }
+            },
+            {
+              "name": "Hadoop AWS",
+              "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "641d8fe1d7683cdcc05cc3a794c0374553f6bd6a"
+                },
+                "size": 865554
+              }
+            },
+            {
+              "name": "AWS Java SDK Bundled",
+              "uri": "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "02deec3a0ad83d13d032b1812421b23d7a961eea"
+                },
+                "size": 280645251
+              }
+            }
+          ],
           "356": [
             {
               "name": "Apache Spark",

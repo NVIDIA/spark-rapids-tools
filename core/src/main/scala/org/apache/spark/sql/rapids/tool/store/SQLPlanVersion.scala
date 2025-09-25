@@ -19,12 +19,12 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.breakOut
 
 import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkPlanGraph
 import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
-
+import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, ToolsPlanGraph}
 
 /**
  * Represents a version of the SQLPlan holding the specific information related to that SQL plan.
@@ -51,15 +51,24 @@ class SQLPlanVersion(
   // This has to be accessed through the getToolsPlanGraph() which synchronizes on this object to
   // avoid races between threads.
   private var _sparkGraph: Option[ToolsPlanGraph] = None
+  // Cache the spark conf provider to check for App configurations when needed.
+  // This is set when the graph is built.
+  private var _sparkConfigProvider: Option[CacheablePropsHandler] = None
 
   /**
    * Builds the ToolsPlanGraph for this plan version.
    * The graph is cached to avoid re-creating a sparkPlanGraph every time.
+ *
    * @param accumStageMapper The AccumToStageRetriever used to find the stage for each accumulator.
+   * @param sparkConfProvider An object that provides access to the Spark configuration of the
+   *                            analyzed app.
    * @return the ToolsPlanGraph.
    */
-  def buildSparkGraph(accumStageMapper: AccumToStageRetriever): ToolsPlanGraph = {
+  def buildSparkGraph(
+      accumStageMapper: AccumToStageRetriever,
+      sparkConfProvider: CacheablePropsHandler): ToolsPlanGraph = {
     this.synchronized {
+      _sparkConfigProvider = Some(sparkConfProvider)
       _sparkGraph = Some(ToolsPlanGraph.createGraphWithStageClusters(planInfo, accumStageMapper))
       _sparkGraph.get
     }
@@ -102,13 +111,32 @@ class SQLPlanVersion(
    * @return the list of write records for this plan if any.
    */
   private def initWriteOperationRecords(): Iterable[WriteOperationRecord] = {
+    // pick nodes that satisfies IcebergWriteOps.accepts
+    val checkIceberg = _sparkConfigProvider match {
+      case Some(conf) => conf.icebergEnabled
+      case None => false
+    }
     getToolsPlanGraph.allNodes
-      // pick only nodes that are DataWritingCommandExec
-      .filter(node => DataWritingCommandExecParser.isWritingCmdExec(node.name.stripSuffix("$")))
-      .map { n =>
-        // extract the meta data and convert it to store record.
-        val opMeta = DataWritingCommandExecParser.getWriteOpMetaFromNode(n)
-        WriteOperationRecord(sqlId, version, n.id, operationMeta = opMeta)
+      // pick only nodes that marked as write Execs
+      .flatMap { node =>
+        // check Iceberg first
+        val metaFromIcberg = if (checkIceberg) {
+          IcebergWriteOps.extractOpMeta(node, _sparkConfigProvider)
+        } else {
+          None
+        }
+        val opMeta = metaFromIcberg match {
+          case Some(_) => metaFromIcberg
+          case _ =>
+            // Fall back to the generic DataWritingCommandExecParser which handles DeltaLake too.
+            if (DataWritingCommandExecParser.isWritingCmdExec(node.name.stripSuffix("$"))) {
+              Option(DataWritingCommandExecParser.getWriteOpMetaFromNode(node))
+            } else {
+              None
+            }
+        }
+        opMeta.map(m =>
+          WriteOperationRecord(sqlId, version, node.id, operationMeta = m))
       }
   }
 

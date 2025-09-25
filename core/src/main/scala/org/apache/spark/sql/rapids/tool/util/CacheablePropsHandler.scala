@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.util
 import scala.collection.JavaConverters._
 
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
 import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerJobStart, SparkListenerLogStart}
@@ -116,6 +117,9 @@ trait CacheablePropsHandler {
   // property is global to the entire application once it is set. a.k.a, it cannot be disabled
   // once it was set to true.
   var hiveEnabled = false
+  // A flag to indicate whether the spark App is configured to use Iceberg.
+  // Note that this is only a best-effort flag based on the spark properties.
+  var icebergEnabled = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
   // By default, it is empty.
   var mlEventLogType = ""
@@ -145,6 +149,7 @@ trait CacheablePropsHandler {
 
   def updatePredicatesFromSparkProperties(): Unit = {
     gpuMode ||= ProfileUtils.isPluginEnabled(sparkProperties)
+    icebergEnabled ||= IcebergHelper.isIcebergEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
   }
 
@@ -165,6 +170,7 @@ trait CacheablePropsHandler {
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
+    icebergEnabled ||= IcebergHelper.isIcebergEnabled(event.properties.asScala)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
   }
 

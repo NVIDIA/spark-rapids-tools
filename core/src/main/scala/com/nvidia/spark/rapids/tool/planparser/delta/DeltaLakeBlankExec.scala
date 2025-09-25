@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser.delta
 
-import com.nvidia.spark.rapids.tool.planparser.{OpTypes, SupportedBlankExec}
+import com.nvidia.spark.rapids.tool.planparser.{OpTypes, SupportedBlankExec, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
@@ -49,7 +49,7 @@ class DeltaLakeBlankExec(
     opStub.sqlMetricNames
   }
 
-  override val fullExecName: String = opStub.execID
+  override lazy val fullExecName: String = opStub.execID
 
   override def reportedExecName: String = opStub.nodeName
 
