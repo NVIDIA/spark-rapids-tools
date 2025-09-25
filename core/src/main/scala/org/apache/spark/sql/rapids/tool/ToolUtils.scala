@@ -58,7 +58,8 @@ object ToolUtils extends Logging {
     "331" -> new ComparableVersion("3.3.1"),
     "340" -> new ComparableVersion("3.4.0"), // introduces jsonProtocolChanges
     "350" -> new ComparableVersion("3.5.0"), // introduces windowGroupLimit
-    "356" -> new ComparableVersion("3.5.6")  // default build version
+    "356" -> new ComparableVersion("3.5.6"),
+    "357" -> new ComparableVersion("3.5.7")  // default build version
   )
 
   // Property to check the spark runtime version. We need this outside of test module as we
