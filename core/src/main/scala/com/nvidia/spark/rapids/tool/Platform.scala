@@ -943,7 +943,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
           gpuDevice = gpuDevice)
       }
     }.orElse {
-      logInfo("Worker info or Gpu info is not provided in the target cluster. " +
+      logDebug("Worker info or Gpu info is not provided in the target cluster. " +
         "Skipping recommended instance info creation.")
       None
     }

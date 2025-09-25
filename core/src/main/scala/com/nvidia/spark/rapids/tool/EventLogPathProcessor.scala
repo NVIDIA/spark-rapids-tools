@@ -449,7 +449,7 @@ object EventLogPathProcessor extends Logging {
   }
 
   def logApplicationInfo(app: ApplicationInfo) = {
-    logInfo(s"==============  ${app.appId} ==============")
+    logDebug(s"==============  ${app.appId} ==============")
   }
 
   def getDBEventLogFileDate(eventLogFileName: String): LocalDateTime = {
