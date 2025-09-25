@@ -85,6 +85,12 @@ you clone the project and build it from source.
 To change the logging level, modify the `log4j.rootLogger` property.
 Possible levels include `DEBUG`, `INFO`, `WARN`, `ERROR`.
 
+## Scala compatibility
+
+The wrapper supports running the core tools with Scala 2.12 (default) and Scala 2.13. To use Scala 2.13
+artifacts, set the environment variable `RAPIDS_USER_TOOLS_SCALA_213=1` before running commands. Backward
+compatibility with Scala 2.12 remains unchanged.
+
 ## Usage and supported platforms
 
 Please refer to [spark-rapids-user-tools guide](https://github.com/NVIDIA/spark-rapids-tools/blob/main/user_tools/docs/index.md) for details on how to use the tools

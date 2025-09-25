@@ -52,6 +52,9 @@ The wrapper runs a Java application on the local dev machine. This requires the 
    2. Java 1.8+ development environment
    3. access to maven repositories to download dependencies such as Spark 3.x.
 
+Scala compatibility: the wrapper works with Scala 2.12 (default) and Scala 2.13. To select Scala 2.13
+artifacts when running the core tools via the wrapper, set `RAPIDS_USER_TOOLS_SCALA_213=1` in the environment.
+
 
 ## Supported platforms
 
