@@ -21,6 +21,7 @@ import java.lang.reflect.InvocationTargetException
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
+import scala.util.matching.Regex
 
 import org.json4s.jackson.JsonMethods.parse
 
@@ -31,13 +32,53 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
  * Utility containing the implementation of helpers used for parsing data from event.
  */
 object EventUtils extends Logging {
+  // A valid Spark catalog name must start with a letter, can contain letters, digits,
+  // underscores, or dashes, and must not end with a dot.
+  val SPARK_CATALOG_REGEX: Regex = """spark\\.sql\\.catalog\\.([A-Za-z][A-Za-z0-9_-]*)$""".r
+
   // Set to keep track of missing classes
   private val missingEventClasses = mutable.HashSet[String]()
+
+  // This is the prefix of the assertion error message we want to track when IPV6 is not valid.
+  private val IPV6_ASSERTION_ERR_PREFIX =
+    "assertion failed: Expected hostname or IPv6 IP enclosed in [] but got"
+  // A cache to avoid reporting the same unknown exception more than once
+  // The key is the exception message, and the value is the count of occurences
+  private val cachedUnknownExceptions = new java.util.concurrent.ConcurrentHashMap[String, Int]()
 
   private def reportMissingEventClass(className: String): Unit = {
     if (!missingEventClasses.contains(className)) {
       missingEventClasses.add(className)
       logWarning(s"ClassNotFoundException while parsing an event: $className")
+    }
+  }
+
+  /**
+   * Handles AssertionError exceptions, specifically to catch and log the
+   * "assertion failed: expected hostname or IPv6" error only once. If the error keeps occuring we
+   * only report it once.
+   * @param t the Throwable to handle
+   */
+  private def handleAssertionError(t: Throwable): Unit = {
+    // report assertion failed: expected hostname or IPv6 only once
+    val (keyErrMsg, dumpStack) = if (t.getMessage.startsWith(IPV6_ASSERTION_ERR_PREFIX)) {
+      // use a constant key to track this specific error and suppress the entire stack.
+      (IPV6_ASSERTION_ERR_PREFIX, false)
+    } else {
+      (t.getMessage, true)
+    }
+    val errCount =
+      cachedUnknownExceptions.compute(keyErrMsg, (_, v) => Option(v).map(_ + 1).getOrElse(1))
+    if (errCount == 1) {
+      // only report the first occurrence
+      val errMessage = "Assertion Error encountered while parsing an event. " +
+        "Only the first occurrence will be logged; subsequent similar errors will be suppressed " +
+        "for clarity.\n\t\t"
+      if (dumpStack) {
+        logError(errMessage, t)
+      } else {
+        logError(errMessage + s"${t.getMessage}")
+      }
     }
   }
 
@@ -232,6 +273,10 @@ object EventUtils extends Logging {
                 case z: ClassNotFoundException if z.getMessage != null =>
                   // Avoid reporting missing classes more than once to reduce noise in the logs
                   reportMissingEventClass(z.getMessage)
+                case a: AssertionError =>
+                  // This is to catch "assertion failed: expected hostname or IPv6"
+                  // which may be caused by malformed eventlog.
+                  handleAssertionError(a)
                 case t: Throwable =>
                   // We do not want to swallow unknown exceptions so that we can handle later
                   logError(s"Unknown exception while parsing an event", t)

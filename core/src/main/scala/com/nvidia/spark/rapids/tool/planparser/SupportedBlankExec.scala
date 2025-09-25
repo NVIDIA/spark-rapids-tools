@@ -58,7 +58,7 @@ class SupportedBlankExec(
   }
 
   // If execName is provided, use it. Otherwise, derive from node name.
-  override val fullExecName: String = {
+  override lazy val fullExecName: String = {
     execName match {
       case Some(v) => v
       case _ =>

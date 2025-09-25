@@ -24,6 +24,7 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OperatorRefTrait, OpRef, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.planparser.photon.{PhotonPlanParser, PhotonStageExecParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
@@ -52,7 +53,8 @@ object UnsupportedReasons extends Enumeration {
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
       UNSUPPORTED_IO_FORMAT,
-      UNSUPPORTED_COMPRESSION = Value
+      UNSUPPORTED_COMPRESSION,
+      UNSUPPORTED_CATALOG = Value
 
   // Mutable map to cache custom reasons
   // this cache has to be concurrent to be threadSafe. Otherwise, multiple threads can cause
@@ -74,6 +76,7 @@ object UnsupportedReasons extends Enumeration {
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
       case UNSUPPORTED_COMPRESSION => "Unsupported compression"
+      case UNSUPPORTED_CATALOG => "Unsupported catalog"
       case customReason @ _ => customReason.toString
     }
   }
@@ -517,8 +520,6 @@ object SQLPlanParser extends Logging {
       case "HashAggregate" =>
         HashAggregateExecParser(
           node, checker, sqlID, Some(parseAggregateExpressions), app).parse
-      case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
-        DataWritingCommandExecParser.parseNode(node, checker, sqlID)
       case "ObjectHashAggregate" =>
         ObjectHashAggregateExecParser(
           node, checker, sqlID, Some(parseAggregateExpressions), app).parse
@@ -549,6 +550,12 @@ object SQLPlanParser extends Logging {
           node, checker, sqlID, expressionFunction = Some(parseWindowExpressions)).parse
       case "WindowGroupLimit" =>
         WindowGroupLimitParser(node, checker, sqlID).parse
+      case iwo if IcebergWriteOps.accepts(iwo, Some(app)) =>
+        // Iceberg write ops such as AppendDataExec
+        IcebergWriteOps.createExecParser(
+          node = node, checker = checker, sqlID = sqlID, app = Some(app)).parse
+      case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
+        DataWritingCommandExecParser.parseNode(node, checker, sqlID)
       case wfe if SupportedBlankExec.accepts(wfe) =>
         SupportedBlankExec.createExecParser(
           node = node, checker = checker, sqlID = sqlID, app = Some(app)).parse
