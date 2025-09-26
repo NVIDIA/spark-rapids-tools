@@ -48,14 +48,14 @@ jobs:
             scala: '2.13'
             profile_flag: '-Pscala213'
     steps:
-      - name: Checkout code
-        uses: NVIDIA/spark-rapids-common/checkout@main
+    - name: Checkout code
+      uses: NVIDIA/spark-rapids-common/checkout@main
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: adopt
-          java-version: ${{ matrix.java-version }}
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: adopt
+        java-version: ${{ matrix.java-version }}
 
-      - name: Run mvn verify with Spark ${{ matrix.spark-version }} (Scala ${{ matrix.scala }})
-        run: cd core && mvn ${{ matrix.profile_flag }} -Dbuildver=${{ matrix.spark-version }} verify
+    - name: Run mvn verify with Spark ${{ matrix.spark-version }} (Scala ${{ matrix.scala }})
+      run: cd core && mvn ${{ matrix.profile_flag }} -Dbuildver=${{ matrix.spark-version }} verify
