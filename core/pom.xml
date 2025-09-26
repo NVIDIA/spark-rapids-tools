@@ -628,6 +628,9 @@
         <iceberg.spark34x.artifact>iceberg-spark-runtime-3.4_${scala.binary.version}</iceberg.spark34x.artifact>
         <iceberg.spark33x.artifact>iceberg-spark-runtime-3.3_${scala.binary.version}</iceberg.spark33x.artifact>
         <iceberg.spark32x.artifact>iceberg-spark-runtime-3.2_${scala.binary.version}</iceberg.spark32x.artifact>
+        <!-- Default Iceberg properties -->
+        <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+        <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
         <!--
              Iceberg 1.7.0+ requires Java 11+.
              Since we use jdk 1.8 as default, we need to use an older version of Iceberg.
@@ -677,7 +680,7 @@
             still resolve Spark/Hadoop versions. These match the current default
             Spark profile (spark356). Individual spark3xx profiles will override.
         -->
-        <spark.version>${spark356.version}</spark.version>
+        <spark.version>${spark357.version}</spark.version>
         <hadoop.version>3.3.6</hadoop.version>
         <!-- Testing properties -->
         <!-- define the location to generate the golden-sets -->
