@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformNames, Statu
 import com.nvidia.spark.rapids.tool.views.RawMetricProfilerView
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.io.IOUtils
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
 import org.apache.spark.internal.Logging
@@ -36,7 +36,7 @@ import org.apache.spark.sql.rapids.tool.UnsupportedSparkRuntimeException
 import org.apache.spark.sql.rapids.tool.profiling._
 import org.apache.spark.sql.rapids.tool.util.{FSUtils, SparkRuntime}
 
-class ApplicationInfoSuite extends FunSuite with Logging {
+class ApplicationInfoSuite extends AnyFunSuite with Logging {
 
   lazy val sparkSession: SparkSession = {
     SparkSession
@@ -99,13 +99,13 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     assert(apps.size == 1)
     val firstApp = apps.head
     assert(firstApp.sparkVersion.equals("3.1.1"))
-    assert(firstApp.gpuMode.equals(true))
+    assert(firstApp.gpuMode)
     assert(firstApp.jobIdToInfo.keys.toSeq.contains(1))
     val stageInfo = firstApp.stageManager.getStage(0, 0)
-    assert(stageInfo.isDefined && stageInfo.get.stageInfo.numTasks.equals(1))
+    assert(stageInfo.isDefined && stageInfo.get.stageInfo.numTasks == 1)
     assert(firstApp.stageManager.getStage(2, 0).isDefined)
     assert(firstApp.taskManager.getTasks(stageID = 1, stageAttemptID = 0)
-      .head.successful.equals(true))
+      .head.successful)
     assert(firstApp.taskManager.getTasks(stageID = 1, stageAttemptID = 0)
       .head.endReason.equals("Success"))
     val execInfo = firstApp.executorIdToInfo.get(firstApp.executorIdToInfo.keys.head)
@@ -131,14 +131,14 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
     assert(apps.size == 1)
     assert(apps.head.sparkVersion.equals("3.0.1"))
-    assert(apps.head.gpuMode.equals(true))
+    assert(apps.head.gpuMode)
     val rapidsJar =
       apps.head.classpathEntries.filterKeys(_ matches ".*rapids-4-spark_2.12-0.5.0.jar.*")
     val cuDAJar = apps.head.classpathEntries.filterKeys(_ matches ".*cudf-0.19.2-cuda11.jar.*")
     assert(rapidsJar.size == 1, "Rapids jar check")
     assert(cuDAJar.size == 1, "CUDA jar check")
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val rapidsJarResults = collect.getRapidsJARInfo
     assert(rapidsJarResults.size === 2)
     assert(rapidsJarResults.count(_.jar.contains("rapids-4-spark_2.12-0.5.0.jar")) === 1)
@@ -167,7 +167,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     val apps = ToolTestUtils.processProfileApps(eventLog, sparkSession)
     assert(apps.size == 1)
     assert(apps.head.sparkVersion.equals("2.2.3"))
-    assert(apps.head.gpuMode.equals(false))
+    assert(!apps.head.gpuMode)
     assert(apps.head.jobIdToInfo.keys.toSeq.size == 6)
     assert(apps.head.jobIdToInfo.keys.toSeq.contains(0))
     val stage0 = apps.head.stageManager.getStage(0, 0)
@@ -200,7 +200,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
     assert(apps.size == 1)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val sqlMetrics = collect.getSQLPlanMetrics
     val resultExpectation =
       new File(expRoot, "rapids_join_eventlog_sqlmetrics_expectation.csv")
@@ -247,7 +247,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         }
         assert(apps.size == 1)
 
-        val collect = new CollectInformation(apps)
+        val collect = new CollectInformation(apps.toSeq)
         val stageLevelResults = collect.getStageLevelMetrics
 
         // Sample eventlog has 4 gpu metrics - gpuSemaphoreWait, gpuReadSpillFromDiskTime
@@ -266,16 +266,14 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     TrampolineUtil.withTempDir { tempOutputDir =>
       val apps: ArrayBuffer[ApplicationInfo] = ArrayBuffer[ApplicationInfo]()
       val appArgs = new ProfileArgs(Array(s"$logDir/rapids_join_eventlog.zstd"))
-      var index: Int = 1
       val eventlogPaths = appArgs.eventlog()
       for (path <- eventlogPaths) {
         apps += new ApplicationInfo(hadoopConf,
           EventLogPathProcessor.getEventLogInfo(path,
             sparkSession.sparkContext.hadoopConfiguration).head._1)
-        index += 1
       }
       assert(apps.size == 1)
-      CollectInformation.printSQLPlans(apps, tempOutputDir.getAbsolutePath)
+      CollectInformation.printSQLPlans(apps.toSeq, tempOutputDir.getAbsolutePath)
       val outputDir = new File(tempOutputDir, apps.head.appId)
       val dotDirs = ToolTestUtils.listFilesMatching(outputDir, _.endsWith("planDescriptions.log"))
       assert(dotDirs.length === 1)
@@ -351,7 +349,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val collect = new CollectInformation(apps)
+      val collect = new CollectInformation(apps.toSeq)
       val dsRes = collect.getDataSourceInfo
       assert(dsRes.size == 5)
       val allFormats = dsRes.map { r =>
@@ -388,7 +386,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val collect = new CollectInformation(apps)
+      val collect = new CollectInformation(apps.toSeq)
       val dsRes = collect.getDataSourceInfo
       assert(dsRes.size == 5)
       val allFormats = dsRes.map { r =>
@@ -422,7 +420,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val collect = new CollectInformation(apps)
+      val collect = new CollectInformation(apps.toSeq)
       val dsRes = collect.getDataSourceInfo
       assert(dsRes.size == 7)
       val allFormats = dsRes.map { r =>
@@ -457,7 +455,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       }
 
       assert(apps.size == 1)
-      val collect = new CollectInformation(apps)
+      val collect = new CollectInformation(apps.toSeq)
       val dsRes = collect.getDataSourceInfo
       assert(dsRes.size == 9)
       val allFormats = dsRes.map { r =>
@@ -493,7 +491,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val aggResults = RawMetricProfilerView.getAggMetrics(apps)
+      val aggResults = RawMetricProfilerView.getAggMetrics(apps.toSeq)
       val ioMetrics = aggResults.ioAggs
       assert(ioMetrics.size == 5)
       val metricsSqlId1 = ioMetrics.filter(metrics => metrics.sqlId == 1)
@@ -521,7 +519,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
         index += 1
       }
       assert(apps.size == 1)
-      val collect = new CollectInformation(apps)
+      val collect = new CollectInformation(apps.toSeq)
       val dsRes = collect.getDataSourceInfo
       val format = dsRes.map(r => r.format).toSet.mkString
       val expectedFormat = "JDBC"
@@ -547,7 +545,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       index += 1
     }
     assert(apps.size == 1)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val jobInfo = collect.getJobInfo
 
     assert(jobInfo.size == 2)
@@ -578,7 +576,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       index += 1
     }
     assert(apps.size == 1)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val sqlToStageInfo = collect.getSQLToStage
 
     assert(sqlToStageInfo.size == 4)
@@ -602,7 +600,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       index += 1
     }
     assert(apps.size == 1)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val wholeStageMapping = collect.getWholeStageCodeGenMapping
 
     assert(wholeStageMapping.size == 10)
@@ -661,7 +659,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       index += 1
     }
     assert(apps.size == 2)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val execInfos = collect.getExecutorInfo
     // just the fact it worked makes sure we can run with both files
     // since we give them indexes above they should be in the right order
@@ -809,7 +807,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
       index += 1
     }
     assert(apps.size == 1)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     for (_ <- apps) {
       val rapidsProps = collect.getRapidsProperties
       val rows = rapidsProps.map(_.rows.head)
@@ -840,7 +838,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
     assert(apps.size == 1)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val execInfo = collect.getExecutorInfo
     assert(execInfo.size == 1)
     assert(execInfo.head.numExecutors === 1)
@@ -860,7 +858,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
     }
     assert(apps.size == 1)
 
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val execInfo = collect.getExecutorInfo
     assert(execInfo.size == 1)
     assert(execInfo.head.numExecutors === 8)
@@ -995,7 +993,7 @@ class ApplicationInfoSuite extends FunSuite with Logging {
 
   test("test gpu reused subquery") {
     val apps = ToolTestUtils.processProfileApps(Array(s"$logDir/nds_q66_gpu.zstd"), sparkSession)
-    val collect = new CollectInformation(apps)
+    val collect = new CollectInformation(apps.toSeq)
     val sqlToStageInfo = collect.getSQLToStage
     val countScanParquet = sqlToStageInfo.flatMap(_.nodeNames).count(_.contains("GpuScan parquet"))
     // There are 12 `GpuScan parquet` raw nodes, but 4 are inside `ReusedExchange`, 1 is inside
@@ -1072,8 +1070,10 @@ class ApplicationInfoSuite extends FunSuite with Logging {
             |    "user" : "root"
             |  }
             |} ]""".stripMargin
-      // assert that the spark rapids build info json file is same as expected
-      assert(actualResult == expectedResult)
+      // Assert that the spark rapids build info json file is same as expected
+      // Use proper JSON comparison that ignores field ordering differences
+      assert(ToolTestUtils.compareJsonIgnoringFieldOrder(actualResult, expectedResult),
+        s"JSON content differs:\nActual: $actualResult\nExpected: $expectedResult")
     }
   }
 

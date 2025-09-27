@@ -21,7 +21,7 @@ import java.util.Calendar
 import java.util.concurrent.{ConcurrentLinkedQueue, Executors, ThreadPoolExecutor, TimeUnit}
 import java.util.regex.PatternSyntaxException
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.ThreadFactoryBuilder
 import com.nvidia.spark.rapids.tool.EventLogInfo

@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.qualification.checkers
 
 import com.nvidia.spark.rapids.tool.StatusReportCounts
-import org.scalatest.Matchers.convertToAnyShouldWrapper
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 
 /**
  * Check the status of the qualification result.

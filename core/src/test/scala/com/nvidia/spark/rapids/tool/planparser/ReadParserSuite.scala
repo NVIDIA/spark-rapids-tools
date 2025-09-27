@@ -20,7 +20,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.BaseTestSuite
-import org.scalatest.Matchers.{be, convertToAnyShouldWrapper}
+import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 

@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper

@@ -198,29 +198,29 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   validate(filterCriteria) {
     case crit if (crit.endsWith("-newest-filesystem") || crit.endsWith("-oldest-filesystem")
         || crit.endsWith("-newest-per-app-name") || crit.endsWith("-oldest-per-app-name")
-        || crit.endsWith("-oldest") || crit.endsWith("-newest")) => Right(Unit)
+        || crit.endsWith("-oldest") || crit.endsWith("-newest")) => Right(())
     case _ => Left("Error, the filter criteria must end with -newest, -oldest, " +
         "-newest-filesystem, -oldest-filesystem, -newest-per-app-name or -oldest-per-app-name")
   }
 
   validate(timeout) {
-    case timeout if (timeout > 3) => Right(Unit)
+    case timeout if (timeout > 3) => Right(())
     case _ => Left("Error, timeout must be greater than 3 seconds.")
   }
 
   validate(startAppTime) {
-    case time if (AppFilterImpl.parseAppTimePeriod(time) > 0L) => Right(Unit)
+    case time if (AppFilterImpl.parseAppTimePeriod(time) > 0L) => Right(())
     case _ => Left("Time period specified, must be greater than 0 and valid periods " +
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
   }
 
   validate(fsStartTime) {
-    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
+    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(())
     case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss.")
   }
 
   validate(fsEndTime) {
-    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(Unit)
+    case dateTime if (AppFilterImpl.parseDateTimePeriod(dateTime).isDefined) => Right(())
     case _ => Left("Time period specified must be format yyyy-MM-dd hh:mm:ss")
   }
 
@@ -241,7 +241,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       logWarning(s"Options provided after event logs will be ignored: " +
         s"${ignoredOptions.mkString(" ")}")
     }
-    Right(Unit)
+    Right(())
   }
 
   verify()

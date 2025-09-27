@@ -63,7 +63,7 @@ trait AppRemovedExecutorView extends ViewableTrait[ExecutorsRemovedProfileResult
     val execsRemoved = app.executorIdToInfo.filter { case (_, exec) =>
       !exec.isActive
     }
-    execsRemoved.map { case (id, exec) =>
+    execsRemoved.iterator.map { case (id, exec) =>
       ExecutorsRemovedProfileResult(id, exec.removeTime, exec.removeReason)
     }.toSeq
   }
@@ -80,7 +80,7 @@ trait AppRemovedBlockManagerView extends ViewableTrait[BlockManagerRemovedProfil
   override def getRawView(app: AppBase, index: Int): Seq[BlockManagerRemovedProfileResult] = {
     app.blockManagersRemoved.map { bm =>
       BlockManagerRemovedProfileResult(bm.executorId, bm.time)
-    }
+    }.toSeq
   }
 
   override def sortView(

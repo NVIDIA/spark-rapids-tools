@@ -229,7 +229,7 @@ case class ExecInfo(
           exprUnsupportedReason, getOpAction)
       }
     }
-    res
+    res.toSeq
   }
 }
 
@@ -472,7 +472,7 @@ object SQLPlanParser extends Logging {
     val execInfos = toolsGraph.nodes.flatMap { node =>
       parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes,
         nodeIdToStagesFunc = toolsGraph.getNodeStageLogicalAssignment)
-    }
+    }.toVector
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }
 

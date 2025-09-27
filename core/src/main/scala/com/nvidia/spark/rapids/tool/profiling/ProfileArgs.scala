@@ -129,18 +129,18 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
 
   validate(filterCriteria) {
     case crit if crit.endsWith("-newest-filesystem") ||
-        crit.endsWith("-oldest-filesystem") => Right(Unit)
+        crit.endsWith("-oldest-filesystem") => Right(())
     case _ => Left("Error, the filter criteria must end with either -newest-filesystem " +
         "or -oldest-filesystem")
   }
 
   validate(timeout) {
-    case timeout if timeout > 3 => Right(Unit)
+    case timeout if timeout > 3 => Right(())
     case _ => Left("Error, timeout must be greater than 3 seconds.")
   }
 
   validate(startAppTime) {
-    case time if AppFilterImpl.parseAppTimePeriod(time) > 0L => Right(Unit)
+    case time if AppFilterImpl.parseAppTimePeriod(time) > 0L => Right(())
     case _ => Left("Time period specified, must be greater than 0 and valid periods " +
       "are min(minute),h(hours),d(days),w(weeks),m(months).")
   }
@@ -162,13 +162,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       logWarning(s"Options provided after event logs will be ignored: " +
         s"${ignoredOptions.mkString(" ")}")
     }
-    Right(Unit)
+    Right(())
   }
 
   // verify that either driverlog or eventlog is specified
   validateOpt(driverlog, eventlog) {
     case (None, None) => Left("Error, one of driverlog or eventlog must be specified")
-    case _ => Right(Unit)
+    case _ => Right(())
   }
   verify()
 

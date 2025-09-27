@@ -71,7 +71,7 @@ trait WriteOpMetaExtractorTrait {
     if (current.nonEmpty) {
       result += current.toString.trim
     }
-    result
+    result.toSeq
   }
 
   /**

@@ -137,7 +137,7 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
    * @return a set of stageIds or empty if None
    */
    private def getNodeStagesByAccum(node: SparkPlanGraphNode): Set[Int] = {
-    val nodeAccums = node.metrics.map(_.accumulatorId)
+    val nodeAccums = node.metrics.map(_.accumulatorId).toSeq
     val stageIds = accumToStageRetriever.getStageIDsFromAccumIds(nodeAccums)
      nodeStageMapper.addRawNTS(node.id, stageIds)
      stageIds

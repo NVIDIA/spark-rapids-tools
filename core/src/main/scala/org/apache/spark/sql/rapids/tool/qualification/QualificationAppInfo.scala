@@ -269,7 +269,7 @@ class QualificationAppInfo(
     // Add all the execs that don't have a stageId to execsWithoutStages.
     execsWithoutStages ++= execsToStageMap.map(_._2).toList.flatten
 
-    (perStageSum, execsWithoutStages)
+    (perStageSum, execsWithoutStages.toSeq)
   }
 
   private def flattenedExecs(execs: Seq[ExecInfo]): Seq[ExecInfo] = {
@@ -281,7 +281,7 @@ class QualificationAppInfo(
       } else {
         e.children.getOrElse(Seq.empty) :+ e
       }
-    }
+    }.toSeq
   }
 
   private def stagesSummary(execInfos: Seq[ExecInfo],

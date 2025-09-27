@@ -61,7 +61,7 @@ class PropertiesLoader[T <: ValidatableProperties](implicit classTag: ClassTag[T
       val fs = FileSystem.get(path.toUri, new Configuration())
       fsIs = fs.open(path)
       val reader = new BufferedReader(new InputStreamReader(fsIs))
-      val fileContent = Stream.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
+      val fileContent = Iterator.continually(reader.readLine()).takeWhile(_ != null).mkString("\n")
       loadFromContent(fileContent)
     } catch {
       case _: IOException =>

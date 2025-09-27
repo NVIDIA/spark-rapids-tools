@@ -1006,7 +1006,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     // Create tuning definitions for the core multiplier property in the target cluster
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val coreMultiplierTuningDef = TuningEntryDefinition(
       label = "com.custom.spark.coreMultiplier",
       description = "Core multiplier property",
@@ -1065,7 +1065,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     // Create tuning definitions for the core multiplier property
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val coreMultiplierTuningDef = TuningEntryDefinition(
       label = "com.custom.spark.coreMultiplier",
       description = "Core multiplier property",

@@ -21,14 +21,15 @@ import java.security.SecureRandom
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.util.FSUtils
 
-class GenerateDotSuite extends FunSuite with BeforeAndAfterAll with Logging {
+class GenerateDotSuite extends AnyFunSuite with BeforeAndAfterAll with Logging {
 
   override def beforeAll(): Unit = {
     TrampolineUtil.cleanupAnyExistingSession()

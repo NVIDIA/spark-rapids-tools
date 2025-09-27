@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.profiling
 
 import java.io.{BufferedReader, InputStreamReader, IOException}
 
-import scala.collection.{breakOut, mutable}
+import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import org.apache.hadoop.conf.Configuration
@@ -53,7 +53,7 @@ class DriverLogProcessor(hadoopConf: Configuration, logPath: String)
       fsIs = fs.open(path)
       val reader = new BufferedReader(new InputStreamReader(fsIs))
       // Process each line in the file
-      Stream.continually(reader.readLine()).takeWhile(_ != null)
+      Iterator.continually(reader.readLine()).takeWhile(_ != null)
         .filter { line =>
           line.contains("cannot run on GPU") &&
             !line.contains("not all expressions can be replaced")
@@ -79,7 +79,9 @@ class DriverLogProcessor(hadoopConf: Configuration, logPath: String)
         }
       }
     }
-    countsMap.map(x => DriverLogUnsupportedOperators(x._1._1, x._2, x._1._2))(breakOut)
+    countsMap.iterator.map { case ((name, reason), count) =>
+      DriverLogUnsupportedOperators(name, count, reason)
+    }.toSeq
   }
 
   lazy val unsupportedOps: Seq[DriverLogUnsupportedOperators] = processDriverLogFile()

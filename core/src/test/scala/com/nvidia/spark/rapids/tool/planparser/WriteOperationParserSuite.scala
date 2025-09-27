@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.execution.ui
 import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
@@ -25,7 +25,7 @@ import org.apache.spark.sql.rapids.tool.store.{CompressionCodec, WriteOperationM
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 
-class WriteOperationParserSuite extends FunSuite {
+class WriteOperationParserSuite extends AnyFunSuite {
 
   /**
    * Helper method to test `getWriteOpMetaFromNode`.

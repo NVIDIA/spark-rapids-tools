@@ -19,7 +19,8 @@ package org.apache.spark.sql.rapids.tool.util
 import java.io.FileNotFoundException
 import java.util.Properties
 
-import collection.JavaConverters._
+import scala.jdk.CollectionConverters._
+
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging

@@ -84,8 +84,8 @@ class Benchmark(
       println("  RUNNING CASE : " + c.name)
       println(separator)
       measure(c.name, c.numIters)(c.fn)
-    }
-    println
+    }.toSeq
+    println()
     // scalastyle:on println
     results
   }
