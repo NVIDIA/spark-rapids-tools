@@ -19,8 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import java.util
 
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters._
-import scala.collection.breakOut
+import scala.jdk.CollectionConverters._
 
 import org.yaml.snakeyaml.{DumperOptions, LoaderOptions, Yaml}
 import org.yaml.snakeyaml.constructor.Constructor
@@ -276,8 +275,8 @@ object TuningEntryDefinition {
     val yamlObjNested = new Yaml(constructor, representer)
     val entryTable: TuningEntries = yamlObjNested.load(yamlSource).asInstanceOf[TuningEntries]
     // load the enabled entries.
-    entryTable.tuningDefinitions.asScala.collect {
+    entryTable.tuningDefinitions.asScala.iterator.collect {
       case e if e.isEnabled() => (e.label, e)
-    }(breakOut)
+    }.toMap
   }
 }

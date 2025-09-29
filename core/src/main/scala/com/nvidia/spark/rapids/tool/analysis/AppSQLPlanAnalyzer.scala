@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.breakOut
 import scala.collection.mutable.{AbstractSet, ArrayBuffer, HashMap, LinkedHashSet}
 
 import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
@@ -276,9 +275,10 @@ class AppSQLPlanAnalyzer(app: AppBase)
               g.allNodes
                 .filter(n => nIds.contains(n.id))
                 .map(n => s"${n.name}(${n.id.toString})")
-            }.getOrElse(Seq.empty)
+                .toVector
+            }.getOrElse(Vector.empty)
           case None =>
-            Seq.empty
+            Vector.empty
         }
         // Only update stageToNodeNames if:
         // 1. diagnostics is enabled. This will save memory heap for large eventlogs.
@@ -289,7 +289,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
         SQLStageInfoProfileResult(j.sqlID.get, jobId, stageModel.getId,
           stageModel.getAttemptId, stageModel.duration, nodeNames)
       }
-    }(breakOut)
+    }.toSeq
   }
 
   def generateSQLAccums(): Seq[SQLAccumProfileResults] = {
@@ -299,10 +299,8 @@ class AppSQLPlanAnalyzer(app: AppBase)
       val driverAccumsOpt = app.driverAccumMap.get(metric.accumulatorId)
       val driverMax = driverAccumsOpt match {
         case Some(accums) =>
-          StatisticsMetrics.createOptionalFromArr(accums.collect {
-            case a if a.sqlID == metric.sqlID =>
-              a.value
-          }(breakOut))
+          StatisticsMetrics.createOptionalFromArr(
+            accums.iterator.collect { case a if a.sqlID == metric.sqlID => a.value }.toArray)
         case _ => None
       }
 
@@ -327,7 +325,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
       } else {
         None
       }
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -408,7 +406,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
             metricNameToStatistics(GPU_DECODE_TIME_METRIC_KEY)))
         }
       }
-    }(breakOut)
+    }.toSeq
   }
 
   /**
@@ -443,7 +441,7 @@ class AppSQLPlanAnalyzer(app: AppBase)
           case _ => None
         }
       })
-    }(breakOut)
+    }.toSeq
   }
 }
 

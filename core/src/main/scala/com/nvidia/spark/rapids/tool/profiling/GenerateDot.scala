@@ -191,7 +191,7 @@ object SparkPlanGraph {
     val exchanges = mutable.HashMap[SparkPlanInfoWithStage, SparkPlanGraphNode]()
     buildSparkPlanGraphNode(planInfo, nodeIdGenerator, nodes, edges, null, null, null, exchanges,
       stageIdToStageMetrics)
-    SparkPlanGraphForDot(nodes, edges, appId, sqlId, physicalPlan)
+    SparkPlanGraphForDot(nodes.toSeq, edges.toSeq, appId, sqlId, physicalPlan)
   }
 
   @tailrec

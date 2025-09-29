@@ -20,7 +20,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.nvidia</groupId>
-    <artifactId>rapids-4-spark-tools_2.12</artifactId>
+    <artifactId>rapids-4-spark-tools_${scala.binary.version}</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
     <version>25.08.6-SNAPSHOT</version>
@@ -524,6 +524,48 @@
                 <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
             </properties>
         </profile>
+        <profile>
+            <id>scala213</id>
+            <properties>
+                <scala.binary.version>2.13</scala.binary.version>
+                <scala.version>2.13.12</scala.version>
+                <scalatest.version>3.2.19</scalatest.version>
+                <scala.wconf.args>-Wconf:cat=deprecation:s,cat=lint-adapted-args:e</scala.wconf.args>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>net.alchim31.maven</groupId>
+                        <artifactId>scala-maven-plugin</artifactId>
+                        <configuration>
+                            <encoding>${platform-encoding}</encoding>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
+                            <failOnMultipleScalaVersions>true</failOnMultipleScalaVersions>
+                            <recompileMode>incremental</recompileMode>
+                            <args>
+                                <arg>-unchecked</arg>
+                                <arg>-deprecation</arg>
+                                <arg>-feature</arg>
+                                <arg>-explaintypes</arg>
+                                <!-- Skip -Yno-adapted-args for Scala 2.13 (not supported) -->
+                                <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
+                                <arg>-Xlint:missing-interpolator</arg>
+                                <arg>-Xfatal-warnings</arg>
+                                <arg>${scala.wconf.args}</arg>
+                                <arg>-Xelide-below</arg>
+                                <arg>${elide.level}</arg>
+                            </args>
+                            <jvmArgs>
+                                <jvmArg>-Xms1024m</jvmArg>
+                                <jvmArg>-Xmx1024m</jvmArg>
+                            </jvmArgs>
+                            <addJavacArgs>${scala.javac.args}</addJavacArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
     <properties>
         <java.version>1.8</java.version>
@@ -566,7 +608,9 @@
         <scala.version>2.12.15</scala.version>
         <snakeyaml.version>2.0</snakeyaml.version>
         <scallop.version>3.5.1</scallop.version>
-        <scalatest.version>3.0.5</scalatest.version>
+        <scalatest.version>3.2.19</scalatest.version>
+        <spark.version.classifier>spark${buildver}</spark.version.classifier>
+        <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
@@ -574,6 +618,7 @@
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
         <benchmarks.checkpoints>noOp</benchmarks.checkpoints>
         <jsoup.version>1.16.1</jsoup.version>
+        <scala.collection.compat.version>2.12.0</scala.collection.compat.version>
         <!-- properties used for Iceberg (mainly for testing) -->
         <!--
           Iceberg artifacts are suffixed by the spark major version they are built against and the
@@ -583,6 +628,9 @@
         <iceberg.spark34x.artifact>iceberg-spark-runtime-3.4_${scala.binary.version}</iceberg.spark34x.artifact>
         <iceberg.spark33x.artifact>iceberg-spark-runtime-3.3_${scala.binary.version}</iceberg.spark33x.artifact>
         <iceberg.spark32x.artifact>iceberg-spark-runtime-3.2_${scala.binary.version}</iceberg.spark32x.artifact>
+        <!-- Default Iceberg properties -->
+        <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
+        <iceberg.spark.runtime.version>${iceberg.spark.runtime.java.8}</iceberg.spark.runtime.version>
         <!--
              Iceberg 1.7.0+ requires Java 11+.
              Since we use jdk 1.8 as default, we need to use an older version of Iceberg.
@@ -627,6 +675,13 @@
         <project.build.sourceEncoding>${platform-encoding}</project.build.sourceEncoding>
         <project.reporting.sourceEncoding>${platform-encoding}</project.reporting.sourceEncoding>
         <project.reporting.outputEncoding>${platform-encoding}</project.reporting.outputEncoding>
+        <!--
+            Project-level defaults so builds with -Pscala213 (and no -Dbuildver)
+            still resolve Spark/Hadoop versions. These match the current default
+            Spark profile (spark356). Individual spark3xx profiles will override.
+        -->
+        <spark.version>${spark357.version}</spark.version>
+        <hadoop.version>3.3.6</hadoop.version>
         <!-- Testing properties -->
         <!-- define the location to generate the golden-sets -->
         <tools.qual.test.generate.golden.dir>${project.basedir}/golden-sets/${buildver}/qual</tools.qual.test.generate.golden.dir>
@@ -635,6 +690,8 @@
         <tools.qual.test.keep.per_app.summary>false</tools.qual.test.keep.per_app.summary>
         <!-- enable/disable cleanup of temporary directories created during testing -->
         <tools.test.cleanup.tmp.dir>true</tools.test.cleanup.tmp.dir>
+        <!-- Scala compiler warning configuration - overridden for Scala 2.13 -->
+        <scala.wconf.args>-Wconf:cat=lint-adapted-args:e</scala.wconf.args>
     </properties>
 
     <dependencies>
@@ -676,6 +733,11 @@
             <artifactId>scalatest_${scala.binary.version}</artifactId>
             <version>${scalatest.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang.modules</groupId>
+            <artifactId>scala-collection-compat_${scala.binary.version}</artifactId>
+            <version>${scala.collection.compat.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.tototoshi</groupId>
@@ -883,7 +945,7 @@
                             <args>
                                 <arg>-doc-external-doc:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/rt.jar#https://docs.oracle.com/javase/8/docs/api/index.html</arg>
                                 <arg>-doc-external-doc:${settings.localRepository}/org/scala-lang/scala-library/${scala.version}/scala-library-${scala.version}.jar#https://scala-lang.org/api/${scala.version}/</arg>
-                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_2.12/${spark.version}/spark-sql_2.12-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
+                                <arg>-doc-external-doc:${settings.localRepository}/org/apache/spark/spark-sql_${scala.binary.version}/${spark.version}/spark-sql_${scala.binary.version}-${spark.version}/.jar#https://spark.apache.org/docs/${spark.version}/api/scala/index.html</arg>
                             </args>
                             <scalaVersion>${scala.version}</scalaVersion>
                             <checkMultipleScalaVersions>true</checkMultipleScalaVersions>
@@ -911,7 +973,7 @@
                         <arg>-Ywarn-unused:imports,locals,patvars,privates</arg>
                         <arg>-Xlint:missing-interpolator</arg>
                         <arg>-Xfatal-warnings</arg>
-                        <arg>-Wconf:cat=lint-adapted-args:e</arg>
+                        <arg>${scala.wconf.args}</arg>
                         <arg>-Xelide-below</arg>
                         <arg>${elide.level}</arg>
                     </args>
@@ -928,6 +990,14 @@
                 <version>3.0.0</version>
                 <!-- parent-pom only executions -->
                 <inherited>false</inherited>
+                <dependencies>
+                    <!-- Include scalastyle for cross-compilation (only available for Scala 2.12) -->
+                    <dependency>
+                        <groupId>org.scalastyle</groupId>
+                        <artifactId>scalastyle_2.12</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>copy-notice</id>
@@ -988,13 +1058,6 @@
                         </configuration>
                     </execution>
                 </executions>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.scalastyle</groupId>
-                        <artifactId>scalastyle_${scala.binary.version}</artifactId>
-                        <version>1.0.0</version>
-                    </dependency>
-                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

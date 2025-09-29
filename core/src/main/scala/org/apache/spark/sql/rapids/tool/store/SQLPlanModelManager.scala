@@ -16,7 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import scala.collection.{breakOut, immutable, mutable}
+import scala.collection.{immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.AccumToStageRetriever
@@ -165,7 +165,9 @@ class SQLPlanModelManager {
    * @return map between executionId and the physical description of the last version.
    */
   def getPhysicalPlans: immutable.Map[Long, String] = {
-    immutable.SortedMap[Long, String]() ++ sqlPlans.mapValues(_.physicalPlanDesc)
+    val builder = immutable.SortedMap.newBuilder[Long, String]
+    builder ++= sqlPlans.iterator.map { case (k, v) => k -> v.physicalPlanDesc }
+    builder.result()
   }
 
   /**
@@ -201,7 +203,9 @@ class SQLPlanModelManager {
    * @return map between executionId and the SparkPlanVersion of the last version.
    */
   def getPlanInfos: immutable.Map[Long, SparkPlanInfo] = {
-    immutable.SortedMap[Long, SparkPlanInfo]() ++ sqlPlans.mapValues(_.planInfo)
+    val builder = immutable.SortedMap.newBuilder[Long, SparkPlanInfo]
+    builder ++= sqlPlans.iterator.map { case (k, v) => k -> v.planInfo }
+    builder.result()
   }
 
   /**
@@ -218,7 +222,7 @@ class SQLPlanModelManager {
    * @return a set of write formats
    */
   def getWriteFormats(): Set[String] = {
-    sqlPlans.values.flatMap(_.plan.getWriteDataFormats)(breakOut)
+    sqlPlans.values.iterator.flatMap(_.plan.getWriteDataFormats).toSet
   }
 
   /**
