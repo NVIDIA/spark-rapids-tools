@@ -970,11 +970,12 @@ abstract class AutoTuner(
       // as max of executor.instances, initialExecutors, and minExecutors
       // This handles if there are any enforced values for either of the
       // above properties.
-      val recInstancesOpt = Seq(
+      val recInstanceOptions: Seq[Option[Int]] = Seq(
         recommendations.get("spark.executor.instances"),
         recommendations.get("spark.dynamicAllocation.initialExecutors"),
         recommendations.get("spark.dynamicAllocation.minExecutors")
-      ).map(_.flatMap(_.tunedValue).map(_.toInt)).max
+      ).map(_.flatMap(_.tunedValue).map(_.toInt))
+      val recInstancesOpt = recInstanceOptions.max
       // Use the max of the adjusted value and the recommended value
       // of executor instances to avoid reducing the number of executors.
       val valueToUse = recInstancesOpt match {

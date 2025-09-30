@@ -2025,7 +2025,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.dynamicAllocation.enabled" -> "true",
       "spark.dynamicAllocation.initialExecutors" -> "0",
       "spark.dynamicAllocation.minExecutors" -> "-1",
-      "spark.dynamicAllocation.maxExecutors" -> "2"
+      "spark.dynamicAllocation.maxExecutors" -> "8"
     )
 
     val adjustedProperties = List(
@@ -2054,7 +2054,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       s"""
          |Spark Properties:
          |--conf spark.dynamicAllocation.initialExecutors=2
-         |--conf spark.dynamicAllocation.maxExecutors=1
+         |--conf spark.dynamicAllocation.maxExecutors=2
          |--conf spark.dynamicAllocation.minExecutors=1
          |--conf spark.executor.cores=16
          |--conf spark.executor.instances=2
@@ -2098,7 +2098,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
          |- ${classPathComments("rapids.shuffle.jars")}
          |- ${notEnoughMemComment(40140)}
          |- $additionalSparkPluginsComment
-         |- ${commentForDynamicAllocationAdjustment(adjustedProperties, 8, 16)}
+         |- ${commentForDynamicAllocationAdjustment(adjustedProperties, 4, 16)}
          |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
