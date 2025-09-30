@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.08.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.6)
+Generated on 2025-09-30
+### Core
+
+- Scala2.13 support for Core tools ([#1950](https://github.com/NVIDIA/spark-rapids-tools/pull/1950))
+
+
+<br/>
+
 ## Release [v25.08.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.5)
 Generated on 2025-09-25
 ### Autotuner
