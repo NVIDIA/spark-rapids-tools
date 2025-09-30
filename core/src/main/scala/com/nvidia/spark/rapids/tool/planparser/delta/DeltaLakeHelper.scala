@@ -106,7 +106,7 @@ object DeltaLakeHelper {
    */
   def isDeltaLakeEnabled(properties: collection.Map[String, String]): Boolean = {
     SPARK_PROPS_ENABLING_DELTALAKE.exists { case (key, value) =>
-      properties.get(key).exists(_.matches(value))
+      properties.get(key).exists(_.equals(value))
     }
   }
 
@@ -141,7 +141,7 @@ object DeltaLakeHelper {
         // [replaceWhere=VAR_1 IN ('WHATEVER')], true,
         // org.apache.spark.sql.execution.datasources.
         // v2.DataSourceV2Strategy$$Lambda$XXXXX
-        node.desc.matches("""(?i).*delta.*""")
+        node.desc.contains("delta")
       } else {
         false
       }
