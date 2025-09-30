@@ -438,15 +438,23 @@ abstract class AutoTuner(
     }
   }
 
+  /**
+   * Determines if the recommendation should be ignored.
+   * Criteria:
+   * - The property is in the skipped recommendations list
+   * - The property is in the limited logic recommendations list
+   * - The property is enforced by the user (since we have already handled it during
+   *   initRecommendations() and initialization of finalTuningTable)
+   * @param key the property to check
+   * @return true if the recommendation should be ignored, false otherwise
+   */
+  private def ignoreRecommendation(key: String): Boolean = {
+    skippedRecommendations.contains(key) || limitedLogicRecommendations.contains(key) ||
+      platform.getUserEnforcedSparkProperty(key).isDefined
+  }
+
   def appendRecommendation(key: String, value: String): Unit = {
-    if (skippedRecommendations.contains(key) || limitedLogicRecommendations.contains(key)) {
-      // do not do anything if the recommendations should be skipped or have limited logic
-      return
-    }
-    if (platform.getUserEnforcedSparkProperty(key).isDefined) {
-      // If the property is enforced by the user, then
-      // the recommendation should be skipped as we have already handled it during
-      // initRecommendations() and initialization of finalTuningTable.
+    if (ignoreRecommendation(key)) {
       return
     }
     // Update the recommendation entry or update the existing one.
@@ -500,6 +508,13 @@ abstract class AutoTuner(
   }
 
   /**
+   * Remove the recommendation for the given key if it exists.
+   */
+  private def removeRecommendation(key: String): Unit = {
+    this.recommendations.get(key).foreach(_.markAsRemoved())
+  }
+
+  /**
    * Try to figure out the recommended instance type to use and set
    * the executor cores and instances based on that instance type.
    * Returns None if the platform doesn't support specific instance types.
@@ -511,6 +526,7 @@ abstract class AutoTuner(
       // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
       if (gpuClusterRec.numExecutors > 0) {
+        // Note: This may change later if dynamic allocation is enabled.
         appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
       }
     }
@@ -888,6 +904,107 @@ abstract class AutoTuner(
     }
   }
 
+  /**
+   * Recommend dynamic allocation configurations for GPU runs.
+   * Adjusts initialExecutors, minExecutors, and maxExecutors based on the ratio
+   * of CPU cores to GPU cores.
+   *
+   * Formula: GPU_value = max(1, floor(CPU_value × CPU_cores / GPU_cores))
+   *
+   * Note:
+   * - It also updates the executor instances to match the initial executors.
+   *
+   * @param gpuExecCores Number of cores per executor for GPU runs
+   */
+  private def recommendDynamicAllocationConfigs(gpuExecCores: Int): Unit = {
+    val isDynamicAllocationEnabled = getPropertyValue("spark.dynamicAllocation.enabled")
+      .exists(_.trim.equalsIgnoreCase("true"))
+
+    if (!isDynamicAllocationEnabled) {
+      // If dynamic allocation is disabled, remove the recommendations for the
+      // dynamic allocation properties
+      removeRecommendation("spark.dynamicAllocation.initialExecutors")
+      removeRecommendation("spark.dynamicAllocation.minExecutors")
+      removeRecommendation("spark.dynamicAllocation.maxExecutors")
+      return
+    }
+
+    // Get the original CPU executor cores from the event log
+    val cpuExecCores = getPropertyValueFromSource("spark.executor.cores")
+      .map(_.toInt)
+      .getOrElse(1)
+
+    if (cpuExecCores <= 0 || gpuExecCores <= 0) {
+      return
+    }
+
+    val adjustRatio = cpuExecCores.toDouble / gpuExecCores
+
+    // Helper function to get the adjusted value for a property
+    // Uses the formula: GPU_value = max(1, floor(CPU_value × CPU_cores / GPU_cores))
+    def adjustedValue(property: String): Option[Int] = {
+      if (ignoreRecommendation(property)) {
+        None
+      } else {
+        val cpuValue = getPropertyValueFromSource(property).map(_.toInt)
+        cpuValue.map(v => math.max(1, math.floor(v * adjustRatio).toInt))
+      }
+    }
+
+    // Keep track of which properties were adjusted for comment generation
+    val adjustedProperties = mutable.ListBuffer[String]()
+
+    // Helper function to add to adjusted properties if the value is different
+    // from the source value.
+    def markAsAdjustedProperty(property: String, value: Int): Unit = {
+      val sourceValue = getPropertyValueFromSource(property).map(_.toInt).filter(_ > 0)
+      if (sourceValue.exists(_ != value)) {
+        adjustedProperties += property
+      }
+    }
+
+    // Handle initialExecutors and executor.instances together
+    // Ref: https://spark.apache.org/docs/3.5.7/configuration.html#dynamic-allocation
+    adjustedValue("spark.dynamicAllocation.initialExecutors").foreach { v =>
+      // First, find the max recommended value for executor instances
+      // as max of executor.instances, initialExecutors, and minExecutors
+      // This handles if there are any enforced values for either of the
+      // above properties.
+      val recInstancesOpt = Seq(
+        recommendations.get("spark.executor.instances"),
+        recommendations.get("spark.dynamicAllocation.initialExecutors"),
+        recommendations.get("spark.dynamicAllocation.minExecutors")
+      ).map(_.flatMap(_.tunedValue).map(_.toInt)).max
+      // Use the max of the adjusted value and the recommended value
+      // of executor instances to avoid reducing the number of executors.
+      val valueToUse = recInstancesOpt match {
+        case Some(recInst) if recInst > v =>
+          recInst
+        case _ =>
+          // Track this only if the selected value is the adjusted value.
+          markAsAdjustedProperty("spark.dynamicAllocation.initialExecutors", v)
+          v
+      }
+      appendRecommendation("spark.dynamicAllocation.initialExecutors", valueToUse)
+      appendRecommendation("spark.executor.instances", valueToUse)
+    }
+
+    // Simpler logic for min and max executors
+    adjustedValue("spark.dynamicAllocation.minExecutors").foreach { v =>
+      markAsAdjustedProperty("spark.dynamicAllocation.minExecutors", v)
+      appendRecommendation("spark.dynamicAllocation.minExecutors", v)
+    }
+
+    adjustedValue("spark.dynamicAllocation.maxExecutors").foreach { v =>
+      markAsAdjustedProperty("spark.dynamicAllocation.maxExecutors", v)
+      appendRecommendation("spark.dynamicAllocation.maxExecutors", v)
+    }
+
+    if (adjustedProperties.nonEmpty) {
+      appendComment(commentForDynamicAllocationAdjustment(adjustedProperties.toList,
+        cpuExecCores, gpuExecCores))
+    }
+  }
 
   def calculateClusterLevelRecommendations(): Unit = {
     // only if we were able to figure out a node type to recommend do we make
@@ -970,6 +1087,7 @@ abstract class AutoTuner(
       }
       configureShuffleReaderWriterNumThreads(execCores)
       configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
+      recommendDynamicAllocationConfigs(execCores)
       // TODO: Should we recommend AQE even if cluster properties are not enabled?
       recommendAQEProperties()
     } else {
@@ -2152,6 +2270,14 @@ trait AutoTunerStaticComments {
   def commentForExperimentalConfig(config: String): String = {
     s"Using $config does not guarantee to produce the same results as CPU. " +
       s"Please refer to $advancedConfigDocUrl."
+  }
+
+  def commentForDynamicAllocationAdjustment(properties: List[String],
+        cpuExecCores: Int, gpuExecCores: Int): String = {
+    s"""
+       |Tuned dynamic allocation properties (${properties.mkString(", ")})
+       |based on cores ratio (CPU: $cpuExecCores cores, GPU: $gpuExecCores cores).
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 }
 
