@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.qualification
 
 import java.util.concurrent.TimeUnit
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
 import com.nvidia.spark.rapids.tool.tuning.{TargetClusterProps, TunerContext, TuningConfigsProvider}

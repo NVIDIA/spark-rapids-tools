@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning
 import java.util
 
 import scala.beans.BeanProperty
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.util.{StringUtils, ValidatableProperties}

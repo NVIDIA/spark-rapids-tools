@@ -18,13 +18,14 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
-class GenerateTimelineSuite extends FunSuite with BeforeAndAfterAll with Logging {
+class GenerateTimelineSuite extends AnyFunSuite with BeforeAndAfterAll with Logging {
 
   override def beforeAll(): Unit = {
     TrampolineUtil.cleanupAnyExistingSession()

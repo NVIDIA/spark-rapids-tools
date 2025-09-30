@@ -485,7 +485,7 @@ object GenerateTimeline {
                 currentExecsStartY,
                 minStartTime,
                 fileWriter,
-                subTimings)
+                subTimings.toSeq)
           }
           currentExecsStartY += execHostHeight
 

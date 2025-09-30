@@ -26,8 +26,8 @@ import scala.xml.XML
 import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.profiling.{ProfileOutputWriter, ProfileResult}
 import org.scalatest.AppendedClues.convertToClueful
-import org.scalatest.FunSuite
-import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers.{contain, convertToAnyShouldWrapper, equal, not}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
@@ -35,7 +35,7 @@ import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.InvalidMemoryUnitFormatException
 import org.apache.spark.sql.rapids.tool.util._
 
-class ToolUtilsSuite extends FunSuite with Logging {
+class ToolUtilsSuite extends AnyFunSuite with Logging {
   test("get page links of a url") {
     // Tests that getPageLinks return all the [href] in a page.
     // This is done manually by checking against a URL that won't likely change
