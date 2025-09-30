@@ -44,7 +44,7 @@ object OpActions extends Enumeration {
 
 object OpTypes extends Enumeration {
   type OpType = Value
-  val ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
+  val ReadDeltaLog, ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
 }
 
 object UnsupportedReasons extends Enumeration {
@@ -53,6 +53,7 @@ object UnsupportedReasons extends Enumeration {
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
       UNSUPPORTED_IO_FORMAT,
+      UNSUPPORTED_DELTA_LAKE_LOG,
       UNSUPPORTED_COMPRESSION,
       UNSUPPORTED_CATALOG = Value
 
@@ -75,6 +76,7 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+      case UNSUPPORTED_DELTA_LAKE_LOG => "Delta Lake metadata scans are not supported"
       case UNSUPPORTED_COMPRESSION => "Unsupported compression"
       case UNSUPPORTED_CATALOG => "Unsupported catalog"
       case customReason @ _ => customReason.toString
@@ -197,6 +199,7 @@ case class ExecInfo(
     } else {
       opType match {
         case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case OpTypes.ReadDeltaLog => UnsupportedReasons.UNSUPPORTED_DELTA_LAKE_LOG
         case _ => UnsupportedReasons.IS_UNSUPPORTED
       }
     }
@@ -259,7 +262,9 @@ object ExecInfo {
     // 3- Finally we ignore any exec matching the lookup table
     // if the opType is RDD, then we automatically enable the datasetFlag
     val finalDataSet = dataSet || opType.equals(OpTypes.ReadRDD)
-    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec)
+    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec) ||
+      // ignore DeltaLake delta_log metadata scans.
+      opType.equals(OpTypes.ReadDeltaLog)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
     val finalOpType = if (udf) {
       OpTypes.UDF
@@ -531,8 +536,9 @@ object SQLPlanParser extends Logging {
       case "Sort" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseSortExpressions)).parse
-      case s if ReadParser.isScanNode(s) =>
-        FileSourceScanExecParser(node, checker, sqlID, app).parse
+      case s if FileSourceScanExecParser.accepts(s) =>
+        // Scan operation
+        FileSourceScanExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
       case "SortAggregate" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseAggregateExpressions)).parse
