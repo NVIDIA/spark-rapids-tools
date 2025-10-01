@@ -153,7 +153,7 @@ case class ExecInfo(
     stages = stageIDs
   }
 
-  def setUnsupported(value: Boolean): Unit = {
+  def setSupportedFlag(value: Boolean): Unit = {
     isSupported = value
   }
 
@@ -511,7 +511,7 @@ object SQLPlanParser extends Logging {
           }
         }.foreach { suppExec =>
           // mark it as unsupported and set the reason
-          suppExec.setUnsupported(false)
+          suppExec.setSupportedFlag(false)
           suppExec.setShouldIgnore(true)
           suppExec.setUnsupportedExecReason(
             UnsupportedReasons.reportUnsupportedReason(
