@@ -63,7 +63,9 @@ object DeltaLakeHelper {
   // The pattern used to identify deltaLake metadata tables
   // Sometimes this pattern does not show up in the node description when the node.descr is
   // truncated. In that case, we might find the full pattern in the planInfo or the sql description.
-  val DELTALAKE_LOG_KEYWORD: String = "/_delta_log"
+  val DELTALAKE_META_KEYWORD: String = "/_delta_log"
+  // DeltaLake scan Existing RDD for delta_log contains the following pattern.
+  val DELTALAKE_META_SCAN_RDD_KEYWORD: String = "Delta Table State"
   // Another pattern that can be used to identify deltaLake metadata tables.
   val DELTALAKE_LOG_FILE_KEYWORD: String = "DeltaLogFileIndex"
   // we look for the serdeLibrary which is part of the node description:
@@ -240,8 +242,8 @@ object DeltaLakeHelper {
             // sqlDesc.contains("Delta Table State") ||
             //   sqlDesc.contains("Delta Table Checkpoint") ||
             //   sqlDesc.contains("delta_log")
-            if (sqlDesc.contains(DELTALAKE_LOG_KEYWORD) ||
-              sqlDesc.contains("Delta Table State") ||
+            if (sqlDesc.contains(DELTALAKE_META_KEYWORD) ||
+              sqlDesc.contains(DELTALAKE_META_SCAN_RDD_KEYWORD) ||
               sqlDesc.contains("Delta Table Checkpoint") ||
               sqlDesc.contains("_databricks_internal")) {
               true

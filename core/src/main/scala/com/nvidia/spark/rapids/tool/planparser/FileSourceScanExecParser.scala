@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper.{DELTALAKE_LOG_FILE_KEYWORD, DELTALAKE_LOG_KEYWORD}
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper.{DELTALAKE_LOG_FILE_KEYWORD, DELTALAKE_META_KEYWORD, DELTALAKE_META_SCAN_RDD_KEYWORD}
 import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -66,7 +66,7 @@ case class FileSourceScanExecParser(
    * Delta Lake metadata table scans are not supported.
    * @return true if it is a Delta Lake metadata table scan, false otherwise.
    */
-  private lazy val isDeltaLakeMetadataScan: Boolean = {
+  private lazy val isDeltaLakeMetaScan: Boolean = {
     val appEnabled = app match {
       case None => true  // no app provided then we assume it is true to be safe.
       case Some(a) =>
@@ -75,7 +75,20 @@ case class FileSourceScanExecParser(
         a.deltaLakeEnabled || a.isDatabricks
     }
     appEnabled &&
-      (node.desc.contains(DELTALAKE_LOG_KEYWORD) || node.desc.contains(DELTALAKE_LOG_FILE_KEYWORD))
+      (node.desc.contains(DELTALAKE_META_KEYWORD) || node.desc.contains(DELTALAKE_LOG_FILE_KEYWORD))
+  }
+
+  private lazy val isDeltaLakeMetaScanRDD: Boolean = {
+    val appEnabled = app match {
+      case None => true  // no app provided then we assume it is true to be safe.
+      case Some(a) =>
+        // If the app is provided, then check if delta lake is enabled or it is databricks
+        // Databricks has delta lake built-in.
+        a.deltaLakeEnabled || a.isDatabricks
+    }
+    appEnabled &&
+      (node.name.contains(DELTALAKE_META_SCAN_RDD_KEYWORD) ||
+        node.desc.contains(DELTALAKE_META_KEYWORD))
   }
 
   /**
@@ -84,7 +97,7 @@ case class FileSourceScanExecParser(
    * @return true if supported, false otherwise
    */
   private def isScanOpSupported: Boolean = {
-    if (isDeltaLakeMetadataScan) {
+    if (isDeltaLakeMetaScan) {
       // Delta Lake metadata table scans are not supported
       // No need to set the reason because it is set automatically inside the object ExecInfo
       false
@@ -99,10 +112,27 @@ case class FileSourceScanExecParser(
    * Otherwise, return ReadExec.
    * @return the operation type
    */
-  def pullOpType: OpTypes.Value = if (isDeltaLakeMetadataScan) {
+  def pullOpType: OpTypes.Value = if (isDeltaLakeMetaScan) {
     OpTypes.ReadDeltaLog
   } else {
     OpTypes.ReadExec
+  }
+
+  /**
+   * Determine the operation type for RDD scans.
+   * If it is a delta lake metadata table scan, then return ReadRDDDeltaLog.
+   * Otherwise, return ReadRDD.
+   * A deltaLake scann RDD has known pattern in the node name or description.
+   * nodeName: Scan ExistingRDD Delta Table State #0 - /path/to/_delta_log
+   * nodeDesc: Scan ExistingRDD Delta Table State #0 - /path/to/_delta_log[...]
+   * @return
+   */
+  def pullOpTypeForRDD: OpTypes.Value = {
+    if (isDeltaLakeMetaScanRDD) {
+      OpTypes.ReadRDDDeltaLog
+    } else {
+      OpTypes.ReadRDD
+    }
   }
 
   // The node name for Scans is Scan <format> so here we hardcode
@@ -161,11 +191,14 @@ case class FileSourceScanExecParser(
     if (rddCheckRes.nodeNameRDD) {
       // This is a scanRDD. We do not need to parse it as a normal node.
       // cleanup the node name if possible:
-      val newNodeName = if (nodeName.contains("ExistingRDD")) {
+      val (newNodeName, readType) = if (nodeName.contains("ExistingRDD")) {
         val nodeNameLength = nodeName.indexOf("ExistingRDD") + "ExistingRDD".length
-        nodeName.substring(0, nodeNameLength)
+        // At this point the node contains existing RDD, next we check if it is a deltaLake RDD
+        // scan.
+        (nodeName.substring(0, nodeNameLength), pullOpTypeForRDD)
       } else {
-        nodeName
+        // The node does not contain ExistingRDD. No need to check the deltaLake RDD scan
+        (nodeName, OpTypes.ReadRDD)
       }
       ExecInfo.createExecNoNode(
         sqlID,
@@ -174,7 +207,7 @@ case class FileSourceScanExecParser(
         1.0,
         duration = None,
         node.id,
-        OpTypes.ReadRDD,
+        opType = readType,
         isSupported = false,
         children = None,
         expressions = Seq.empty
