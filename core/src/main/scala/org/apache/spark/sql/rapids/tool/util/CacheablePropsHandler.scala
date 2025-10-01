@@ -19,6 +19,7 @@ package org.apache.spark.sql.rapids.tool.util
 import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
@@ -120,6 +121,9 @@ trait CacheablePropsHandler {
   // A flag to indicate whether the spark App is configured to use Iceberg.
   // Note that this is only a best-effort flag based on the spark properties.
   var icebergEnabled = false
+  // A flag to indicate whether the spark App is configured to use DeltaLake.
+  // Note that this is only a best-effort flag based on the spark properties.
+  var deltaLakeEnabled = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
   // By default, it is empty.
   var mlEventLogType = ""
@@ -150,6 +154,7 @@ trait CacheablePropsHandler {
   def updatePredicatesFromSparkProperties(): Unit = {
     gpuMode ||= ProfileUtils.isPluginEnabled(sparkProperties)
     icebergEnabled ||= IcebergHelper.isIcebergEnabled(sparkProperties)
+    deltaLakeEnabled ||= DeltaLakeHelper.isDeltaLakeEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
   }
 
@@ -171,6 +176,7 @@ trait CacheablePropsHandler {
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
     icebergEnabled ||= IcebergHelper.isIcebergEnabled(event.properties.asScala)
+    deltaLakeEnabled ||= DeltaLakeHelper.isDeltaLakeEnabled(event.properties.asScala)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
   }
 
