@@ -408,3 +408,29 @@ tuningDefinitions:
     category: functionality
     confType:
       name: boolean
+  - label: spark.dynamicAllocation.initialExecutors
+    description: >-
+      Initial number of executors to run if dynamic allocation is enabled.
+      If --num-executors (or spark.executor.instances) is set and larger than this value, it will
+      be used as the initial number of executors.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.dynamicAllocation.minExecutors
+    description: >-
+      Lower bound for the number of executors if dynamic allocation is enabled.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int
+  - label: spark.dynamicAllocation.maxExecutors
+    description: >-
+      Upper bound for the number of executors if dynamic allocation is enabled.
+    enabled: true
+    level: cluster
+    category: tuning
+    confType:
+      name: int

@@ -40,8 +40,8 @@ trait TuningEntryTrait {
   // The value recommended by the AutoTuner
   private var _tunedValue: Option[String] = None
 
-  /** Gets the tuned value */
-  protected def tunedValue: Option[String] = _tunedValue
+  /** Public method to get the tuned value or None if not tuned. */
+  def tunedValue: Option[String] = _tunedValue
 
   /** Sets the tuned value after normalizing it */
   protected def tunedValue_=(value: Option[String]): Unit = {

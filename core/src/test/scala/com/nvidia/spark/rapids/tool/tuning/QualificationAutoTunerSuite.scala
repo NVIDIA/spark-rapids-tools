@@ -20,7 +20,7 @@ import java.nio.file.Paths
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformFactory, PlatformNames, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{DynamicAllocationInfo, GpuTypes, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 import com.nvidia.spark.rapids.tool.qualification.{QualificationArgs, QualificationMain}
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
@@ -1559,6 +1559,547 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- $shufflePartitionsCommentForSpilling
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test AutoTuner recommends adjusting dynamic allocation properties when dynamic allocation
+  // is enabled based on the formula:  max(1, floor(CPU_value × CPU_cores / GPU_cores)).
+  test("test AutoTuner recommends dynamic allocation properties when enabled") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "20",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "12",
+      "spark.dynamicAllocation.minExecutors" -> "12",
+      "spark.dynamicAllocation.maxExecutors" -> "30"
+    )
+
+    val expectedAdjustedProperties = List(
+      // 'spark.dynamicAllocation.initialExecutors' is excluded from this list since in this
+      // case its final value is not determined by the formula but by the recommended value
+      // from 'executor.instances'.
+      "spark.dynamicAllocation.minExecutors",
+      "spark.dynamicAllocation.maxExecutors"
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 4,
+      numExecs = 20,
+      numExecutorNodes = 5,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dynamicAllocation.initialExecutors=10
+          |--conf spark.dynamicAllocation.maxExecutors=15
+          |--conf spark.dynamicAllocation.minExecutors=6
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.instances=10
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=2867m
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- $shuffleManagerCommentForQualification
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |- $additionalSparkPluginsComment
+          |- ${commentForDynamicAllocationAdjustment(expectedAdjustedProperties, 8, 16)}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  test("test AutoTuner does not recommend dynamic allocation properties when disabled") {
+    val logEventsProps = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "false",
+      "spark.dynamicAllocation.initialExecutors" -> "10",
+      "spark.dynamicAllocation.minExecutors" -> "5",
+      "spark.dynamicAllocation.maxExecutors" -> "20"
+    )
+
+    val infoProviderDisabled = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platformDisabled = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platformDisabled.configureClusterInfoFromEventLog(
+      coresPerExecutor = 32,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProviderDisabled, platformDisabled)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""
+        |Spark Properties:
+        |--conf spark.executor.cores=16
+        |--conf spark.executor.instances=2
+        |--conf spark.executor.memory=[FILL_IN_VALUE]
+        |--conf spark.executor.resource.gpu.amount=1
+        |--conf spark.locality.wait=0
+        |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+        |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
+        |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+        |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+        |--conf spark.rapids.sql.batchSizeBytes=1g
+        |--conf spark.rapids.sql.concurrentGpuTasks=3
+        |--conf spark.rapids.sql.enabled=true
+        |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+        |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+        |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+        |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+        |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+        |--conf spark.sql.files.maxPartitionBytes=512m
+        |--conf spark.task.resource.gpu.amount=0.001
+        |
+        |Comments:
+        |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+        |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+        |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+        |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+        |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+        |- 'spark.rapids.sql.batchSizeBytes' was not set.
+        |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+        |- 'spark.rapids.sql.enabled' was not set.
+        |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+        |- 'spark.shuffle.manager' is not recommended because the Spark version on the GPU cluster is unknown during Qualification.
+        |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+        |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+        |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+        |- 'spark.sql.files.maxPartitionBytes' was not set.
+        |- 'spark.task.resource.gpu.amount' was not set.
+        |- ${notEnoughMemCommentForKey("spark.executor.memory")}
+        |- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
+        |- ${classPathComments("rapids.jars.missing")}
+        |- ${classPathComments("rapids.shuffle.jars")}
+        |- ${notEnoughMemComment(40140)}
+        |- $additionalSparkPluginsComment
+        |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test AutoTuner honours target cluster values for dynamic allocation properties
+  // enforced properties: initialExecutors and minExecutors
+  // preserve properties from source: maxExecutors
+  test("test AutoTuner honours target cluster values for dynamic allocation properties") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "20",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "12",
+      "spark.dynamicAllocation.minExecutors" -> "12",
+      "spark.dynamicAllocation.maxExecutors" -> "30"
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = Map(
+        "spark.dynamicAllocation.initialExecutors" -> "10",
+        "spark.dynamicAllocation.minExecutors" -> "5"
+      ),
+      preserveSparkProperties = List(
+        "spark.dynamicAllocation.maxExecutors"
+      )
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 4,
+      numExecs = 20,
+      numExecutorNodes = 5,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dynamicAllocation.initialExecutors=10
+          |--conf spark.dynamicAllocation.maxExecutors=30
+          |--conf spark.dynamicAllocation.minExecutors=5
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.instances=10
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=2867m
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- ${getEnforcedPropertyComment("spark.dynamicAllocation.initialExecutors")}
+          |- ${getPreservedPropertyComment("spark.dynamicAllocation.maxExecutors")}
+          |- ${getEnforcedPropertyComment("spark.dynamicAllocation.minExecutors")}
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- $shuffleManagerCommentForQualification
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |- $additionalSparkPluginsComment
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test AutoTuner bumps executor instances when dynamic allocation minExecutors is enforced
+  test("test AutoTuner bumps executor instances when dynamic allocation minExecutor is enforced") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "20",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "12",
+      "spark.dynamicAllocation.minExecutors" -> "12"
+    )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = Map(
+        "spark.dynamicAllocation.minExecutors" -> "14"
+      )
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 4,
+      numExecs = 20,
+      numExecutorNodes = 5,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.dynamicAllocation.initialExecutors=14
+          |--conf spark.dynamicAllocation.minExecutors=14
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.instances=14
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.resource.gpu.amount=1
+          |--conf spark.locality.wait=0
+          |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=2867m
+          |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
+          |--conf spark.rapids.sql.batchSizeBytes=1g
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.enabled=true
+          |--conf spark.rapids.sql.format.parquet.multithreaded.combine.waitTime=1000
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=80
+          |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=512m
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- ${getEnforcedPropertyComment("spark.dynamicAllocation.minExecutors")}
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+          |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+          |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.enabled' was not set.
+          |- 'spark.rapids.sql.format.parquet.multithreaded.combine.waitTime' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
+          |- $shuffleManagerCommentForQualification
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |- $additionalSparkPluginsComment
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test multiple scenarios with different core ratios
+  private val dynamicAllocationTestCases = Table[
+    Int, Int, DynamicAllocationInfo, Option[DynamicAllocationInfo]
+  ](
+    (
+      "cpuCores", "gpuCores",
+      "cpuInfo", "gpuInfoOpt"
+    ),
+    // Case 1: CPU cores > GPU cores: Increase number of executors
+    (
+      16, 8,
+      DynamicAllocationInfo(enabled = true, "10", "2", "20"),
+      Some(DynamicAllocationInfo(enabled = true, "20", "4", "40"))
+    ),
+    // Case 2: CPU cores < GPU cores: Decrease number of executors
+    (
+      4, 16,
+      DynamicAllocationInfo(enabled = true, "8", "4", "16"),
+      Some(DynamicAllocationInfo(enabled = true, "2", "1", "4"))
+    ),
+    // Case 3: CPU cores = GPU cores: No change in number of executors
+    (
+      8, 8,
+      DynamicAllocationInfo(enabled = true, "6", "3", "12"),
+      None
+    )
+  )
+
+  forAll(dynamicAllocationTestCases) {
+    (cpuCores: Int, gpuCores: Int, cpuInfo: DynamicAllocationInfo,
+     gpuInfoOpt: Option[DynamicAllocationInfo]) => {
+      def getMemoryGbFromCores(cores: Int, heapPerCoreGb: Double = 3.0): Int = {
+        math.floor(cores * heapPerCoreGb).toInt
+      }
+      val execsPerNode = 2
+      val testName = s"CPU $cpuCores cores to GPU $gpuCores cores"
+      test(s"test dynamic allocation formula calculation for $testName") {
+        val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> cpuCores.toString,
+          "spark.executor.instances" -> cpuInfo.initial,
+          "spark.executor.memory" -> s"${getMemoryGbFromCores(cpuCores)}g",
+          "spark.dynamicAllocation.enabled" -> "true",
+          "spark.dynamicAllocation.initialExecutors" -> cpuInfo.initial,
+          "spark.dynamicAllocation.minExecutors" -> cpuInfo.min,
+          "spark.dynamicAllocation.maxExecutors" -> cpuInfo.max
+        )
+
+        val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+          cpuCores = Some(gpuCores),
+          memoryGB = Some(getMemoryGbFromCores(gpuCores)),
+          gpuCount = Some(1),
+          gpuDevice = Some("a100")
+        )
+        val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+          logEventsProps, Some(testSparkVersion))
+        val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+        platform.configureClusterInfoFromEventLog(
+          coresPerExecutor = cpuCores,
+          execsPerNode = execsPerNode,
+          numExecs = cpuInfo.initial.toInt,
+          numExecutorNodes = math.floor(cpuInfo.initial.toDouble / execsPerNode).toInt,
+          sparkProperties = logEventsProps.toMap,
+          systemProperties = Map.empty
+        )
+
+        val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+        val (properties, comments) = autoTuner.getRecommendedProperties()
+        gpuInfoOpt match {
+          case Some(gpuInfo) =>
+            val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+            val expectedProperties = Seq(
+              ("spark.dynamicAllocation.initialExecutors", gpuInfo.initial),
+              ("spark.dynamicAllocation.minExecutors", gpuInfo.min),
+              ("spark.dynamicAllocation.maxExecutors", gpuInfo.max)
+            )
+            val expectedResults = expectedProperties.map { case (k, v) => s"--conf $k=$v" } :+
+              commentForDynamicAllocationAdjustment(expectedProperties.map(_._1).toList, cpuCores,
+                gpuCores)
+            assertExpectedLinesExist(expectedResults, autoTunerOutput)
+          case None =>
+            assert(!properties.exists(_.name.contains("spark.dynamicAllocation")),
+              "Dynamic allocation properties should not be recommended for this test case")
+        }
+      }
+    }
+  }
+
+  test("test dynamic allocation recommendations handle zero and negative values") {
+    // Test case with edge values
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "4",
+      "spark.executor.instances" -> "4",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "0",
+      "spark.dynamicAllocation.minExecutors" -> "-1",
+      "spark.dynamicAllocation.maxExecutors" -> "8"
+    )
+
+    val adjustedProperties = List(
+      // Only 'spark.dynamicAllocation.maxExecutors' will be adjusted
+      // based on the ratio calculation since the other values are zero or negative.
+      "spark.dynamicAllocation.maxExecutors"
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 4,
+      execsPerNode = 2,
+      numExecs = 8,
+      numExecutorNodes = 4,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""
+         |Spark Properties:
+         |--conf spark.dynamicAllocation.initialExecutors=2
+         |--conf spark.dynamicAllocation.maxExecutors=2
+         |--conf spark.dynamicAllocation.minExecutors=1
+         |--conf spark.executor.cores=16
+         |--conf spark.executor.instances=2
+         |--conf spark.executor.memory=[FILL_IN_VALUE]
+         |--conf spark.executor.resource.gpu.amount=1
+         |--conf spark.locality.wait=0
+         |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+         |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
+         |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+         |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+         |--conf spark.rapids.sql.batchSizeBytes=1g
+         |--conf spark.rapids.sql.concurrentGpuTasks=3
+         |--conf spark.rapids.sql.enabled=true
+         |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+         |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+         |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+         |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+         |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+         |--conf spark.sql.files.maxPartitionBytes=512m
+         |--conf spark.task.resource.gpu.amount=0.001
+         |
+         |Comments:
+         |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
+         |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
+         |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
+         |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+         |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+         |- 'spark.rapids.sql.batchSizeBytes' was not set.
+         |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+         |- 'spark.rapids.sql.enabled' was not set.
+         |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+         |- 'spark.shuffle.manager' is not recommended because the Spark version on the GPU cluster is unknown during Qualification.
+         |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+         |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+         |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+         |- 'spark.sql.files.maxPartitionBytes' was not set.
+         |- 'spark.task.resource.gpu.amount' was not set.
+         |- ${notEnoughMemCommentForKey("spark.executor.memory")}
+         |- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
+         |- ${classPathComments("rapids.jars.missing")}
+         |- ${classPathComments("rapids.shuffle.jars")}
+         |- ${notEnoughMemComment(40140)}
+         |- $additionalSparkPluginsComment
+         |- ${commentForDynamicAllocationAdjustment(adjustedProperties, 4, 16)}
+         |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
