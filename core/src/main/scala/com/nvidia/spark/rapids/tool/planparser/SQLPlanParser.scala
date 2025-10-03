@@ -44,7 +44,7 @@ object OpActions extends Enumeration {
 
 object OpTypes extends Enumeration {
   type OpType = Value
-  val ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
+  val ReadDeltaLog, ReadRDDDeltaLog, ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
 }
 
 object UnsupportedReasons extends Enumeration {
@@ -53,6 +53,8 @@ object UnsupportedReasons extends Enumeration {
       IS_DATASET, CONTAINS_DATASET,
       IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
       UNSUPPORTED_IO_FORMAT,
+      UNSUPPORTED_DELTA_LAKE_LOG,
+      UNSUPPORTED_DELTA_META_QUERY,
       UNSUPPORTED_COMPRESSION,
       UNSUPPORTED_CATALOG = Value
 
@@ -75,6 +77,8 @@ object UnsupportedReasons extends Enumeration {
       case IS_UNSUPPORTED => "Unsupported"
       case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
       case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
+      case UNSUPPORTED_DELTA_LAKE_LOG => "Delta Lake metadata scans are not supported"
+      case UNSUPPORTED_DELTA_META_QUERY => "Exec is part of Delta Lake metadata query"
       case UNSUPPORTED_COMPRESSION => "Unsupported compression"
       case UNSUPPORTED_CATALOG => "Unsupported catalog"
       case customReason @ _ => customReason.toString
@@ -109,7 +113,7 @@ case class ExecInfo(
     duration: Option[Long],
     nodeId: Long,
     opType: OpTypes.OpType,
-    isSupported: Boolean,
+    var isSupported: Boolean,
     children: Option[Seq[ExecInfo]], // only one level deep
     var stages: Set[Int],
     var shouldRemove: Boolean,
@@ -117,7 +121,7 @@ case class ExecInfo(
     unsupportedExprs: Seq[UnsupportedExprOpRef],
     dataSet: Boolean,
     udf: Boolean,
-    shouldIgnore: Boolean,
+    var shouldIgnore: Boolean,
     expressions: Seq[ExprOpRef]) {
 
   private def childrenToString = {
@@ -147,6 +151,14 @@ case class ExecInfo(
 
   def setStages(stageIDs: Set[Int]): Unit = {
     stages = stageIDs
+  }
+
+  def setSupportedFlag(value: Boolean): Unit = {
+    isSupported = value
+  }
+
+  def setShouldIgnore(value: Boolean): Unit = {
+    shouldIgnore = value
   }
 
   def setShouldRemove(value: Boolean): Unit = {
@@ -197,6 +209,8 @@ case class ExecInfo(
     } else {
       opType match {
         case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case OpTypes.ReadDeltaLog | OpTypes.ReadRDDDeltaLog =>
+          UnsupportedReasons.UNSUPPORTED_DELTA_LAKE_LOG
         case _ => UnsupportedReasons.IS_UNSUPPORTED
       }
     }
@@ -259,7 +273,9 @@ object ExecInfo {
     // 3- Finally we ignore any exec matching the lookup table
     // if the opType is RDD, then we automatically enable the datasetFlag
     val finalDataSet = dataSet || opType.equals(OpTypes.ReadRDD)
-    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec)
+    val shouldIgnore = udf || finalDataSet || ExecHelper.shouldIgnore(exec) ||
+      // ignore DeltaLake delta_log metadata scans.
+      opType.equals(OpTypes.ReadDeltaLog) || opType.equals(OpTypes.ReadRDDDeltaLog)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
     val finalOpType = if (udf) {
       OpTypes.UDF
@@ -454,6 +470,58 @@ object SQLPlanParser extends Logging {
     candidateNodes.flatMap(findNodeAncestors(planGraph, _)).toSet
   }
 
+  private def isDeltaLogType(exec: ExecInfo): Boolean = {
+    exec.opType.equals(OpTypes.ReadDeltaLog) || exec.opType.equals(OpTypes.ReadRDDDeltaLog)
+  }
+  /**
+   * Mark all the execs that are part of the delta log scan as unsupported.
+   * This is a quick workaround to avoid false speedups when delta log scans are present.
+   * A better approach is to identify the delta log scan in the SQLPlan itself and then take it
+   * into consideration when the nodes are parsed. However, this approach requires changing all the
+   * ExecParser classes taking more time to implement and test.
+   * @param app the application being parsed, used to check that deltaLog is enabled.
+   * @param planExecs the execs parsed from the plan.
+   * @return the execs with the delta log scan marked as unsupported.
+   */
+  private def markDeltaLogPlansAsUnsupported(
+      app: AppBase,
+      planExecs: Seq[ExecInfo]
+  ): Seq[ExecInfo] = {
+    if (app.deltaLakeEnabled || app.isDatabricks) {
+      if (planExecs.exists { e =>
+          // check if the exec is a cluster node and if so check its children.
+          if (e.isClusterNode) {
+            e.children match {
+              case Some(children) => children.exists(isDeltaLogType)
+              case _ => false
+            }
+          } else {
+            isDeltaLogType(e)
+          }
+        }) {
+        // revisit all the execs and mark them as unsupported if they are part of the
+        // delta log scan. Note that we check that shouldIgnore is false because otherwise,
+        // the execs will be marked as Triage which is not what we want.
+        planExecs.filter(eI => eI.isSupported || !eI.shouldIgnore).flatMap { eInfo =>
+          if (eInfo.isClusterNode) {
+            eInfo.children
+              .getOrElse(Seq.empty).filter(eI => eI.isSupported || !eI.shouldIgnore) :+ eInfo
+          } else {
+            Seq(eInfo)
+          }
+        }.foreach { suppExec =>
+          // mark it as unsupported and set the reason
+          suppExec.setSupportedFlag(false)
+          suppExec.setShouldIgnore(true)
+          suppExec.setUnsupportedExecReason(
+            UnsupportedReasons.reportUnsupportedReason(
+              UnsupportedReasons.UNSUPPORTED_DELTA_META_QUERY))
+        }
+      }
+    }
+    planExecs
+  }
+
   def parseSQLPlan(
       appID: String,
       planInfo: SparkPlanInfo,
@@ -467,12 +535,18 @@ object SQLPlanParser extends Logging {
 
     // Find all the node graphs that should be excluded and send it to the parsePlanNode
     val excludedNodes = buildSkippedReusedNodesForPlan(toolsGraph.sparkGraph)
-    // we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
-    // vs allNodes
-    val execInfos = toolsGraph.nodes.flatMap { node =>
-      parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes,
-        nodeIdToStagesFunc = toolsGraph.getNodeStageLogicalAssignment)
-    }.toVector
+    // 1. we want the sub-graph nodes to be inside of the wholeStageCodeGen so use nodes
+    //    vs allNodes.
+    // 2. we pass the execInfos to the markDeltaLogPlansAsUnsupported to mark them as if the plan
+    //    contains delta log scan and delta lake is enabled.
+    val execInfos =
+      markDeltaLogPlansAsUnsupported(
+        app,
+        toolsGraph.nodes.flatMap { node =>
+          parsePlanNode(node, sqlID, checker, app, reusedNodeIds = excludedNodes,
+            nodeIdToStagesFunc = toolsGraph.getNodeStageLogicalAssignment)
+        }.toVector
+      )
     PlanInfo(appID, sqlID, sqlDesc, execInfos)
   }
 
@@ -531,8 +605,9 @@ object SQLPlanParser extends Logging {
       case "Sort" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseSortExpressions)).parse
-      case s if ReadParser.isScanNode(s) =>
-        FileSourceScanExecParser(node, checker, sqlID, app).parse
+      case s if FileSourceScanExecParser.accepts(s) =>
+        // Scan operation
+        FileSourceScanExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
       case "SortAggregate" =>
         GenericExecParser(
           node, checker, sqlID, expressionFunction = Some(parseAggregateExpressions)).parse

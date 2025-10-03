@@ -74,6 +74,7 @@ object DeltaLakeOps extends GroupParserTrait {
     // Exclusive to Delta Lake OSS
     execSaveIntoDataSourceCMD ->
       SupportedOpStub(execSaveIntoDataSourceCMD, opType = Option(OpTypes.WriteExec)),
+    // This does not show up in the plan graph, but we keep it here for future use.
     execWriteIntoDeltaCMD ->
       SupportedOpStub(execWriteIntoDeltaCMD, opType = Option(OpTypes.WriteExec)),
     execDescribeDeltaHistoryCMD ->
