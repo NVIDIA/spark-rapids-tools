@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v25.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.0)
+Generated on 2025-10-03
+### User Tools
+
+- Qualx model updates from weekly KPI run 2025-09-28 ([#1951](https://github.com/NVIDIA/spark-rapids-tools/pull/1951))
+
+### Core
+
+- Qual marks entire DeltaLake meta queries as unsupported ([#1956](https://github.com/NVIDIA/spark-rapids-tools/pull/1956))
+- Qual marks delta_log scan ops as unsupported ([#1953](https://github.com/NVIDIA/spark-rapids-tools/pull/1953))
+
+
+<br/>
+
 ## Release [v25.08.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.08.6)
 Generated on 2025-09-30
 ### Core
