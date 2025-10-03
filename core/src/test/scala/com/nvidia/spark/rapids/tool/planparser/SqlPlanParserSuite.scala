@@ -1371,7 +1371,6 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
   runConditionalTest("SaveIntoDataSourceCommand is supported",
     checkDeltaLakeSparkRelease) {
     // This unit test enables deltaLake which generate SaveIntoDataSourceCommand
-    // It is ignored for Spark-340+ because delta releases are not available.
     TrampolineUtil.withTempDir { outputLoc =>
       TrampolineUtil.withTempDir { eventLogDir =>
         val dataWriteCMD = DeltaLakeOps.execSaveIntoDataSourceCMD
