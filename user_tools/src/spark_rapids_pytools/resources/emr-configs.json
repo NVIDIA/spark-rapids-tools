@@ -21,13 +21,13 @@
           },
           {
             "name": "Hadoop AWS",
-            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar",
+            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
             "verification": {
               "fileHash": {
                 "algorithm": "sha1",
-                "value": "641d8fe1d7683cdcc05cc3a794c0374553f6bd6a"
+                "value": "a65839fbf1869f81a1632e09f415e586922e4f80"
               },
-              "size": 865554
+              "size": 962685
             }
           },
           {
@@ -60,13 +60,13 @@
           },
           {
             "name": "Hadoop AWS",
-            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar",
+            "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar",
             "verification": {
               "fileHash": {
                 "algorithm": "sha1",
-                "value": "641d8fe1d7683cdcc05cc3a794c0374553f6bd6a"
+                "value": "a65839fbf1869f81a1632e09f415e586922e4f80"
               },
-              "size": 865554
+              "size": 962685
             }
           },
           {
