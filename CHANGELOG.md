@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.10.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.1)
+Generated on 2025-10-07
+### Bug Fixes
+
+- Use hadoop-aws 3.3.4 with spark-356 and 357 ([#1963](https://github.com/NVIDIA/spark-rapids-tools/pull/1963))
+
+
+<br/>
+
 ## Release [v25.10.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.0)
 Generated on 2025-10-03
 ### User Tools
