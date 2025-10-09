@@ -938,6 +938,10 @@ abstract class AutoTuner(
       return
     }
 
+    // Scale factor to adjust executor counts from CPU to GPU based on core ratio.
+    // If GPU has fewer cores per executor than CPU, we need MORE executors to maintain capacity.
+    // Example: CPU=8 cores, GPU=16 cores → ratio=0.5 → need fewer GPU executors
+    // Example: CPU=16 cores, GPU=8 cores → ratio=2.0 → need more GPU executors
     val adjustRatio = cpuExecCores.toDouble / gpuExecCores
 
     // Helper function to get the adjusted value for a property
@@ -974,8 +978,8 @@ abstract class AutoTuner(
         recommendations.get("spark.executor.instances"),
         recommendations.get("spark.dynamicAllocation.initialExecutors"),
         recommendations.get("spark.dynamicAllocation.minExecutors")
-      ).map(_.flatMap(_.tunedValue).map(_.toInt))
-      val recInstancesOpt = recInstanceOptions.max
+      ).flatMap(_.flatMap(_.tunedValue).map(_.toInt))
+      val recInstancesOpt = if (recInstanceValues.nonEmpty) Some(recInstanceValues.max) else None
       // Use the max of the adjusted value and the recommended value
       // of executor instances to avoid reducing the number of executors.
       val valueToUse = recInstancesOpt match {
@@ -987,6 +991,7 @@ abstract class AutoTuner(
           v
       }
       appendRecommendation("spark.dynamicAllocation.initialExecutors", valueToUse)
+      // Set spark.executor.instances to match initialExecutors to maintain consistency.
       appendRecommendation("spark.executor.instances", valueToUse)
     }
 
