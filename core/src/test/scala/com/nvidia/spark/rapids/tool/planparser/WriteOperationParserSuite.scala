@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 import org.scalatest.funsuite.AnyFunSuite
 

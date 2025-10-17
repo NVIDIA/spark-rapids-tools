@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser
+package com.nvidia.spark.rapids.tool.planparser.delta
 
-import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCmdWrapper, DataWritingCommandExecParser, ExecInfo, ExecParser, GenericExecParser, OpTypes, ReadParser}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
@@ -55,6 +55,19 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
 }
 
 object DeltaLakeHelper {
+  // A DeltaLake app is identified using the following properties from spark properties.
+  private val SPARK_PROPS_ENABLING_DELTALAKE = Map(
+    "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
+    "spark.sql.catalog.spark_catalog" -> "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+  )
+  // The pattern used to identify deltaLake metadata tables
+  // Sometimes this pattern does not show up in the node description when the node.descr is
+  // truncated. In that case, we might find the full pattern in the planInfo or the sql description.
+  val DELTALAKE_META_KEYWORD: String = "/_delta_log"
+  // DeltaLake scan Existing RDD for delta_log contains the following pattern.
+  val DELTALAKE_META_SCAN_RDD_KEYWORD: String = "Delta Table State"
+  // Another pattern that can be used to identify deltaLake metadata tables.
+  val DELTALAKE_LOG_FILE_KEYWORD: String = "DeltaLogFileIndex"
   // we look for the serdeLibrary which is part of the node description:
   // Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe
   // private val serdeRegex = "Serde Library: ([\\w.]+)".r
@@ -84,6 +97,20 @@ object DeltaLakeHelper {
     // "WriteIntoDeltaBuilder"
     // The following entries are for open source DeltaLake
     "DeltaTableV2")
+
+  /**
+   * Checks if the properties indicate that the application is using DeltaLake.
+   * This can be checked by looking for keywords in one of the keys defined in
+   * SPARK_PROPS_ENABLING_DELTALAKE.
+   *
+   * @param properties spark properties captured from the eventlog environment details
+   * @return true if the properties indicate that it is a deltaLake app.
+   */
+  def isDeltaLakeEnabled(properties: collection.Map[String, String]): Boolean = {
+    SPARK_PROPS_ENABLING_DELTALAKE.exists { case (key, value) =>
+      properties.get(key).exists(_.equals(value))
+    }
+  }
 
   def acceptsExclusiveWriteOp(nodeName: String): Boolean = {
     DeltaLakeOps.isExclusiveDeltaWriteOp(nodeName)
@@ -116,7 +143,7 @@ object DeltaLakeHelper {
         // [replaceWhere=VAR_1 IN ('WHATEVER')], true,
         // org.apache.spark.sql.execution.datasources.
         // v2.DataSourceV2Strategy$$Lambda$XXXXX
-        node.desc.matches("""(?i).*delta.*""")
+        node.desc.contains("delta")
       } else {
         false
       }
@@ -215,8 +242,8 @@ object DeltaLakeHelper {
             // sqlDesc.contains("Delta Table State") ||
             //   sqlDesc.contains("Delta Table Checkpoint") ||
             //   sqlDesc.contains("delta_log")
-            if (sqlDesc.contains("/_delta_log") ||
-              sqlDesc.contains("Delta Table State") ||
+            if (sqlDesc.contains(DELTALAKE_META_KEYWORD) ||
+              sqlDesc.contains(DELTALAKE_META_SCAN_RDD_KEYWORD) ||
               sqlDesc.contains("Delta Table Checkpoint") ||
               sqlDesc.contains("_databricks_internal")) {
               true

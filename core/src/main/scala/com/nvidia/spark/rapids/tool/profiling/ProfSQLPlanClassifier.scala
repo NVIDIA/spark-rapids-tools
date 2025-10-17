@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.analysis.{AppAnalysisBase, SparkSQLPlanInfoVisitor, SQLPlanInfoContext}
-import com.nvidia.spark.rapids.tool.planparser.DeltaLakeHelper
+import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 
 import org.apache.spark.sql.execution.ui
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo

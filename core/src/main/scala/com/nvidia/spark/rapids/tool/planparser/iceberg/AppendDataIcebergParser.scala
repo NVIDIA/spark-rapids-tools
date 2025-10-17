@@ -127,6 +127,9 @@ class AppendDataIcebergParser(
     }
   }
 
+  // The value that will be reported as ExecName in the ExecInfo object created by this parser.
+  override def reportedExecName: String = s"$trimmedNodeName ${writeOpMeta.dataFormat()}"
+
   override def createExecInfo(
       speedupFactor: Double,
       isSupported: Boolean,
@@ -134,7 +137,9 @@ class AppendDataIcebergParser(
       notSupportedExprs: Seq[UnsupportedExprOpRef],
       expressions: Array[String]): ExecInfo = {
     // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF.
-    ExecInfo.createExecNoNode(sqlID, s"$trimmedNodeName ${writeOpMeta.dataFormat()}",
+    ExecInfo.createExecNoNode(
+      sqlID,
+      exec = reportedExecName,
       s"Format: ${writeOpMeta.dataFormat()}",
       speedupFactor, duration, node.id,
       opType = OpTypes.WriteExec,

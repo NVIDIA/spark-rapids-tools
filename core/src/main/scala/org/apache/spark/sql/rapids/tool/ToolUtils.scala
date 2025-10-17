@@ -309,7 +309,7 @@ object RDDCheckHelper {
 
   def isDatasetOrRDDPlan(nodeName: String, nodeDesc: String): RDDCheckResult = {
     val nodeNameRdd = dataSetOrRDDRegExLookup.exists(regEx => nodeName.trim.matches(regEx.regex))
-    // For optimization purpose, we do not want to to search for matches inside node description
+    // For optimization purpose, we do not want to search for matches inside node description
     // if it is not necessary.
     val nodeDescRdd = !nodeNameRdd &&
       dataSetRDDRegExDescLookup.exists(regEx => nodeDesc.matches(regEx.regex))
