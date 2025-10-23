@@ -22,7 +22,6 @@ from logging import Logger
 import pandas as pd
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
-from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools import CspEnv
