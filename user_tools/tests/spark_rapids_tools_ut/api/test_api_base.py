@@ -110,7 +110,7 @@ class APITestBase(unittest.TestCase):
 
 class TuningAPITestBase(APITestBase):
     """
-    Base class specifically for tuning API tests.
+    Base class for API tests with tuning-specific setup.
 
     Extends APITestBase with tuning-specific setup:
     - Creates tuning_apps/ directory structure
@@ -211,24 +211,3 @@ Comments:
 --conf spark.sql.adaptive.enabled=true
 --conf spark.sql.adaptive.coalescePartitions.enabled=true
 """
-
-    @staticmethod
-    def parse_spark_conf_file(text: str) -> dict:
-        """
-        Parse Spark CLI format configs into a dictionary.
-
-        Args:
-            text: Text content in Spark CLI format (--conf key=value)
-
-        Returns:
-            Dictionary of configuration key-value pairs
-        """
-        configs = {}
-        for line in text.strip().split('\n'):
-            line = line.strip()
-            if line.startswith('--conf '):
-                conf = line[7:]  # Remove '--conf ' prefix
-                if '=' in conf:
-                    key, value = conf.split('=', 1)
-                    configs[key] = value
-        return configs

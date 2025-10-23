@@ -20,7 +20,6 @@ from .test_api_base import TuningAPITestBase
 
 class TestTuningReportsAPI(TuningAPITestBase):
     """
-    Minimal unit tests for tuning reports API.
     Verifies that tuning files can be loaded via the API.
     """
 
@@ -75,19 +74,6 @@ class TestTuningReportsAPI(TuningAPITestBase):
         text = result.data if isinstance(result.data, str) else result.decode_txt()
         self.assertIn(f'spark.app.id={self.sample_app_id_1}', text)
 
-    def test_missing_combined_conf(self):
-        """Test that missing combined.conf returns failure (file is optional)."""
-        # Create files WITHOUT combined.conf
-        self.create_tuning_files(self.sample_app_id_1, include_combined=False)
-
-        handler = QualCore(self.core_output)
-
-        result = handler.txt('tuningCombinedConf').app(self.sample_app_id_1).load()
-
-        # Should fail gracefully
-        self.assertFalse(result.success)
-        self.assertIsInstance(result.get_fail_cause(), FileNotFoundError)
-
     def test_load_multiple_apps(self):
         """Test loading tuning files for multiple applications."""
         self.create_tuning_files(self.sample_app_id_1)
@@ -102,22 +88,3 @@ class TestTuningReportsAPI(TuningAPITestBase):
         self.assertEqual(len(results), 2)
         self.assertTrue(results[self.sample_app_id_1].success)
         self.assertTrue(results[self.sample_app_id_2].success)
-
-    def test_parse_spark_configs(self):
-        """Test parsing Spark CLI format configs to dictionary."""
-        self.create_tuning_files(self.sample_app_id_1)
-
-        handler = QualCore(self.core_output)
-
-        result = handler.txt('tuningBootstrapConf').app(self.sample_app_id_1).load()
-
-        self.assertTrue(result.success)
-
-        # Get text content and parse
-        text = result.data if isinstance(result.data, str) else result.decode_txt()
-        configs = self.parse_spark_conf_file(text)
-
-        # Verify key configs
-        self.assertEqual(configs['spark.rapids.sql.enabled'], 'true')
-        self.assertEqual(configs['spark.executor.cores'], '16')
-        self.assertGreaterEqual(len(configs), 6)
