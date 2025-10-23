@@ -36,7 +36,7 @@
 # │   ├── <app-id>-bootstrap.conf
 # │   ├── <app-id>.log
 # │   └── <app-id>.conf
-# ├── tuning_apps/               (NEW per-app tuning subfolder)
+# ├── tuning_apps/               (per-app tuning subfolder)
 # │   └── <application-id>/
 # │       ├── bootstrap.conf
 # │       ├── recommendations.log
@@ -481,8 +481,6 @@ reportDefinitions:
       Auto-tuner recommendations for migrating Spark applications to GPU.
       Contains bootstrap configurations, detailed recommendations with comments,
       and optionally combined configurations.
-      This is the NEW per-app structure (tuning_apps/); the legacy flat structure
-      in tuning/ is maintained for backward compatibility.
     scope: per-app
     tableDefinitions:
       - label: tuningBootstrapConf

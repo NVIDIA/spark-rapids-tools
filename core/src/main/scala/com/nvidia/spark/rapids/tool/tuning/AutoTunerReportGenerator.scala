@@ -107,6 +107,11 @@ class BootstrapReportGenerator(
  *   - bootstrap.conf (instead of <app-id>-bootstrap.conf)
  *   - recommendations.log (instead of <app-id>.log)
  *   - combined.conf (instead of <app-id>.conf)
+ *
+ * TODO: Once the legacy flat tuning structure (tuning/) is deprecated and removed,
+ *   this simplified file naming should be integrated into the base class. Currently,
+ *   we override all methods to support the new per-app structure while maintaining
+ *   backward compatibility with the old app-id-prefixed naming convention.
  */
 class BootstrapReportGeneratorPerApp(
     tuningResult: TuningResult,
