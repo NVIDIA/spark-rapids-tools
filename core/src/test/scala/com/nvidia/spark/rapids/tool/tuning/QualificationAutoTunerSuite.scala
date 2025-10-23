@@ -2103,4 +2103,35 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
+
+  test("test CSP platform with OnPrem-style target cluster specs") {
+    // This test verifies that CSP platforms (like dataproc) can now accept OnPrem-style
+    // target cluster specifications (cpuCores/memoryGB/GPU) instead of just instanceType.
+    // Previously, this would fail with:
+    // "Target cluster worker info does not match platform expectations"
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        cpuCores = Some(16),
+        memoryGB = Some(64L),
+        gpuCount = Some(1),
+        gpuDevice = Some(GpuTypes.L4))
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        qualLogDir))
+
+      // The main validation is that this does not throw an exception
+      val result = QualificationMain.mainInternal(appArgs)
+      assert(!result.isFailed)
+
+      // Verify we got app summaries
+      assert(result.appSummaries.nonEmpty)
+    }
+  }
 }
