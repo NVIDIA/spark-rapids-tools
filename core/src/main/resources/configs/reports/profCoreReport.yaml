@@ -14,6 +14,15 @@
 
 # This file is used to define the output files of the qualification tool.
 # Note that all the output files in this list should be considered internal-use only.
+#
+# The directory structure of the generated profiling output is as follows:
+#
+# rapids_4_spark_profile/
+#     ├── prof_core_stderr.log
+#     ├── profiling_status.csv
+#     ├── runtime.properties
+#     └── <application-id>/
+#         ├── <coreRawMetricsReport>
 
 reportDefinitions:
   - reportId: profCoreOutput

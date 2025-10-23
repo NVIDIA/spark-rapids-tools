@@ -15,6 +15,36 @@
 # This file is used to define the output files of the raw metrics.
 # Note that all the output files in this list should be considered internal-use only.
 
+# <application-id>/
+#    ├── application_information.csv
+#    ├── application_log_path_mapping.csv
+#    ├── cluster_information.json
+#    ├── data_source_information.csv
+#    ├── executor_information.csv
+#    ├── failed_jobs.csv
+#    ├── failed_stages.csv
+#    ├── failed_tasks.csv
+#    ├── io_metrics.csv
+#    ├── job_information.csv
+#    ├── job_level_aggregated_task_metrics.csv
+#    ├── profile.log
+#    ├── rapids_accelerator_jar_and_cudf_jar.csv
+#    ├── spark_properties.csv
+#    ├── spark_rapids_build_info.json
+#    ├── spark_rapids_parameters_set_explicitly.csv
+#    ├── sql_duration_and_executor_cpu_time_percent.csv
+#    ├── sql_level_aggregated_task_metrics.csv
+#    ├── sql_plan_info_pre_aqe.json
+#    ├── sql_plan_metrics_for_application.csv
+#    ├── sql_to_stage_information.csv
+#    ├── stage_level_aggregated_task_metrics.csv
+#    ├── stage_level_all_metrics.csv
+#    ├── system_properties.csv
+#    ├── unsupported_sql_plan.csv
+#    ├── wholestagecodegen_mapping.csv
+#    ├── write_operations.csv
+
+
 reportDefinitions:
   - reportId: coreRawMetrics
     description: >-
