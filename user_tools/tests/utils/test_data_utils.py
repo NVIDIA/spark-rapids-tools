@@ -20,7 +20,7 @@ from unittest.mock import patch, mock_open
 import unittest
 import pandas as pd
 
-from spark_rapids_tools.utils.data_utils import DataUtils, LoadDFResult
+from spark_rapids_tools.utils.data_utils import DataUtils, LoadDFResult, JSONResult
 
 
 class TestDataUtils(unittest.TestCase):
@@ -87,4 +87,57 @@ class TestDataUtils(unittest.TestCase):
                 map_columns={'col1': 'a', 'col2': 'b'},
                 read_csv_kwargs={'sep': ';'}
             )
+            pd.testing.assert_frame_equal(result.data, expected_df)
+
+    def test_load_json_dict(self):
+        """Test loading a JSON file containing a dictionary."""
+        json_data = '{"appId": "app-123", "appName": "test-app", "version": 1}'
+        mock_open_func = mock_open(read_data=json_data)
+
+        with patch('builtins.open', mock_open_func):
+            result = DataUtils.load_json('mock.json')
+            self.assertIsInstance(result, JSONResult)
+            self.assertTrue(result.success)
+            self.assertIsNone(result.load_error)
+            self.assertIsInstance(result.data, dict)
+            self.assertEqual(result.data['appId'], 'app-123')
+            self.assertEqual(result.data['appName'], 'test-app')
+            # Test helper methods
+            self.assertIsNotNone(result.to_dict())
+            self.assertIsNone(result.to_list())
+
+    def test_load_json_list(self):
+        """Test loading a JSON file containing a list."""
+        json_data = '[{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]'
+        mock_open_func = mock_open(read_data=json_data)
+
+        with patch('builtins.open', mock_open_func):
+            result = DataUtils.load_json('mock.json')
+            self.assertTrue(result.success)
+            self.assertIsInstance(result.data, list)
+            self.assertEqual(len(result.data), 2)
+            self.assertEqual(result.data[0]['id'], 1)
+            # Test helper methods
+            self.assertIsNone(result.to_dict())
+            self.assertIsNotNone(result.to_list())
+
+    def test_load_json_failure(self):
+        """Test JSON loading with file not found."""
+        with patch('builtins.open', side_effect=FileNotFoundError('File missing')):
+            result = DataUtils.load_json('nonexistent.json')
+            self.assertFalse(result.success)
+            self.assertIsInstance(result.get_fail_cause(), FileNotFoundError)
+            self.assertIsNone(result.data)
+
+    def test_load_pd_df_from_json(self):
+        """Test converting JSON to DataFrame using json_normalize."""
+        json_data = '[{"a": 1, "b": 2}, {"a": 3, "b": 4}]'
+        mock_open_func = mock_open(read_data=json_data)
+        expected_df = pd.DataFrame({'a': [1, 3], 'b': [2, 4]})
+
+        with patch('builtins.open', mock_open_func):
+            result = DataUtils.load_pd_df_from_json('mock.json')
+            self.assertIsInstance(result, LoadDFResult)
+            self.assertTrue(result.success)
+            self.assertFalse(result.fallen_back)
             pd.testing.assert_frame_equal(result.data, expected_df)

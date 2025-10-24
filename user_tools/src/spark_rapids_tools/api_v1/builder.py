@@ -34,7 +34,7 @@ from spark_rapids_tools.api_v1 import (
 )
 from spark_rapids_tools.api_v1.report_loader import ReportLoader
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
-from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult
+from spark_rapids_tools.utils.data_utils import LoadDFResult, JPropsResult, TXTResult, JSONResult
 
 RepDataT = TypeVar('RepDataT')
 
@@ -241,6 +241,27 @@ class TXTReport(APIReport[TXTResult]):
     @override
     def _load_single_app(self) -> TXTResult:
         return self.rep_reader.load_app_txt(
+            self._tbl,
+            app=self._apps[0])
+
+
+@dataclass
+class JSONReport(APIReport[JSONResult]):
+    """A report that loads data in JSON format."""
+    @override
+    def _load_global(self) -> JSONResult:
+        # this is a global table.
+        return self.rep_reader.load_json(self._tbl)
+
+    @override
+    def _load_per_app(self) -> Dict[str, JSONResult]:
+        return self.rep_reader.load_apps_json(
+            self._tbl,
+            apps=self._apps)
+
+    @override
+    def _load_single_app(self) -> JSONResult:
+        return self.rep_reader.load_app_json(
             self._tbl,
             app=self._apps[0])
 
@@ -1128,6 +1149,11 @@ class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
         """Create a JPropsReport for the given table."""
         self._check_handler()
         return JPropsReport(self._res_h).table(tbl)
+
+    def json(self, tbl: str) -> 'JSONReport':
+        """Create a JSONReport for the given table."""
+        self._check_handler()
+        return JSONReport(self._res_h).table(tbl)
 
     ##########################################################################
     # Delegation to the underlying handler

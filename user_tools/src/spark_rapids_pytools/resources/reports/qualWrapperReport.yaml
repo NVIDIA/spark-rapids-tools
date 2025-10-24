@@ -35,6 +35,46 @@ reportDefinitions:
       - reportId: qualCoreOutput
         relativePath: qual_core_output
     tableDefinitions:
+      - label: qualWrapperAppMetadataJson
+        description: >-
+          Contains metadata for each qualified application including cluster information,
+          runtime details, and GPU speedup recommendations.
+        fileName: app_metadata.json
+        fileFormat: JSON
+        scope: global
+        columns:
+          - name: appId
+            dataType: String
+            description: >-
+              The application ID
+          - name: appName
+            dataType: String
+            description: >-
+              The application name
+          - name: eventLog
+            dataType: String
+            description: >-
+              Path to the application event log
+          - name: clusterInfo
+            dataType: Object
+            description: >-
+              Cluster configuration information including platform and cluster details
+          - name: sparkRuntime
+            dataType: String
+            description: >-
+              The Spark runtime type (e.g., SPARK, Databricks)
+          - name: estimatedGpuSpeedupCategory
+            dataType: String
+            description: >-
+              Category of estimated GPU speedup (e.g., Small, Medium, Large, Very Large)
+          - name: fullClusterConfigRecommendations
+            dataType: String
+            description: >-
+              Full cluster configuration recommendations as a string
+          - name: gpuConfigRecommendationBreakdown
+            dataType: String
+            description: >-
+              Detailed breakdown of GPU configuration recommendations
       - label: qualWrapperCSVSummary
         description: >-
           TBD
