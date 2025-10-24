@@ -1,11 +1,11 @@
 # User Tools Reports API Documentation
 
-This documentation provides a comprehensive guide for using the Spark Rapids Tools API v1 to create result handlers and read various report formats.
+This documentation provides a comprehensive guide for using the Spark Rapids Tools API v1 to load and analyze qualification and profiling tool outputs.
 
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [Building Result Handlers](#building-result-handlers)
+2. [Creating Result Handlers](#creating-result-handlers)
 3. [Reading Report Data](#reading-report-data)
 4. [Working with Applications](#working-with-applications)
 5. [Return Types and Data Handling](#return-types-and-data-handling)
@@ -15,12 +15,12 @@ This documentation provides a comprehensive guide for using the Spark Rapids Too
 
 ## Overview
 
-The Spark Rapids Tools API v1 provides a fluent builder interface for:
+The Spark Rapids Tools API v1 provides a simple interface for:
 
-- **Creating result handlers** for different tool outputs (qualification, profiling)
-- **Loading data** from reports in multiple formats (CSV, JSON Properties, TXT)
-- **Handling both global and per-application data** with type-safe operations
-- **Managing cloud and local storage paths** seamlessly
+- **Loading tool outputs** from qualification and profiling runs
+- **Reading reports** in multiple formats (CSV, JSON Properties, TXT)
+- **Accessing per-application data** with type-safe operations
+- **Supporting cloud and local storage** paths seamlessly
 
 ### Supported Report Types
 
@@ -30,66 +30,58 @@ The Spark Rapids Tools API v1 provides a fluent builder interface for:
 | JSON Properties | Configuration and metadata | `JPropsResult` |
 | TXT | Plain text logs and outputs | `TXTResult` |
 
-## Building Result Handlers
+## Creating Result Handlers
 
-### Basic Result Handler Creation
+### Basic Handler Creation
 
-The `APIResultHandler` class provides methods to build handlers for different tool outputs:
+Create handlers using specialized classes for each tool output type:
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler
+from spark_rapids_tools.api_v1 import QualCore, ProfCore, QualWrapper, ProfWrapper
 
-# Qualification Core Output
-qual_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/path/to/qualification/output")
-    .build())
+# Qualification Core Output (qual_core_output/)
+qual_handler = QualCore("/path/to/qual_core_output")
 
-# Profiling Core Output
-prof_handler = (APIResultHandler()
-    .prof_core()
-    .with_path("/path/to/profiling/output")
-    .build())
+# Profiling Core Output (rapids_4_spark_profile/)
+prof_handler = ProfCore("/path/to/rapids_4_spark_profile")
+
+# Qualification Wrapper Output (qual_<timestamp>/)
+qual_wrap_handler = QualWrapper("/path/to/qual_20250101000000_12345678")
+
+# Profiling Wrapper Output
+prof_wrap_handler = ProfWrapper("/path/to/prof_output")
 ```
 
-### Custom Report Handlers
+### Dynamic Handler Creation
 
-For custom or specialized reports:
+For dynamic report ID resolution:
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler
-# Custom report with specific ID
-custom_handler = (APIResultHandler()
-    .report("customReportId")
-    .with_path("/path/to/custom/output")
-    .build())
+from spark_rapids_tools.api_v1 import APIResHandler
+
+# Create handler by report ID
+handler = APIResHandler.from_id(
+    report_id="qualCoreOutput",
+    out_path="/path/to/qual_core_output"
+)
 ```
 
-### Path Configuration
+### Cloud Storage Paths
 
-The API supports both local and cloud storage paths:
+The API supports cloud storage seamlessly:
 
 ```python
-from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
+from spark_rapids_tools.api_v1 import QualCore
 
-# Local filesystem path
-local_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/local/path/to/output")
-    .build())
+# S3
+handler = QualCore("s3://my-bucket/qual_core_output")
 
-# Cloud storage path (S3, GCS, Azure)
-cloud_path = BoundedCspPath("s3://my-bucket/spark-rapids/output")
-cloud_handler = (APIResultHandler()
-    .qual_core()
-    .with_path(cloud_path)
-    .build())
+# GCS
+handler = QualCore("gs://my-bucket/qual_core_output")
 
-# HDFS path
-hdfs_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("hdfs://namenode:port/path/to/output")
-    .build())
+
+# HDFS
+handler = QualCore("hdfs://namenode:port/path/to/qual_core_output")
 ```
 
 ## Reading Report Data
@@ -101,12 +93,13 @@ CSV reports provide tabular data wrapped in LoadDFResult objects containing pand
 #### Global Table Data
 
 ```python
-from spark_rapids_tools.api_v1.builder import CSVReport
+from spark_rapids_tools.api_v1 import QualCore
 
-# Load global summary data
-summary_result = (CSVReport(handler)
-    .table("qual_summary")
-    .load())
+# Create handler
+handler = QualCore("/path/to/qual_core_output")
+
+# Load global summary data using convenience method
+summary_result = handler.csv("qualCoreCSVSummary").load()
 
 # Access the DataFrame
 df = summary_result.data
@@ -116,117 +109,90 @@ print(f"Loaded {len(df)} rows of qualification data")
 #### Per-Application Table Data
 
 ```python
-# Load data for specific applications
-app_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
-    .app("application_001")
-    .app("application_002")
-    .load())
+# Load data for a single application
+app_result = handler.csv("execCSVReport").app("application_001").load()
+df = app_result.data
 
 # Load data for multiple applications at once
-multi_app_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
-    .apps(["app_001", "app_002", "app_003"])
-    .load())
+multi_app_results = handler.csv("execCSVReport").apps(["app_001", "app_002"]).load()
 
-# Load data for a single application (returns direct result)
-single_app_result = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
-    .app("application_001")
-    .load())
+# Results is a dictionary mapping app_id -> LoadDFResult
+for app_id, result in multi_app_results.items():
+    if result.success:
+        print(f"{app_id}: {len(result.data)} rows")
 ```
 
 #### Advanced CSV Options
 
 ```python
+from spark_rapids_tools.api_v1 import QualCore
+
+handler = QualCore("/path/to/qual_core_output")
+
 # Custom pandas read arguments
-custom_result = (CSVReport(handler)
-    .table("exec_info")
-    .pd_args({
-        "sep": ",",
-        "encoding": "utf-8",
-        "index_col": 0,
-        "parse_dates": ["timestamp"]
-    })
-    .load())
+custom_result = handler.csv("execCSVReport").pd_args({
+    "sep": ",",
+    "encoding": "utf-8",
+    "index_col": 0
+}).app("application_001").load()
 
 # Column mapping for renaming
-mapped_result = (CSVReport(handler)
-    .table("stage_info")
-    .map_cols({
-        "old_column_name": "new_column_name",
-        "stage_id": "stage_identifier"
-    })
-    .load())
+mapped_result = handler.csv("stagesCSVReport").map_cols({
+    "old_column_name": "new_column_name"
+}).app("application_001").load()
 
 # Fallback data when table is missing
-def create_fallback_data():
-    import pandas as pd
-    return pd.DataFrame({
-        "app_id": ["fallback_app"],
-        "status": ["no_data"]
-    })
+import pandas as pd
 
-result_with_fallback = (CSVReport(handler)
-    .table("optional_table")
-    .fall_cb(create_fallback_data)
-    .load())
+def create_fallback_data():
+    return pd.DataFrame({"app_id": ["fallback_app"], "status": ["no_data"]})
+
+result_with_fallback = (handler.csv("optional_table")
+                        .fall_cb(create_fallback_data)
+                        .app("application_001")
+                        .load())
 ```
 
-### Java Properties Reports
+### JSON Properties Reports
 
-Java Properties reports handle configuration data and metadata:
+Properties files (runtime.properties, etc.) return key-value pairs:
 
 ```python
-from spark_rapids_tools.api_v1.builder import JPropsReport
+from spark_rapids_tools.api_v1 import QualCore
+
+handler = QualCore("/path/to/qual_core_output")
 
 # Load global properties
-global_props = (JPropsReport(handler)
-    .table("runtime.properties")
-    .load())
-
-# Load properties for specific applications
-app_props = (JPropsReport(handler)
-    .table("app_configuration")
-    .apps(["app_001", "app_002"])
-    .load())
-
-# Load properties for a single application
-single_app_props = (JPropsReport(handler)
-    .table("app_configuration")
-    .app("application_001")
-    .load())
+global_props = handler.jprop("runtimeProperties").load()
 
 # Access property data
-print(f"Configuration: {single_app_props.props}")
+print(f"Tool version: {global_props.props.get('version')}")
+print(f"All properties: {global_props.props}")
 ```
 
 ### TXT Reports
 
-Text reports handle plain text data like logs and summaries:
+Text reports handle plain text data like logs:
 
 ```python
-from spark_rapids_tools.api_v1.builder import TXTReport
+from spark_rapids_tools.api_v1 import QualCore
 
-# Load global text report
-global_text = (TXTReport(handler)
-    .table("qualification_summary")
-    .load())
+handler = QualCore("/path/to/qual_core_output")
 
-# Load text reports for multiple applications
-app_texts = (TXTReport(handler)
-    .table("app_logs")
-    .apps(["app_001", "app_002"])
-    .load())
-
-# Load text report for a single application
-single_app_text = (TXTReport(handler)
-    .table("app_logs")
-    .app("application_001")
-    .load())
+# Load text report for a single application  
+app_text = handler.txt("tuningRecommendationsLog").app("application_001").load()
 
 # Access text content
-print(f"Log content: {single_app_text.text}")
+if app_text.success:
+    print(app_text.data)
+
+# Load for multiple applications
+app_texts = handler.txt("tuningRecommendationsLog").apps(["app_001", "app_002"]).load()
+
+for app_id, result in app_texts.items():
+    if result.success:
+        print(f"--- {app_id} ---")
+        print(result.data)
 ```
 
 ## Working with Applications
@@ -375,91 +341,131 @@ except ValueError as e:
 ### Qualification Analysis Workflow
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler, CSVReport, JPropsReport
+from spark_rapids_tools.api_v1 import QualCore
 
-# 1. Create qualification result handler
-qual_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/data/qualification/output")
-    .build())
+# Create qualification result handler
+handler = QualCore("/data/qual_core_output")
 
-# 2. Load qualification summary
-summary = (CSVReport(qual_handler)
-    .table("rapids_4_spark_qualification_output")
-    .load())
+# Load qualification summary
+summary = handler.csv("qualCoreCSVSummary").load()
 
 print(f"Analyzed {len(summary.data)} applications")
 
-# 3. Load detailed SQL analysis for specific apps
+# Load detailed exec analysis for specific apps
 target_apps = ["application_001", "application_002"]
-sql_analysis = (CSVReport(qual_handler)
-    .table("sql_to_stage_exec_info")
-    .apps(target_apps)
-    .load())
+exec_analysis = handler.csv("execCSVReport").apps(target_apps).load()
 
-# 4. Process results for each application
-for app_id, result in sql_analysis.items():
-    df = result.data
-    print(f"App {app_id}: {len(df)} SQL operations analyzed")
+# Process results for each application
+for app_id, result in exec_analysis.items():
+    if result.success:
+        df = result.data
+        print(f"App {app_id}: {len(df)} executors analyzed")
 
-    # Find unsupported operations
-    unsupported = df[df['Exec Is Supported'] == False]
-    if not unsupported.empty:
-        print(f"  - {len(unsupported)} unsupported operations found")
+        # Find unsupported operations
+        unsupported = df[df['Exec Is Supported'] == False]
+        if not unsupported.empty:
+            print(f"  - {len(unsupported)} unsupported executors found")
 
-# 5. Load configuration properties
-props = (JPropsReport(qual_handler)
-    .table("rapids_4_spark_qualification_output_properties")
-    .load())
+# Load runtime properties
+props = handler.jprop("runtimeProperties").load()
 
-print(f"Qualification completed with configuration: {props.props}")
+if props.success:
+    print(f"Tool version: {props.props.get('toolsJarVersion', 'unknown')}")
 ```
 
 ### Profiling Analysis Workflow
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler, CSVReport, TXTReport
+from spark_rapids_tools.api_v1 import ProfCore
 
-# 1. Create profiling result handler
-prof_handler = (APIResultHandler()
-    .prof_core()
-    .with_path("s3://my-bucket/profiling/output")
-    .build())
+# Create profiling result handler  
+handler = ProfCore("/data/rapids_4_spark_profile/<driver-host>")
 
-# 2. Load application information
-app_info = (CSVReport(prof_handler)
-    .table("application_information")
-    .load())
+# Load application information
+app_info = handler.csv("coreRawApplicationInformationCSV").load()
 
-print(f"Profiled applications: {len(app_info.data)}")
+print(f"Profiled {len(app_info.data)} applications")
 
-# 3. Load stage-level metrics for all applications
-app_ids = app_info.data['App ID'].tolist()
-stage_metrics = (CSVReport(prof_handler)
-    .table("stage_level_metrics")
-    .apps(app_ids)
-    .pd_args({"parse_dates": ["Stage Start Time", "Stage End Time"]})
-    .load())
+# Load executor information
+executor_info = handler.csv("coreRawExecutorInformationCSV").load()
 
-# 4. Analyze performance bottlenecks
-for app_id, result in stage_metrics.items():
-    stages_df = result.data
+if executor_info.success:
+    print(f"Executor cores: {executor_info.data['executorCores'].iloc[0]}")
+    print(f"Executor memory: {executor_info.data['executorMemory'].iloc[0]}")
+```
 
-    # Find longest running stages
-    longest_stages = stages_df.nlargest(5, 'Stage Duration')
-    print(f"App {app_id} - Top 5 longest stages:")
-    for _, stage in longest_stages.iterrows():
-        print(f"  Stage {stage['Stage ID']}: {stage['Stage Duration']}ms")
+### Tuning Reports
 
-# 5. Load recommendations
-recommendations = (TXTReport(prof_handler)
-    .table("profile_recommendations")
-    .apps(app_ids[:3])  # First 3 apps only
-    .load())
+Tuning reports provide AutoTuner recommendations for GPU migration (requires `--auto-tuner` flag).
+All tuning files are in Spark command-line format (`--conf key=value`):
 
-for app_id, result in recommendations.items():
-    print(f"Recommendations for {app_id}:")
-    print(result.text)
+```python
+from spark_rapids_tools.api_v1 import QualCore
+
+# Create qualification handler
+handler = QualCore("/path/to/qual_core_output")
+
+# Load bootstrap configuration (required GPU configs)
+bootstrap_conf = handler.txt("tuningBootstrapConf").app("application_001").load()
+
+if bootstrap_conf.success:
+    print("Bootstrap configurations (Spark CLI format):")
+    print(bootstrap_conf.data)
+    # Output format:
+    # --conf spark.rapids.sql.enabled=true
+    # --conf spark.executor.cores=16
+    # --conf spark.executor.memory=32g
+    # ...
+
+# Load detailed recommendations with comments
+recommendations = handler.txt("tuningRecommendationsLog").app("application_001").load()
+
+if recommendations.success:
+    print("\nDetailed Recommendations:")
+    print(recommendations.data)
+    # Output includes:
+    # Spark Properties:
+    #   --conf ...
+    # Comments:
+    #   - Explanation of each setting...
+
+# Load combined configuration (optional - only if generated)
+combined_conf = handler.txt("tuningCombinedConf").app("application_001").load()
+
+if combined_conf.success:
+    print("\nCombined configurations:")
+    print(combined_conf.data)
+else:
+    print("Combined config not available (optional file)")
+
+# Load tuning for multiple applications
+app_ids = ["application_001", "application_002", "application_003"]
+bootstrap_configs = handler.txt("tuningBootstrapConf").apps(app_ids).load()
+
+for app_id, config in bootstrap_configs.items():
+    if config.success:
+        # Count lines starting with --conf
+        num_configs = len([l for l in config.data.split('\n') if l.startswith('--conf')])
+        print(f"{app_id}: {num_configs} configurations")
+
+# Parse configurations into dictionary
+def parse_spark_conf(text):
+    """Parse Spark CLI format into dict."""
+    configs = {}
+    for line in text.strip().split('\n'):
+        if line.startswith('--conf '):
+            conf = line[7:]  # Remove '--conf '
+            if '=' in conf:
+                key, value = conf.split('=', 1)
+                configs[key] = value
+    return configs
+
+bootstrap = handler.txt("tuningBootstrapConf").app("application_001").load()
+if bootstrap.success:
+    configs_dict = parse_spark_conf(bootstrap.data)
+    print(f"Parsed {len(configs_dict)} configurations:")
+    for key, value in configs_dict.items():
+        print(f"  {key} = {value}")
 ```
 
 ### Multi-Format Data Integration

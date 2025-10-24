@@ -21,6 +21,7 @@ import scala.util.{Failure, Success, Try}
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
+import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
@@ -36,13 +37,27 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
 
   private def writeTuningReport(tuningResult: TuningResult,
       outputDir: String, hadoopConf: Configuration): Unit = {
-    val reportGenerator = new BootstrapReportGenerator(tuningResult, outputDir, hadoopConf)
-    // Generates <app-id>-tuning.conf
-    reportGenerator.generateRecommendedPropertiesReport()
+    // Write to OLD location (backward compatibility) - flat structure with app-id prefixes
+    val oldTuningDir = QualReportGenConfProvider.getTuningReportPath(outputDir)
+    val oldReportGenerator = new BootstrapReportGenerator(tuningResult, oldTuningDir, hadoopConf)
+    // Generates <app-id>-bootstrap.conf
+    oldReportGenerator.generateRecommendedPropertiesReport()
     // Generates <app-id>.log
-    reportGenerator.generateRecommendedPropertiesWithCommentsReport()
+    oldReportGenerator.generateRecommendedPropertiesWithCommentsReport()
     // Generates <app-id>.conf if combinedProps exist
-    reportGenerator.generateCombinedReport()
+    oldReportGenerator.generateCombinedReport()
+
+    // Write to NEW per-app location (API exposure) - per-app folders with simplified names
+    val newTuningDir = QualReportGenConfProvider.getTuningPerAppReportPath(
+      outputDir, tuningResult.appID)
+    val newReportGenerator = new BootstrapReportGeneratorPerApp(
+      tuningResult, newTuningDir, hadoopConf)
+    // Generates bootstrap.conf
+    newReportGenerator.generateRecommendedPropertiesReport()
+    // Generates recommendations.log
+    newReportGenerator.generateRecommendedPropertiesWithCommentsReport()
+    // Generates combined.conf if combinedProps exist
+    newReportGenerator.generateCombinedReport()
   }
 
   def runAutoTuner(platform: Platform,

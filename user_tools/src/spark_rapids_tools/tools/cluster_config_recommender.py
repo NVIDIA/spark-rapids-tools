@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2025, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ from logging import Logger
 import pandas as pd
 
 from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
-from spark_rapids_pytools.common.sys_storage import FSUtil
 from spark_rapids_pytools.rapids.tool_ctxt import ToolContext
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools import CspEnv
@@ -136,29 +135,37 @@ class ClusterConfigRecommender:
 
     def _get_tuning_summary(self, tools_processed_apps: pd.DataFrame) -> TuningRecommendationInfo:
         """
-        Get the tuning recommendations for the processed apps.
+        Get the tuning recommendations for the processed apps using the new tuning API.
+        Returns paths with app context (e.g., tuning_apps/<app-id>/combined.conf).
         """
-        rapids_output_dir = self.ctxt.get_rapids_output_folder()
-        auto_tuning_path = FSUtil.build_path(rapids_output_dir,
-                                             self.ctxt.get_value('toolOutput', 'csv', 'tunings', 'subFolder'))
         missing_msg = 'Does not exist, see log for errors'
-        if 'App ID' not in tools_processed_apps.columns:
+
+        # Get the core handler from context to access tuning API
+        core_handler = self.ctxt.get_ctxt('coreHandler')
+        if 'App ID' not in tools_processed_apps.columns or core_handler is None:
+            if core_handler is None:
+                self.logger.warning('QualCoreHandler not found in context, cannot access tuning files')
             return TuningRecommendationInfo.get_default(missing_msg, tools_processed_apps.shape[0])
 
-        full_tunings_file: pd.Series = tools_processed_apps['App ID'] + '.conf'
-        gpu_tunings_file: pd.Series = tools_processed_apps['App ID'] + '.log'
-        # check to see if the tuning are actually there, assume if one tuning file is there,
-        # the other will be as well.
-        tunings_abs_path = FSUtil.get_abs_path(auto_tuning_path)
-        if FSUtil.resource_exists(tunings_abs_path):  # check if the file exists
-            for index, file in gpu_tunings_file.items():
-                full_tunings_path = auto_tuning_path + '/' + file
-                abs_path = FSUtil.get_abs_path(full_tunings_path)
-                if not FSUtil.resource_exists(abs_path):  # check if the file exists
-                    gpu_tunings_file.at[index] = missing_msg
-                    full_tunings_file.at[index] = missing_msg
-            return TuningRecommendationInfo(full_tunings_file, gpu_tunings_file)
-        return TuningRecommendationInfo.get_default(missing_msg, tools_processed_apps.shape[0])
+        # Initialize series with paths that include app context
+        app_ids = tools_processed_apps['App ID']
+        combined_conf_paths = pd.Series([missing_msg] * len(app_ids), index=app_ids.index)
+        recommendations_log_paths = pd.Series([missing_msg] * len(app_ids), index=app_ids.index)
+
+        # For each app, check if tuning files exist using the API
+        for index, app_id in app_ids.items():
+            try:
+                # Check if recommendations.log exists in the new tuning_apps structure
+                recommendations_result = core_handler.txt('tuningRecommendationsLog').app(app_id).load()
+                if recommendations_result.success:
+                    # Files exist, return paths with app context
+                    combined_conf_paths.at[index] = f'tuning_apps/{app_id}/combined.conf'
+                    recommendations_log_paths.at[index] = f'tuning_apps/{app_id}/recommendations.log'
+
+            except Exception as e:  # pylint: disable=broad-except
+                self.logger.debug('Could not load tuning files for app %s: %s', app_id, e)
+
+        return TuningRecommendationInfo(combined_conf_paths, recommendations_log_paths)
 
     def add_cluster_and_tuning_recommendations(self, tools_processed_apps: pd.DataFrame) -> pd.DataFrame:
         """
