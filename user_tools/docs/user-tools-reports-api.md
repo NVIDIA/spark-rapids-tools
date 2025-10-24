@@ -35,35 +35,22 @@ The Spark Rapids Tools API v1 provides a fluent builder interface for:
 
 ### Basic Result Handler Creation
 
-The `APIResultHandler` class provides methods to build handlers for different tool outputs:
+Result handlers are created using specialized classes for each tool output type:
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler
+from spark_rapids_tools.api_v1 import QualCore, ProfCore, QualWrapper, ProfWrapper
 
 # Qualification Core Output
-qual_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/path/to/qualification/output")
-    .build())
+qual_core_handler = QualCore("/path/to/qualification/core/output")
 
 # Profiling Core Output
-prof_handler = (APIResultHandler()
-    .prof_core()
-    .with_path("/path/to/profiling/output")
-    .build())
-```
+prof_core_handler = ProfCore("/path/to/profiling/core/output")
 
-### Custom Report Handlers
+# Qualification Wrapper Output
+qual_wrapper_handler = QualWrapper("/path/to/qualification/wrapper/output")
 
-For custom or specialized reports:
-
-```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler
-# Custom report with specific ID
-custom_handler = (APIResultHandler()
-    .report("customReportId")
-    .with_path("/path/to/custom/output")
-    .build())
+# Profiling Wrapper Output
+prof_wrapper_handler = ProfWrapper("/path/to/profiling/wrapper/output")
 ```
 
 ### Path Configuration
@@ -71,26 +58,18 @@ custom_handler = (APIResultHandler()
 The API supports both local and cloud storage paths:
 
 ```python
+from spark_rapids_tools.api_v1 import QualCore
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
 
 # Local filesystem path
-local_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/local/path/to/output")
-    .build())
+local_handler = QualCore("/local/path/to/qualification/output")
 
 # Cloud storage path (S3, GCS, Azure)
-cloud_path = BoundedCspPath("s3://my-bucket/spark-rapids/output")
-cloud_handler = (APIResultHandler()
-    .qual_core()
-    .with_path(cloud_path)
-    .build())
+cloud_path = BoundedCspPath("s3://my-bucket/spark-rapids/qual_output")
+cloud_handler = QualCore(cloud_path)
 
 # HDFS path
-hdfs_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("hdfs://namenode:port/path/to/output")
-    .build())
+hdfs_handler = QualCore("hdfs://namenode:port/path/to/qual_output")
 ```
 
 ## Reading Report Data
@@ -106,7 +85,7 @@ from spark_rapids_tools.api_v1.builder import CSVReport
 
 # Load global summary data
 summary_result = (CSVReport(handler)
-    .table("qual_summary")
+    .table("qualCoreCSVSummary")
     .load())
 
 # Access the DataFrame
@@ -119,20 +98,20 @@ print(f"Loaded {len(df)} rows of qualification data")
 ```python
 # Load data for specific applications
 app_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawJobInformationCSV")
     .app("application_001")
     .app("application_002")
     .load())
 
 # Load data for multiple applications at once
 multi_app_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawApplicationInformationCSV")
     .apps(["app_001", "app_002", "app_003"])
     .load())
 
 # Load data for a single application (returns direct result)
 single_app_result = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawExecutorInformationCSV")
     .app("application_001")
     .load())
 ```
@@ -142,21 +121,20 @@ single_app_result = (CSVReport(handler)
 ```python
 # Custom pandas read arguments
 custom_result = (CSVReport(handler)
-    .table("exec_info")
+    .table("coreRawApplicationInformationCSV")
     .pd_args({
         "sep": ",",
         "encoding": "utf-8",
-        "index_col": 0,
-        "parse_dates": ["timestamp"]
+        "parse_dates": ["App Start Time", "App End Time"]
     })
     .load())
 
 # Column mapping for renaming
 mapped_result = (CSVReport(handler)
-    .table("stage_info")
+    .table("coreRawJobInformationCSV")
     .map_cols({
-        "old_column_name": "new_column_name",
-        "stage_id": "stage_identifier"
+        "Job ID": "JobIdentifier",
+        "Job Duration": "DurationMs"
     })
     .load())
 
@@ -164,70 +142,64 @@ mapped_result = (CSVReport(handler)
 def create_fallback_data():
     import pandas as pd
     return pd.DataFrame({
-        "app_id": ["fallback_app"],
-        "status": ["no_data"]
+        "App ID": ["fallback_app"],
+        "Status": ["no_data"]
     })
 
 result_with_fallback = (CSVReport(handler)
-    .table("optional_table")
+    .table("coreRawDataSourceInformationCSV")
     .fall_cb(create_fallback_data)
     .load())
 ```
 
 ### Java Properties Reports
 
-Java Properties reports handle configuration data and metadata:
+Java Properties reports handle configuration data in `.properties` file format. Note that most configuration data is stored as CSV files instead.
 
 ```python
-from spark_rapids_tools.api_v1.builder import JPropsReport
+from spark_rapids_tools.api_v1 import JPropsReport, CSVReport
 
-# Load global properties
-global_props = (JPropsReport(handler)
-    .table("runtime.properties")
-    .load())
-
-# Load properties for specific applications
-app_props = (JPropsReport(handler)
-    .table("app_configuration")
-    .apps(["app_001", "app_002"])
-    .load())
-
-# Load properties for a single application
-single_app_props = (JPropsReport(handler)
-    .table("app_configuration")
-    .app("application_001")
+# Load global runtime properties (PROPERTIES format)
+# This is the only properties file - contains tool version info
+runtime_props = (JPropsReport(handler)
+    .table("runtimeProperties")
     .load())
 
 # Access property data
-print(f"Configuration: {single_app_props.props}")
+print(f"Tool version: {runtime_props.props.get('rapids.tools.version')}")
+
+# Load Spark properties for applications (CSV format, not PROPERTIES)
+# Note: Despite the name, these are CSV files with propertyName/propertyValue columns
+spark_props_csv = (CSVReport(handler)
+    .table("coreRawSparkPropertiesCSV")
+    .app("application_001")
+    .load())
+
+# Access CSV data
+if spark_props_csv.success:
+    props_df = spark_props_csv.data
+    print(f"Found {len(props_df)} Spark properties")
 ```
 
 ### TXT Reports
 
-Text reports handle plain text data like logs and summaries:
+Text reports handle plain text data like logs, summaries, and JSONL files:
 
 ```python
 from spark_rapids_tools.api_v1.builder import TXTReport
 
-# Load global text report
-global_text = (TXTReport(handler)
-    .table("qualification_summary")
-    .load())
-
-# Load text reports for multiple applications
-app_texts = (TXTReport(handler)
-    .table("app_logs")
-    .apps(["app_001", "app_002"])
-    .load())
-
-# Load text report for a single application
-single_app_text = (TXTReport(handler)
-    .table("app_logs")
+# Note: TXT format is primarily used for JSONL files (see JSON section)
+# For example, loading SQL plan information in JSONL format
+sql_plans = (TXTReport(handler)
+    .table("coreRawSqlPlanPreAQEJson")
     .app("application_001")
     .load())
 
-# Access text content
-print(f"Log content: {single_app_text.text}")
+# Access text content (each line is a separate JSON object)
+if sql_plans.success:
+    print(f"Number of lines: {len(sql_plans.lines)}")
+    for line in sql_plans.lines[:3]:  # First 3 lines
+        print(line)
 ```
 
 ### JSON Reports
@@ -235,22 +207,24 @@ print(f"Log content: {single_app_text.text}")
 JSON reports handle structured data in JSON format, including both standard JSON (objects/arrays) and JSONL (JSON Lines) format:
 
 ```python
-from spark_rapids_tools.api_v1.builder import JSONReport
+from spark_rapids_tools.api_v1 import QualCore, QualWrapper, JSONReport, TXTReport
 import json
 
-# Load global JSON report
-global_json = (JSONReport(handler)
-    .table("app_metadata")
+# Create handlers
+qual_wrapper_handler = QualWrapper("/path/to/qualification/wrapper/output")
+qual_core_handler = QualCore("/path/to/qualification/core/output")
+
+global_json = (JSONReport(qual_wrapper_handler)
+    .table("qualWrapperAppMetadataJson")
     .load())
 
-# Access JSON data
 if global_json.success:
     data_dict = global_json.to_dict()  # For JSON objects
     print(f"Application metadata: {data_dict}")
 
-# Load JSON reports for multiple applications
-app_jsons = (JSONReport(handler)
-    .table("cluster_information")
+# Load JSON reports for multiple applications from core output
+app_jsons = (JSONReport(qual_core_handler)
+    .table("coreRawClusterInformationJson")
     .apps(["app_001", "app_002"])
     .load())
 
@@ -260,8 +234,8 @@ for app_id, json_result in app_jsons.items():
         print(f"App {app_id} cluster: {cluster_info['sourceClusterInfo']}")
 
 # Load JSON report for a single application (returns array)
-build_info = (JSONReport(handler)
-    .table("spark_rapids_build_info")
+build_info = (JSONReport(qual_core_handler)
+    .table("coreRawSparkRapidsBuildInfoJson")
     .app("application_001")
     .load())
 
@@ -275,11 +249,9 @@ if build_info.success:
 For JSONL format files (one JSON object per line), use TXT reports and parse each line:
 
 ```python
-from spark_rapids_tools.api_v1.builder import TXTReport
-import json
-
 # Load JSONL file (e.g., SQL plan information)
-sql_plans_txt = (TXTReport(handler)
+# Use qual_core_handler or prof_core_handler depending on your output
+sql_plans_txt = (TXTReport(qual_core_handler)
     .table("coreRawSqlPlanPreAQEJson")
     .app("application_001")
     .load())
@@ -305,21 +277,29 @@ if sql_plans_txt.success:
 
 ```python
 # Use to_dict() for JSON objects
-cluster_json = JSONReport(handler).table("cluster_information").app("app_001").load()
+cluster_json = (JSONReport(qual_core_handler)
+    .table("coreRawClusterInformationJson")
+    .app("app_001")
+    .load())
 if cluster_json.success:
     cluster_dict = cluster_json.to_dict()
     if cluster_dict:
-        print(f"Cluster name: {cluster_dict.get('clusterName')}")
+        print(f"App name: {cluster_dict.get('appName')}")
 
 # Use to_list() for JSON arrays
-build_json = JSONReport(handler).table("spark_rapids_build_info").app("app_001").load()
+build_json = (JSONReport(qual_core_handler)
+    .table("coreRawSparkRapidsBuildInfoJson")
+    .app("app_001")
+    .load())
 if build_json.success:
     build_list = build_json.to_list()
     if build_list:
         print(f"Build info entries: {len(build_list)}")
 
 # Access raw data (can be dict or list)
-raw_json = JSONReport(handler).table("some_json_file").load()
+raw_json = (JSONReport(qual_wrapper_handler)
+    .table("qualWrapperAppMetadataJson")
+    .load())
 if raw_json.success and raw_json.data:
     if isinstance(raw_json.data, dict):
         print("Data is a dictionary")
@@ -364,14 +344,14 @@ results = (CSVReport(handler)
 # Select all applications from a specific run
 all_apps = ["application_001", "application_002", "application_003"]
 all_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawApplicationInformationCSV")
     .apps(all_apps)
     .load())
 
 # Filter applications by pattern (example with filtering)
 filtered_apps = [app for app in all_apps if app.endswith("_001")]
 filtered_results = (CSVReport(handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawJobInformationCSV")
     .apps(filtered_apps)
     .load())
 ```
@@ -384,19 +364,21 @@ Global tables return single result objects:
 
 ```python
 # CSV: Returns LoadDFResult
-csv_result = CSVReport(handler).table("global_summary").load()
+csv_result = CSVReport(handler).table("qualCoreCSVSummary").load()
 dataframe = csv_result.data
 
 # JSON: Returns JSONResult
-json_result = JSONReport(handler).table("app_metadata").load()
+json_result = (JSONReport(qual_wrapper_handler)
+    .table("qualWrapperAppMetadataJson")
+    .load())
 json_data = json_result.to_dict()  # or to_list() for arrays
 
-# JSON Props: Returns JPropsResult
-props_result = JPropsReport(handler).table("global_config").load()
+# Java Properties: Returns JPropsResult  
+props_result = JPropsReport(handler).table("runtimeProperties").load()
 properties = props_result.props
 
 # TXT: Returns TXTResult
-txt_result = TXTReport(handler).table("global_log").load()
+txt_result = TXTReport(handler).table("coreRawSqlPlanPreAQEJson").app("app_001").load()
 text_content = txt_result.text
 ```
 
@@ -407,7 +389,7 @@ Per-application tables have different return types based on the number of applic
 ```python
 # Multiple applications: Returns Dict[str, ResultType]
 multi_results = (CSVReport(handler)
-    .table("per_app_table")
+    .table("coreRawApplicationInformationCSV")
     .apps(["app_001", "app_002"])
     .load())
 
@@ -417,7 +399,7 @@ app2_data = multi_results["app_002"].data
 
 # Single application: Returns ResultType directly (not a dictionary)
 single_result = (CSVReport(handler)
-    .table("per_app_table")
+    .table("coreRawJobInformationCSV")
     .app("app_001")
     .load())
 
@@ -433,21 +415,23 @@ The API provides comprehensive input validation:
 
 ```python
 try:
-    # Empty report ID validation
-    handler = APIResultHandler().report("").build()
+    # Invalid output path
+    handler = QualCore("")
 except ValueError as e:
     print(f"Validation Error: {e}")
 
 try:
-    # Missing required path
-    handler = APIResultHandler().qual_core().build()
-except ValueError as e:
-    print(f"Missing Path Error: {e}")
+    # Non-existent output path
+    handler = QualCore("/non/existent/path")
+    if handler.handler.is_empty():
+        print("Warning: Handler is empty - no valid output found")
+except Exception as e:
+    print(f"Path Error: {e}")
 
 try:
     # Invalid application configuration
     result = (CSVReport(handler)
-        .table("global_table")
+        .table("qualCoreCSVSummary")  # This is a global table
         .app("app_001")  # Cannot specify apps for global tables
         .load())
 except ValueError as e:
@@ -463,7 +447,7 @@ and the success flag is set to false.
 ```python
 try:
     result = (CSVReport(handler)
-        .table("non_existent_table")
+        .table("nonExistentTableLabel")
         .load())
     if not result.success:
         print(result.get_fail_cause())
@@ -477,25 +461,22 @@ except ValueError as e:
 ### Qualification Analysis Workflow
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler, CSVReport, JPropsReport
+from spark_rapids_tools.api_v1 import QualCore, CSVReport, JPropsReport
 
 # 1. Create qualification result handler
-qual_handler = (APIResultHandler()
-    .qual_core()
-    .with_path("/data/qualification/output")
-    .build())
+qual_handler = QualCore("/data/qualification/output")
 
 # 2. Load qualification summary
 summary = (CSVReport(qual_handler)
-    .table("rapids_4_spark_qualification_output")
+    .table("qualCoreCSVSummary")
     .load())
 
 print(f"Analyzed {len(summary.data)} applications")
 
-# 3. Load detailed SQL analysis for specific apps
+# 3. Load detailed SQL to stage information for specific apps
 target_apps = ["application_001", "application_002"]
 sql_analysis = (CSVReport(qual_handler)
-    .table("sql_to_stage_exec_info")
+    .table("coreRawSqlToStageInformationCSV")
     .apps(target_apps)
     .load())
 
@@ -504,64 +485,44 @@ for app_id, result in sql_analysis.items():
     df = result.data
     print(f"App {app_id}: {len(df)} SQL operations analyzed")
 
-    # Find unsupported operations
-    unsupported = df[df['Exec Is Supported'] == False]
-    if not unsupported.empty:
-        print(f"  - {len(unsupported)} unsupported operations found")
-
-# 5. Load configuration properties
-props = (JPropsReport(qual_handler)
-    .table("rapids_4_spark_qualification_output_properties")
+# 5. Load runtime properties (tool version information)
+runtime_props = (JPropsReport(qual_handler)
+    .table("runtimeProperties")
     .load())
 
-print(f"Qualification completed with configuration: {props.props}")
+print(f"Tool version: {runtime_props.props.get('rapids.tools.version')}")
 ```
 
 ### Profiling Analysis Workflow
 
 ```python
-from spark_rapids_tools.api_v1.builder import APIResultHandler, CSVReport, TXTReport
+from spark_rapids_tools.api_v1 import ProfCore, CSVReport, TXTReport
 
 # 1. Create profiling result handler
-prof_handler = (APIResultHandler()
-    .prof_core()
-    .with_path("s3://my-bucket/profiling/output")
-    .build())
+prof_handler = ProfCore("s3://my-bucket/profiling/output")
 
 # 2. Load application information
 app_info = (CSVReport(prof_handler)
-    .table("application_information")
+    .table("coreRawApplicationInformationCSV")
     .load())
 
 print(f"Profiled applications: {len(app_info.data)}")
 
-# 3. Load stage-level metrics for all applications
+# 3. Load stage-level aggregated metrics for all applications
 app_ids = app_info.data['App ID'].tolist()
 stage_metrics = (CSVReport(prof_handler)
-    .table("stage_level_metrics")
+    .table("coreRawStageLevelAggregatedTaskMetricsCSV")
     .apps(app_ids)
-    .pd_args({"parse_dates": ["Stage Start Time", "Stage End Time"]})
     .load())
 
 # 4. Analyze performance bottlenecks
 for app_id, result in stage_metrics.items():
     stages_df = result.data
 
-    # Find longest running stages
-    longest_stages = stages_df.nlargest(5, 'Stage Duration')
-    print(f"App {app_id} - Top 5 longest stages:")
-    for _, stage in longest_stages.iterrows():
-        print(f"  Stage {stage['Stage ID']}: {stage['Stage Duration']}ms")
-
-# 5. Load recommendations
-recommendations = (TXTReport(prof_handler)
-    .table("profile_recommendations")
-    .apps(app_ids[:3])  # First 3 apps only
-    .load())
-
-for app_id, result in recommendations.items():
-    print(f"Recommendations for {app_id}:")
-    print(result.text)
+    # Find stages with most task time
+    print(f"App {app_id} - Stage metrics summary:")
+    print(f"  Total stages: {len(stages_df)}")
+    print(f"  Avg executor CPU time: {stages_df['Executor CPU Time'].mean():.2f}ms")
 ```
 
 ### Multi-Format Data Integration
@@ -571,22 +532,15 @@ def analyze_application_performance(output_path, app_id):
     """Complete analysis combining multiple report formats."""
 
     # Create handlers for both qualification and profiling
-    qual_handler = (APIResultHandler()
-        .qual_core()
-        .with_path(f"{output_path}/qualification")
-        .build())
-
-    prof_handler = (APIResultHandler()
-        .prof_core()
-        .with_path(f"{output_path}/profiling")
-        .build())
+    qual_handler = QualCore(f"{output_path}/qualification")
+    prof_handler = ProfCore(f"{output_path}/profiling")
 
     results = {}
 
     # 1. Get qualification score
     try:
         qual_summary = (CSVReport(qual_handler)
-            .table("rapids_4_spark_qualification_output")
+            .table("qualCoreCSVSummary")
             .load())
 
         app_qual = qual_summary.data[
@@ -598,41 +552,42 @@ def analyze_application_performance(output_path, app_id):
     except Exception as e:
         print(f"Could not load qualification data: {e}")
 
-    # 2. Get detailed SQL operations
+    # 2. Get detailed SQL to stage information
     try:
         sql_ops = (CSVReport(qual_handler)
-            .table("sql_to_stage_exec_info")
+            .table("coreRawSqlToStageInformationCSV")
             .app(app_id)
             .load())
 
         results['total_sql_ops'] = len(sql_ops.data)
-        results['supported_ops'] = len(
-            sql_ops.data[sql_ops.data['Exec Is Supported'] == True]
-        )
     except Exception as e:
         print(f"Could not load SQL operations: {e}")
 
     # 3. Get profiling metrics
     try:
         app_metrics = (CSVReport(prof_handler)
-            .table("application_information")
+            .table("coreRawApplicationInformationCSV")
             .load())
 
         app_data = app_metrics.data[app_metrics.data['App ID'] == app_id]
         if not app_data.empty:
             results['duration_ms'] = app_data.iloc[0]['App Duration']
-            results['executor_cores'] = app_data.iloc[0]['Executor Cores']
     except Exception as e:
         print(f"Could not load application metrics: {e}")
 
-    # 4. Get configuration
+    # 4. Get Spark configuration
     try:
-        config = (JPropsReport(prof_handler)
-            .table("application_configuration")
+        config_csv = (CSVReport(prof_handler)
+            .table("coreRawSparkPropertiesCSV")
             .app(app_id)
             .load())
 
-        results['spark_config'] = config.props
+        if config_csv.success:
+            # Convert CSV rows to dict: {propertyName: propertyValue}
+            results['spark_config'] = dict(zip(
+                config_csv.data['propertyName'],
+                config_csv.data['propertyValue']
+            ))
     except Exception as e:
         print(f"Could not load configuration: {e}")
 
@@ -658,18 +613,16 @@ def create_robust_handler(report_type, output_path):
         raise ValueError("Output path cannot be empty")
 
     try:
-        handler_builder = APIResultHandler()
-
-        if report_type == "qualification":
-            handler_builder = handler_builder.qual_core()
-        elif report_type == "profiling":
-            handler_builder = handler_builder.prof_core()
-        elif report_type == "wrapper":
-            handler_builder = handler_builder.qual_wrapper()
+        if report_type == "qualification_core":
+            return QualCore(output_path)
+        elif report_type == "profiling_core":
+            return ProfCore(output_path)
+        elif report_type == "qualification_wrapper":
+            return QualWrapper(output_path)
+        elif report_type == "profiling_wrapper":
+            return ProfWrapper(output_path)
         else:
             raise ValueError(f"Unknown report type: {report_type}")
-
-        return handler_builder.with_path(output_path).build()
 
     except Exception as e:
         print(f"Failed to create handler: {e}")
@@ -685,13 +638,13 @@ def create_empty_dataframe():
     return pd.DataFrame(columns=['App ID', 'Status'])
 
 optional_data = (CSVReport(handler)
-    .table("optional_metrics")
+    .table("coreRawDataSourceInformationCSV")
     .fall_cb(create_empty_dataframe)
     .load())
 
 # Optimize pandas reading for large files
 large_data = (CSVReport(handler)
-    .table("large_dataset")
+    .table("coreRawApplicationInformationCSV")
     .pd_args({
         "chunksize": 10000,      # Read in chunks
         "low_memory": False,     # Better type inference
@@ -707,7 +660,7 @@ def get_application_list(handler):
     """Get list of available applications from summary table."""
     try:
         summary = (CSVReport(handler)
-            .table("rapids_4_spark_qualification_output")
+            .table("qualCoreCSVSummary")
             .load())
         return summary.data['App ID'].unique().tolist()
     except Exception:
