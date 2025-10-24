@@ -160,7 +160,6 @@ Java Properties reports handle configuration data in `.properties` file format. 
 from spark_rapids_tools.api_v1 import JPropsReport, CSVReport
 
 # Load global runtime properties (PROPERTIES format)
-# This is the only properties file - contains tool version info
 runtime_props = (JPropsReport(handler)
     .table("runtimeProperties")
     .load())
@@ -169,7 +168,6 @@ runtime_props = (JPropsReport(handler)
 print(f"Tool version: {runtime_props.props.get('rapids.tools.version')}")
 
 # Load Spark properties for applications (CSV format, not PROPERTIES)
-# Note: Despite the name, these are CSV files with propertyName/propertyValue columns
 spark_props_csv = (CSVReport(handler)
     .table("coreRawSparkPropertiesCSV")
     .app("application_001")
@@ -523,6 +521,79 @@ for app_id, result in stage_metrics.items():
     print(f"App {app_id} - Stage metrics summary:")
     print(f"  Total stages: {len(stages_df)}")
     print(f"  Avg executor CPU time: {stages_df['Executor CPU Time'].mean():.2f}ms")
+```
+### Tuning Reports
+
+Tuning reports provide AutoTuner recommendations for GPU migration (requires `--auto-tuner` flag).
+All tuning files are in Spark command-line format (`--conf key=value`):
+
+```python
+from spark_rapids_tools.api_v1 import QualCore
+
+# Create qualification handler
+handler = QualCore("/path/to/qual_core_output")
+
+# Load bootstrap configuration (required GPU configs)
+bootstrap_conf = handler.txt("tuningBootstrapConf").app("application_001").load()
+
+if bootstrap_conf.success:
+    print("Bootstrap configurations (Spark CLI format):")
+    print(bootstrap_conf.data)
+    # Output format:
+    # --conf spark.rapids.sql.enabled=true
+    # --conf spark.executor.cores=16
+    # --conf spark.executor.memory=32g
+    # ...
+
+# Load detailed recommendations with comments
+recommendations = handler.txt("tuningRecommendationsLog").app("application_001").load()
+
+if recommendations.success:
+    print("\nDetailed Recommendations:")
+    print(recommendations.data)
+    # Output includes:
+    # Spark Properties:
+    #   --conf ...
+    # Comments:
+    #   - Explanation of each setting...
+
+# Load combined configuration (optional - only if generated)
+combined_conf = handler.txt("tuningCombinedConf").app("application_001").load()
+
+if combined_conf.success:
+    print("\nCombined configurations:")
+    print(combined_conf.data)
+else:
+    print("Combined config not available (optional file)")
+
+# Load tuning for multiple applications
+app_ids = ["application_001", "application_002", "application_003"]
+bootstrap_configs = handler.txt("tuningBootstrapConf").apps(app_ids).load()
+
+for app_id, config in bootstrap_configs.items():
+    if config.success:
+        # Count lines starting with --conf
+        num_configs = len([l for l in config.data.split('\n') if l.startswith('--conf')])
+        print(f"{app_id}: {num_configs} configurations")
+
+# Parse configurations into dictionary
+def parse_spark_conf(text):
+    """Parse Spark CLI format into dict."""
+    configs = {}
+    for line in text.strip().split('\n'):
+        if line.startswith('--conf '):
+            conf = line[7:]  # Remove '--conf '
+            if '=' in conf:
+                key, value = conf.split('=', 1)
+                configs[key] = value
+    return configs
+
+bootstrap = handler.txt("tuningBootstrapConf").app("application_001").load()
+if bootstrap.success:
+    configs_dict = parse_spark_conf(bootstrap.data)
+    print(f"Parsed {len(configs_dict)} configurations:")
+    for key, value in configs_dict.items():
+        print(f"  {key} = {value}")
 ```
 
 ### Multi-Format Data Integration

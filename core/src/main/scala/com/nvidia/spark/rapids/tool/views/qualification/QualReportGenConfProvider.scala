@@ -34,8 +34,10 @@ import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
  *   should be generated.
  * — `GLOBAL_SUBDIRECTORY`: The subdirectory where the global report should be
  *   generated.
- * — `TUNING_SUBDIRECTORY`: The subdirectory where the tuning report should be
- *   generated.
+ * — `TUNING_SUBDIRECTORY`: The subdirectory where the legacy flat tuning report
+ *   should be generated (backward compatibility).
+ * — `TUNING_APPS_SUBDIRECTORY`: The subdirectory where the new per-app tuning
+ *   reports should be generated (API exposure).
  * — `CSV_DELIMITER`: The delimiter that should be used when writing the CSV
  *   tables.
  *
@@ -47,7 +49,8 @@ object QualReportGenConfProvider {
   val TABLES_CONFIG_PATH = "configs/reports/qualOutputTable.yaml"
   val PER_APP_SUBDIRECTORY = "qual_metrics"
   val GLOBAL_SUBDIRECTORY = "qual_core_output"
-  val TUNING_SUBDIRECTORY = "tuning"
+  val TUNING_SUBDIRECTORY = "tuning"           // Legacy flat structure
+  val TUNING_APPS_SUBDIRECTORY = "tuning_apps" // NEW per-app structure
   val CSV_DELIMITER = ","
 
   // Initializes hadoop-conf object if it was not provided by the context.
@@ -85,11 +88,32 @@ object QualReportGenConfProvider {
   }
 
   /**
-   * Get the path to the tuning report directory.
+   * Get the path to the tuning report directory (legacy flat structure).
    * @param outputPath the parent directory where the output should be generated.
    * @return the path to the tuning report directory as the subdirectory concatenated to the parent.
    */
   def getTuningReportPath(outputPath: String): String = {
     Paths.get(getGlobalReportPath(outputPath), TUNING_SUBDIRECTORY).toString
+  }
+
+  /**
+   * Get the path to the tuning apps report directory (NEW per-app structure).
+   * This is the base directory containing per-app tuning folders.
+   * @param outputPath the parent directory where the output should be generated.
+   * @return the path to the tuning apps report directory.
+   */
+  def getTuningAppsReportPath(outputPath: String): String = {
+    Paths.get(getGlobalReportPath(outputPath), TUNING_APPS_SUBDIRECTORY).toString
+  }
+
+  /**
+   * Get the path to a specific application's tuning report directory.
+   * This creates the per-app folder within tuning_apps/.
+   * @param outputPath the parent directory where the output should be generated.
+   * @param appId the application ID.
+   * @return the path to the per-app tuning report directory.
+   */
+  def getTuningPerAppReportPath(outputPath: String, appId: String): String = {
+    Paths.get(getTuningAppsReportPath(outputPath), appId).toString
   }
 }

@@ -352,6 +352,7 @@ class DataUtils:
         """
         success = False
         load_error = None
+        f_content = None
         try:
             if isinstance(f_path, str):
                 # read in binary because we want to match the behavior of CspPath

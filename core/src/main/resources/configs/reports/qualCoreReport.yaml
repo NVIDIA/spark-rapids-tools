@@ -28,20 +28,30 @@
 #
 # The directory structure of the generated output files is as follows:
 #
-# qual_core_output
+# qual_core_output/
 # ├── apps_summary.csv
 # ├── status.csv
 # ├── runtime.properties
-# ├── tuning (per-app tuning subfolder)
-# ├── raw_metrics (per-app raw metrics sub-folder)
-# └── qual_metrics (per-app qualification sub-folder)
-#    ├── app-001-0001
-#        ├── cluster_information.json
-#        ├── execs.csv
-#        ├── operators_stats.csv
-#        ├── persql.csv
-#        ├── stages.csv
-#        ├── unsupported_operators.csv
+# ├── tuning/                    (legacy flat tuning - backward compatibility)
+# │   ├── <app-id>-bootstrap.conf
+# │   ├── <app-id>.log
+# │   └── <app-id>.conf
+# ├── tuning_apps/               (per-app tuning subfolder)
+# │   └── <application-id>/
+# │       ├── bootstrap.conf
+# │       ├── recommendations.log
+# │       └── combined.conf
+# ├── raw_metrics/               (per-app raw metrics subfolder)
+# │   └── <application-id>/
+# │       └── ...
+# └── qual_metrics/              (per-app qualification subfolder)
+#     └── <application-id>/
+#         ├── cluster_information.json
+#         ├── execs.csv
+#         ├── operators_stats.csv
+#         ├── persql.csv
+#         ├── stages.csv
+#         └── unsupported_operators.csv
 
 reportDefinitions:
   - reportId: qualCoreOutput
@@ -54,6 +64,8 @@ reportDefinitions:
         relativePath: qual_metrics
       - reportId: coreRawMetrics
         relativePath: raw_metrics
+      - reportId: qualTuningApps
+        relativePath: tuning_apps
     tableDefinitions:
       - label: runtimeProperties
         description: >-
@@ -464,3 +476,37 @@ reportDefinitions:
             dataType: Long
             description: >-
               The total duration of the ML functions
+  - reportId: qualTuningApps
+    description: >-
+      Auto-tuner recommendations for migrating Spark applications to GPU.
+      Contains bootstrap configurations, detailed recommendations with comments,
+      and optionally combined configurations.
+    scope: per-app
+    tableDefinitions:
+      - label: tuningBootstrapConf
+        description: >-
+          Bootstrap configuration file containing required and tuned Spark properties
+          for running the application on GPU. These are the minimal set of configurations
+          needed to enable GPU execution. Format: --conf key=value (Spark command-line format).
+        fileName: bootstrap.conf
+        fileFormat: TXT
+        scope: per-app
+
+      - label: tuningRecommendationsLog
+        description: >-
+          Detailed tuning recommendations with explanatory comments. This file provides
+          context and reasoning for each recommended configuration change, helping users
+          understand why specific settings are suggested.
+        fileName: recommendations.log
+        fileFormat: TXT
+        scope: per-app
+
+      - label: tuningCombinedConf
+        description: >-
+          Combined configuration file merging GPU recommendations with existing Spark properties.
+          This file is optional and only generated when combinedProps are available.
+          It provides a complete configuration set for the application.
+          Format: --conf key=value (Spark command-line format).
+        fileName: combined.conf
+        fileFormat: TXT
+        scope: per-app
