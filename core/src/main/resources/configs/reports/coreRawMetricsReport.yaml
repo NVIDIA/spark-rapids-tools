@@ -901,22 +901,76 @@ reportDefinitions:
             description: >-
               TBD
       # SQLPlanInfoProfileResult
-      # TODO Revisit that this would work fine
       - label: coreRawSqlPlanPreAQEJson
         description: >-
-          TBD
+          Contains SQL plan information for each SQL query before Adaptive Query Execution (AQE).
+          This is a JSONL (JSON Lines) format file with one JSON object per line.
+          Load as text and parse each line separately using json.loads().
         fileName: sql_plan_info_pre_aqe.json
-        fileFormat: JSON
+        fileFormat: TXT
         scope: per-app
         columns:
           - name: sqlID
             dataType: Long
             description: >-
-              TBD
-          - name: SparkPlanInfoTruncated
+              The SQL query ID
+          - name: sparkPlanInfo
+            dataType: Object
+            description: >-
+              The Spark physical plan information as a nested object structure
+      # ClusterInformation
+      - label: coreRawClusterInformationJson
+        description: >-
+          Contains cluster configuration information including source and recommended cluster details.
+        fileName: cluster_information.json
+        fileFormat: JSON
+        scope: per-app
+        columns:
+          - name: appName
             dataType: String
             description: >-
-              TBD
+              The application name
+          - name: appId
+            dataType: String
+            description: >-
+              The application ID
+          - name: eventLogPath
+            dataType: String
+            description: >-
+              Path to the application event log
+          - name: sourceClusterInfo
+            dataType: Object
+            description: >-
+              Source cluster configuration details
+          - name: recommendedClusterInfo
+            dataType: Object
+            description: >-
+              Recommended GPU cluster configuration
+      # SparkRapidsBuildInfo
+      - label: coreRawSparkRapidsBuildInfoJson
+        description: >-
+          Contains RAPIDS Accelerator build information including version, revision, and dependencies.
+          The file contains an array with a single object containing build information for all components.
+        fileName: spark_rapids_build_info.json
+        fileFormat: JSON
+        scope: per-app
+        columns:
+          - name: sparkRapidsBuildInfo
+            dataType: Object
+            description: >-
+              Build information for RAPIDS Accelerator for Apache Spark
+          - name: sparkRapidsJniBuildInfo
+            dataType: Object
+            description: >-
+              Build information for RAPIDS JNI library
+          - name: cudfBuildInfo
+            dataType: Object
+            description: >-
+              Build information for cuDF library
+          - name: sparkRapidsPrivateBuildInfo
+            dataType: Object
+            description: >-
+              Build information for RAPIDS private components
       # DriverLogUnsupportedOperators
       - label: coreRawDriverLogUnsupportedOperatorsCSV
         description: >-
