@@ -18,7 +18,7 @@ This documentation provides a comprehensive guide for using the Spark Rapids Too
 The Spark Rapids Tools API v1 provides a fluent builder interface for:
 
 - **Creating result handlers** for different tool outputs (qualification, profiling)
-- **Loading data** from reports in multiple formats (CSV, JSON Properties, TXT)
+- **Loading data** from reports in multiple formats (CSV, JSON, JSON Properties, TXT)
 - **Handling both global and per-application data** with type-safe operations
 - **Managing cloud and local storage paths** seamlessly
 
@@ -27,6 +27,7 @@ The Spark Rapids Tools API v1 provides a fluent builder interface for:
 | Report Type | Description | Return Type |
 |-------------|-------------|-------------|
 | CSV | Tabular data with pandas DataFrames | `LoadDFResult` |
+| JSON | JSON data (objects and arrays) | `JSONResult` |
 | JSON Properties | Configuration and metadata | `JPropsResult` |
 | TXT | Plain text logs and outputs | `TXTResult` |
 
@@ -229,6 +230,103 @@ single_app_text = (TXTReport(handler)
 print(f"Log content: {single_app_text.text}")
 ```
 
+### JSON Reports
+
+JSON reports handle structured data in JSON format, including both standard JSON (objects/arrays) and JSONL (JSON Lines) format:
+
+```python
+from spark_rapids_tools.api_v1.builder import JSONReport
+import json
+
+# Load global JSON report
+global_json = (JSONReport(handler)
+    .table("app_metadata")
+    .load())
+
+# Access JSON data
+if global_json.success:
+    data_dict = global_json.to_dict()  # For JSON objects
+    print(f"Application metadata: {data_dict}")
+
+# Load JSON reports for multiple applications
+app_jsons = (JSONReport(handler)
+    .table("cluster_information")
+    .apps(["app_001", "app_002"])
+    .load())
+
+for app_id, json_result in app_jsons.items():
+    if json_result.success:
+        cluster_info = json_result.to_dict()
+        print(f"App {app_id} cluster: {cluster_info['sourceClusterInfo']}")
+
+# Load JSON report for a single application (returns array)
+build_info = (JSONReport(handler)
+    .table("spark_rapids_build_info")
+    .app("application_001")
+    .load())
+
+if build_info.success:
+    info_list = build_info.to_list()  # For JSON arrays
+    print(f"RAPIDS version: {info_list[0]['sparkRapidsBuildInfo']['version']}")
+```
+
+#### JSONL (JSON Lines) Format
+
+For JSONL format files (one JSON object per line), use TXT reports and parse each line:
+
+```python
+from spark_rapids_tools.api_v1.builder import TXTReport
+import json
+
+# Load JSONL file (e.g., SQL plan information)
+sql_plans_txt = (TXTReport(handler)
+    .table("coreRawSqlPlanPreAQEJson")
+    .app("application_001")
+    .load())
+
+if sql_plans_txt.success:
+    # Parse each line as a separate JSON object
+    sql_plans = []
+    for line in sql_plans_txt.lines:
+        if line.strip():  # Skip empty lines
+            plan = json.loads(line)
+            sql_plans.append(plan)
+
+    print(f"Loaded {len(sql_plans)} SQL plans")
+
+    # Process each SQL plan
+    for plan in sql_plans:
+        sql_id = plan['sqlID']
+        root_node = plan['sparkPlanInfo']['nodeName']
+        print(f"SQL {sql_id}: Root operator = {root_node}")
+```
+
+#### JSON Result Helper Methods
+
+```python
+# Use to_dict() for JSON objects
+cluster_json = JSONReport(handler).table("cluster_information").app("app_001").load()
+if cluster_json.success:
+    cluster_dict = cluster_json.to_dict()
+    if cluster_dict:
+        print(f"Cluster name: {cluster_dict.get('clusterName')}")
+
+# Use to_list() for JSON arrays
+build_json = JSONReport(handler).table("spark_rapids_build_info").app("app_001").load()
+if build_json.success:
+    build_list = build_json.to_list()
+    if build_list:
+        print(f"Build info entries: {len(build_list)}")
+
+# Access raw data (can be dict or list)
+raw_json = JSONReport(handler).table("some_json_file").load()
+if raw_json.success and raw_json.data:
+    if isinstance(raw_json.data, dict):
+        print("Data is a dictionary")
+    elif isinstance(raw_json.data, list):
+        print("Data is a list")
+```
+
 ## Working with Applications
 
 ### Application Identifiers
@@ -288,6 +386,10 @@ Global tables return single result objects:
 # CSV: Returns LoadDFResult
 csv_result = CSVReport(handler).table("global_summary").load()
 dataframe = csv_result.data
+
+# JSON: Returns JSONResult
+json_result = JSONReport(handler).table("app_metadata").load()
+json_data = json_result.to_dict()  # or to_list() for arrays
 
 # JSON Props: Returns JPropsResult
 props_result = JPropsReport(handler).table("global_config").load()
