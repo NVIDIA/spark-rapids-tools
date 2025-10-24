@@ -119,7 +119,18 @@ class BootstrapReportGeneratorPerApp(
     hadoopConf: Configuration)
   extends BaseAutoTunerReportGenerator(tuningResult, outputDir, hadoopConf) {
 
+  /**
+   * This is added because the super class expects the override
+   * Will be removed once the legacy flat tuning structure (tuning/) is deprecated and removed.
+   */
   override protected def configFileSuffix: String = "bootstrap"
+
+  /**
+   * File names for the per-app structure (simplified names without app-id prefix).
+   */
+  private final val bootstrapConfFileName = "bootstrap.conf"
+  private final val recommendationsLogFileName = "recommendations.log"
+  private final val combinedConfFileName = "combined.conf"
 
   /**
    * Generates the recommended properties report with simplified file name.
@@ -127,7 +138,7 @@ class BootstrapReportGeneratorPerApp(
    */
   override def generateRecommendedPropertiesReport(): Unit = {
     val textFileWriter = new ToolTextFileWriter(outputDir,
-      "bootstrap.conf",  // Simplified name - no app-id prefix
+      bootstrapConfFileName,
       s"Required and Tuned configurations to run - ${tuningResult.appID}", Option(hadoopConf))
     try {
       textFileWriter.write(tuningResult.recommendations.map(_.toConfString).reduce(_ + "\n" + _))
@@ -142,7 +153,7 @@ class BootstrapReportGeneratorPerApp(
    */
   override def generateRecommendedPropertiesWithCommentsReport(): Unit = {
     val textFileWriter = new ToolTextFileWriter(outputDir,
-      "recommendations.log",  // Simplified name - no app-id prefix
+      recommendationsLogFileName,
       s"Tuning App - ${tuningResult.appID}", Option(hadoopConf))
     try {
       textFileWriter.write(
@@ -162,7 +173,7 @@ class BootstrapReportGeneratorPerApp(
     tuningResult.combinedProps.collect {
       case combinedProps =>
         val textFileWriter = new ToolTextFileWriter(outputDir,
-          "combined.conf",  // Simplified name - no app-id prefix
+          combinedConfFileName,
           s"Combined configurations for App - ${tuningResult.appID}", Option(hadoopConf))
         try {
           textFileWriter.write(combinedProps.map(_.toString).reduce(_ + "\n" + _))
