@@ -23,39 +23,27 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.sql.rapids.tool.ToolUtils
 
 /**
- * This file contains the code for writing out the tool's output to CSV files.
- * Each type of output is written out to a different CSV file.
+ * Generators for global qualification report tables (e.g., apps_summary.csv, status.csv).
  *
- * The tables are defined in `QualOutputTableDefinition` and the global ones are
- * defined in this file. The ones per app are defined in `QualPerAppReportGenerator`.
+ * This file implements report generators for tool-level outputs that aggregate data across
+ * all analyzed applications. These are written once per qualification run.
  *
- * The output is written out to a directory specified by the user. The
- * directory structure is as follows:
- * rootDirectory/[globalSubDirectory]/tableName.csv
+ * Table definitions are loaded from `QualOutputTableDefinition` YAML configs. Per-app reports
+ * are handled separately in `QualPerAppReportGenerator`.
  *
- * The root directory is specified by the user and the appId is the name of
- * the application. The tableName is the name of the `QualOutputTableDefinition`
- * which is used to look up the table name to write the output to.
+ * Output directory structure:
+ *   rootDirectory/qual_core_output/tableName.csv
  *
- * The output is written out in the following order:
- *   1. The global tables
- *   2. The per app tables
- *
- * The global tables are written out once the qualification tools finishes the entire analysis
- * and the per app tables are written out once per application.
+ * Execution order:
+ *   1. Per-app tables (written during app analysis)
+ *   2. Global tables (written after all apps complete)
  */
 
 /**
- * A trait that defines how to write out the tool's output to a CSV file.
- * The tables are defined in `QualOutputTableDefinition`.
+ * Trait defining the contract for writing global qualification tables to CSV.
  *
- * The output is written out to a directory specified by the user. The
- * directory structure is as follows:
- * rootDirectory/[globalSubDirectory]/tableName.csv
- *
- * The root directory is specified by the user and the appId is the name of
- * the application. The tableName is the name of the `QualOutputTableDefinition`
- * which is used to look up the table name to write the output to.
+ * Implementations load table metadata from YAML and generate CSV files in the global
+ * output directory (qual_core_output).
  */
 trait QualToolTableTrait extends QualTableBuilderTrait[QualToolResult] {
 

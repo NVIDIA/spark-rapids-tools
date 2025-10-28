@@ -119,6 +119,36 @@ class TXTResult(AbstractReportResult[str]):
         return None
 
 
+@dataclass
+class JSONResult(AbstractReportResult[Union[dict, list]]):
+    """
+    A class that represents the result of a JSON file loading task. It contains the following information:
+    :param f_path: The path where the JSON file is located.
+    :param data: The loaded JSON content (can be dict or list).
+    :param success: Whether the loading is successful.
+    :param load_error: The error that occurred during the loading if any.
+    """
+    data: Optional[Union[dict, list]]
+
+    def to_dict(self) -> Optional[dict]:
+        """
+        Return the data as a dictionary. If data is a list, return None.
+        :return: The data as a dictionary, or None if data is not a dict.
+        """
+        if self.success and self.data and isinstance(self.data, dict):
+            return self.data
+        return None
+
+    def to_list(self) -> Optional[list]:
+        """
+        Return the data as a list. If data is a dict, return None.
+        :return: The data as a list, or None if data is not a list.
+        """
+        if self.success and self.data and isinstance(self.data, list):
+            return self.data
+        return None
+
+
 class DataUtils:
     """
     Utility functions to use common data handling such as reading an opening CSV files.
@@ -322,6 +352,7 @@ class DataUtils:
         """
         success = False
         load_error = None
+        f_content = None
         try:
             if isinstance(f_path, str):
                 # read in binary because we want to match the behavior of CspPath
@@ -337,3 +368,28 @@ class DataUtils:
                          data=f_content,
                          success=success,
                          load_error=load_error)
+
+    @staticmethod
+    def load_json(f_path: Union[str, CspPathT]) -> 'JSONResult':
+        """
+        Load a JSON file from a given file path.
+        :param f_path: The file path to load.
+        :return: A JSONResult object holding information about the JSON file loading task.
+        """
+        success = False
+        load_error = None
+        json_data = None
+        try:
+            if isinstance(f_path, str):
+                with open(f_path, 'r', encoding='utf-8') as f:
+                    json_data = json.load(f)
+            else:
+                with f_path.open_input_stream() as fis:
+                    json_data = json.load(fis)
+            success = json_data is not None
+        except Exception as e:  # pylint: disable=broad-except
+            load_error = e
+        return JSONResult(f_path=str(f_path),
+                          data=json_data,
+                          success=success,
+                          load_error=load_error)

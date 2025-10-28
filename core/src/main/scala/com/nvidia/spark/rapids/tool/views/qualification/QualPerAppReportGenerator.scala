@@ -252,6 +252,7 @@ class AppQualOpsStatsTable(
   }
 }
 
+// Stages.csv table
 class AppQualStagesTable(
     tableMeta: QualOutputTableDefinition,
     override val rootDirectory: String,
@@ -269,6 +270,7 @@ class AppQualStagesTable(
   }
 }
 
+// Databricks specific table
 class AppQualClusterTagsTable(
     tableMeta: QualOutputTableDefinition,
     override val rootDirectory: String,
@@ -285,6 +287,7 @@ class AppQualClusterTagsTable(
   }
 }
 
+// Generated only when ml-functions argument is passed
 class AppQualMLFunctionsTable(
     tableMeta: QualOutputTableDefinition,
     override val rootDirectory: String,
@@ -305,6 +308,7 @@ class AppQualMLFunctionsTable(
   }
 }
 
+// Generated only when ml-functions argument is passed
 class AppQualMLFunctionsDurationsTable(
     tableMeta: QualOutputTableDefinition,
     override val rootDirectory: String,

@@ -26,7 +26,7 @@ from spark_rapids_tools.api_v1 import AppHandler
 from spark_rapids_tools.api_v1.table_definition import TableDef
 from spark_rapids_tools.enums import ReportTableFormat
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath
-from spark_rapids_tools.utils.data_utils import LoadDFResult, DataUtils, JPropsResult, TXTResult
+from spark_rapids_tools.utils.data_utils import LoadDFResult, DataUtils, JPropsResult, TXTResult, JSONResult
 
 
 @dataclass
@@ -218,6 +218,15 @@ class ToolReportReader(object):
         """
         table_def = self._process_tbl_arg(tbl, ReportTableFormat.TXT)
         return DataUtils.load_txt(self._get_tbl_file(table_def))
+
+    def load_json(self, tbl: str) -> JSONResult:
+        """
+        Load a JSON file for a specific table in the report.
+        :param tbl: The label of the table to load.
+        :return: The loaded JSONResult result.
+        """
+        table_def = self._process_tbl_arg(tbl, ReportTableFormat.JSON)
+        return DataUtils.load_json(self._get_tbl_file(table_def))
 
     def apps_count(self) -> int:
         """
@@ -446,6 +455,39 @@ class PerAppToolReportReader(ToolReportReader):
         table_def = self._process_tbl_arg(tbl, ReportTableFormat.TXT)
         app_id = self._resolve_app_id(app_arg=app)
         return DataUtils.load_txt(self._get_app_tbl_file(table_def, app_id))
+
+    def load_apps_json(self,
+                       tbl: str,
+                       apps: Optional[List[Union[str, AppHandler]]] = None) -> Dict[str, JSONResult]:
+        """
+        Load a JSON file for a specific table in the report.
+        :param tbl: The label of the table to load.
+        :param apps: Optional list of application IDs or AppHandler objects.
+                     If not provided, all applications in the report will be used.
+        :return: A dictionary mapping application IDs to their corresponding JSONResult.
+        """
+        res: Dict[str, JSONResult] = {}
+        table_def = self._process_tbl_arg(tbl, ReportTableFormat.JSON)
+
+        app_ids = self._resolve_app_ids(app_args=apps)
+        for app_id in app_ids:
+            res[app_id] = DataUtils.load_json(self._get_app_tbl_file(table_def, app_id))
+        return res
+
+    def load_app_json(self,
+                      tbl: str,
+                      app: Optional[AppHandler] = None) -> JSONResult:
+        """
+        Load a JSON file for a specific table in the report.
+        :param tbl: The label of the table to load.
+        :param app: Optional application ID or AppHandler object.
+                     If not provided, all applications in the report will be used.
+        :raises ValueError: If the application is not found in the report.
+        :return: The loaded JSONResult result for the specified application and table.
+        """
+        table_def = self._process_tbl_arg(tbl, ReportTableFormat.JSON)
+        app_id = self._resolve_app_id(app_arg=app)
+        return DataUtils.load_json(self._get_app_tbl_file(table_def, app_id))
 
 #########################
 # Type Definitions
