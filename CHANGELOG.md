@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v25.10.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.3)
+Generated on 2025-10-28
+### Autotuner
+
+- AutoTuner: Recommend dynamic allocation properties using CPU-GPU cores ratio and align executor instances ([#1955](https://github.com/NVIDIA/spark-rapids-tools/pull/1955))
+
+### User Tools
+
+- Expose JSON files via the ToolsAPI output ([#1968](https://github.com/NVIDIA/spark-rapids-tools/pull/1968))
+- Expose Qualification AutoTuner Output via ToolsAPI + structure update ([#1965](https://github.com/NVIDIA/spark-rapids-tools/pull/1965))
+
+
+<br/>
+
 ## Release [v25.10.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.2)
 Generated on 2025-10-14
 - no changes
