@@ -30,7 +30,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor3
 
 import org.apache.spark.sql.TrampolineUtil
-import org.apache.spark.sql.rapids.tool.RecommendedClusterInfo
+import org.apache.spark.sql.rapids.tool.{MatchingInstanceTypeNotFoundException, RecommendedClusterInfo}
 import org.apache.spark.sql.rapids.tool.util.FSUtils
 
 /**
@@ -2105,10 +2105,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
-    // This test verifies that CSP platforms (like dataproc) can now accept OnPrem-style
-    // target cluster specifications (cpuCores/memoryGB/GPU) instead of just instanceType.
-    // Previously, this would fail with:
-    // "Target cluster worker info does not match platform expectations"
+    // Verify that CSP platforms can accept OnPrem-style target cluster specifications
+    // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
     TrampolineUtil.withTempDir { tempDir =>
       val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
@@ -2126,12 +2124,38 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         tempDir.getAbsolutePath,
         qualLogDir))
 
-      // The main validation is that this does not throw an exception
+      // Qualification should run with success status
       val result = QualificationMain.mainInternal(appArgs)
-      assert(!result.isFailed)
+      val appStatus = result.appStatus.head
+      // Using hardcoded string since we do not have an enum for app statuses
+      assert(appStatus.status == "SUCCESS")
+    }
+  }
 
-      // Verify we got app summaries
-      assert(result.appSummaries.nonEmpty)
+  test("test CSP platform with invalid instance type results in failure") {
+    // Verify that providing an invalid instance type on a CSP platform results in a failure.
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        workerNodeInstanceType = Some("invalid-instance-type-99"),
+        gpuCount = Some(1))
+
+      val appArgs = new QualificationArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        qualLogDir))
+
+      // Qualification should fail with failure status
+      val result = QualificationMain.mainInternal(appArgs)
+      val appStatus = result.appStatus.head
+      // Using hardcoded string since we do not have an enum for app statuses
+      assert(appStatus.status == "FAILURE")
+      assert(appStatus.message.contains(
+        classOf[MatchingInstanceTypeNotFoundException].getSimpleName))
     }
   }
 }

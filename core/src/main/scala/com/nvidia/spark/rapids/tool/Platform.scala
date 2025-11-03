@@ -279,49 +279,50 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   */
   protected def getRecommendedInstanceInfoFromTargetWorker(
       workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
-    workerInfoOpt.flatMap { workerInfo =>
-      // Try CSP-style first (instanceType)
-      workerInfo.getNodeInstanceMapKey match {
-        case Some(nodeInstanceMapKey) =>
-          getInstanceMapByName.get(nodeInstanceMapKey).orElse {
-            val errorMsg =
-              s"""
-                 |Could not find matching instance type in resources map.
-                 |Requested: $nodeInstanceMapKey
-                 |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
-                 |
-                 |Next Steps:
-                 |Update the target cluster YAML with a valid instance type and GPU count, or skip
-                 |it to use default: ${defaultRecommendedWorkerNode.getOrElse("None")}
-                 |""".stripMargin.trim
-            throw new MatchingInstanceTypeNotFoundException(errorMsg)
-          }
-        case None =>
-          // Try OnPrem-style (cpuCores/memoryGB/GPU)
-          if (workerInfo.isOnpremInfo) {
-            workerInfo.getGpu.device.map { gpuDevice =>
-              InstanceInfo.createDefaultInstance(
-                cores = workerInfo.cpuCores,
-                memoryMB = workerInfo.memoryGB * 1024L,
-                numGpus = workerInfo.getGpu.count,
-                gpuDevice = gpuDevice)
-            }
-          } else {
-            // Neither instanceType nor OnPrem-style provided, use default
-            val defaultInstanceInfo =
-              defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
-            logInfo("Worker info is not provided in the target cluster. " +
-              s"Using default instance type: $defaultInstanceInfo")
-            defaultInstanceInfo
-          }
-      }
-    }.orElse {
-      // No workerInfo provided, use default
-      val defaultInstanceInfo =
-        defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
+    // Helper function to get default instance info
+    def getDefaultInstance: Option[InstanceInfo] = {
+      val defaultInstanceInfo = defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
       logInfo("Worker info is not provided in the target cluster. " +
         s"Using default instance type: $defaultInstanceInfo")
       defaultInstanceInfo
+    }
+
+    workerInfoOpt match {
+      case Some(workerInfo) =>
+        // Try CSP-style first (instanceType)
+        workerInfo.getNodeInstanceMapKey match {
+          case Some(nodeInstanceMapKey) =>
+            getInstanceMapByName.get(nodeInstanceMapKey).orElse {
+              val errorMsg =
+                s"""
+                   |Could not find matching instance type in resources map.
+                   |Requested: $nodeInstanceMapKey
+                   |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
+                   |
+                   |Next Steps:
+                   |Update the target cluster YAML with a valid instance type and GPU count, or skip
+                   |it to use default: ${defaultRecommendedWorkerNode.getOrElse("None")}
+                   |""".stripMargin.trim
+              throw new MatchingInstanceTypeNotFoundException(errorMsg)
+            }
+          case None =>
+            // Try OnPrem-style (cpuCores/memoryGB/GPU)
+            if (workerInfo.isOnpremInfo) {
+              workerInfo.getGpu.device.map { gpuDevice =>
+                InstanceInfo.createDefaultInstance(
+                  cores = workerInfo.cpuCores,
+                  memoryMB = workerInfo.memoryGB * 1024L,
+                  numGpus = workerInfo.getGpu.count,
+                  gpuDevice = gpuDevice)
+              }
+            } else {
+              // Neither instanceType nor OnPrem-style provided, use default
+              getDefaultInstance
+            }
+        }
+      case None =>
+        // No workerInfo provided, use default
+        getDefaultInstance
     }
   }
 

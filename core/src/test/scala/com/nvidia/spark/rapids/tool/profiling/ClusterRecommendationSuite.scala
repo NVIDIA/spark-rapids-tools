@@ -494,10 +494,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
-    // This test verifies that CSP platforms (like dataproc) can now accept OnPrem-style
-    // target cluster specifications (cpuCores/memoryGB/GPU) instead of just instanceType.
-    // Previously, this would fail with:
-    // "Target cluster worker info does not match platform expectations"
+    // Verify that CSP platforms can accept OnPrem-style target cluster specifications
+    // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
     val expectedClusterInfo = RecommendedClusterInfo(
       vendor = PlatformNames.DATAPROC,
       coresPerExecutor = 16,
