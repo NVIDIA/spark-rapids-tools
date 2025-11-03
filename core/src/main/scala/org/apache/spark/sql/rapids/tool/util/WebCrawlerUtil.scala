@@ -34,7 +34,7 @@ import org.apache.spark.internal.Logging
  */
 object WebCrawlerUtil extends Logging {
   private val MAX_CRAWLER_DEPTH = 1
-  private val NV_MVN_BASE_URL = "https://edge.urm.nvidia.com/artifactory/sw-spark-maven/com/nvidia"
+  private val NV_MVN_BASE_URL = "https://repo1.maven.org/maven2/com/nvidia"
   // defines the artifacts of the RAPIDS libraries
   private val NV_ARTIFACTS_LOOKUP = Map(
     "rapids.plugin" -> "rapids-4-spark_2.12",
