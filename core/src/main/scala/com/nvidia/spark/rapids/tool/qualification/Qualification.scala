@@ -207,7 +207,8 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
       case e: Exception =>
         progressBar.foreach(_.reportFailedProcess())
         val failureAppResult = FailureAppResult(pathStr,
-          s"Unexpected exception processing log, skipping!")
+          s"Unexpected exception processing log, skipping!. " +
+            s"${e.getClass.getSimpleName}: ${e.getMessage}")
         failureAppResult.logMessage(Some(e))
         appStatusReporter.put(pathStr, failureAppResult)
     }

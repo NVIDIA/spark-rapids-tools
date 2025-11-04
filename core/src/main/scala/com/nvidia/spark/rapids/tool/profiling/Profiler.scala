@@ -161,7 +161,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       case NonFatal(e) =>
         progressBar.foreach(_.reportFailedProcess())
         val failureAppResult = FailureAppResult(pathStr,
-          s"Unexpected exception processing log, skipping!")
+          s"Unexpected exception processing log, skipping!. " +
+            s"${e.getClass.getSimpleName}: ${e.getMessage}")
         failureAppResult.logMessage(Some(new Exception(e.getMessage, e)))
         appStatusReporter.put(pathStr, failureAppResult)
       case oom: OutOfMemoryError =>

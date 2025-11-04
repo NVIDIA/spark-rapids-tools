@@ -256,12 +256,6 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def defaultGpuDevice: GpuDevice = T4Gpu
   def defaultNumGpus: Int = 1
 
-  require(targetCluster.isEmpty || targetCluster.exists(_.getWorkerInfo.isEmpty) ||
-    targetCluster.exists(_.getWorkerInfo.isCspInfo == isPlatformCSP),
-    s"Target cluster worker info does not match platform expectations. " +
-      s"Ensure it is defined consistently with the platform."
-  )
-
   /**
    * Fraction of the system's total memory that is available for executor use.
    * This value should be set based on the platform to account for memory
@@ -272,39 +266,63 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   val sparkVersionLabel: String = "Spark version"
 
   /**
-  * Returns the recommended instance info based on the provided WorkerInfo for CSPs.
+  * Returns the recommended instance info based on the provided WorkerInfo.
   * See [[OnPremPlatform.getRecommendedInstanceInfoFromTargetWorker]] for OnPrem.
   *
-  * Behavior:
+  * Behavior for CSP platforms:
   * - If a specific instance type is provided and found in the platform's instance map,
   *   returns the corresponding InstanceInfo.
   * - If the specified instance type is not found, throws a MatchingInstanceTypeNotFoundException.
-  * - If no instance type is specified or workerInfo is absent, falls back to the platform's
+  * - If no instance type is specified, tries to use OnPrem-style specs (cpuCores/memoryGB/GPU).
+  * - If neither instanceType nor OnPrem-style specs are provided, falls back to the platform's
   *   default recommended instance type.
   */
   protected def getRecommendedInstanceInfoFromTargetWorker(
       workerInfoOpt: Option[WorkerInfo]): Option[InstanceInfo] = {
-    workerInfoOpt.flatMap(_.getNodeInstanceMapKey) match {
-      case Some(nodeInstanceMapKey) =>
-        getInstanceMapByName.get(nodeInstanceMapKey).orElse {
-          val errorMsg =
-            s"""
-               |Could not find matching instance type in resources map.
-               |Requested: $nodeInstanceMapKey
-               |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
-               |
-               |Next Steps:
-               |Update the target cluster YAML with a valid instance type and GPU count, or skip
-               |it to use default: ${defaultRecommendedWorkerNode.getOrElse("None")}
-               |""".stripMargin.trim
-          throw new MatchingInstanceTypeNotFoundException(errorMsg)
+    // Helper function to get default instance info
+    def getDefaultInstance: Option[InstanceInfo] = {
+      val defaultInstanceInfo = defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
+      logInfo("Worker info is not provided in the target cluster. " +
+        s"Using default instance type: $defaultInstanceInfo")
+      defaultInstanceInfo
+    }
+
+    workerInfoOpt match {
+      case Some(workerInfo) =>
+        // Try CSP-style first (instanceType)
+        workerInfo.getNodeInstanceMapKey match {
+          case Some(nodeInstanceMapKey) =>
+            getInstanceMapByName.get(nodeInstanceMapKey).orElse {
+              val errorMsg =
+                s"""
+                   |Could not find matching instance type in resources map.
+                   |Requested: $nodeInstanceMapKey
+                   |Supported: ${getInstanceMapByName.keys.toSeq.sorted.mkString(", ")}
+                   |
+                   |Next Steps:
+                   |Update the target cluster YAML with a valid instance type and GPU count, or skip
+                   |it to use default: ${defaultRecommendedWorkerNode.getOrElse("None")}
+                   |""".stripMargin.trim
+              throw new MatchingInstanceTypeNotFoundException(errorMsg)
+            }
+          case None =>
+            // Try OnPrem-style (cpuCores/memoryGB/GPU)
+            if (workerInfo.isOnpremInfo) {
+              workerInfo.getGpu.device.map { gpuDevice =>
+                InstanceInfo.createDefaultInstance(
+                  cores = workerInfo.cpuCores,
+                  memoryMB = workerInfo.memoryGB * 1024L,
+                  numGpus = workerInfo.getGpu.count,
+                  gpuDevice = gpuDevice)
+              }
+            } else {
+              // Neither instanceType nor OnPrem-style provided, use default
+              getDefaultInstance
+            }
         }
       case None =>
-        val defaultInstanceInfo =
-          defaultRecommendedWorkerNode.flatMap(getInstanceMapByName.get)
-        logInfo("Instance type is not provided in the target cluster. " +
-          s"Using default instance type: $defaultInstanceInfo")
-        defaultInstanceInfo
+        // No workerInfo provided, use default
+        getDefaultInstance
     }
   }
 
