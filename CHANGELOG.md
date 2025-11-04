@@ -1,6 +1,11 @@
 
 <br/>
 
+## Release [v25.10.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.4)
+Generated on 2025-11-04
+- no changes
+<br/>
+
 ## Release [v25.10.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.3)
 Generated on 2025-10-28
 ### Autotuner
