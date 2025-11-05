@@ -20,7 +20,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.nvidia</groupId>
-    <artifactId>rapids-4-spark-tools_${scala.binary.version}</artifactId>
+    <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
     <version>25.10.5-SNAPSHOT</version>
@@ -563,6 +563,23 @@
                             <addJavacArgs>${scala.javac.args}</addJavacArgs>
                         </configuration>
                     </plugin>
+                    <!-- Override artifactId for Scala 2.13 when installing/deploying to Maven repositories -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-install-plugin</artifactId>
+                        <version>${maven.install.plugin.version}</version>
+                        <configuration>
+                            <artifactId>rapids-4-spark-tools_2.13</artifactId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-deploy-plugin</artifactId>
+                        <version>${maven.deploy.plugin.version}</version>
+                        <configuration>
+                            <artifactId>rapids-4-spark-tools_2.13</artifactId>
+                        </configuration>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
@@ -612,7 +629,9 @@
         <spark.version.classifier>spark${buildver}</spark.version.classifier>
         <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
-        <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
+        <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+        <maven.install.plugin.version>3.0.1</maven.install.plugin.version>
+        <maven.deploy.plugin.version>3.0.0</maven.deploy.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
@@ -792,6 +811,7 @@
     </dependencies>
 
     <build>
+        <finalName>rapids-4-spark-tools_${scala.binary.version}-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>
@@ -807,6 +827,15 @@
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <propertiesEncoding>${project.build.sourceEncoding}</propertiesEncoding>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
@@ -900,6 +929,7 @@
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <finalName>rapids-4-spark-tools_${scala.binary.version}-${project.version}</finalName>
                         </configuration>
                     </execution>
                 </executions>
