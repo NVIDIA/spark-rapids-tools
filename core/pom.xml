@@ -563,23 +563,6 @@
                             <addJavacArgs>${scala.javac.args}</addJavacArgs>
                         </configuration>
                     </plugin>
-                    <!-- Override artifactId for Scala 2.13 when installing/deploying to Maven repositories -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-install-plugin</artifactId>
-                        <version>${maven.install.plugin.version}</version>
-                        <configuration>
-                            <artifactId>rapids-4-spark-tools_2.13</artifactId>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-deploy-plugin</artifactId>
-                        <version>${maven.deploy.plugin.version}</version>
-                        <configuration>
-                            <artifactId>rapids-4-spark-tools_2.13</artifactId>
-                        </configuration>
-                    </plugin>
                 </plugins>
             </build>
         </profile>
@@ -630,8 +613,7 @@
         <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
         <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
-        <maven.install.plugin.version>3.0.1</maven.install.plugin.version>
-        <maven.deploy.plugin.version>3.0.0</maven.deploy.plugin.version>
+        <flatten.maven.plugin.version>1.6.0</flatten.maven.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
@@ -858,6 +840,34 @@
                         <id>test</id>
                         <goals>
                             <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten.maven.plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <pomElements>
+                        <artifactId>resolve</artifactId>
+                    </pomElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
                         </goals>
                     </execution>
                 </executions>
