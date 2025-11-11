@@ -47,21 +47,41 @@ class ToolUtilsSuite extends AnyFunSuite with Logging {
     val allLinks = WebCrawlerUtil.getPageLinks(webURL, None)
 
     val expected = Set[String](
+      s"$mvnPrefix.pom.asc.sha1",
+      s"$mvnPrefix-javadoc.jar.asc.sha1",
       s"${ToolTestUtils.RAPIDS_MVN_BASE_URL}",
-      s"$mvnPrefix-cuda12-arm64.jar",
-      s"$mvnPrefix-cuda12-arm64.jar.asc",
-      s"$mvnPrefix-cuda12.jar",
-      s"$mvnPrefix-cuda12.jar.asc",
-      s"$mvnPrefix-javadoc.jar",
-      s"$mvnPrefix-javadoc.jar.asc",
-      s"$mvnPrefix-sources.jar",
-      s"$mvnPrefix-sources.jar.asc",
-      s"$mvnPrefix.jar",
-      s"$mvnPrefix.jar.asc",
+      s"$mvnPrefix-sources.jar.md5",
+      s"$mvnPrefix-cuda12.jar.md5",
       s"$mvnPrefix.pom.asc",
-      s"$mvnPrefix.pom")
+      s"$mvnPrefix-sources.jar.asc.sha1",
+      s"$mvnPrefix-sources.jar",
+      s"$mvnPrefix.jar.asc",
+      s"$mvnPrefix.pom.asc.md5",
+      s"$mvnPrefix.jar.sha1",
+      s"$mvnPrefix.jar.md5",
+      s"$mvnPrefix-cuda12.jar",
+      s"$mvnPrefix.pom",
+      s"$mvnPrefix-sources.jar.asc",
+      s"$mvnPrefix-cuda12.jar.asc.sha1",
+      s"$mvnPrefix.pom.md5",
+      s"$mvnPrefix-sources.jar.asc.md5",
+      s"$mvnPrefix.pom.sha1",
+      s"$mvnPrefix-javadoc.jar.asc",
+      s"$mvnPrefix-cuda12.jar.sha1",
+      s"$mvnPrefix-javadoc.jar",
+      s"$mvnPrefix-javadoc.jar.asc.md5",
+      s"$mvnPrefix.jar",
+      s"$mvnPrefix-cuda12.jar.asc.md5",
+      s"$mvnPrefix-javadoc.jar.md5",
+      s"$mvnPrefix-javadoc.jar.sha1",
+      s"$mvnPrefix-sources.jar.sha1",
+      s"$mvnPrefix.jar.asc.sha1",
+      s"$mvnPrefix.jar.asc.md5",
+      s"$mvnPrefix-cuda12.jar.asc"
+    )
+
     // all links should be matching
-    allLinks shouldBe expected
+    allLinks should contain theSameElementsAs expected
   }
 
   // checks that regex is used correctly to filter the href pulled from a given url
@@ -73,14 +93,13 @@ class ToolUtilsSuite extends AnyFunSuite with Logging {
     val jarFileRegEx = ".*\\.jar$"
     val allLinks = WebCrawlerUtil.getPageLinks(webURL, Some(jarFileRegEx))
     val expected = Set[String](
-      s"$mvnPrefix-cuda12-arm64.jar",
       s"$mvnPrefix-cuda12.jar",
       s"$mvnPrefix-javadoc.jar",
       s"$mvnPrefix-sources.jar",
       s"$mvnPrefix.jar"
     )
     // all links should end with jar files
-    allLinks shouldBe expected
+    allLinks should contain theSameElementsAs expected
   }
 
   //
@@ -105,7 +124,7 @@ class ToolUtilsSuite extends AnyFunSuite with Logging {
       case None => fail("Could not find pull the latest release successfully")
     }
     // get all the links on the page
-    val mavenMetaXml = XML.load(s"$baseURL/maven-metadata.xml")
+    val mavenMetaXml = XML.load(s"${baseURL}maven-metadata.xml")
     val allVersions = (mavenMetaXml \\ "metadata" \ "versioning" \ "versions" \ "version").toList
     // get the latest release from the mvn url
     val actualRelease = allVersions.last.text

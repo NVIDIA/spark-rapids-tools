@@ -492,4 +492,51 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       compareOutput(expectedResults, actualResults)
     }
   }
+
+  test("test CSP platform with OnPrem-style target cluster specs") {
+    // Verify that CSP platforms can accept OnPrem-style target cluster specifications
+    // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
+    val expectedClusterInfo = RecommendedClusterInfo(
+      vendor = PlatformNames.DATAPROC,
+      coresPerExecutor = 16,
+      numWorkerNodes = 8,
+      numGpusPerNode = 1,
+      numExecutors = 8,
+      gpuDevice = GpuTypes.L4,
+      dynamicAllocationEnabled = false,
+      dynamicAllocationMaxExecutors = "N/A",
+      dynamicAllocationMinExecutors = "N/A",
+      dynamicAllocationInitialExecutors = "N/A",
+      workerNodeType = Some("N/A"))
+
+    TrampolineUtil.withTempDir { tempDir =>
+      val targetClusterInfoFile = ToolTestUtils.createTargetClusterInfoFile(
+        tempDir.getAbsolutePath,
+        cpuCores = Some(16),
+        memoryGB = Some(64L),
+        gpuCount = Some(1),
+        gpuDevice = Some(GpuTypes.L4))
+
+      val appArgs = new ProfileArgs(Array(
+        "--platform",
+        PlatformNames.DATAPROC,
+        "--target-cluster-info",
+        targetClusterInfoFile.toString,
+        "--output-directory",
+        tempDir.getAbsolutePath,
+        "--csv",
+        "--auto-tuner",
+        s"$profilingLogDir/nds_q66_gpu.zstd"))
+
+      val (exit, _) = ProfileMain.mainInternal(appArgs)
+      assert(exit == 0)
+
+      val tempSubDir = new File(tempDir, s"${Profiler.SUBDIR}/application_1701368813061_0008")
+      val fileName = CLUSTER_INFORMATION_LABEL.replace(" ", "_").toLowerCase
+      val actualClusterInfoFile = Paths.get(
+        s"${tempSubDir.getAbsolutePath}", s"$fileName.json"
+      ).toFile
+      assertRecommendedClusterInfo(actualClusterInfoFile, expectedClusterInfo)
+    }
+  }
 }

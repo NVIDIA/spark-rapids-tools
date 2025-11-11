@@ -38,7 +38,7 @@ import org.apache.spark.sql.types._
 
 object ToolTestUtils extends Logging {
   val RAPIDS_MVN_BASE_URL =
-    "https://edge.urm.nvidia.com/artifactory/sw-spark-maven/com/nvidia/rapids-4-spark_2.12/"
+    "https://repo1.maven.org/maven2/com/nvidia/rapids-4-spark_2.12/"
 
   // Scheme fields for Status Report file
   private val csvStatusFields = Seq(
