@@ -1,6 +1,19 @@
 
 <br/>
 
+## Release [v25.10.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.5)
+Generated on 2025-11-11
+### Autotuner
+
+- Support OnPrem Target Cluster File Format for CSPs ([#1972](https://github.com/NVIDIA/spark-rapids-tools/pull/1972))
+
+### Bug Fixes
+
+- Set the plugin jars back to point to maven-central ([#1975](https://github.com/NVIDIA/spark-rapids-tools/pull/1975))
+
+
+<br/>
+
 ## Release [v25.10.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.4)
 Generated on 2025-11-04
 - no changes
