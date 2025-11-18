@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.10.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.6)
+Generated on 2025-11-18
+### Build and CI/CD
+
+- Use constant artifactId in pom to comply with mvn recommendations ([#1977](https://github.com/NVIDIA/spark-rapids-tools/pull/1977))
+
+
+<br/>
+
 ## Release [v25.10.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.5)
 Generated on 2025-11-11
 ### Autotuner
