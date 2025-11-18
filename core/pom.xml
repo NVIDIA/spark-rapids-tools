@@ -20,10 +20,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.nvidia</groupId>
-    <artifactId>rapids-4-spark-tools_${scala.binary.version}</artifactId>
+    <artifactId>rapids-4-spark-tools_2.12</artifactId>
     <name>RAPIDS Accelerator for Apache Spark tools</name>
     <description>RAPIDS Accelerator for Apache Spark tools</description>
-    <version>25.10.5</version>
+    <version>25.10.6-SNAPSHOT</version>
     <packaging>jar</packaging>
     <url>http://github.com/NVIDIA/spark-rapids-tools</url>
 
@@ -612,7 +612,8 @@
         <spark.version.classifier>spark${buildver}</spark.version.classifier>
         <target.classifier>${spark.version.classifier}</target.classifier>
         <maven.jar.plugin.version>3.2.0</maven.jar.plugin.version>
-        <maven.source.plugin.version>3.0.0</maven.source.plugin.version>
+        <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
+        <flatten.maven.plugin.version>1.6.0</flatten.maven.plugin.version>
         <maven.artifact.version>3.9.0</maven.artifact.version>
         <scala.javac.args>-Xlint:all,-serial,-path,-try</scala.javac.args>
         <rapids.shade.package>com.nvidia.shaded.spark</rapids.shade.package>
@@ -792,6 +793,7 @@
     </dependencies>
 
     <build>
+        <finalName>rapids-4-spark-tools_${scala.binary.version}-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>
@@ -807,6 +809,15 @@
             </resource>
         </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <version>3.3.1</version>
+                <configuration>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <propertiesEncoding>${project.build.sourceEncoding}</propertiesEncoding>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
@@ -829,6 +840,34 @@
                         <id>test</id>
                         <goals>
                             <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+                <version>${flatten.maven.plugin.version}</version>
+                <configuration>
+                    <updatePomFile>true</updatePomFile>
+                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <pomElements>
+                        <artifactId>resolve</artifactId>
+                    </pomElements>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>flatten</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>flatten</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>flatten.clean</id>
+                        <phase>clean</phase>
+                        <goals>
+                            <goal>clean</goal>
                         </goals>
                     </execution>
                 </executions>
@@ -900,6 +939,7 @@
                                 </transformer>
                             </transformers>
                             <createDependencyReducedPom>true</createDependencyReducedPom>
+                            <finalName>rapids-4-spark-tools_${scala.binary.version}-${project.version}</finalName>
                         </configuration>
                     </execution>
                 </executions>
