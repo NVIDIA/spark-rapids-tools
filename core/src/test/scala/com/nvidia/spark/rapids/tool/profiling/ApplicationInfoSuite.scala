@@ -355,7 +355,8 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
       val allFormats = dsRes.map { r =>
         r.format
       }.toSet
-      val expectedFormats = Set("Text", "CSV(GPU)", "Parquet(GPU)", "ORC(GPU)", "JSON(GPU)")
+      // The RAPIDS plugin reports supported GPU scans as "gpu*"
+      val expectedFormats = Set("Text", "gpuCSV", "gpuParquet", "gpuORC", "gpuJSON")
       assert(allFormats.equals(expectedFormats))
       val allSchema = dsRes.map { r =>
         r.schema
@@ -392,8 +393,9 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
       val allFormats = dsRes.map { r =>
         r.format
       }.toSet
+      // The RAPIDS plugin reports supported GPU scans as "gpu*"
       val expectedFormats =
-        Set("Text", "gpucsv(GPU)", "gpujson(GPU)", "gpuparquet(GPU)", "gpuorc(GPU)")
+        Set("Text", "gpucsv", "gpujson", "gpuparquet", "gpuorc")
       assert(allFormats.equals(expectedFormats))
       val allSchema = dsRes.map { r =>
         r.schema

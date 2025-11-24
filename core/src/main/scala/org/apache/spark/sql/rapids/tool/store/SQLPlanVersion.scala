@@ -16,11 +16,13 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import com.nvidia.spark.rapids.tool.planparser.{DataWritingCommandExecParser, ReadParser}
+import scala.collection.mutable
+
+import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, DataWritingCommandExecParser, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraph
+import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
 import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, ToolsPlanGraph}
 
@@ -35,6 +37,9 @@ import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, ToolsPlanGr
  *                SparkListenerSQLAdaptiveExecutionUpdate.
  * @param planInfo The instance of SparkPlanInfo for this version of the plan.
  * @param physicalPlanDescription The string representation of the physical plan for this version.
+ * @param appInst the application instance the sqlPlan belongs to. This is used to
+ *                extract some information and properties to help with parsing and operator
+ *                extraction. For example, if application is Iceberg, deltaLake, etc.
  * @param isFinal Flag to indicate if this plan is the final plan for the SQLPlan
  */
 class SQLPlanVersion(
@@ -42,31 +47,28 @@ class SQLPlanVersion(
     val version: Int,
     val planInfo: SparkPlanInfo,
     val physicalPlanDescription: String,
+    var appInst: AppBase,
     var isFinal: Boolean = true) {
 
+  // Cache the spark conf provider to check for App configurations when needed.
+  // This is set when the graph is built.
+  private val _sparkConfigProvider: Option[CacheablePropsHandler] = Some(appInst)
   // Used to cache the Spark graph for that plan to avoid creating a plan.
   // This graph can be used and then cleaned up at the end of the execution.
   // This has to be accessed through the getToolsPlanGraph() which synchronizes on this object to
   // avoid races between threads.
   private var _sparkGraph: Option[ToolsPlanGraph] = None
-  // Cache the spark conf provider to check for App configurations when needed.
-  // This is set when the graph is built.
-  private var _sparkConfigProvider: Option[CacheablePropsHandler] = None
 
   /**
    * Builds the ToolsPlanGraph for this plan version.
    * The graph is cached to avoid re-creating a sparkPlanGraph every time.
  *
    * @param accumStageMapper The AccumToStageRetriever used to find the stage for each accumulator.
-   * @param sparkConfProvider An object that provides access to the Spark configuration of the
-   *                            analyzed app.
    * @return the ToolsPlanGraph.
    */
   def buildSparkGraph(
-      accumStageMapper: AccumToStageRetriever,
-      sparkConfProvider: CacheablePropsHandler): ToolsPlanGraph = {
+      accumStageMapper: AccumToStageRetriever): ToolsPlanGraph = {
     this.synchronized {
-      _sparkConfigProvider = Some(sparkConfProvider)
       _sparkGraph = Some(ToolsPlanGraph.createGraphWithStageClusters(planInfo, accumStageMapper))
       _sparkGraph.get
     }
@@ -182,30 +184,41 @@ class SQLPlanVersion(
    * @return all the read datasources V1 recursively that are read by this plan including.
    */
   private def getReadDSV1(graph: SparkPlanGraph): Iterable[DataSourceRecord] = {
+    // Define a mutable set of scan nodes to avoid matching the same node multiple times.
+    val scanNodes =
+      mutable.LinkedHashSet[SparkPlanGraphNode]().++(graph.allNodes.filter(ReadParser.isScanNode))
     getPlansWithSchema.flatMap { plan =>
       val meta = plan.metadata
       // TODO: Improve the extraction of ReaSchema using RegEx (ReadSchema):\s(.*?)(\.\.\.|,\s|$)
       val readSchema =
         ReadParser.formatSchemaStr(meta.getOrElse(ReadParser.METAFIELD_TAG_READ_SCHEMA, ""))
-      val scanNodes = graph.allNodes.filter(ReadParser.isScanNode).filter(node => {
+      scanNodes.find { node =>
+        // TODO: we should find a different way to match the PlanInfo to the GraphNode because
+        //       there are some cases where the schema is empty. i.e, schema: struct<>, which
+        //       implies that an empty string matches on everything.
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
-        readSchema.contains(trimmedNode)
-      })
-      if (scanNodes.nonEmpty) {
-        Some(DataSourceRecord(
-          sqlId,
-          version,
-          scanNodes.head.id,
-          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_FORMAT, meta),
-          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_LOCATION, meta),
-          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PUSHED_FILTERS, meta),
-          readSchema,
-          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_DATA_FILTERS, meta),
-          ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PARTITION_FILTERS, meta),
-          fromFinalPlan = isFinal))
-      } else {
-        None
+        if (readSchema.isEmpty && trimmedNode.isEmpty) {
+          true
+        } else {
+          readSchema.contains(trimmedNode)
+        }
+      } match {
+        case Some(matchingNode) =>
+          // remove the node from the set to avoid matching it again.
+          scanNodes.remove(matchingNode)
+          Some(DataSourceRecord(
+            sqlId,
+            version,
+            matchingNode.id,
+            ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_FORMAT, meta),
+            ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_LOCATION, meta),
+            ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PUSHED_FILTERS, meta),
+            readSchema,
+            ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_DATA_FILTERS, meta),
+            ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PARTITION_FILTERS, meta),
+            fromFinalPlan = isFinal))
+        case _ => None
       }
     }
   }
@@ -217,7 +230,11 @@ class SQLPlanVersion(
    */
   private def getReadDSV2(graph: SparkPlanGraph): Iterable[DataSourceRecord] = {
     graph.allNodes.filter(ReadParser.isDataSourceV2Node).map { node =>
-      val res = ReadParser.parseReadNode(node)
+      val res = if (BatchScanExecParser.accepts(node, _sparkConfigProvider)) {
+        BatchScanExecParser.extractReadMetaData(node, _sparkConfigProvider)
+      } else {
+        ReadParser.parseReadNode(node)
+      }
       DataSourceRecord(
         sqlId,
         version,
@@ -250,7 +267,11 @@ object SQLPlanVersion {
    * @return A list of SparkPlanInfo that have a schema attached to it.
    */
   private def getPlansWithSchemaRecursive(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    val childRes = planInfo.children.flatMap(getPlansWithSchemaRecursive)
+    // filter out ReusedSubquery nodes as they just point to other nodes. Otherwise, we may end up
+    // visiting the same node multiple times.
+    val childRes = planInfo.children
+        .filterNot(_.nodeName.startsWith("ReusedSubquery"))
+        .flatMap(getPlansWithSchemaRecursive)
     if (planInfo.metadata != null &&
       planInfo.metadata.contains(ReadParser.METAFIELD_TAG_READ_SCHEMA)) {
       childRes :+ planInfo

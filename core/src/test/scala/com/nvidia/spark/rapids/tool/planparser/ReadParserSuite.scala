@@ -22,13 +22,36 @@ import scala.collection.mutable.ArrayBuffer
 import com.nvidia.spark.rapids.BaseTestSuite
 import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
 
+import org.apache.spark.sql.execution.ui.{SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 // Tests the implementation of the ReadParser independently of end-2-end tests
 class ReadParserSuite extends BaseTestSuite {
   // Wrapper to hold the related test cases
   case class MetaFieldsTestCase(testDescription: String,
       nodeDescr: String, expectedMetafields: Map[String, String]) {
+  }
+
+  case class BatchScanTestCase(
+      testDescription: String,
+      nodeName: String,
+      nodeDescr: String,
+      expectedReadMetaData: ReadMetaData,
+      expectedPushedFilters: Option[String] = None) {
+    lazy val graphNode: SparkPlanGraphNode = ToolsPlanGraph.constructGraphNode(
+      1,
+      nodeName,
+      nodeDescr, Seq[SQLPlanMetric]())
+    lazy val actualReadMetaData: ReadMetaData = BatchScanExecParser.extractReadMetaData(graphNode)
+    def eval(): Unit = {
+      withClue(s"Test failed for: $testDescription\n") {
+        actualReadMetaData should be (expectedReadMetaData)
+        expectedPushedFilters.foreach { pf =>
+          actualReadMetaData.pushedFilters should be (pf)
+        }
+      }
+    }
   }
 
   test("Read Metadata fields from a graphNode (pushedFilters, dataFilters, partitionFilters)") {
@@ -56,7 +79,8 @@ class ReadParserSuite extends BaseTestSuite {
           ReadParser.METAFIELD_TAG_DATA_FILTERS ->
             "isnotnull(flag_00#1013L), (flag_00#1013L = 1)",
           ReadParser.METAFIELD_TAG_PARTITION_FILTERS ->
-            "isnotnull(date_00#1014), (date_00#1014 = 20240621)")),
+            "isnotnull(date_00#1014), (date_00#1014 = 20240621)",
+          ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ReadParser.UNKNOWN_METAFIELD)),
       MetaFieldsTestCase(
         "All the 3 MetaFields are present -- terminated by closing bracket -- Order is different",
         nodeDescrPrologue + """ Batched: true,
@@ -74,7 +98,8 @@ class ReadParserSuite extends BaseTestSuite {
           ReadParser.METAFIELD_TAG_DATA_FILTERS ->
             "isnotnull(flag_00#1013L), (flag_00#1013L = 1)",
           ReadParser.METAFIELD_TAG_PARTITION_FILTERS ->
-            "isnotnull(date_00#1014), (date_00#1014 = 20240621)")),
+            "isnotnull(date_00#1014), (date_00#1014 = 20240621)",
+          ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ReadParser.UNKNOWN_METAFIELD)),
       MetaFieldsTestCase(
         "Only 1 MetaField is present -- terminated by closing bracket",
         nodeDescrPrologue + """ Batched: true,
@@ -88,7 +113,8 @@ class ReadParserSuite extends BaseTestSuite {
           ReadParser.METAFIELD_TAG_PUSHED_FILTERS ->
             "IsNotNull(flag_00), EqualTo(flag_00,1)",
           ReadParser.METAFIELD_TAG_DATA_FILTERS -> ReadParser.UNKNOWN_METAFIELD,
-          ReadParser.METAFIELD_TAG_PARTITION_FILTERS -> ReadParser.UNKNOWN_METAFIELD)),
+          ReadParser.METAFIELD_TAG_PARTITION_FILTERS -> ReadParser.UNKNOWN_METAFIELD,
+          ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ReadParser.UNKNOWN_METAFIELD)),
       MetaFieldsTestCase(
         "Metafields might be truncated (not terminated by closing bracket)",
         nodeDescrPrologue + """ Batched: true,
@@ -106,7 +132,8 @@ class ReadParserSuite extends BaseTestSuite {
           ReadParser.METAFIELD_TAG_DATA_FILTERS ->
             "isnotnull(flag_00#1013L), (flag_00#1013L = 1)...",
           ReadParser.METAFIELD_TAG_PARTITION_FILTERS ->
-            "isnotnull(date_00#1014), (date_00#1014 = 20240621)...")),
+            "isnotnull(date_00#1014), (date_00#1014 = 20240621)...",
+          ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ReadParser.UNKNOWN_METAFIELD)),
       MetaFieldsTestCase(
         "Metafields might be empty",
         nodeDescrPrologue + """ Batched: true,
@@ -123,7 +150,8 @@ class ReadParserSuite extends BaseTestSuite {
             "IsNotNull(flag_00), EqualTo(flag_00,1),...",
           ReadParser.METAFIELD_TAG_DATA_FILTERS -> "",
           ReadParser.METAFIELD_TAG_PARTITION_FILTERS ->
-            "isnotnull(date_00#1014), (date_00#1014 = 20240621)..."))
+            "isnotnull(date_00#1014), (date_00#1014 = 20240621)...",
+          ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ReadParser.UNKNOWN_METAFIELD))
     )
     for (scenario <- allTestScenarios) {
       try {
@@ -132,6 +160,46 @@ class ReadParserSuite extends BaseTestSuite {
         case e: Exception =>
           fail(s"Failed for scenario: ${scenario.testDescription}", e)
       }
+    }
+  }
+
+  test("BatchScan Parsing") {
+    // Tests the extraction of BatchScan read metadata from a graphNode.
+    val batchScanCases = Seq(
+      BatchScanTestCase(
+        // test that RuntimeFilters is not appended to the schema fields.
+        "BatchScan from file has correct parsing of readSchema",
+        "BatchScan csv file:/path/to/file.txt",
+        """BatchScan csv
+          | file:/path/to/file.txt
+          |[f_00#16038L, f_01#16039, f_02#16040, f_03#16041, f_04#16042,
+          | f_05#16043, f_06#16044, f_07#16045, f_08#16046, f_09#16047, f_10#16048, f_11#16049,
+          | f_12#16050, first_home_buyer#16051, f_13#16052, f_14#16053, f_15#16054, f_16#16055,
+          | f_17#16056, f_18#16057, f_19#16058, f_20#16059, f_21#16060, f_22#16061, f_23#16062]
+          | CSVScan
+          | DataFilters: [],
+          | Format: csv,
+          | Location: InMemoryFileIndex(1 paths)[file:/path/to/f...,
+          | PartitionFilters: [],
+          | PushedFilters: [],
+          | ReadSchema: struct<f_00:bigint,f_01:string,f_02:string,f_03:double,f_04:i...
+          | RuntimeFilters: []""".stripMargin.replaceAll("\n", ""),
+        expectedReadMetaData = ReadMetaData(
+          schema = "f_00:bigint,f_01:string,f_02:string,f_03:double,f_04:i...",
+          location = "file:/path/to/file.txt",
+          format = "csv",
+          tags = Map(
+            ReadParser.METAFIELD_TAG_DATA_FILTERS -> "",
+            ReadParser.METAFIELD_TAG_PUSHED_FILTERS -> "",
+            ReadParser.METAFIELD_TAG_PARTITION_FILTERS -> "",
+            ReadParser.METAFIELD_TAG_RUNTIME_FILTERS -> ""
+          )
+        ),
+        expectedPushedFilters = Some("filters=[],runtimeFilters=[]"
+      ))
+    )
+    batchScanCases.foreach { batchCase =>
+      batchCase.eval()
     }
   }
 
