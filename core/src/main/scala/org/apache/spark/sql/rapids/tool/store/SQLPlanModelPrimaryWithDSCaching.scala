@@ -17,13 +17,19 @@
 package org.apache.spark.sql.rapids.tool.store
 
 import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.AppBase
 
 /**
  * An extension of SQLPlanModelWithDSCaching to also cache the
  * primary plan version along with the DataSourceRecords from previous plan.
+ *
  * @param sqlId the executionID of the sqlPlan.
+ * @param appInst the application instance the sqlPlan belongs to. This is used to
+ *                extract some information and properties to help with parsing and operator
+ *                extraction. For example, if application is Iceberg, deltaLake, etc.
  */
-class SQLPlanModelPrimaryWithDSCaching(sqlId: Long) extends SQLPlanModelWithDSCaching(sqlId) {
+class SQLPlanModelPrimaryWithDSCaching(
+    sqlId: Long, appInst: AppBase) extends SQLPlanModelWithDSCaching(sqlId, appInst) {
 
   private var cachedPrimaryPlanVersion: SQLPlanVersion = _
 

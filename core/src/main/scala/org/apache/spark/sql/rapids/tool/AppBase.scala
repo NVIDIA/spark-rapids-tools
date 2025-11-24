@@ -19,12 +19,12 @@ package org.apache.spark.sql.rapids.tool
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
 
-import scala.collection.immutable
+import scala.collection.{immutable, mutable}
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, Map}
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
-import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, HiveParseHelper, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
@@ -104,7 +104,7 @@ abstract class AppBase(
   val jobIdToInfo = new HashMap[Int, JobInfoClass]()
   val jobIdToSqlID: HashMap[Int, Long] = HashMap.empty[Int, Long]
 
-  lazy val sqlManager = new SQLPlanModelManager()
+  lazy val sqlManager = new SQLPlanModelManager(this)
 
   // SQL containing any Dataset operation or RDD to DataSet/DataFrame operation
   val sqlIDToDataSetOrRDDCase: HashSet[Long] = HashSet[Long]()
@@ -428,25 +428,38 @@ abstract class AppBase(
     // check if planInfo has ReadSchema
     val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
     val allNodes = sqlPlanInfoGraph.getToolsPlanGraph.allNodes
+    // use linked hashSet to preserve order of insertion and avoid duplicate nodes. This guarantees
+    // that each node is matched only once.
+    val scanNodes =
+      mutable.LinkedHashSet[SparkPlanGraphNode]().++(allNodes.filter(ReadParser.isScanNode))
+
     val results = ArrayBuffer[DataSourceRecord]()
 
     allMetaWithSchema.foreach { plan =>
       val meta = plan.metadata
+      // TODO: we should find a different way to match the PlanInfo to the GraphNode because
+      //       there are some cases where the schema is empty. i.e, schema: struct<>, which implies
+      //       that an empty string matches on everything.
       val readSchema = ReadParser.formatSchemaStr(meta.getOrElse("ReadSchema", ""))
-      val scanNode = allNodes.filter(ReadParser.isScanNode(_)).filter(node => {
+      val scanNode = scanNodes.find(node => {
         // Get ReadSchema of each Node and sanitize it for comparison
         val trimmedNode = AppBase.trimSchema(ReadParser.parseReadNode(node).schema)
-        readSchema.contains(trimmedNode)
+        if (readSchema.isEmpty && trimmedNode.isEmpty) {
+          true
+        } else {
+          readSchema.contains(trimmedNode)
+        }
       })
 
       // If the ReadSchema is empty or if it is PhotonScan, then we don't need to
       // add it to the dataSourceInfo
       // Processing Photon eventlogs issue: https://github.com/NVIDIA/spark-rapids-tools/issues/251
-      if (scanNode.nonEmpty) {
+      scanNode.foreach { sNode =>
+        scanNodes.remove(sNode)
         results += DataSourceRecord(
           sqlPlanInfoGraph.id,
           sqlPlanInfoGraph.plan.version,
-          scanNode.head.id,
+          sNode.id,
           ReadParser.extractTagFromV1ReadMeta("Format", meta),
           ReadParser.extractTagFromV1ReadMeta("Location", meta),
           ReadParser.extractTagFromV1ReadMeta(ReadParser.METAFIELD_TAG_PUSHED_FILTERS, meta),
@@ -459,6 +472,8 @@ abstract class AppBase(
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
+      // TODO: this needs to be refactored to follow the same fix in the generic case.
+      //       We should not be checking the hive scans explicitly in the caller.
       val allPlanWithHiveScan = AppBase.getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
       allPlanWithHiveScan.foreach { hiveReadPlan =>
         val sqlGraph = ToolsPlanGraph(hiveReadPlan)
@@ -486,7 +501,12 @@ abstract class AppBase(
   def checkGraphNodeForReads(
       sqlID: Long, node: SparkPlanGraphNode): Option[DataSourceRecord] = {
     if (ReadParser.isDataSourceV2Node(node)) {
-      val res = ReadParser.parseReadNode(node)
+      // use batchScan parser if it matches otherwise fall back to generic read parser
+      val res = if (BatchScanExecParser.accepts(node, Option(this))) {
+        BatchScanExecParser.extractReadMetaData(node, Option(this))
+      } else {
+        ReadParser.parseReadNode(node)
+      }
       val dsCase = DataSourceRecord(
         sqlID,
         sqlManager.getPlanById(sqlID).get.plan.version,
@@ -546,7 +566,7 @@ abstract class AppBase(
    * @note This should only be called once.
    */
   protected def buildPlanGraphs(): Unit = {
-    sqlManager.buildPlanGraph(this, this)
+    sqlManager.buildPlanGraph(this)
   }
 
   /**
@@ -700,7 +720,11 @@ object AppBase {
 
   private def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
     // TODO: This method does not belong to AppBase. It should move to another member.
-    val childRes = planInfo.children.flatMap(getPlanMetaWithSchema(_))
+    // Filter out "ResuedSubquery" nodes as they just point to other nodes. Otherwise, the planInfo
+    // will show up twice in the recursive results.
+    val childRes =
+      planInfo.children
+        .filterNot(_.nodeName.startsWith("ReusedSubquery")).flatMap(getPlanMetaWithSchema)
     if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
       childRes :+ planInfo
     } else {
@@ -711,7 +735,11 @@ object AppBase {
   // Finds all the nodes that scan a hive table
   private def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
     // TODO: This method does not belong to AppBAse. It should move to another member.
-    val childRes = planInfo.children.flatMap(getPlanInfoWithHiveScan(_))
+    // Filter out "ResuedSubquery" nodes as they just point to other nodes. Otherwise, the planInfo
+    // will show up twice in the recursive results.
+    val childRes = planInfo.children
+      .filterNot(_.nodeName.startsWith("ReusedSubquery"))
+      .flatMap(getPlanInfoWithHiveScan)
     if (isHiveTableScanNode(planInfo.nodeName)) {
       childRes :+ planInfo
     } else {

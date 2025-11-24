@@ -19,7 +19,9 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.spark.sql.execution.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+
 
 /**
  * SQLPlanModel is a class to store the information of a SQL Plan including all its versions.
@@ -31,8 +33,11 @@ import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
  * 1- Use this class iff you need to keep track of all information inside all versions of a SQLPlan.
  * 2- Do some memory optimizations to reduce the overhead of storing all versions.
  * @param id SqlId
+ * @param appInst the instance of AppBase where the SQLPlanModel belongs to. This is used to
+ *                extract some information and properties to help with parsing and operator
+ *                extraction. For example, if application is Iceberg, deltaLake, etc.
  */
-class SQLPlanModel(val id: Long) {
+class SQLPlanModel(val id: Long, appInst: AppBase) {
   // TODO: common information related to the SQLPlan should be added as fields in this class.
   //       For example, the information tracked in
   //       AppBase.sqlIdToInfo Map[sqlId, SQLExecutionInfoClass] should belong here.
@@ -66,7 +71,8 @@ class SQLPlanModel(val id: Long) {
    */
   def addPlan(planInfo: SparkPlanInfo, physicalPlanDescription: String): Unit = {
     // By default, a new planVersion is defined as final.
-    val planVersion = new SQLPlanVersion(id, versionsCount, planInfo, physicalPlanDescription)
+    val planVersion = new SQLPlanVersion(
+        id, versionsCount, planInfo, physicalPlanDescription, appInst)
     // Update references and shortcuts to the latest plan and cache previous one if any
     updateVersions(planVersion)
   }
