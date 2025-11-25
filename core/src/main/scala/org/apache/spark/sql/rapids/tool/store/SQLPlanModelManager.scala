@@ -19,8 +19,7 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.{immutable, mutable}
 
 import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.rapids.tool.AccumToStageRetriever
-import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
+import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
 
 // This SparkPlanInfoTruncated is used to trim and serialize
 // SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
@@ -65,8 +64,11 @@ object SparkPlanInfoTruncated {
 
 /**
  * Container class to store the information about SqlPlans.
+ * @param appInst the instance of AppBase where the SQLPlanModelManager belongs to. This is used to
+ *                extract some information and properties to help with parsing and operator
+ *                extraction. For example, if application is Iceberg, deltaLake, etc.
  */
-class SQLPlanModelManager {
+class SQLPlanModelManager(appInst: AppBase) {
   // SortedMap is used to keep the order of the sqlPlans by Id
   val sqlPlans: mutable.SortedMap[Long, SQLPlanModel] = mutable.SortedMap[Long, SQLPlanModel]()
 
@@ -110,7 +112,7 @@ class SQLPlanModelManager {
   def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
     // TODO: in future we should pass more arguments to this method to capture the common
     //  information of an SqlPlan (i.e., startTime,..etc))
-    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelPrimaryWithDSCaching(id))
+    val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelPrimaryWithDSCaching(id, appInst))
     planModel.addPlan(planInfo, physicalDescription)
   }
 
@@ -235,10 +237,9 @@ class SQLPlanModelManager {
    *                            analyzed app.
    */
   def buildPlanGraph(
-      accumStageMapper: AccumToStageRetriever,
-      sparkConfigProvider: CacheablePropsHandler): Unit = {
+      accumStageMapper: AccumToStageRetriever): Unit = {
     sqlPlans.values.foreach { planModel =>
-      planModel.plan.buildSparkGraph(accumStageMapper, sparkConfigProvider)
+      planModel.plan.buildSparkGraph(accumStageMapper)
     }
   }
 }

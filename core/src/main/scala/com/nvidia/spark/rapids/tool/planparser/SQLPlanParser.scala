@@ -572,8 +572,9 @@ object SQLPlanParser extends Logging {
            | "PythonMapInArrow" | "MapInArrow" | "Range" | "RunningWindowFunction"
            | "Sample" | "Union" | "WindowInPandas" =>
         GenericExecParser(node, checker, sqlID, app = Some(app)).parse
-      case "BatchScan" =>
-        BatchScanExecParser(node, checker, sqlID, app).parse
+      case batchScan if BatchScanExecParser.accepts(batchScan, Some(app)) =>
+        // BatchScan operation
+        BatchScanExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
       case "BroadcastExchange" =>
         BroadcastExchangeExecParser(node, checker, sqlID, app).parse
       case "BroadcastHashJoin" =>

@@ -27,11 +27,56 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 case class ReadMetaData(schema: String, location: String, format: String,
     tags: Map[String, String] = ReadParser.DEFAULT_METAFIELD_MAP) {
   // Define properties to access the tags
-  def pushedFilters: String = tags(ReadParser.METAFIELD_TAG_PUSHED_FILTERS)
+
+  /**
+   * Returns the combined pushed filters and runtime filters for this scan operation.
+   *
+   * This property provides a comprehensive view of all filters applied to the data scan:
+   * - **Pushed Filters**: Static filters that are pushed down to the data source at plan time.
+   *   These filters are applied before data is read to reduce I/O.
+   *   Examples: IsNotNull(column), EqualTo(column, value), GreaterThan(column, value)
+   *
+   * - **Runtime Filters**: Dynamic filters generated during query execution based on runtime
+   *   information (e.g., from broadcast joins, dynamic partition pruning). These are not
+   *   known at plan time but can significantly reduce data scanned.
+   *   Examples: dynamicpruningexpression(column IN subquery)
+   *
+   * The format of the returned string depends on whether runtime filters are present:
+   * - If no runtime filters: Returns only pushed filters
+   *   Example: "IsNotNull(id), GreaterThan(id, 100)"
+   *
+   * - If runtime filters exist: Returns combined format
+   *   Example: "filters=[IsNotNull(id)],runtimeFilters=[id#1 IN dynamicpruning#2]"
+   *
+   * This information is valuable for understanding:
+   * - What data filtering is occurring at the scan level
+   * - Whether dynamic optimizations like partition pruning are being applied
+   * - The effectiveness of filter pushdown for GPU acceleration analysis
+   *
+   * @return Combined string of pushed filters and runtime filters, or UNKNOWN if not available
+   * @see ReadParser.combinePushedFilters for the combination logic
+   */
+  def pushedFilters: String = {
+    ReadParser.combinePushedFilters(tags)
+  }
+
+  /**
+   * Returns the data filters applied to this scan operation.
+   *
+   * @return Data filters string, or UNKNOWN if not available
+   */
   def dataFilters: String = tags(ReadParser.METAFIELD_TAG_DATA_FILTERS)
+
+  /**
+   * Returns the partition filters applied to this scan operation.
+   *
+   * @return Partition filters string, or UNKNOWN if not available
+   */
   def partitionFilters: String = tags(ReadParser.METAFIELD_TAG_PARTITION_FILTERS)
 
   def hasUnknownFormat: Boolean = format.equals(ReadParser.UNKNOWN_METAFIELD)
+
+  def hasUnknowLocation: Boolean = location.equals(ReadParser.UNKNOWN_METAFIELD)
 
   /**
    * Returns the read format in lowercase. This is used to be consistent.
@@ -45,18 +90,17 @@ object ReadParser extends Logging {
   val SCAN_NODE_PREFIXES = Seq("Scan", "NativeScan")
   // Do not include OneRowRelation in the scan nodes, consider it as regular Exec
   val SCAN_ONE_ROW_RELATION = "Scan OneRowRelation"
-  // DatasourceV2 node names that exactly match the following labels
-  val DATASOURCE_V2_NODE_EXACT_PREF = Set(
-    "BatchScan")
   // DatasourceV2 node names that match partially on the following labels
   val DATASOURCE_V2_NODE_PREF = Set(
     "GpuScan",
-    "GpuBatchScan",
+    // The following entry covers both GpuBatchScan and BatchScan
+    "BatchScan",
     "JDBCRelation")
 
   val METAFIELD_TAG_DATA_FILTERS = "DataFilters"
   val METAFIELD_TAG_PUSHED_FILTERS = "PushedFilters"
   val METAFIELD_TAG_PARTITION_FILTERS = "PartitionFilters"
+  val METAFIELD_TAG_RUNTIME_FILTERS = "RuntimeFilters"
   val METAFIELD_TAG_READ_SCHEMA = "ReadSchema"
   val METAFIELD_TAG_FORMAT = "Format"
   val METAFIELD_TAG_LOCATION = "Location"
@@ -65,7 +109,8 @@ object ReadParser extends Logging {
   val DEFAULT_METAFIELD_MAP: Map[String, String] = collection.immutable.Map(
     METAFIELD_TAG_DATA_FILTERS -> UNKNOWN_METAFIELD,
     METAFIELD_TAG_PUSHED_FILTERS -> UNKNOWN_METAFIELD,
-    METAFIELD_TAG_PARTITION_FILTERS -> UNKNOWN_METAFIELD
+    METAFIELD_TAG_PARTITION_FILTERS -> UNKNOWN_METAFIELD,
+    METAFIELD_TAG_RUNTIME_FILTERS -> UNKNOWN_METAFIELD
   )
 
   def isScanNode(nodeName: String): Boolean = {
@@ -77,8 +122,7 @@ object ReadParser extends Logging {
   }
 
   def isDataSourceV2Node(node: SparkPlanGraphNode): Boolean = {
-    DATASOURCE_V2_NODE_EXACT_PREF.exists(node.name.equals(_)) ||
-      DATASOURCE_V2_NODE_PREF.exists(node.name.contains(_))
+    DATASOURCE_V2_NODE_PREF.exists(node.name.contains(_))
   }
 
   // strip off the struct<> part that Spark adds to the ReadSchema
@@ -92,7 +136,19 @@ object ReadParser extends Logging {
     val index = str.indexOf(tag)
     // remove the tag from the final string returned
     val subStr = str.substring(index + tag.size)
-    val endIndex = subStr.indexOf(", ")
+    val commaIndex = subStr.indexOf(", ")
+    // In some operators like BatchScan, the schema is followed by " RuntimeFilters: [" instead of
+    // ", ". In that case, we need to stop at that index.
+    val runtimeFilterIndex = subStr.indexOf(" RuntimeFilters: [")
+
+    val endIndex = if (commaIndex == -1) {
+      runtimeFilterIndex
+    } else if (runtimeFilterIndex == -1) {
+      commaIndex
+    } else {
+      Math.min(commaIndex, runtimeFilterIndex)
+    }
+
     // InMemoryFileIndex[hdfs://bdbl-rpm-1160
     if (endIndex != -1) {
       subStr.substring(0, endIndex)
@@ -103,22 +159,28 @@ object ReadParser extends Logging {
 
   // Used to extract metadata fields from Spark GraphNode’s description.
   // It is made public for testing purposes. It returns DEFAULT_METAFIELD_MAP if no tags exist.
+  // Note that this method returns an empty string when the tag has an empty list:
+  //      (i.e., TagName: []). This is intentional to distinguish when the tag is missing Vs. when
+  //      it is empty.
   def extractReadTags(value: String): Map[String, String] = {
     // initialize the results to the default values
     var result = Map[String, String]() ++ DEFAULT_METAFIELD_MAP
     // For filter tags in metadata they are in the form of:
+    // - empty form: "TagName: []"
     // - complete form:  "TagName: [foo(arg1, arg2, argn), bar(), field00, fieldn]".
     // - truncated form ends by ellipsis that can start at any position:
     //   "TagName: [foo(arg1, arg2, argn), bar(), field00, fieldn...".
     // To parse the filter tags: for each meta tag, create a regx that matches the value of the tag
     // until the first closing bracket or the first ellipsis.
+    // The regex uses (.*?) for non-greedy match which handles empty brackets correctly.
     val metaFieldRegexMap = result.map { case (k, _) =>
-      (k, s"($k): \\[(.*?)(\\.\\.\\.|\\])".r)
+      (k, s"($k): \\[(.*?)(?:(\\.\\.\\.)|(]))".r)
     }
     metaFieldRegexMap.foreach { case (k, v) =>
       v.findFirstMatchIn(value).foreach { m =>
-        // if group(3) is an ellipsis then we should append it to the result.
-        val ellipse = if (m.group(3).equals("...")) "..." else ""
+        // group(2) contains the content between brackets
+        // group(3) contains "..." if truncated, group(4) contains "]" if complete
+        val ellipse = if (m.group(3) != null) "..." else ""
         result += (k -> s"${m.group(2) + ellipse}")
       }
     }
@@ -138,6 +200,44 @@ object ReadParser extends Logging {
            METAFIELD_TAG_PARTITION_FILTERS =>
         metadata.getOrElse(tag, UNKNOWN_METAFIELD).stripPrefix("[").stripSuffix("]")
       case _ => metadata.getOrElse(tag, UNKNOWN_METAFIELD)
+    }
+  }
+
+  /**
+   * Finalizes the data format string by adding "gpu" prefix for GPU execution nodes.
+   *
+   * This method ensures that data formats are properly labeled when they are processed
+   * by GPU-accelerated scan operations. The format normalization is important for:
+   * - Distinguishing between CPU and GPU execution in reports
+   * - Accurate speedup calculations and GPU support analysis
+   * - Consistent format naming across different scan node types
+   *
+   * The method applies the following logic:
+   * 1. If the node name starts with "Gpu" (e.g., "GpuScan", "GpuBatchScan")
+   *    AND the format doesn't already start with "gpu":
+   *    - Prepends "gpu" to the format
+   *    - Example: "parquet" becomes "gpuparquet"
+   *
+   * 2. Otherwise:
+   *    - Returns the format unchanged
+   *    - Handles cases where format is already prefixed (e.g., "gpuparquet")
+   *    - Handles CPU scan nodes (e.g., "Scan", "BatchScan")
+   *
+   * Example transformations:
+   * - GPU node with "parquet" → "gpuparquet"
+   * - GPU node with "gpuparquet" → "gpuparquet" (no change)
+   * - CPU node with "parquet" → "parquet" (no change)
+   * - GPU node with "orc" → "gpuorc"
+   *
+   * @param format the original data format string (e.g., "parquet", "orc", "json")
+   * @param node the SparkPlanGraphNode being processed
+   * @return the finalized format string with "gpu" prefix if appropriate
+   */
+  def finalizeFormat(format: String, node: SparkPlanGraphNode): String = {
+    if (node.name.startsWith("Gpu") && !format.startsWith("gpu")) {
+      s"gpu$format"
+    } else {
+      format
     }
   }
 
@@ -176,11 +276,7 @@ object ReadParser extends Logging {
       val formatTag = "Format: "
       val fileFormat = if (node.desc.contains(formatTag)) {
         val format = getFieldWithoutTag(node.desc, formatTag)
-        if (node.name.startsWith("Gpu")) {
-          s"${format}(GPU)"
-        } else {
-          format
-        }
+        finalizeFormat(format, node)
       } else if (node.name.contains("JDBCRelation")) {
         "JDBC"
       } else {
@@ -205,5 +301,46 @@ object ReadParser extends Logging {
     }
     // TODO - not doing anything with note supported types right now
     readScore
+  }
+
+  /**
+   * Combines pushed filters and runtime filters into a single formatted string.
+   *
+   * This method merges static pushed filters with dynamic runtime filters to provide
+   * a comprehensive view of all filters applied to a scan operation. The combination
+   * follows this logic:
+   *
+   * 1. If no RuntimeFilters tag exists in the tags map:
+   *    - Returns only the PushedFilters value
+   *
+   * 2. If RuntimeFilters tag exists but has UNKNOWN value:
+   *    - Returns only the PushedFilters value (runtime filters are not available)
+   *
+   * 3. If RuntimeFilters tag exists with a known value:
+   *    - Returns combined format: "filters=[pushedFilters],runtimeFilters=[runtimeFilters]"
+   *
+   * Runtime filters are typically generated during query execution for operations like
+   * dynamic partition pruning, broadcast hash joins, etc. They are not known at plan time
+   * but can significantly reduce the data scanned.
+   *
+   * Example outputs:
+   * - No runtime filters: "IsNotNull(id), GreaterThan(id, 100)"
+   * - With runtime filters: "filters=[IsNotNull(id)],runtimeFilters=[id#1 IN subquery#2]"
+   *
+   * @param tags Map containing metadata tags including METAFIELD_TAG_PUSHED_FILTERS and
+   *             optionally METAFIELD_TAG_RUNTIME_FILTERS
+   * @return Combined filter string, or just pushed filters if runtime filters are not available
+   */
+  def combinePushedFilters(tags: Map[String, String]): String = {
+    if (tags.contains(METAFIELD_TAG_RUNTIME_FILTERS)) {
+      val runtimeFilters = tags(METAFIELD_TAG_RUNTIME_FILTERS)
+      if (runtimeFilters != UNKNOWN_METAFIELD) {
+        s"filters=[${tags(METAFIELD_TAG_PUSHED_FILTERS)}],runtimeFilters=[$runtimeFilters]"
+      } else {
+        tags(METAFIELD_TAG_PUSHED_FILTERS)
+      }
+    } else {
+      tags(METAFIELD_TAG_PUSHED_FILTERS)
+    }
   }
 }
