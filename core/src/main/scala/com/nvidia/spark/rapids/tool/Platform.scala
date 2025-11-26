@@ -356,7 +356,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   val defaultRuntime: SparkRuntime.SparkRuntime = SparkRuntime.SPARK
   // Set of supported runtimes for the platform
   protected val supportedRuntimes: Set[SparkRuntime.SparkRuntime] = Set(
-    SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS
+    SparkRuntime.SPARK, SparkRuntime.SPARK_RAPIDS, SparkRuntime.AURON
   )
 
   // scalastyle:off line.size.limit
