@@ -16,7 +16,10 @@
 
 package com.nvidia.spark.rapids.tool.planparser.delta
 
+import scala.util.matching.Regex
+
 import com.nvidia.spark.rapids.tool.planparser.{DataWritingCmdWrapper, DataWritingCommandExecParser, ExecInfo, ExecParser, GenericExecParser, OpTypes, ReadParser}
+import com.nvidia.spark.rapids.tool.plugins.{AppPropVersionExtractorFromCPTrait, PropConditionOnSparkExtTrait}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
@@ -54,12 +57,27 @@ class DLWriteWithFormatAndSchemaParser(node: SparkPlanGraphNode,
   }
 }
 
-object DeltaLakeHelper {
+object DeltaLakeHelper extends PropConditionOnSparkExtTrait
+    with AppPropVersionExtractorFromCPTrait {
   // A DeltaLake app is identified using the following properties from spark properties.
-  private val SPARK_PROPS_ENABLING_DELTALAKE = Map(
-    "spark.sql.extensions" -> "io.delta.sql.DeltaSparkSessionExtension",
-    "spark.sql.catalog.spark_catalog" -> "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+  override val extensionRegxMap: Map[String, String] = Map(
+    "spark.sql.extensions" -> ".*DeltaSparkSessionExtension.*",
+    "spark.sql.catalog.spark_catalog" -> ".*DeltaCatalog.*"
   )
+  // The regex pattern used to extract the DeltaLake jar version from classpath entries.
+  // Matches patterns like:
+  // - spark://server:41661/jars/io.delta_delta-spark_2.12-3.3.1.jar
+  // - file:///path/to/io.delta_delta-storage-3.3.1.jar
+  // - /local/path/io.delta_delta-core_2.12-3.3.1.jar
+  // The pattern:
+  // - .* matches any prefix (path before the jar name)
+  // - io\.delta_ matches "io.delta_" (the jar prefix)
+  // - delta- matches the literal "delta-"
+  // - [\w.-]+ matches the middle part (spark_2.12, storage, core_2.12, etc.)
+  // - -(\d+\.\d+\.\d+) captures the version number like "-3.3.1"
+  // - \.jar matches ".jar"
+  override val cpKeyRegex: Regex = """.*io\.delta_delta-[\w.-]+-(\d+\.\d+\.\d+)\.jar""".r
+
   // The pattern used to identify deltaLake metadata tables
   // Sometimes this pattern does not show up in the node description when the node.descr is
   // truncated. In that case, we might find the full pattern in the planInfo or the sql description.
@@ -97,20 +115,6 @@ object DeltaLakeHelper {
     // "WriteIntoDeltaBuilder"
     // The following entries are for open source DeltaLake
     "DeltaTableV2")
-
-  /**
-   * Checks if the properties indicate that the application is using DeltaLake.
-   * This can be checked by looking for keywords in one of the keys defined in
-   * SPARK_PROPS_ENABLING_DELTALAKE.
-   *
-   * @param properties spark properties captured from the eventlog environment details
-   * @return true if the properties indicate that it is a deltaLake app.
-   */
-  def isDeltaLakeEnabled(properties: collection.Map[String, String]): Boolean = {
-    SPARK_PROPS_ENABLING_DELTALAKE.exists { case (key, value) =>
-      properties.get(key).exists(_.equals(value))
-    }
-  }
 
   def acceptsExclusiveWriteOp(nodeName: String): Boolean = {
     DeltaLakeOps.isExclusiveDeltaWriteOp(nodeName)

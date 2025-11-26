@@ -487,7 +487,7 @@ object SQLPlanParser extends Logging {
       app: AppBase,
       planExecs: Seq[ExecInfo]
   ): Seq[ExecInfo] = {
-    if (app.deltaLakeEnabled || app.isDatabricks) {
+    if (app.isDeltaLakeOSSEnabled || app.isDatabricks) {
       if (planExecs.exists { e =>
           // check if the exec is a cluster node and if so check its children.
           if (e.isClusterNode) {
