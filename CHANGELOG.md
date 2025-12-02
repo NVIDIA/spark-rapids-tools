@@ -1,6 +1,19 @@
 
 <br/>
 
+## Release [v25.10.7](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.7)
+Generated on 2025-12-02
+### Performance
+
+- Disable text output format by default ([#1982](https://github.com/NVIDIA/spark-rapids-tools/pull/1982))
+
+### Bug Fixes
+
+- Fix parsing of BatchScan in Prof and Qual results ([#1981](https://github.com/NVIDIA/spark-rapids-tools/pull/1981))
+
+
+<br/>
+
 ## Release [v25.10.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.6)
 Generated on 2025-11-18
 ### Build and CI/CD
