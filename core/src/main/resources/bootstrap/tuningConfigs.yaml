@@ -295,6 +295,36 @@ default:
     default: 0g
     usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
 
+  # Start Delta Lake OSS specific tuning configs
+  - name: DELTA_LAKE_OSS_SUPPORT_COMMENT
+    description: >-
+      Comment to indicate that Delta Lake OSS is supported by RAPIDS Accelerator for Apache Spark.
+    default: |-
+      Delta Lake is enabled on this spark application. The RAPIDS Accelerator provides limited support for Delta Lake tables.
+        Please refer to https://docs.nvidia.com/spark-rapids/user-guide/latest/additional-functionality/delta-lake-support.html
+    pluginRules: DeltaOSSMigrationRule
+
+  - name: RECOMMENDED_DELTA_LAKE_VERSION
+    description: >-
+      Recommended Delta Lake version for optimal compatibility with RAPIDS Accelerator for Apache Spark.
+    min: 3.3.0
+    pluginRules: DeltaOSSVersionRule
+
+  - name: DELTA_LAKE_OSS_VERSION_RECOMMENDATION
+    description: >-
+      Comment to indicate the recommended minimum Delta Lake version used for compatibility with RAPIDS.
+    default: |-
+      Delta Lake version is [ACTUAL_VERSION]. It is recommended to upgrade to Delta Lake version [RECOMMENDED_VERSION] or above for better compatibility with the RAPIDS Accelerator for Apache Spark.
+    pluginRules: DeltaOSSVersionRule
+
+  - name: DELTA_LAKE_OSS_VERSION_UNDEFINED
+    description: >-
+      In case the Delta Lake version could not be extracted from the app properties, this comment is
+      added to the recommended minimum Delta Lake version used for compatibility with RAPIDS.
+    default: |-
+      Delta Lake version could not be determined. It is recommended to use Delta Lake version [RECOMMENDED_VERSION] or above for better compatibility with the RAPIDS Accelerator for Apache Spark.
+    pluginRules: DeltaOSSVersionRule
+  # end of Delta Lake OSS specific tuning configs
 
 # Qualification tool specific tuning configs
 qualification:

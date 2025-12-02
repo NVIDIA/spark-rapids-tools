@@ -29,6 +29,7 @@ import org.apache.spark.sql.rapids.tool.util.{StringUtils, ValidatableProperties
  *   - name:        The configuration parameter name/key.
  *   - description: Human-readable description of the configuration parameter.
  *   - usedBy:      Comma-separated list of Spark configurations this constant affects.
+ *   - pluginRules: Comma-separated list of plugin rules that use this configuration (optional).
  *   - default:     The default value to use (optional).
  *   - min:         The minimum allowed value (optional).
  *   - max:         The maximum allowed value (optional).
@@ -37,11 +38,12 @@ class TuningConfigEntry(
   @BeanProperty var name: String = "",
   @BeanProperty var description: String = "",
   @BeanProperty var usedBy: String = "",
+  @BeanProperty var pluginRules: String = "",
   @BeanProperty var default: String = "",
   @BeanProperty var min: String = "",
   @BeanProperty var max: String = "") extends ValidatableProperties {
 
-  def this() = this("", "", "", "", "", "")
+  def this() = this("", "", "", "", "", "", "")
 
   private def isEmptyValue(value: String): Boolean = {
     value == null || value.isEmpty
@@ -91,6 +93,7 @@ class TuningConfigEntry(
       name = this.name,
       description = this.description,
       usedBy = this.usedBy,
+      pluginRules = if (isEmptyValue(other.pluginRules)) this.pluginRules else other.pluginRules,
       default = if (isEmptyValue(other.default)) this.default else other.default,
       min = if (isEmptyValue(other.min)) this.min else other.min,
       max = if (isEmptyValue(other.max)) this.max else other.max
@@ -99,7 +102,7 @@ class TuningConfigEntry(
 
   override def toString: String = {
     s"TuningConfigEntry(name='$name', description='$description', usedBy='$usedBy'" +
-      s" default='$default', min='$min', max='$max')"
+      s"pluginRules='$pluginRules', default='$default', min='$min', max='$max')"
   }
 
   override def validate(): Unit = {
@@ -123,10 +126,11 @@ object TuningConfigEntry {
       name: String,
       description: String = "",
       usedBy: String = "",
+      pluginRules: String = "",
       default: String = "",
       min: String = "",
       max: String = ""): TuningConfigEntry = {
-    new TuningConfigEntry(name, description, usedBy, default, min, max)
+    new TuningConfigEntry(name, description, usedBy, pluginRules, default, min, max)
   }
 }
 

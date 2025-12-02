@@ -65,6 +65,7 @@ trait AppInfoPropertyGetter {
   def getProperty(propKey: String): Option[String]
   def getSparkVersion: Option[String]
   def getRapidsJars: Seq[String]
+  def getClassPathEntries: Map[String, String] = Map[String, String]()
 }
 
 trait AppInfoSqlTaskAggMetricsVisitor {
@@ -328,5 +329,9 @@ class SingleAppSummaryInfoProvider(
     } else {
       None
     }
+  }
+
+  override def getClassPathEntries: Map[String, String] = {
+    appInfo.classpathEntries
   }
 }
