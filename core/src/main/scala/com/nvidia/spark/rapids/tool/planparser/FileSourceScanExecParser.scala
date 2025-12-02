@@ -119,7 +119,7 @@ case class FileSourceScanExecParser(
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.
-        a.deltaLakeEnabled || a.isDatabricks
+        a.isDeltaLakeOSSEnabled || a.isDatabricks
     }
     appEnabled &&
       (node.desc.contains(DELTALAKE_META_KEYWORD) || node.desc.contains(DELTALAKE_LOG_FILE_KEYWORD))
@@ -131,7 +131,7 @@ case class FileSourceScanExecParser(
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.
-        a.deltaLakeEnabled || a.isDatabricks
+        a.isDeltaLakeOSSEnabled || a.isDatabricks
     }
     appEnabled &&
       (node.name.contains(DELTALAKE_META_SCAN_RDD_KEYWORD) ||

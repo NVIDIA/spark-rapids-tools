@@ -19,8 +19,8 @@ package org.apache.spark.sql.rapids.tool.util
 import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper
-import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
+import com.nvidia.spark.rapids.tool.plugins.AppPropPlugContainerTrait
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
 import org.apache.spark.scheduler.{SparkListenerEnvironmentUpdate, SparkListenerJobStart, SparkListenerLogStart}
@@ -51,6 +51,13 @@ object SparkRuntime extends Enumeration {
   val PHOTON: SparkRuntime = Value
 
   /**
+   * Represents the Auron runtime environment.
+   * Note that Auron is a spark incubator that supports a mixed execution.
+   * For example, it has GPU and Iceberg supports.
+   */
+  val AURON: SparkRuntime = Value
+
+  /**
    * Returns the SparkRuntime value based on the given parameters.
    * @param isPhoton Boolean flag indicating whether the application is running on Photon.
    * @param isGpu    Boolean flag indicating whether the application is running on GPU.
@@ -70,7 +77,7 @@ object SparkRuntime extends Enumeration {
 // Handles updating and caching Spark Properties for a Spark application.
 // Properties stored in this container can be accessed to make decision about certain analysis
 // that depends on the context of the Spark properties.
-trait CacheablePropsHandler {
+trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   /**
    * Important system properties that should be retained.
    */
@@ -121,9 +128,6 @@ trait CacheablePropsHandler {
   // A flag to indicate whether the spark App is configured to use Iceberg.
   // Note that this is only a best-effort flag based on the spark properties.
   var icebergEnabled = false
-  // A flag to indicate whether the spark App is configured to use DeltaLake.
-  // Note that this is only a best-effort flag based on the spark properties.
-  var deltaLakeEnabled = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
   // By default, it is empty.
   var mlEventLogType = ""
@@ -154,8 +158,8 @@ trait CacheablePropsHandler {
   def updatePredicatesFromSparkProperties(): Unit = {
     gpuMode ||= ProfileUtils.isPluginEnabled(sparkProperties)
     icebergEnabled ||= IcebergHelper.isIcebergEnabled(sparkProperties)
-    deltaLakeEnabled ||= DeltaLakeHelper.isDeltaLakeEnabled(sparkProperties)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+    reEvaluate(sparkProperties)
   }
 
   def handleEnvUpdateForCachedProps(event: SparkListenerEnvironmentUpdate): Unit = {
@@ -176,7 +180,6 @@ trait CacheablePropsHandler {
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
     icebergEnabled ||= IcebergHelper.isIcebergEnabled(event.properties.asScala)
-    deltaLakeEnabled ||= DeltaLakeHelper.isDeltaLakeEnabled(event.properties.asScala)
     hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
   }
 
@@ -193,6 +196,9 @@ trait CacheablePropsHandler {
    * This is calculated based on other cached properties.
    */
   def getSparkRuntime: SparkRuntime.SparkRuntime = {
-    SparkRuntime.getRuntime(isPhoton, gpuMode)
+    getSparkRuntimePlugins match {
+      case Some(rt) => rt
+      case None => SparkRuntime.getRuntime(isPhoton, gpuMode)
+    }
   }
 }

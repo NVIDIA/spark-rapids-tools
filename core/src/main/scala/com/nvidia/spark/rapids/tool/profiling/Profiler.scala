@@ -356,10 +356,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeText("### A. Information Collected ###")
     profileOutputWriter.writeTable(ProfInformationView.getLabel, app.appInfo)
     profileOutputWriter.writeTable(ProfLogPathView.getLabel, app.appLogPath)
-    profileOutputWriter.writeTable(ProfDataSourceView.getLabel, app.dsInfo)
+    profileOutputWriter.writeCSVTable(ProfDataSourceView.getLabel, app.dsInfo)
     profileOutputWriter.writeTable(ProfExecutorView.getLabel, app.execInfo)
-    profileOutputWriter.writeTable(ProfJobsView.getLabel, app.jobInfo)
-    profileOutputWriter.writeTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
+    profileOutputWriter.writeCSVTable(ProfJobsView.getLabel, app.jobInfo)
+    profileOutputWriter.writeCSVTable(ProfSQLToStageView.getLabel, app.sqlStageInfo)
     profileOutputWriter.writeTable(RapidsQualPropertiesView.getLabel, app.rapidsProps,
       Some(RapidsQualPropertiesView.getDescription))
     profileOutputWriter.writeTable(SparkQualPropertiesView.getLabel, app.sparkProps,
@@ -368,35 +368,26 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       Some(SystemQualPropertiesView.getDescription))
     profileOutputWriter.writeTable(ProfRapidsJarView.getLabel, app.rapidsJar,
       Some(ProfRapidsJarView.getDescription))
-    profileOutputWriter.writeTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics,
-      Some(ProfSQLPlanMetricsView.getDescription))
-    profileOutputWriter.writeTable(ProfStageMetricView.getLabel, app.stageMetrics,
-      Some(ProfStageMetricView.getDescription))
-    profileOutputWriter.writeTable(ProfSQLCodeGenView.getLabel, app.wholeStage,
-      Some(ProfSQLCodeGenView.getDescription))
+    profileOutputWriter.writeCSVTable(ProfSQLPlanMetricsView.getLabel, app.sqlMetrics)
+    profileOutputWriter.writeCSVTable(ProfStageMetricView.getLabel, app.stageMetrics)
+    profileOutputWriter.writeCSVTable(ProfSQLCodeGenView.getLabel, app.wholeStage)
     profileOutputWriter.writeJsonL(ProfAppSQLPlanInfoView.getLabel, app.sqlPlanInfo)
 
     profileOutputWriter.writeText("\n### B. Analysis ###\n")
-    profileOutputWriter.writeTable(JOB_AGG_LABEL, app.jobAggMetrics,
-      Some(AGG_DESCRIPTION(JOB_AGG_LABEL)))
-    profileOutputWriter.writeTable(STAGE_AGG_LABEL, app.stageAggMetrics,
-      Some(AGG_DESCRIPTION(STAGE_AGG_LABEL)))
-    profileOutputWriter.writeTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics,
-      Some(AGG_DESCRIPTION(SQL_AGG_LABEL)))
-    profileOutputWriter.writeTable(IO_LABEL, app.ioMetrics)
-    profileOutputWriter.writeTable(SQL_DUR_LABEL, app.durAndCpuMet)
+    profileOutputWriter.writeCSVTable(JOB_AGG_LABEL, app.jobAggMetrics)
+    profileOutputWriter.writeCSVTable(STAGE_AGG_LABEL, app.stageAggMetrics)
+    profileOutputWriter.writeCSVTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics)
+    profileOutputWriter.writeCSVTable(IO_LABEL, app.ioMetrics)
+    profileOutputWriter.writeCSVTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
-    val skewHeader = TASK_SHUFFLE_SKEW
-    val skewTableDesc = AGG_DESCRIPTION(TASK_SHUFFLE_SKEW)
-    profileOutputWriter.writeTable(skewHeader, app.skewInfo, tableDesc = Some(skewTableDesc))
-
+    profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
-    profileOutputWriter.writeTable(ProfFailedTaskView.getLabel, app.failedTasks)
+    profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)
     profileOutputWriter.writeTable(ProfFailedJobsView.getLabel, app.failedJobs)
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
-    profileOutputWriter.writeTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
+    profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
     profileOutputWriter.writeTable("Unsupported SQL Plan", app.unsupportedOps,
       Some("Unsupported SQL Ops"))
     if (outputAlignedSQLIds) {
