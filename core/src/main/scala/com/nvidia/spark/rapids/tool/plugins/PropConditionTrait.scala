@@ -19,6 +19,6 @@ package com.nvidia.spark.rapids.tool.plugins
 /**
  * A trait for evaluating conditions based on application properties.
  */
-trait PropConditionTrait {
+trait PropConditionTrait extends ConditionTrait[collection.Map[String, String]] {
   def eval(props: collection.Map[String, String]): Boolean
 }

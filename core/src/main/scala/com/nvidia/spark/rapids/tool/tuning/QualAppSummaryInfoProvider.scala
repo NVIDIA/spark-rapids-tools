@@ -137,4 +137,8 @@ class QualAppSummaryInfoProvider(
       0.0
     }
   }
+
+  override def getClassPathEntries: Map[String, String] = {
+    appInfo.classpathEntries
+  }
 }

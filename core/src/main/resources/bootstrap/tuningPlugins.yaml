@@ -1,0 +1,144 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+################################################################################
+# Tuning Plugins Configuration File
+################################################################################
+#
+# This file defines the configuration for tuning plugins and rules used by the
+# RAPIDS Accelerator for Apache Spark AutoTuner. It provides a modular framework
+# for optimizing Spark applications running on GPU.
+#
+# STRUCTURE:
+# ----------
+# The file contains two main sections:
+#   1. tuningPlugins: List of plugin definitions
+#   2. tuningRules: List of rule definitions associated with plugins
+#
+# PLUGIN FIELDS:
+# -------------
+# Each plugin entry supports the following fields:
+#
+#   - name: (required, string)
+#       Unique identifier for the plugin. Used to reference the plugin in
+#       rule configurations and activation conditions.
+#
+#   - description: (required, string)
+#       Human-readable description of the plugin's purpose and the optimization
+#       strategies it implements. Use >- for multi-line folded text.
+#
+#   - className: (required, string)
+#       Fully qualified class name of the plugin implementation. Must extend
+#       BaseTuningPlugin or implement TuningPluginTrait.
+#
+#   - priority: (optional, integer, default: 50)
+#       Execution priority of the plugin (0 = highest, 100 = lowest).
+#       Plugins with lower priority values are processed first.
+#       Range: 0 to 100, where:
+#         - 0   = Highest priority (executed first)
+#         - 50  = Default priority
+#         - 100 = Lowest priority (executed last)
+#
+#   - enabled: (optional, boolean, default: true)
+#       Whether this plugin is active and should be used during tuning.
+#       Set to false to disable a plugin without removing its definition.
+#
+# RULE FIELDS:
+# -----------
+# Each rule entry supports the following fields:
+#
+#   - name: (required, string)
+#       Unique identifier for the rule. Used for logging and tracking which
+#       rules have been triggered.
+#
+#   - description: (required, string)
+#       Human-readable description of the rule's purpose and the optimization
+#       logic it implements. Use >- for multi-line folded text.
+#
+#   - className: (required, string)
+#       Fully qualified class name of the rule implementation. Must extend
+#       BaseTuningRule or implement TuningRuleTrait.
+#
+#   - pluginName: (required, string)
+#       Name of the plugin this rule belongs to. Must match a plugin name
+#       defined in the tuningPlugins section.
+#
+#   - priority: (optional, integer, default: 50)
+#       Execution priority of the rule within its plugin (0 = highest, 100 = lowest).
+#       Rules with lower priority values are executed first.
+#       Range: 0 to 100, where:
+#         - 0   = Highest priority (executed first)
+#         - 50  = Default priority
+#         - 100 = Lowest priority (executed last)
+#
+#   - enabled: (optional, boolean, default: true)
+#       Whether this rule is active and should be applied during tuning.
+#       Set to false to disable a rule without removing its definition.
+#
+# EXECUTION ORDER:
+# ---------------
+# The order in which plugins and rules are executed depends on:
+#   1. Plugin activation conditions (must return true)
+#   2. Plugin priority (lower values executed first)
+#   3. Rule priority (can be sorted globally or per-plugin)
+#   4. Configuration flag: sortRulesAcrossPlugins (default: true)
+#
+# PRIORITY EXAMPLES:
+# -----------------
+# priority: 0   -> Highest priority, executed first
+# priority: 25  -> High priority
+# priority: 50  -> Default/normal priority (if omitted, this is used)
+# priority: 75  -> Low priority
+# priority: 100 -> Lowest priority, executed last
+#
+################################################################################
+
+tuningPlugins:
+  # Delta Lake OSS Tuning Plugin
+  # This plugin provides tuning capabilities for applications using Delta Lake OSS (Open Source).
+  # It includes rules for version compatibility checks, migration guidance, and write optimization.
+  - name: deltaLakeOSSTuningPlugin
+    description: >-
+      Tuning configurations for Delta Lake optimizations and commands.
+    className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaLakeOSSTuningPlugin
+    # priority: 50        # (default) Normal priority - can be uncommented to override
+    enabled: true         # Plugin is active and will be used during tuning
+
+tuningRules:
+  #-----------------------------------------------------------------------------
+  # Delta Lake OSS Plugin Rules
+  #-----------------------------------------------------------------------------
+  # These rules are associated with the deltaLakeOSSTuningPlugin and provide
+  # Delta Lake-specific optimizations and compatibility checks.
+
+  - name: DeltaOSSVersionRule
+    description: >-
+      Ensures that the Delta Lake version used is compatible with RAPIDS acceleration and
+      recommends upgrading to the latest supported version if needed.
+    className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSVersionRule
+    pluginName: deltaLakeOSSTuningPlugin
+
+  - name: DeltaOSSMigrationRule
+    description: >-
+      This only applies to non-GPU Spark applications.
+      Provides comments and guidance about Delta Lake support in the tuning output,
+      helping users understand what features are supported on GPU.
+    className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSMigrationRule
+    pluginName: deltaLakeOSSTuningPlugin
+
+  - name: DeltaOSSWriteRule
+    description: >-
+      Checks whether GPU-accelerated writes are enabled for Delta Lake tables.
+    className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSWriteGPURule
+    pluginName: deltaLakeOSSTuningPlugin

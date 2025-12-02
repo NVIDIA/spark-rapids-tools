@@ -434,3 +434,241 @@ tuningDefinitions:
     category: tuning
     confType:
       name: int
+  ##############################################################################
+  # Plugin Properties Entries
+  ##############################################################################
+  #-----------------------------------------------------------------------------
+  # Delta Lake Related properties Rules
+  #-----------------------------------------------------------------------------
+  - label: spark.databricks.delta.deletionVectors.useMetadataRowIndex
+    # see https://books.japila.pl/delta-lake-internals/configuration-properties/#deletionVectors.useMetadataRowIndex
+    description: >-
+      Enables using the Parquet reader generated "row_index" column for filtering deleted rows with
+      Deletion Vectors (that gives predicate pushdown and file splitting in scans).
+      This config should be disabled to use GPU acceleration for Delta Lake tables with Deletion Vectors.
+      Otherwise, all scans will fall back to CPU.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: >-
+        should be disabled. WARN: Turning this property on causes scan against tables with deletion vectors to fallback to the CPU.
+  # optimized writes for delta Lake
+  - label: spark.databricks.delta.optimizeWrite.enabled
+    description: >-
+      Enable optimized writes for Delta Lake tables at the Spark session level rather that the table level. Optimized writes improve file size as data is written and benefit subsequent reads on the table.
+      Note that this can be table property 'delta.autoOptimize.optimizeWrite'.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "false"
+    confType:
+      name: boolean
+    comments:
+      updated: The optimized write feature on Delta Lake is disabled by default. It can be enabled on SQL session level to improve file size.
+  - label: spark.databricks.delta.optimizeWrite.binSize
+    description: >-
+      Target uncompressed partition size in megabytes. This controls the target in-memory size of each output file.
+      For details, Refer to Delta Lake docs https://docs.delta.io/optimizations-oss/#optimized-write.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "512MiB"
+    confType:
+      name: byte
+      defaultUnit: MiB
+  - label: spark.databricks.delta.optimizeWrite.smallPartitionFactor
+    # TODO: maybe this should be specific to DB environments.
+    description: >-
+      Merge partitions smaller than this factor multiplied by the target partition size.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "0.5"
+    confType:
+      name: double
+  - label: spark.databricks.delta.optimizeWrite.mergedPartitionFactor
+    description: >-
+      Avoid combining partitions larger than this factor multiplied by the target partition size
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "1.2"
+    confType:
+      name: double
+  # automatic Compaction for Delta Lake OSS Delta
+  - label: spark.databricks.delta.autoCompact.enabled
+    description: >-
+      Auto compaction combines small files within Delta table partitions to automatically reduce small file problems.
+      Note that this can be table property 'delta.autoOptimize.autoCompact'.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "false"
+    confType:
+      name: boolean
+    comments:
+      updated: allows enabling auto compaction on Databricks Delta Lake at the Spark session level.
+  - label: spark.databricks.delta.autoCompact.minNumFiles
+    description: >-
+      Minimum number of files that must exist in the Delta directory before Auto Optimize begins compaction.
+      See Delta Lake docs https://docs.delta.io/optimizations-oss/#auto-compaction.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "50"
+    confType:
+      name: int
+  - label: spark.databricks.delta.autoCompact.maxFileSize
+    description: >-
+      Target file size produced by auto compaction.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "128MiB"
+    confType:
+      name: byte
+      defaultUnit: MiB
+  - label: spark.databricks.delta.autoCompact.minFileSize
+    description: >-
+      Files which are smaller than this threshold (in bytes) will be grouped together and rewritten as larger files by the auto compaction.
+      By default, it set to half of 'spark.databricks.delta.autoCompact.maxFileSize'
+    enabled: true
+    level: job
+    category: tuning
+    confType:
+      name: byte
+      defaultUnit: Byte
+  # automatic Compaction for Databricks Delta Lake
+  - label: spark.databricks.delta.properties.defaults.autoOptimize.autoCompact
+    description: >-
+      Whether to enable auto compaction by default, if 'spark.databricks.delta.autoCompact.enabled' isn't set.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "false"
+    confType:
+      name: boolean
+    comments:
+      missing: The feature on Delta Lake is disabled by default.
+  - label: spark.databricks.delta.autoCompact.minNumFiles
+    description: >-
+      Minimum number of files that must exist in the Delta directory before Auto Optimize begins compaction.
+      See Delta Lake docs https://docs.delta.io/optimizations-oss/#auto-compaction.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "50"
+    confType:
+      name: int
+  - label: spark.databricks.delta.autoCompact.maxFileSize
+    description: >-
+      Target file size produced by auto compaction.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "128MiB"
+    confType:
+      name: byte
+      defaultUnit: MiB
+  - label: spark.databricks.delta.autoCompact.target
+    description: >-
+      Target files for auto compaction. "table", "commit", "partition" options are available. If "table", all files in the table are eligible for auto compaction. If "commit", added/updated files by the commit are eligible. If "partition", all files in partitions containing any added/updated files by the commit are eligible.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: partition
+    confType:
+      name: string
+  - label: spark.databricks.delta.autoCompact.maxCompactBytes
+    description: >-
+      Maximum amount of data to compact together.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: 20GB
+    confType:
+      name: byte
+      defaultUnit: Byte
+  # delta update commands
+  - label: spark.rapids.sql.command.MergeIntoCommand
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Merge Into commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  - label: spark.rapids.sql.command.DeleteCommand
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Delete commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  - label: spark.rapids.sql.command.UpdateCommand
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Update commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  # Databricks delta update commands
+  - label: spark.rapids.sql.command.MergeIntoCommandEdge
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Merge Into commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  - label: spark.rapids.sql.command.DeleteCommandEdge
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Delete commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  - label: spark.rapids.sql.command.UpdateCommandEdge
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Update commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the CMD is accelerated by the Spark RAPIDS Accelerator. Default is "true".
+  - label: spark.rapids.sql.format.delta.write.enabled
+    description: >-
+      Acceleration is enabled by default. Set this to False to disable GPU acceleration for Delta Lake Update commands.
+    enabled: true
+    level: job
+    category: tuning
+    defaultSpark: "true"
+    confType:
+      name: boolean
+    comments:
+      persistent: controls whether the writing of Delta Lake tables is accelerated by the Spark RAPIDS Accelerator. Default is 'true'.

@@ -23,6 +23,7 @@ import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantGpuCountStrategy, DatabricksPlatform, GpuDevice, Platform, PlatformFactory}
 import com.nvidia.spark.rapids.tool.profiling._
+import com.nvidia.spark.rapids.tool.tuning.plugins.TuningPluginManager
 import org.yaml.snakeyaml.constructor.ConstructorException
 
 import org.apache.spark.internal.Logging
@@ -243,6 +244,11 @@ abstract class AutoTuner(
     userProvidedTuningConfigs.map(baseConfigs.merge).getOrElse(baseConfigs)
   }
 
+  // Plugin manager to handle all tuning plugins.
+  // By default it creates a manager that sort rules across plugins allowing better control
+  // of the order of rule application.
+  lazy val pluginManager = TuningPluginManager(this)
+
   var comments = new mutable.ListBuffer[String]()
   var recommendations: mutable.LinkedHashMap[String, TuningEntryTrait] =
     mutable.LinkedHashMap[String, TuningEntryTrait]()
@@ -294,6 +300,12 @@ abstract class AutoTuner(
   }
 
   /**
+   * Executes all tuning plugins to apply their rules and generate recommendations.
+   */
+  private def executeTuningPlugins(): Unit = {
+    pluginManager.applyRules()
+  }
+  /**
    * Used to get the property value from the source properties
    * (i.e. from app info and cluster properties)
    */
@@ -306,7 +318,7 @@ abstract class AutoTuner(
    * 1. Recommendations (this also includes the user-enforced properties)
    * 2. Source Spark properties (i.e. from app info and cluster properties)
    */
-  protected def getPropertyValue(key: String): Option[String] = {
+  def getPropertyValue(key: String): Option[String] = {
     AutoTuner.getCombinedPropertyFn(recommendations, getAllSourceProperties)(key)
   }
 
@@ -435,6 +447,21 @@ abstract class AutoTuner(
       eDef.getUpdatedComment().foreach { comment =>
         appendComment(key, comment)
       }
+    }
+  }
+
+  /**
+   * Append the description of the property as a comment.
+   * @param key the property set by the autotuner.
+   */
+  private def appendDescriptionAsComment(key: String): Unit = {
+    finalTuningTable.get(key).foreach { eDef =>
+      val comment = if (eDef.getDescription.isEmpty) {
+        s"No description available."
+      } else {
+        eDef.getDescription
+      }
+      appendComment(key, comment)
     }
   }
 
@@ -1631,7 +1658,7 @@ abstract class AutoTuner(
   /**
    * Adds a comment for a configuration key.
    */
-  private def appendComment(
+  def appendComment(
       key: String,
       comment: String,
       prependKey: Boolean = true): Unit = {
@@ -1642,6 +1669,35 @@ abstract class AutoTuner(
         comment
       }
       appendComment(finalComment)
+    }
+  }
+  /**
+   * Adds a comment for a configuration key by looking up the comment
+   * from the lookup table based on the source field.
+   * This is useful when the caller does not want to hardcode the comment.
+   * @param key The configuration key
+   * @param sourceField The source field to lookup the comment from. It can be one of:
+   *                    "missing", "updated", "persistent", "description. Default is "persistent".
+   * @param prependKey Whether to prepend the key to the comment. Default is true.
+   */
+  def appendCommentFromLookup(
+      key: String,
+      sourceField: String = "persistent",
+      prependKey: Boolean = true): Unit = {
+    if (!skippedRecommendations.contains(key)) {
+      // Get the comment from the lookup table
+      sourceField match {
+        case "missing" =>
+          appendMissingComment(key)
+        case "updated" =>
+          appendUpdatedComment(key)
+        case "persistent" =>
+          appendPersistentComment(key)
+        case "description" =>
+          appendDescriptionAsComment(key)
+        case _ =>
+          // Do nothing as we cannot find the source field
+      }
     }
   }
 
@@ -1734,6 +1790,7 @@ abstract class AutoTuner(
       configureGPURecommendedInstanceType()
       // Makes recommendations based on information extracted from the AppInfoProvider
       filterByUpdatedPropertiesEnabled = showOnlyUpdatedProps
+      executeTuningPlugins()
       recommendPluginProps()
       calculateJobLevelRecommendations()
       calculateClusterLevelRecommendations()
