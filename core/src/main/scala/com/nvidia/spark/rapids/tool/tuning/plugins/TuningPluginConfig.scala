@@ -137,7 +137,7 @@ class TuningPluginsConfig(
    * @return A Scala sequence of tuning plugin configurations, or empty sequence if null
    */
   def getTuningPluginsSeq: Seq[TuningPluginConfig] = {
-    if (tuningPlugins != null) tuningPlugins.asScala else Seq.empty
+    if (tuningPlugins != null) tuningPlugins.asScala.toSeq else Seq.empty
   }
 
   /**
@@ -149,7 +149,7 @@ class TuningPluginsConfig(
    * @return A Scala sequence of tuning rule configurations, or empty sequence if null
    */
   def getTuningRulesSeq: Seq[TuningRuleConfig] = {
-    if (tuningRules != null) tuningRules.asScala else Seq.empty
+    if (tuningRules != null) tuningRules.asScala.toSeq else Seq.empty
   }
 
   /**
@@ -272,7 +272,6 @@ object TuningPluginsConfig extends Logging {
    * Note: throws java.lang.RuntimeException if the default configuration file is missing, has
    *       invalid format, or fails validation
    */
-  @throws[java.lang.RuntimeException]
   val DEFAULT_TUNING_PLUGINS_CONFIG: TuningPluginsConfig = {
     CONFIG_LOADER.loadFromContent(UTF8Source.fromResource(DEFAULT_CONFIG_PATH).mkString) match {
       case Some(config) => config
