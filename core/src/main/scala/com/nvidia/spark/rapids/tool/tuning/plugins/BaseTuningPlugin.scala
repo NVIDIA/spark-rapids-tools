@@ -48,9 +48,9 @@ abstract class BaseTuningPlugin(tunerInst: AutoTuner) extends TuningPluginTrait 
   /**
    * Executes all rules in this plugin, ordered by priority (0 = highest, 100 = lowest).
    * Each rule is triggered sequentially on the tuner instance.
-   * The cons of using this method that it is not convenient when coordination is needed across
-   * plugins. For example, if order between rules across plugins is required, or when preventing a
-   * single rule from running twice.
+   * Among the cons against using this method: it is inconvenient when coordination is needed
+   * across plugins. For example, if order between rules across plugins is required, or when
+   * preventing a single rule from running twice.
    */
   override def fire(): Unit = {
     rules.sortBy(_.priority).foreach { rule =>

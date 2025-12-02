@@ -144,7 +144,7 @@ class TuningPluginManager(
             case scala.util.Success(plugin) =>
               Some(plugin)
             case scala.util.Failure(e) =>
-              logWarning(s"Failed to instantiate rule ${pluginConfig.getName}: ${e.getMessage}")
+              logWarning(s"Failed to instantiate plugin ${pluginConfig.getName}: ${e.getMessage}")
               None
           }
         case _ =>
