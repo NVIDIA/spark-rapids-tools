@@ -28,14 +28,24 @@ import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
 /**
  * Base class to hold the worker information for the target cluster
  * See subclasses below for concrete implementations.
+ *
+ * @param instanceType The instance type (e.g., "g2-standard-24" for Dataproc)
+ * @param cpuCores Number of CPU cores (for OnPrem configurations)
+ * @param memoryGB Total memory in GB (for OnPrem configurations)
+ * @param gpu GPU configuration
+ * @param systemMemoryFraction Optional fraction of system memory available for executor use.
+ *                             If not set, the platform default will be used
+ *                             (e.g., 0.8 for Dataproc). This accounts for memory reserved
+ *                             by resource managers like YARN.
  */
 class WorkerInfo (
   @BeanProperty var instanceType: String,
   @BeanProperty var cpuCores: Int,
   @BeanProperty var memoryGB: Long,
-  @BeanProperty var gpu: GpuWorkerProps) extends ValidatableProperties {
+  @BeanProperty var gpu: GpuWorkerProps,
+  @BeanProperty var systemMemoryFraction: java.lang.Double) extends ValidatableProperties {
 
-  def this() = this("", 0, 0L, new GpuWorkerProps())
+  def this() = this("", 0, 0L, new GpuWorkerProps(), null)
 
   /** Returns true if all resource fields are unset or empty. */
   def isEmpty: Boolean = {
@@ -61,6 +71,13 @@ class WorkerInfo (
     if (isOnpremInfo && gpu.isEmpty) {
       throw new IllegalArgumentException("GPU information is required for OnPrem " +
         "target cluster configuration.")
+    }
+    if (systemMemoryFraction != null) {
+      if (systemMemoryFraction <= 0.0 || systemMemoryFraction > 1.0) {
+        throw new IllegalArgumentException(
+          s"systemMemoryFraction must be between 0.0 (exclusive) and 1.0 (inclusive), " +
+            s"got: $systemMemoryFraction")
+      }
     }
     gpu.validate()
   }
@@ -133,7 +150,7 @@ class DriverInfo (
  *
  * For more examples, see:
  * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
- * - Target cluster examples: core/src/main/resources/targetClusterInfo/
+ * - Target cluster examples: core/docs/sampleFiles/targetClusterInfo/
  */
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],

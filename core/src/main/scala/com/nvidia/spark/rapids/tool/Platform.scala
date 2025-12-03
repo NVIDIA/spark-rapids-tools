@@ -257,11 +257,30 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def defaultNumGpus: Int = 1
 
   /**
-   * Fraction of the system's total memory that is available for executor use.
-   * This value should be set based on the platform to account for memory
+   * Default fraction of the system's total memory that is available for executor use.
+   * This value should be overridden by each platform to account for memory
    * reserved by the resource managers (e.g., YARN).
+   * Subclasses should override this method to provide platform-specific defaults.
    */
-  def fractionOfSystemMemoryForExecutors: Double
+  protected def defaultFractionOfSystemMemoryForExecutors: Double
+
+  /**
+   * Fraction of the system's total memory that is available for executor use.
+   * Checks for a user-specified value in the target cluster configuration first,
+   * then falls back to the platform default.
+   *
+   * Users can override this value in the target cluster YAML:
+   * {{{
+   * workerInfo:
+   *   instanceType: g2-standard-24
+   *   systemMemoryFraction: 0.75  # Override the default
+   * }}}
+   */
+  final def fractionOfSystemMemoryForExecutors: Double = {
+    targetCluster
+      .flatMap(tc => Option(tc.getWorkerInfo.getSystemMemoryFraction))
+      .fold(defaultFractionOfSystemMemoryForExecutors)(_.doubleValue())
+  }
 
   val sparkVersionLabel: String = "Spark version"
 
@@ -821,7 +840,7 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
    * Could not find public documentation for this. This was determined based on
    * manual inspection of Databricks AWS configurations.
    */
-  override def fractionOfSystemMemoryForExecutors = 0.65
+  override protected def defaultFractionOfSystemMemoryForExecutors: Double = 0.65
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
@@ -837,7 +856,7 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
    * Could not find public documentation for this. This was determined based on
    * manual inspection of Databricks Azure configurations.
    */
-  override def fractionOfSystemMemoryForExecutors = 0.7
+  override protected def defaultFractionOfSystemMemoryForExecutors: Double = 0.7
 }
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
@@ -852,7 +871,7 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
    * Reference: https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/autoscaling#hadoop_yarn_metrics
    */
   // scalastyle:on line.size.limit
-  override def fractionOfSystemMemoryForExecutors: Double = 0.8
+  override protected def defaultFractionOfSystemMemoryForExecutors: Double = 0.8
 
   override val platformSpecificRecommendations: Map[String, String] = Map(
     // Keep disabled. This property does not work well with GPU clusters.
@@ -897,7 +916,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
    * Reference: https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-hadoop-task-config.html#emr-hadoop-task-config-g6
    */
   // scalastyle:on line.size.limit
-  override def fractionOfSystemMemoryForExecutors: Double = 0.7
+  override protected def defaultFractionOfSystemMemoryForExecutors: Double = 0.7
 
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
@@ -942,7 +961,7 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
    *
    * See `getMemoryPerNodeMb()` in [[com.nvidia.spark.rapids.tool.ClusterConfigurationStrategy]]
    */
-  def fractionOfSystemMemoryForExecutors: Double = 1.0
+  override protected def defaultFractionOfSystemMemoryForExecutors: Double = 1.0
 
   /**
    * Returns the recommended instance info based on the provided WorkerInfo for OnPrem.

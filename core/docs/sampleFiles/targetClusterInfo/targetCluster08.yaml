@@ -1,0 +1,24 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Defines the example target cluster information with custom systemMemoryFraction.
+# Usage: `<JAVA CMD> --platform dataproc --target-cluster-info <path to this file>`
+#
+# systemMemoryFraction: Optional fraction of system memory available for executor use.
+# If not set, the platform default will be used (e.g., 0.8 for Dataproc, 0.7 for EMR).
+# This accounts for memory reserved by resource managers like YARN.
+# Use this to override the default when your environment has different memory reservations.
+workerInfo:
+  instanceType: g2-standard-24
+  systemMemoryFraction: 0.75
