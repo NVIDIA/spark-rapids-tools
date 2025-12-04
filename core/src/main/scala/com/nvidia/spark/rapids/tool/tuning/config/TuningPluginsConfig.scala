@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nvidia.spark.rapids.tool.tuning.plugins
+package com.nvidia.spark.rapids.tool.tuning.config
 
 import java.util
 
@@ -21,87 +21,7 @@ import scala.beans.BeanProperty
 import scala.jdk.CollectionConverters._
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, UTF8Source, ValidatableProperties}
-
-/**
- * Represents a configuration for a single tuning rule loaded from YAML.
- *
- * A tuning rule defines a specific optimization or analysis strategy that can be applied
- * to Spark applications running on GPU. Each rule is associated with a plugin and includes
- * metadata such as its name, description, implementation class, priority, and enabled status.
- *
- * @param name The unique name identifying the tuning rule
- * @param description A human-readable description of the rule's purpose and logic
- * @param className The fully qualified class name implementing the rule
- * @param priority The execution priority of the rule (0 = highest, 100 = lowest)
- * @param enabled Whether this rule is currently active and should be applied
- * @param pluginName The name of the plugin this rule belongs to
- */
-class TuningRuleConfig(
-  @BeanProperty var name: String,
-  @BeanProperty var description: String,
-  @BeanProperty var className: String,
-  @BeanProperty var priority: Int,
-  @BeanProperty var enabled: Boolean,
-  @BeanProperty var pluginName: String) {
-
-  /**
-   * No-arg constructor required for YAML deserialization.
-   * Initializes all fields with default values.
-   */
-  def this() = this("", "", "", TuningPluginsConfig.DEFAULT_PRIORITY, true, "")
-
-  /**
-   * Returns a string representation of this tuning rule configuration.
-   *
-   * @return A formatted string containing all configuration properties
-   */
-  override def toString: String = {
-    s"TuningRuleConfig(name=$name, description=$description, className=$className, " +
-      s"enabled=$enabled, priority=$priority, pluginName=$pluginName)"
-  }
-}
-
-
-/**
- * Represents a tuning plugin configuration loaded from YAML.
- *
- * A tuning plugin is a modular component that provides tuning capabilities for Spark applications
- * running on GPU. Each plugin encapsulates a set of related tuning rules and provides
- * infrastructure for analyzing and optimizing Spark configurations. Plugins can be independently
- * enabled/disabled and prioritized to control the order in which they are applied.
- *
- * @param name The unique identifier for the tuning plugin
- * @param description A human-readable description of the plugin's purpose and optimization
- *                    strategies
- * @param className The fully qualified class name of the implementation for this plugin
- * @param priority The execution priority of the plugin (0 = highest, 100 = lowest). Lower values
- *                 are executed first. Default is 50.
- * @param enabled Whether this plugin is currently active and should be used during tuning
- */
-class TuningPluginConfig(
-    @BeanProperty var name: String,
-    @BeanProperty var description: String,
-    @BeanProperty var className: String,
-    @BeanProperty var priority: Int,
-    @BeanProperty var enabled: Boolean) {
-
-  /**
-   * No-arg constructor required for YAML deserialization using JavaBeans conventions.
-   * Initializes all fields with default values.
-   */
-  def this() = this("", "", "", TuningPluginsConfig.DEFAULT_PRIORITY, true)
-
-  /**
-   * Returns a string representation of this tuning plugin configuration.
-   *
-   * @return A formatted string containing all configuration properties
-   */
-  override def toString: String = {
-    s"TuningPluginConfig(name=$name, description=$description, className=$className, " +
-      s"priority=$priority, enabled=$enabled)"
-  }
-}
+import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
 
 /**
  * Root configuration container for tuning plugins and rules loaded from YAML.
@@ -110,7 +30,7 @@ class TuningPluginConfig(
  * framework configuration. It contains both plugin definitions and their associated rules,
  * providing validation and convenient access methods for working with the configurations.
  *
- * The configuration is typically loaded from a YAML file (e.g., `tuningPlugins.yaml`) and
+ * The configuration is typically loaded from a YAML file (e.g., `tuningConfigs.yaml`) and
  * provides Java Bean properties for proper YAML deserialization. After loading, the `validate()`
  * method should be called to ensure all required fields are properly set.
  *
@@ -118,15 +38,31 @@ class TuningPluginConfig(
  * @param tuningRules A list of tuning rule configurations that define optimization strategies
  */
 class TuningPluginsConfig(
-    @BeanProperty var tuningPlugins: util.List[TuningPluginConfig],
-    @BeanProperty var tuningRules: util.List[TuningRuleConfig]) extends ValidatableProperties {
+    @BeanProperty var tuningPlugins: util.List[TuningPluginConfigEntry],
+    @BeanProperty var tuningRules: util.List[TuningRuleConfig])
+  extends ValidatableProperties
+  with MergeableConfigTrait[TuningPluginsConfig] {
 
+  override def isEmpty: Boolean = {
+    (tuningPlugins == null || tuningPlugins.isEmpty) &&
+      (tuningRules == null || tuningRules.isEmpty)
+  }
   /**
    * No-arg constructor required for YAML deserialization using JavaBeans conventions.
    * Initializes with empty lists for both plugins and rules.
    */
   def this() =
-    this(new util.ArrayList[TuningPluginConfig](), new util.ArrayList[TuningRuleConfig]())
+    this(
+      tuningPlugins = new util.ArrayList[TuningPluginConfigEntry](),
+      tuningRules = new util.ArrayList[TuningRuleConfig]()
+    )
+
+  /**
+   * Returns a unique identifier for this configuration.
+   * Since TuningPluginsConfiguration is a singleton-like configuration,
+   * we use a constant key.
+   */
+  override def configKey: String = "tuningPluginsConfiguration"
 
   /**
    * Converts the Java list of tuning plugins to a Scala Seq for easier manipulation.
@@ -136,7 +72,7 @@ class TuningPluginsConfig(
    *
    * @return A Scala sequence of tuning plugin configurations, or empty sequence if null
    */
-  def getTuningPluginsSeq: Seq[TuningPluginConfig] = {
+  def getTuningPluginsSeq: Seq[TuningPluginConfigEntry] = {
     if (tuningPlugins != null) tuningPlugins.asScala.toSeq else Seq.empty
   }
 
@@ -167,6 +103,115 @@ class TuningPluginsConfig(
   }
 
   /**
+   * Merges this TuningPluginsConfiguration with another one.
+   * For plugins and rules with the same name, the other configuration's values will override.
+   *
+   * @param other The other TuningPluginsConfiguration to merge with
+   * @return A new TuningPluginsConfiguration with merged values
+   */
+  override protected def mergeWith(
+      other: TuningPluginsConfig): TuningPluginsConfig = {
+    val mergedPlugins = mergePlugins(this.tuningPlugins, other.tuningPlugins)
+    val mergedRules = mergeRules(this.tuningRules, other.tuningRules)
+    new TuningPluginsConfig(mergedPlugins, mergedRules)
+  }
+
+  /**
+   * Merges two lists of plugin configurations, preferring values from the override list
+   * when plugin names match.
+   *
+   * @param basePlugins The base list of plugin configurations
+   * @param overridePlugins The override list of plugin configurations
+   * @return A merged list containing all plugins with overrides applied
+   */
+  private def mergePlugins(
+    basePlugins: util.List[TuningPluginConfigEntry],
+    overridePlugins: util.List[TuningPluginConfigEntry]): util.List[TuningPluginConfigEntry] = {
+    mergeConfigLists[TuningPluginConfigEntry](
+      basePlugins,
+      overridePlugins,
+      _.name,
+      (baseEntry, overrideEntry) => baseEntry.merge(overrideEntry)
+    )
+  }
+
+  /**
+   * Merges two lists of rule configurations, preferring values from the override list
+   * when rule names match.
+   *
+   * @param baseRules The base list of rule configurations
+   * @param overrideRules The override list of rule configurations
+   * @return A merged list containing all rules with overrides applied
+   */
+  private def mergeRules(
+    baseRules: util.List[TuningRuleConfig],
+    overrideRules: util.List[TuningRuleConfig]): util.List[TuningRuleConfig] = {
+    mergeConfigLists[TuningRuleConfig](
+      baseRules,
+      overrideRules,
+      _.name,
+      (baseEntry, overrideEntry) => baseEntry.merge(overrideEntry)
+    )
+  }
+
+  /**
+   * Generic helper method to merge two lists of configuration objects.
+   *
+   * @param baseList The base list of configurations
+   * @param overrideList The override list of configurations
+   * @param keyExtractor Function to extract the unique key from each configuration
+   * @param merger Function to merge two configurations with the same key
+   * @tparam T The type of configuration object
+   * @return A merged list containing all configurations with overrides applied
+   */
+  private def mergeConfigLists[T](
+    baseList: util.List[T],
+    overrideList: util.List[T],
+    keyExtractor: T => String,
+    merger: (T, T) => T): util.List[T] = {
+    if (overrideList == null || overrideList.isEmpty) {
+      return baseList
+    }
+
+    val result = new util.ArrayList[T]()
+    val baseMap = baseList.asScala.map(item => keyExtractor(item) -> item).toMap
+    val overrideMap = overrideList.asScala.map(item => keyExtractor(item) -> item).toMap
+
+    // Add all base items, applying overrides where they exist
+    baseList.asScala.foreach { baseItem =>
+      overrideMap.get(keyExtractor(baseItem)) match {
+        case Some(overrideItem) => result.add(merger(baseItem, overrideItem))
+        case None => result.add(baseItem)
+      }
+    }
+
+    // Add any new items from override that don't exist in base
+    overrideList.asScala.foreach { overrideItem =>
+      if (!baseMap.contains(keyExtractor(overrideItem))) {
+        result.add(overrideItem)
+      }
+    }
+
+    result
+  }
+
+
+  /**
+   * Creates a deep copy of this TuningPluginsConfiguration.
+   *
+   * @return A new TuningPluginsConfiguration instance with copied values
+   */
+  override protected def copyConfig(): TuningPluginsConfig = {
+    val pluginsCopy = new util.ArrayList[TuningPluginConfigEntry]()
+    tuningPlugins.asScala.foreach(plugin => pluginsCopy.add(plugin.copy()))
+
+    val rulesCopy = new util.ArrayList[TuningRuleConfig]()
+    tuningRules.asScala.foreach(rule => rulesCopy.add(rule.copy()))
+
+    new TuningPluginsConfig(pluginsCopy, rulesCopy)
+  }
+
+  /**
    * Validates that a priority value is within the acceptable range.
    *
    * Priority values must be between HIGHEST_PRIORITY (0) and LOWEST_PRIORITY (100) inclusive.
@@ -176,7 +221,8 @@ class TuningPluginsConfig(
    * @return true if the priority is within the valid range [0, 100], false otherwise
    */
   private def validatePriority(v: Int): Boolean = {
-    v >= TuningPluginsConfig.HIGHEST_PRIORITY && v <= TuningPluginsConfig.LOWEST_PRIORITY
+    v >= TuningPluginsConfig.HIGHEST_PRIORITY &&
+      v <= TuningPluginsConfig.LOWEST_PRIORITY
   }
 
   /**
@@ -197,16 +243,19 @@ class TuningPluginsConfig(
     require(tuningPlugins != null, "tuningPlugins must not be null")
     getTuningPluginsSeq.foreach { plugin =>
       // It is possible to have an empty className if the user wants to disable a plugin
-      require(plugin.getName != null && plugin.getName.nonEmpty,
+      require(!isEmptyValue(plugin.getName),
         "Plugin name must not be null or empty")
+      require(validatePriority(plugin.normalizedPriority),
+        s"Plugin priority must be between ${TuningPluginsConfig.HIGHEST_PRIORITY} and " +
+          s"${TuningPluginsConfig.LOWEST_PRIORITY}")
     }
     if (tuningRules != null) {
       getTuningRulesSeq.foreach { rule =>
-        require(rule.getName != null && rule.getName.nonEmpty,
+        require(!isEmptyValue(rule.getName),
           "Rule name must not be null or empty")
-        require(rule.getPluginName != null && rule.getPluginName.nonEmpty,
+        require(!isEmptyValue(rule.getPluginName),
           "Rule's pluginName must not be null or empty")
-        require(validatePriority(rule.getPriority),
+        require(validatePriority(rule.normalizedPriority),
           s"Rule priority must be between ${TuningPluginsConfig.HIGHEST_PRIORITY} and " +
             s"${TuningPluginsConfig.LOWEST_PRIORITY}")
       }
@@ -226,7 +275,7 @@ class TuningPluginsConfig(
  * - 50 (DEFAULT_PRIORITY) = default for most plugins/rules
  * - 100 (LOWEST_PRIORITY) = executed last, lowest precedence
  *
- * The default configuration is loaded from `bootstrap/tuningPlugins.yaml` in the resources
+ * The default configuration is loaded from `bootstrap/tuningConfigs.yaml` in the resources
  * directory and provides a baseline set of tuning plugins and rules.
  */
 object TuningPluginsConfig extends Logging {
@@ -249,35 +298,5 @@ object TuningPluginsConfig extends Logging {
    */
   private val LOWEST_PRIORITY = 100
 
-  /**
-   * Configuration loader for YAML deserialization.
-   * Uses the PropertiesLoader to parse YAML content into TuningPluginsConfig instances.
-   */
-  private val CONFIG_LOADER = PropertiesLoader[TuningPluginsConfig]
-
-  /**
-   * Path to the default tuning plugins configuration YAML file in the resources directory.
-   * This file contains the baseline configuration bundled with the application.
-   */
-  private val DEFAULT_CONFIG_PATH = "bootstrap/tuningPlugins.yaml"
-
-  /**
-   * The default tuning plugins configuration loaded from the bundled YAML resource.
-   *
-   * This configuration is loaded eagerly during object initialization and provides the
-   * baseline set of tuning plugins and rules. All plugins and rules are validated upon
-   * loading to ensure they meet the required constraints.
-   * No filters should be applied at this stage because the user can still override the plugins.
-   *
-   * Note: throws java.lang.RuntimeException if the default configuration file is missing, has
-   *       invalid format, or fails validation
-   */
-  val DEFAULT_TUNING_PLUGINS_CONFIG: TuningPluginsConfig = {
-    CONFIG_LOADER.loadFromContent(UTF8Source.fromResource(DEFAULT_CONFIG_PATH).mkString) match {
-      case Some(config) => config
-      case _ => throw new RuntimeException(
-        "Failed to load default value for tuning config: " +
-          "The file is missing or has invalid format.")
-    }
-  }
+  val UNDEFINED_PRIORITY = 999
 }

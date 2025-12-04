@@ -22,6 +22,7 @@ import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
+import com.nvidia.spark.rapids.tool.tuning.config.TuningConfiguration
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.funsuite.AnyFunSuite
@@ -197,7 +198,7 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
     mockInfoProvider: AppInfoProviderMockTest,
     platform: Platform = PlatformFactory.createInstance(),
     sparkMaster: Option[SparkMaster] = None,
-    userProvidedTuningConfigs: Option[TuningConfigsProvider] = None
+    userProvidedTuningConfigs: Option[TuningConfiguration] = None
   ): AutoTuner = {
 
     // Determine the SparkMaster using provided value or platform-based default

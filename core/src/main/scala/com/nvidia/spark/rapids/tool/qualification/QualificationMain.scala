@@ -108,7 +108,12 @@ object QualificationMain extends Logging {
     }
     // create the AutoTuner context object
     val tunerContext = if (appArgs.autoTuner()) {
-      TunerContext(outputDirectory, Option(hadoopConf))
+      // build the tuner context. It loads the userProvidedTuning from file if it is defined.
+      TunerContext.builder()
+        .withHadoopConf(hadoopConf)
+        .withOutputRootDir(outputDirectory)
+        .withTuningConfigsPath(appArgs.tuningConfigs.toOption)
+        .build()
     } else {
       None
     }
@@ -116,7 +121,7 @@ object QualificationMain extends Logging {
       nThreads, pluginTypeChecker,
       enablePB, reportSqlLevel, maxSQLDescLength, mlOpsEnabled, penalizeTransitions,
       tunerContext, appArgs.clusterReport(), appArgs.platform(),
-      appArgs.targetClusterInfo.toOption, appArgs.tuningConfigs.toOption)
+      appArgs.targetClusterInfo.toOption)
     val res = qual.qualifyApps(filteredLogs)
     res
   }

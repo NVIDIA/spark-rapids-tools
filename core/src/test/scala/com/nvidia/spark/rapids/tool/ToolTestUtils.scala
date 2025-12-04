@@ -25,6 +25,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.nvidia.spark.rapids.tool.profiling.ProfileArgs
 import com.nvidia.spark.rapids.tool.qualification.QualOutputWriter
 import com.nvidia.spark.rapids.tool.tuning._
+import com.nvidia.spark.rapids.tool.tuning.config.{TuningConfigEntry, TuningConfiguration, TuningEntryDefinition}
 import org.apache.hadoop.fs.Path
 import org.yaml.snakeyaml.{DumperOptions, Yaml}
 
@@ -324,9 +325,12 @@ object ToolTestUtils extends Logging {
   def buildTuningConfigs(
       default: List[TuningConfigEntry] = List.empty,
       qualification: List[TuningConfigEntry] = List.empty,
-      profiling: List[TuningConfigEntry] = List.empty): TuningConfigsProvider = {
+      profiling: List[TuningConfigEntry] = List.empty): TuningConfiguration = {
     import scala.jdk.CollectionConverters._
-    new TuningConfigsProvider(default.asJava, qualification.asJava, profiling.asJava, None)
+    new TuningConfiguration(
+        default = default.asJava,
+        qualification = qualification.asJava,
+        profiling = profiling.asJava)
   }
 
   /**

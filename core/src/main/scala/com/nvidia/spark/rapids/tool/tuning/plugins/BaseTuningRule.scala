@@ -21,6 +21,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
+import com.nvidia.spark.rapids.tool.tuning.config.TuningRuleConfig
 
 import org.apache.spark.internal.Logging
 
@@ -85,7 +86,7 @@ abstract class BaseTuningRule extends TuningRuleTrait {
    *
    * @return The priority value (0 = highest, 100 = lowest)
    */
-  def priority: Int = tuningRuleConfig.priority
+  def priority: Int = tuningRuleConfig.normalizedPriority
 
   /**
    * The condition that determines when this rule should be applied.

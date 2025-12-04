@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.tuning
+package com.nvidia.spark.rapids.tool.tuning.config
 
 import java.util
 
@@ -26,7 +26,6 @@ import org.yaml.snakeyaml.constructor.Constructor
 import org.yaml.snakeyaml.representer.Representer
 
 import org.apache.spark.sql.rapids.tool.util.UTF8Source
-
 
 // scalastyle:off line.size.limit
 // This is similar to confTypes defined in
@@ -116,6 +115,8 @@ object ConfType {
  *                       Default is true.
  * @param defaultSpark The default value of the property in Spark. This is used to set the
  *                     originalValue of the property in case it is not set by the eventlog.
+ * @param modifiedBy Comma-separated list of plugins rules that set this property. This is used to
+ *                   track which plugin modified property.
  * @param confType A map containing the configuration type information with optional default unit
  *                 Example: { "name": "byte", "defaultUnit": "MiB" } or { "name": "string" }
  * @param comments The defaults comments to be loaded for the entry. It is a map to represent
@@ -135,6 +136,7 @@ class TuningEntryDefinition(
     @BeanProperty var category: String,
     @BeanProperty var bootstrapEntry: Boolean,
     @BeanProperty var defaultSpark: String,
+    @BeanProperty var modifiedBy: String,
     @BeanProperty var confType: util.LinkedHashMap[String, String],
     @BeanProperty var comments: util.LinkedHashMap[String, String]) {
   private lazy val confTypeInfo: ConfType = ConfType.fromMap(confType)
@@ -142,8 +144,15 @@ class TuningEntryDefinition(
   private lazy val levelEnum: LevelEnum.Value = LevelEnum.fromString(level)
 
   def this() = {
-    this(label = "", description = "", enabled = true, level = "", category = "",
-      bootstrapEntry = true, defaultSpark = null,
+    this(
+      label = "",
+      description = "",
+      enabled = true,
+      level = "",
+      category = "",
+      bootstrapEntry = true,
+      defaultSpark = null,
+      modifiedBy = "",
       confType = new util.LinkedHashMap[String, String](),
       comments = new util.LinkedHashMap[String, String]())
   }
@@ -233,6 +242,7 @@ object TuningEntryDefinition {
    * @param category the category (default: CategoryEnum.Tuning)
    * @param bootstrapEntry whether this should be a bootstrap entry (default: true)
    * @param defaultSpark the default Spark value (default: null)
+   * @param modifiedBy the plugin(s) that modified this entry (default: "")
    * @return a new TuningEntryDefinition instance
    */
   def apply(
@@ -244,7 +254,8 @@ object TuningEntryDefinition {
       level: LevelEnum.Value = LevelEnum.Job,
       category: CategoryEnum.Value = CategoryEnum.Tuning,
       bootstrapEntry: Boolean = true,
-      defaultSpark: String = null): TuningEntryDefinition = {
+      defaultSpark: String = null,
+      modifiedBy: String = ""): TuningEntryDefinition = {
     // Create a new TuningEntryDefinition with the provided parameters.
     val defn = new TuningEntryDefinition()
     defn.setLabel(label)
@@ -254,6 +265,7 @@ object TuningEntryDefinition {
     defn.setCategory(category.toString.toLowerCase)
     defn.setBootstrapEntry(bootstrapEntry)
     defn.setDefaultSpark(defaultSpark)
+    defn.setModifiedBy(modifiedBy)
     // Create the confType map with the provided confType and optional defaultUnit.
     val confTypeMap = Map("name" -> confType.toString) ++ defaultUnit.map("defaultUnit" -> _)
     defn.setConfType(new java.util.LinkedHashMap(confTypeMap.asJava))
@@ -262,8 +274,6 @@ object TuningEntryDefinition {
 
   /**
    * Load the tuning table from a specific yaml resource file.
-   * @param resourcePath the path to the yaml resource file, defaults to
-   *                     "bootstrap/tuningTable.yaml"
    * @return a map between property name and the TuningEntryDefinition
    */
   def loadTable(): Map[String, TuningEntryDefinition] = {

@@ -17,7 +17,7 @@
 # Notes:
 # - Default values for all configuration parameters are available in `tuningConfigs.yaml`.
 # - Custom configurations only need to specify parameters that need to be changed from the defaults.
-# - It is not necessary to include description or usedBy fields; only name, default, min, and/or max as required.
+# - It is unnecessary to include description or usedBy fields; only name, default, min, and/or max as required.
 #
 # Usage: To use a custom tuning configuration, specify the file with:
 # - `--tuning-configs /path/to/custom/file.YAML` when running the Tools JAR

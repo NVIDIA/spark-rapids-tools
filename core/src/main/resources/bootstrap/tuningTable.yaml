@@ -12,6 +12,87 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#===============================================================================
+# RAPIDS Accelerator Tuning Definitions Table
+#===============================================================================
+# This YAML file defines tuning property definitions used by the RAPIDS
+# Accelerator for Apache Spark tools. It provides metadata about Spark
+# configuration properties that can be tuned for optimal GPU performance.
+#
+# Purpose:
+# - Defines properties that the AutoTuner can recommend and configure
+# - Provides descriptions, categories, and default values for each property
+# - Specifies data types and units for proper validation and formatting
+# - Contains plugin-specific properties for technologies like Delta Lake
+#
+# Structure:
+# The file contains a single top-level key 'tuningDefinitions' which is a list
+# of tuning property definitions. Each definition describes a Spark configuration
+# property with the following fields:
+#
+# Required Fields:
+# - label:       The Spark configuration property name (e.g., "spark.executor.cores")
+# - description: Human-readable description of what this property does
+# - enabled:     Whether this property is active for tuning (true/false)
+# - level:       Scope of the property - either "cluster" or "job"
+#                * cluster: Applied at cluster/executor level (e.g., memory, cores)
+#                * job: Applied at job/query level (e.g., AQE settings, shuffle)
+# - category:    Type of property - either "tuning" or "functionality"
+#                * tuning: Performance optimization settings
+#                * functionality: Features that enable/configure GPU capabilities
+# - confType:    Data type information for the property
+#   - name:      Type name (boolean, int, long, double, string, byte, time)
+#   - defaultUnit: (Optional) Default unit for numeric types (e.g., MiB, Byte, ms)
+#
+# Optional Fields:
+# - defaultSpark: The default value in vanilla Apache Spark (if different from RAPIDS)
+# - defaultMemoryUnit: (Deprecated) Unit for memory values - use confType.defaultUnit instead
+# - modifiedBy:  Name of the plugin or rule that modifies this property
+# - comments:    Map of comment types to messages shown to users
+#   - missing:     Message when property is not set but should be
+#   - updated:     Message when property exists but should be modified
+#   - persistent:  Message that always appears for this property
+#
+# Configuration Type Details:
+# The 'confType' field specifies how to parse and validate property values:
+# - boolean:  true/false values
+# - int:      Integer numbers
+# - long:     Long integer numbers
+# - double:   Floating point numbers
+# - string:   Text values
+# - byte:     Memory sizes (supports units like MiB, GiB, Byte, etc.)
+# - time:     Time durations (supports units like ms, s, m, h, etc.)
+#
+# Organization:
+# 1. General Spark Properties (lines ~50-250)
+#    - Executor configuration (cores, memory, overhead)
+#    - Serialization settings (Kryo)
+#    - AQE (Adaptive Query Execution) properties
+#    - Shuffle and partition settings
+#    - GPU resource scheduling
+#
+# 2. RAPIDS Plugin Properties (lines ~250-400)
+#    - RAPIDS-specific acceleration settings
+#    - File cache, pinned memory, batch sizes
+#    - Multi-threaded readers and shuffle settings
+#
+# 3. Plugin-Specific Properties (lines ~400+)
+#    - Delta Lake optimizations and acceleration
+#    - Technology-specific tuning recommendations
+#    - Version-specific workarounds or settings
+#
+# Usage:
+# This file is loaded by the AutoTuner to understand which properties can be
+# recommended, what their valid ranges are, and how to format their values.
+# It works in conjunction with tuningConfigs.yaml which provides the actual
+# calculation logic for determining recommended values.
+#
+# Note:
+# Some properties are marked with 'modifiedBy' to indicate they are controlled
+# by specific tuning plugins or rules. These plugins may apply conditional logic
+# based on the environment (e.g., Delta Lake version, platform type).
+#===============================================================================
+
 tuningDefinitions:
   - label: spark.databricks.adaptive.autoOptimizeShuffle.enabled
     description: >-
@@ -434,6 +515,7 @@ tuningDefinitions:
     category: tuning
     confType:
       name: int
+
   ##############################################################################
   # Plugin Properties Entries
   ##############################################################################
@@ -465,6 +547,7 @@ tuningDefinitions:
     level: job
     category: tuning
     defaultSpark: "false"
+    modifiedBy: DeltaOSSWriteRule
     confType:
       name: boolean
     comments:
