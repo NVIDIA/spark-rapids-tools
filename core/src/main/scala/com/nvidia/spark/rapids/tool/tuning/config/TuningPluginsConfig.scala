@@ -39,7 +39,7 @@ import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
  */
 class TuningPluginsConfig(
     @BeanProperty var tuningPlugins: util.List[TuningPluginConfigEntry],
-    @BeanProperty var tuningRules: util.List[TuningRuleConfig])
+    @BeanProperty var tuningRules: util.List[TuningRuleConfigEntry])
   extends ValidatableProperties
   with MergeableConfigTrait[TuningPluginsConfig] {
 
@@ -54,7 +54,7 @@ class TuningPluginsConfig(
   def this() =
     this(
       tuningPlugins = new util.ArrayList[TuningPluginConfigEntry](),
-      tuningRules = new util.ArrayList[TuningRuleConfig]()
+      tuningRules = new util.ArrayList[TuningRuleConfigEntry]()
     )
 
   /**
@@ -84,7 +84,7 @@ class TuningPluginsConfig(
    *
    * @return A Scala sequence of tuning rule configurations, or empty sequence if null
    */
-  def getTuningRulesSeq: Seq[TuningRuleConfig] = {
+  def getTuningRulesSeq: Seq[TuningRuleConfigEntry] = {
     if (tuningRules != null) tuningRules.asScala.toSeq else Seq.empty
   }
 
@@ -98,7 +98,7 @@ class TuningPluginsConfig(
    * @return A map where keys are plugin names and values are sequences of tuning rule
    *         configurations associated with each plugin
    */
-  def getPluginRulesMap: Map[String, Seq[TuningRuleConfig]] = {
+  def getPluginRulesMap: Map[String, Seq[TuningRuleConfigEntry]] = {
     getTuningRulesSeq.groupBy(_.pluginName)
   }
 
@@ -144,9 +144,9 @@ class TuningPluginsConfig(
    * @return A merged list containing all rules with overrides applied
    */
   private def mergeRules(
-    baseRules: util.List[TuningRuleConfig],
-    overrideRules: util.List[TuningRuleConfig]): util.List[TuningRuleConfig] = {
-    mergeConfigLists[TuningRuleConfig](
+    baseRules: util.List[TuningRuleConfigEntry],
+    overrideRules: util.List[TuningRuleConfigEntry]): util.List[TuningRuleConfigEntry] = {
+    mergeConfigLists[TuningRuleConfigEntry](
       baseRules,
       overrideRules,
       _.name,
@@ -205,7 +205,7 @@ class TuningPluginsConfig(
     val pluginsCopy = new util.ArrayList[TuningPluginConfigEntry]()
     tuningPlugins.asScala.foreach(plugin => pluginsCopy.add(plugin.copy()))
 
-    val rulesCopy = new util.ArrayList[TuningRuleConfig]()
+    val rulesCopy = new util.ArrayList[TuningRuleConfigEntry]()
     tuningRules.asScala.foreach(rule => rulesCopy.add(rule.copy()))
 
     new TuningPluginsConfig(pluginsCopy, rulesCopy)
@@ -287,6 +287,12 @@ object TuningPluginsConfig extends Logging {
   val DEFAULT_PRIORITY = 50
 
   /**
+   * Special constant indicating that the priority has not been set by the user.
+   * This allows differentiation between default and user-defined priorities.
+   */
+  val UNSET_PRIORITY = 999
+
+  /**
    * The highest priority value (executed first).
    * Plugins and rules with this priority are applied before all others.
    */
@@ -297,6 +303,4 @@ object TuningPluginsConfig extends Logging {
    * Plugins and rules with this priority are applied after all others.
    */
   private val LOWEST_PRIORITY = 100
-
-  val UNDEFINED_PRIORITY = 999
 }

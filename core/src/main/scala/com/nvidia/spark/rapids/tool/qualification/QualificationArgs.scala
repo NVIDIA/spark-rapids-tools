@@ -148,7 +148,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val timeout: ScallopOption[Long] =
     opt[Long](required = false,
       descr = "Maximum time in seconds to wait for the event logs to be processed. " +
-        "Default is 48 hours (172,800 seconds) and must be greater than 3 seconds. If it " +
+        "Default is 48 hours (172800 seconds) and must be greater than 3 seconds. If it " +
         "times out, it will report what it was able to process up until the timeout.",
       default = Some(172800))
   val userName: ScallopOption[String] =

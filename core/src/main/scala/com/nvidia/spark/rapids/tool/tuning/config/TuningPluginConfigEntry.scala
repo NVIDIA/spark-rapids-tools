@@ -48,7 +48,7 @@ class TuningPluginConfigEntry(
    * No-arg constructor required for YAML deserialization using JavaBeans conventions.
    * Initializes all fields with default values.
    */
-  def this() = this("", "", "", TuningPluginsConfig.UNDEFINED_PRIORITY, true)
+  def this() = this("", "", "", TuningPluginsConfig.UNSET_PRIORITY, true)
 
   /**
    * We need to normalize priority here because we lose information if the priority is initialized
@@ -58,7 +58,7 @@ class TuningPluginConfigEntry(
    */
   def normalizedPriority: Int = {
     priority match {
-      case p if p == TuningPluginsConfig.UNDEFINED_PRIORITY => TuningPluginsConfig.DEFAULT_PRIORITY
+      case p if p == TuningPluginsConfig.UNSET_PRIORITY => TuningPluginsConfig.DEFAULT_PRIORITY
       case p => p
     }
   }
@@ -79,7 +79,7 @@ class TuningPluginConfigEntry(
       description = if (!isEmptyValue(other.description)) other.description else description,
       className = if (!isEmptyValue(other.className)) other.className else className,
       priority =
-        if (other.priority != TuningPluginsConfig.UNDEFINED_PRIORITY) other.priority else priority,
+        if (other.priority != TuningPluginsConfig.UNSET_PRIORITY) other.priority else priority,
       enabled = other.enabled
     )
   }

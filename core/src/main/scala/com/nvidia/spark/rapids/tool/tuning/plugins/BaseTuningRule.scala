@@ -21,7 +21,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
-import com.nvidia.spark.rapids.tool.tuning.config.TuningRuleConfig
+import com.nvidia.spark.rapids.tool.tuning.config.TuningRuleConfigEntry
 
 import org.apache.spark.internal.Logging
 
@@ -66,7 +66,7 @@ abstract class BaseTuningRule extends TuningRuleTrait {
    * description, priority, and enabled status. This field is set by the Builder
    * during rule instantiation.
    */
-  var tuningRuleConfig: TuningRuleConfig = _
+  var tuningRuleConfig: TuningRuleConfigEntry = _
 
   /**
    * Counter tracking the number of times this rule has been successfully applied.
@@ -164,7 +164,7 @@ object BaseTuningRule extends Logging {
    * - Clean separation of configuration and instantiation
    */
   class Builder {
-    private var tuningRuleConfig: TuningRuleConfig = _
+    private var tuningRuleConfig: TuningRuleConfigEntry = _
 
     /**
      * Sets the tuning rule configuration for the rule being built.
@@ -172,7 +172,7 @@ object BaseTuningRule extends Logging {
      * @param config The TuningRuleConfig containing rule metadata and class information
      * @return This builder instance for method chaining
      */
-    def withTuningRuleConfig(config: TuningRuleConfig): Builder = {
+    def withTuningRuleConfig(config: TuningRuleConfigEntry): Builder = {
       this.tuningRuleConfig = config
       this
     }

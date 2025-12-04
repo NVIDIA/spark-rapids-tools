@@ -112,7 +112,7 @@ class TuningConfigEntry(
   }
 
   override def toString: String = {
-    s"TuningConfigEntry(name='$name', description='$description', usedBy='$usedBy'" +
+    s"TuningConfigEntry(name='$name', description='$description', usedBy='$usedBy', " +
       s"pluginRules='$pluginRules', default='$default', min='$min', max='$max')"
   }
 

@@ -32,14 +32,14 @@ import scala.beans.BeanProperty
  * @param enabled     Whether this rule is currently active and should be applied
  * @param pluginName  The name of the plugin this rule belongs to
  */
-class TuningRuleConfig(
+class TuningRuleConfigEntry(
     @BeanProperty var name: String,
     @BeanProperty var description: String,
     @BeanProperty var className: String,
     @BeanProperty var priority: Int,
     @BeanProperty var enabled: Boolean,
     @BeanProperty var pluginName: String
-) extends MergeableConfigTrait[TuningRuleConfig] {
+) extends MergeableConfigTrait[TuningRuleConfigEntry] {
 
   /**
    * We need to normalize priority here because we lose information if the priority is initialized
@@ -49,7 +49,7 @@ class TuningRuleConfig(
    */
   def normalizedPriority: Int = {
     priority match {
-      case p if p == TuningPluginsConfig.UNDEFINED_PRIORITY => TuningPluginsConfig.DEFAULT_PRIORITY
+      case p if p == TuningPluginsConfig.UNSET_PRIORITY => TuningPluginsConfig.DEFAULT_PRIORITY
       case p => p
     }
   }
@@ -57,7 +57,7 @@ class TuningRuleConfig(
    * No-arg constructor required for YAML deserialization.
    * Initializes all fields with default values.
    */
-  def this() = this("", "", "", TuningPluginsConfig.UNDEFINED_PRIORITY, true, "")
+  def this() = this("", "", "", TuningPluginsConfig.UNSET_PRIORITY, true, "")
 
   override def configKey: String = name
 
@@ -68,13 +68,13 @@ class TuningRuleConfig(
    * @param other The other TuningRuleConfig to merge with (keys already verified to match)
    * @return A new TuningRuleConfig with merged values
    */
-  override protected def mergeWith(other: TuningRuleConfig): TuningRuleConfig = {
-    new TuningRuleConfig(
+  override protected def mergeWith(other: TuningRuleConfigEntry): TuningRuleConfigEntry = {
+    new TuningRuleConfigEntry(
       name = this.name,
       description = if (isEmptyValue(other.description)) this.description else other.description,
       className = if (isEmptyValue(other.className)) this.className else other.className,
       priority =
-        if (other.priority != TuningPluginsConfig.UNDEFINED_PRIORITY) other.priority else priority,
+        if (other.priority != TuningPluginsConfig.UNSET_PRIORITY) other.priority else priority,
       enabled = other.enabled,
       pluginName = if (isEmptyValue(other.pluginName)) this.pluginName else other.pluginName
     )
@@ -85,8 +85,8 @@ class TuningRuleConfig(
    *
    * @return A new TuningRuleConfig instance with copied values
    */
-  override protected def copyConfig(): TuningRuleConfig = {
-    new TuningRuleConfig(
+  override protected def copyConfig(): TuningRuleConfigEntry = {
+    new TuningRuleConfigEntry(
       name = this.name,
       description = this.description,
       className = this.className,

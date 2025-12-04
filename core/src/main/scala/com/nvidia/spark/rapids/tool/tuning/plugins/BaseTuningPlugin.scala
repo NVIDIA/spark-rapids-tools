@@ -22,7 +22,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
-import com.nvidia.spark.rapids.tool.tuning.config.{TuningPluginConfigEntry, TuningPluginsConfig, TuningRuleConfig}
+import com.nvidia.spark.rapids.tool.tuning.config.{TuningPluginConfigEntry, TuningPluginsConfig, TuningRuleConfigEntry}
 
 /**
  * Base class for tuning plugins that apply optimization rules to the AutoTuner.
@@ -127,7 +127,7 @@ object BaseTuningPlugin {
     protected var pluginConfig: TuningPluginConfigEntry = _
 
     /** Collection of rule configurations to be loaded into the plugin */
-    protected val rulesConfig: ArrayBuffer[TuningRuleConfig] = ArrayBuffer()
+    protected val rulesConfig: ArrayBuffer[TuningRuleConfigEntry] = ArrayBuffer()
 
     /**
      * Sets the plugin configuration.
@@ -195,7 +195,7 @@ object BaseTuningPlugin {
      * @param rulesConfigs The sequence of rule configurations to add
      * @return This builder for chaining
      */
-    def addRules(rulesConfigs: Seq[TuningRuleConfig]): Builder = {
+    def addRules(rulesConfigs: Seq[TuningRuleConfigEntry]): Builder = {
       this.rulesConfig ++= rulesConfigs
       this
     }
