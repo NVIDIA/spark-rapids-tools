@@ -253,19 +253,22 @@ object ToolTestUtils extends Logging {
       preserveSparkProperties: List[String] = List.empty,
       excludeSparkProperties: List[String] = List.empty,
       tuningDefinitions: java.util.List[TuningEntryDefinition] =
-        new java.util.ArrayList[TuningEntryDefinition]()): TargetClusterProps = {
+        new java.util.ArrayList[TuningEntryDefinition](),
+      availableMemoryFraction: Option[Double] = None): TargetClusterProps = {
+    val platformDefaults = new PlatformDefaults(
+      availableMemoryFraction.map(java.lang.Double.valueOf).orNull)
     val driverProps = new DriverInfo(driverNodeInstanceType.getOrElse(""))
     import scala.jdk.CollectionConverters._
     val gpuWorkerProps = new GpuWorkerProps(
       gpuMemory.getOrElse(""), gpuCount.getOrElse(0), gpuDevice.getOrElse(""))
-   val workerProps = new WorkerInfo(workerNodeInstanceType.getOrElse(""), cpuCores.getOrElse(0),
+    val workerProps = new WorkerInfo(workerNodeInstanceType.getOrElse(""), cpuCores.getOrElse(0),
       memoryGB.getOrElse(0L), gpuWorkerProps)
     val sparkProps = new SparkProperties()
     sparkProps.getEnforced.putAll(enforcedSparkProperties.asJava)
     sparkProps.getPreserve.addAll(preserveSparkProperties.asJava)
     sparkProps.getExclude.addAll(excludeSparkProperties.asJava)
     sparkProps.setTuningDefinitions(tuningDefinitions)
-    new TargetClusterProps(driverProps, workerProps, sparkProps)
+    new TargetClusterProps(platformDefaults, driverProps, workerProps, sparkProps)
   }
 
   def buildTargetClusterInfoAsString(
@@ -280,10 +283,11 @@ object ToolTestUtils extends Logging {
       preserveSparkProperties: List[String] = List.empty,
       excludeSparkProperties: List[String] = List.empty,
       tuningDefinitions: java.util.List[TuningEntryDefinition] =
-        new java.util.ArrayList[TuningEntryDefinition]()): String = {
+        new java.util.ArrayList[TuningEntryDefinition](),
+      availableMemoryFraction: Option[Double] = None): String = {
     val targetCluster = buildTargetClusterInfo(driverNodeInstanceType, workerNodeInstanceType,
       cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice, enforcedSparkProperties,
-      preserveSparkProperties, excludeSparkProperties, tuningDefinitions)
+      preserveSparkProperties, excludeSparkProperties, tuningDefinitions, availableMemoryFraction)
     // set the options to convert the object into formatted yaml content
     val options = new DumperOptions()
     options.setIndent(2)
@@ -308,13 +312,15 @@ object ToolTestUtils extends Logging {
        preserveSparkProperties: List[String] = List.empty,
        excludeSparkProperties: List[String] = List.empty,
        tuningDefinitions: java.util.List[TuningEntryDefinition] =
-         new java.util.ArrayList[TuningEntryDefinition]()): Path = {
+         new java.util.ArrayList[TuningEntryDefinition](),
+       availableMemoryFraction: Option[Double] = None): Path = {
     val fileWriter = new ToolTextFileWriter(outputDirectory, "targetClusterInfo.yaml",
       "Target Cluster Info")
     try {
       val targetClusterInfoString = buildTargetClusterInfoAsString(driverNodeInstanceType,
         workerNodeInstanceType, cpuCores, memoryGB, gpuCount, gpuMemory, gpuDevice,
-        enforcedSparkProperties, preserveSparkProperties, excludeSparkProperties, tuningDefinitions)
+        enforcedSparkProperties, preserveSparkProperties, excludeSparkProperties,
+        tuningDefinitions, availableMemoryFraction)
       fileWriter.write(targetClusterInfoString)
       fileWriter.getFileOutputPath
     } finally {

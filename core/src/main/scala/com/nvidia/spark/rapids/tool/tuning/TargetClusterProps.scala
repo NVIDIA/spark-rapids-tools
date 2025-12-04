@@ -29,6 +29,11 @@ import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
 /**
  * Base class to hold the worker information for the target cluster
  * See subclasses below for concrete implementations.
+ *
+ * @param instanceType The instance type (e.g., "g2-standard-24" for Dataproc)
+ * @param cpuCores Number of CPU cores (for OnPrem configurations)
+ * @param memoryGB Total memory in GB (for OnPrem configurations)
+ * @param gpu GPU configuration
  */
 class WorkerInfo (
   @BeanProperty var instanceType: String,
@@ -134,7 +139,7 @@ class DriverInfo (
  *
  * For more examples, see:
  * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
- * - Target cluster examples: core/src/main/resources/targetClusterInfo/
+ * - Target cluster examples: core/docs/sampleFiles/targetClusterInfo/
  */
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],
@@ -202,17 +207,57 @@ class SparkProperties(
 }
 
 /**
+ * Class to hold platform-level default overrides.
+ * These settings override the hardcoded platform defaults and are independent of
+ * the cluster configuration.
+ *
+ * Example YAML format:
+ * {{{
+ * platformDefaults:
+ *   availableMemoryFraction: 0.75
+ * }}}
+ *
+ * @param availableMemoryFraction Fraction of system memory available for Spark executors
+ *                                after accounting for memory reserved by resource managers
+ *                                (e.g., YARN, Kubernetes). Must be > 0.0 and <= 1.0.
+ *                                Platform defaults: Dataproc=0.8, EMR=0.7,
+ *                                Databricks AWS=0.65, Databricks Azure=0.7, OnPrem=1.0
+ */
+class PlatformDefaults(
+  @BeanProperty var availableMemoryFraction: java.lang.Double) extends ValidatableProperties {
+
+  def this() = this(null)
+
+  def isEmpty: Boolean = {
+    availableMemoryFraction == null
+  }
+
+  override def validate(): Unit = {
+    if (availableMemoryFraction != null) {
+      if (availableMemoryFraction <= 0.0 || availableMemoryFraction > 1.0) {
+        throw new IllegalArgumentException(
+          s"availableMemoryFraction must be between 0.0 (exclusive) and 1.0 (inclusive), " +
+            s"got: $availableMemoryFraction")
+      }
+    }
+  }
+}
+
+/**
  * Class to hold the properties for the target cluster.
  * This class will instantiate from the `--target-cluster-info` YAML file
  * using SnakeYAML.
  *
  * The YAML file can include:
+ * - platformDefaults: Override platform-level defaults (e.g., memory fraction)
  * - driverInfo: Driver instance configuration
  * - workerInfo: Worker node configuration (instance type or OnPrem resources)
  * - sparkProperties: Spark configuration including enforced properties and tuning definitions
  *
  * Example YAML format:
  * {{{
+ * platformDefaults:
+ *   availableMemoryFraction: 0.75
  * driverInfo:
  *   instanceType: n1-standard-8
  * workerInfo:
@@ -240,13 +285,16 @@ class SparkProperties(
  * @see [[org.apache.spark.sql.rapids.tool.util.PropertiesLoader]]
  */
 class TargetClusterProps (
+  @BeanProperty var platformDefaults: PlatformDefaults,
   @BeanProperty var driverInfo: DriverInfo,
   @BeanProperty var workerInfo: WorkerInfo,
   @BeanProperty var sparkProperties: SparkProperties) extends ValidatableProperties {
 
-  def this() = this(new DriverInfo(), new WorkerInfo(), new SparkProperties())
+  def this() = this(new PlatformDefaults(), new DriverInfo(), new WorkerInfo(),
+    new SparkProperties())
 
   override def validate(): Unit = {
+    platformDefaults.validate()
     workerInfo.validate()
     sparkProperties.validate()
     if (workerInfo.isOnpremInfo && !driverInfo.isEmpty) {
@@ -257,6 +305,7 @@ class TargetClusterProps (
   }
 
   override def toString: String = {
-    s"${getClass.getSimpleName}(workerInfo=$getWorkerInfo, sparkProperties=$getSparkProperties)"
+    s"${getClass.getSimpleName}(platformDefaults=$getPlatformDefaults, " +
+      s"workerInfo=$getWorkerInfo, sparkProperties=$getSparkProperties)"
   }
 }
