@@ -22,6 +22,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
+import com.nvidia.spark.rapids.tool.tuning.config.{TuningPluginConfigEntry, TuningPluginsConfig, TuningRuleConfigEntry}
 
 /**
  * Base class for tuning plugins that apply optimization rules to the AutoTuner.
@@ -34,7 +35,7 @@ import com.nvidia.spark.rapids.tool.tuning.AutoTuner
  */
 abstract class BaseTuningPlugin(tunerInst: AutoTuner) extends TuningPluginTrait {
   /** Optional configuration for this plugin */
-  var pluginConfig: Option[TuningPluginConfig] = None
+  var pluginConfig: Option[TuningPluginConfigEntry] = None
 
   /** Whether this plugin has been activated */
   var activated = false
@@ -77,7 +78,7 @@ abstract class BaseTuningPlugin(tunerInst: AutoTuner) extends TuningPluginTrait 
    */
   def getPriority: Int = {
     pluginConfig match {
-      case Some(c) => c.getPriority
+      case Some(c) => c.normalizedPriority
       case _ => TuningPluginsConfig.DEFAULT_PRIORITY
     }
   }
@@ -97,7 +98,7 @@ abstract class BaseTuningPlugin(tunerInst: AutoTuner) extends TuningPluginTrait 
    *
    * @param config The plugin configuration to apply
    */
-  def setPluginConfig(config: TuningPluginConfig): Unit = {
+  def setPluginConfig(config: TuningPluginConfigEntry): Unit = {
     this.pluginConfig = Option(config)
   }
 }
@@ -123,10 +124,10 @@ object BaseTuningPlugin {
     protected var tunerInst: AutoTuner = _
 
     /** Configuration for the plugin being built */
-    protected var pluginConfig: TuningPluginConfig = _
+    protected var pluginConfig: TuningPluginConfigEntry = _
 
     /** Collection of rule configurations to be loaded into the plugin */
-    protected val rulesConfig: ArrayBuffer[TuningRuleConfig] = ArrayBuffer()
+    protected val rulesConfig: ArrayBuffer[TuningRuleConfigEntry] = ArrayBuffer()
 
     /**
      * Sets the plugin configuration.
@@ -134,7 +135,7 @@ object BaseTuningPlugin {
      * @param config The plugin configuration to use
      * @return This builder for chaining
      */
-    def withPluginConfig(config: TuningPluginConfig): Builder = {
+    def withPluginConfig(config: TuningPluginConfigEntry): Builder = {
       this.pluginConfig = config
       this
     }
@@ -148,8 +149,8 @@ object BaseTuningPlugin {
      * Note: throws java.lang.IllegalArgumentException if plugin instantiation fails
      */
     @throws[java.lang.IllegalArgumentException]
-    def instantiatePlugin(
-        pluginConfig: TuningPluginConfig): Try[BaseTuningPlugin] = Try {
+    private def instantiatePlugin(
+        pluginConfig: TuningPluginConfigEntry): Try[BaseTuningPlugin] = Try {
       val className = pluginConfig.getClassName
       val clazz = Class.forName(className)
       val plugin = try {
@@ -194,7 +195,7 @@ object BaseTuningPlugin {
      * @param rulesConfigs The sequence of rule configurations to add
      * @return This builder for chaining
      */
-    def addRules(rulesConfigs: Seq[TuningRuleConfig]): Builder = {
+    def addRules(rulesConfigs: Seq[TuningRuleConfigEntry]): Builder = {
       this.rulesConfig ++= rulesConfigs
       this
     }

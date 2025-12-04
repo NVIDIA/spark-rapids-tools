@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids.tool.tuning.plugins
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
+import com.nvidia.spark.rapids.tool.tuning.config.TuningPluginsConfig
 
 import org.apache.spark.internal.Logging
 
@@ -71,19 +72,14 @@ import org.apache.spark.internal.Logging
  * }}}
  *
  * @see [[BaseTuningPlugin]] for plugin implementation details
- * @see [[TuningPluginsConfig]] for configuration structure
+ * @see [[com.nvidia.spark.rapids.tool.tuning.config.TuningPluginsConfig]] for configuration
+ *      structure
  * @see [[AutoTuner]] for the tuner instance this manager operates on
  */
 class TuningPluginManager(
     val tunerInst: AutoTuner,
-    val sortRulesAcrossPlugins: Boolean) extends Logging {
-
-  /**
-   * The default tuning plugins configuration loaded from the system configuration.
-   * This configuration defines which plugins are enabled and their priorities.
-   */
-  private val defaultPluginsConfig: TuningPluginsConfig =
-    TuningPluginsConfig.DEFAULT_TUNING_PLUGINS_CONFIG
+    val sortRulesAcrossPlugins: Boolean,
+    pluginsConf: TuningPluginsConfig) extends Logging {
 
   /**
    * Lazily initialized sequence of active plugins.
@@ -98,7 +94,7 @@ class TuningPluginManager(
    * @return Sequence of activated tuning plugins, sorted by priority
    */
   private lazy val activePlugins: Seq[BaseTuningPlugin] = {
-    buildPlugins(defaultPluginsConfig, tunerInst).filter(_.activate())
+    buildPlugins(pluginsConf, tunerInst).filter(_.activate())
   }
 
   /**
@@ -132,27 +128,30 @@ class TuningPluginManager(
   private def buildPlugins(
     config: TuningPluginsConfig, tunerInst: AutoTuner): Seq[BaseTuningPlugin] = {
     val pluginRulesMap = config.getPluginRulesMap
-    config.getTuningPluginsSeq.filter(_.getEnabled).sortBy(_.getPriority).flatMap { pluginConfig =>
-      // get the rules associated with this plugin
-      pluginRulesMap.getOrElse(pluginConfig.getName, Seq.empty).filter(_.enabled) match {
-        case rulesSeq if rulesSeq.nonEmpty =>
-          BaseTuningPlugin.getBuilder
-            .withPluginConfig(pluginConfig)
-            .withTuner(tunerInst)
-            .addRules(rulesSeq)
-            .build() match {
-            case scala.util.Success(plugin) =>
-              Some(plugin)
-            case scala.util.Failure(e) =>
-              logWarning(s"Failed to instantiate plugin ${pluginConfig.getName}: ${e.getMessage}")
-              None
-          }
-        case _ =>
-          // If rules are empty, then skip the entire plugin initialization
-          logDebug("Plugin initialization skipped: " +
-            s"${pluginConfig.getName} has no associated rules.")
-          None
-      }
+    config.getTuningPluginsSeq
+      .filter(_.getEnabled)
+      .sortBy(_.normalizedPriority)
+      .flatMap { plugConf =>
+        // get the rules associated with this plugin
+        pluginRulesMap.getOrElse(plugConf.getName, Seq.empty).filter(_.enabled) match {
+          case rulesSeq if rulesSeq.nonEmpty =>
+            BaseTuningPlugin.getBuilder
+              .withPluginConfig(plugConf)
+              .withTuner(tunerInst)
+              .addRules(rulesSeq)
+              .build() match {
+              case scala.util.Success(plugin) =>
+                Some(plugin)
+              case scala.util.Failure(e) =>
+                logWarning(s"Failed to instantiate plugin ${plugConf.getName}: ${e.getMessage}")
+                None
+            }
+          case _ =>
+            // If rules are empty, then skip the entire plugin initialization
+            logDebug("Plugin initialization skipped: " +
+              s"${plugConf.getName} has no associated rules.")
+            None
+        }
     }
   }
 
@@ -281,17 +280,36 @@ class TuningPluginManager(
 }
 
 object TuningPluginManager {
-  /**
-   * Factory method to create a TuningPluginManager instance.
-   *
-   * @param tunerInst The AutoTuner instance to be managed
-   * @param sortRulesAcrossPlugins If true (default), rules from all plugins are sorted
-   *                               globally by priority. If false, plugins are processed
-   *                               in order and rules within each plugin are sorted by
-   *                               priority.
-   * @return A new TuningPluginManager instance configured with the specified sorting strategy
-   */
-  def apply(tunerInst: AutoTuner, sortRulesAcrossPlugins: Boolean = true): TuningPluginManager = {
-    new TuningPluginManager(tunerInst, sortRulesAcrossPlugins)
+  class Builder {
+    private var tunerInst: AutoTuner = _
+    private var sortRulesAcrossPlugins: Boolean = true
+    private var pluginConfigs: Option[TuningPluginsConfig] = None
+
+    def withTunerInst(tuner: AutoTuner): Builder = {
+      this.tunerInst = tuner
+      this
+    }
+
+    def withSortRulesAcrossPlugins(sort: Boolean): Builder = {
+      this.sortRulesAcrossPlugins = sort
+      this
+    }
+
+    def withPluginsConfig(configs: TuningPluginsConfig): Builder = {
+      this.pluginConfigs = Option(configs)
+      this
+    }
+
+    def build(): TuningPluginManager = {
+      if (pluginConfigs.isEmpty) {
+        pluginConfigs = Some(tunerInst.configProvider.getPluginsConfigs)
+      }
+      new TuningPluginManager(
+        tunerInst,
+        sortRulesAcrossPlugins,
+        pluginConfigs.getOrElse(new TuningPluginsConfig()))
+    }
   }
+
+  def builder: Builder = new Builder()
 }

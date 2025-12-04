@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, ClusterSizingStrategy, ConstantTotalCoresStrategy, Platform}
 import com.nvidia.spark.rapids.tool.profiling.DriverLogInfoProvider
+import com.nvidia.spark.rapids.tool.tuning.config.{QualTuningConfigProvider, TuningConfigProvider, TuningConfiguration}
 
 /**
  * Implementation of the `AutoTuner` designed the Qualification Tool. This class can be used to
@@ -27,9 +28,19 @@ class QualificationAutoTuner(
     appInfoProvider: AppSummaryInfoBaseProvider,
     platform: Platform,
     driverInfoProvider: DriverLogInfoProvider,
-    userProvidedTuningConfigs: Option[TuningConfigsProvider])
+    userProvidedTuningConfigs: Option[TuningConfiguration])
   extends AutoTuner(appInfoProvider, platform, driverInfoProvider,
     userProvidedTuningConfigs, QualificationAutoTunerHelper) {
+
+  override type ConfigProviderType = QualTuningConfigProvider
+
+  override protected def createConfigProvider(
+      config: Option[TuningConfiguration]): QualTuningConfigProvider = {
+    TuningConfigProvider
+      .builder
+      .withUserProvidedConfig(config)
+      .build[QualTuningConfigProvider]
+  }
 
   /**
    * Determines whether a tuning entry should be included in the final recommendations
@@ -80,7 +91,7 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,
       driverInfoProvider: DriverLogInfoProvider,
-      userProvidedTuningConfigs: Option[TuningConfigsProvider]): AutoTuner = {
+      userProvidedTuningConfigs: Option[TuningConfiguration]): AutoTuner = {
     // TODO: This should be refactored to ensure only instance of `QualAppSummaryInfoProvider`
     //       passed to the `QualificationAutoTuner` instance.
     new QualificationAutoTuner(
