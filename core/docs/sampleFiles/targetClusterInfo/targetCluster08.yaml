@@ -12,13 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Defines the example target cluster information with custom systemMemoryFraction.
+# Defines the example target cluster information with custom platform defaults.
 # Usage: `<JAVA CMD> --platform dataproc --target-cluster-info <path to this file>`
 #
-# systemMemoryFraction: Optional fraction of system memory available for executor use.
-# If not set, the platform default will be used (e.g., 0.8 for Dataproc, 0.7 for EMR).
-# This accounts for memory reserved by resource managers like YARN.
-# Use this to override the default when your environment has different memory reservations.
+# platformDefaults: Override platform-level defaults
+#   availableMemoryFraction: Fraction of system memory available for Spark executors
+#                            after resource manager (e.g., YARN) reserves its portion.
+#                            Platform defaults: Dataproc=0.8, EMR=0.7,
+#                            Databricks AWS=0.65, Databricks Azure=0.7, OnPrem=1.0
+platformDefaults:
+  availableMemoryFraction: 0.75
+
 workerInfo:
   instanceType: g2-standard-24
-  systemMemoryFraction: 0.75

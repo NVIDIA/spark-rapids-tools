@@ -1773,73 +1773,73 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Tests for systemMemoryFraction configuration
+  // Tests for platformDefaults.availableMemoryFraction configuration
 
-  // This test verifies that an error is thrown when systemMemoryFraction is <= 0
-  test("Should fail when systemMemoryFraction is zero or negative") {
+  // This test verifies that an error is thrown when availableMemoryFraction is <= 0
+  test("Should fail when availableMemoryFraction is zero or negative") {
     TrampolineUtil.withTempDir { tempDir =>
       // Test with zero value
       assertThrows[IllegalArgumentException] {
         ToolTestUtils.createTargetClusterInfoFile(
           tempDir.getAbsolutePath,
           workerNodeInstanceType = Some("g2-standard-8"),
-          systemMemoryFraction = Some(0.0))
+          availableMemoryFraction = Some(0.0))
       }
       // Test with negative value
       assertThrows[IllegalArgumentException] {
         ToolTestUtils.createTargetClusterInfoFile(
           tempDir.getAbsolutePath,
           workerNodeInstanceType = Some("g2-standard-8"),
-          systemMemoryFraction = Some(-0.5))
+          availableMemoryFraction = Some(-0.5))
       }
     }
   }
 
-  // This test verifies that an error is thrown when systemMemoryFraction is > 1
-  test("Should fail when systemMemoryFraction is greater than 1") {
+  // This test verifies that an error is thrown when availableMemoryFraction is > 1
+  test("Should fail when availableMemoryFraction is greater than 1") {
     TrampolineUtil.withTempDir { tempDir =>
       assertThrows[IllegalArgumentException] {
         ToolTestUtils.createTargetClusterInfoFile(
           tempDir.getAbsolutePath,
           workerNodeInstanceType = Some("g2-standard-8"),
-          systemMemoryFraction = Some(1.5))
+          availableMemoryFraction = Some(1.5))
       }
     }
   }
 
-  // This test verifies that systemMemoryFraction = 1.0 is valid (edge case)
-  test("Should accept systemMemoryFraction equal to 1.0") {
+  // This test verifies that availableMemoryFraction = 1.0 is valid (edge case)
+  test("Should accept availableMemoryFraction equal to 1.0") {
     TrampolineUtil.withTempDir { tempDir =>
       // Should not throw - if it does, the test will fail
       ToolTestUtils.createTargetClusterInfoFile(
         tempDir.getAbsolutePath,
         workerNodeInstanceType = Some("g2-standard-8"),
-        systemMemoryFraction = Some(1.0))
+        availableMemoryFraction = Some(1.0))
     }
   }
 
-  // This test verifies that systemMemoryFraction overrides the platform default.
+  // This test verifies that availableMemoryFraction overrides the platform default.
   // Dataproc has a default of 0.8, but we override it to 0.75 and verify the platform
   // returns the user-specified value.
-  test("systemMemoryFraction should override platform default") {
+  test("availableMemoryFraction should override platform default") {
     val customFraction = 0.75
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       workerNodeInstanceType = Some("g2-standard-8"),
-      systemMemoryFraction = Some(customFraction)
+      availableMemoryFraction = Some(customFraction)
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
     // Verify the platform returns the user-specified fraction instead of the default 0.8
     assert(platform.fractionOfSystemMemoryForExecutors == customFraction,
-      s"Expected systemMemoryFraction to be $customFraction, " +
+      s"Expected availableMemoryFraction to be $customFraction, " +
         s"but got ${platform.fractionOfSystemMemoryForExecutors}")
   }
 
-  // This test verifies that platform uses its default when systemMemoryFraction is not specified.
+  // This test verifies that platform uses its default when availableMemoryFraction is not set.
   test("Platform should use default fractionOfSystemMemoryForExecutors when not specified") {
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       workerNodeInstanceType = Some("g2-standard-8")
-      // systemMemoryFraction not specified
+      // availableMemoryFraction not specified
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 

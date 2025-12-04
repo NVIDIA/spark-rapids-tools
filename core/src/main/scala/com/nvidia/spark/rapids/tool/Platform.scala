@@ -271,14 +271,15 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    *
    * Users can override this value in the target cluster YAML:
    * {{{
+   * platformDefaults:
+   *   availableMemoryFraction: 0.75  # Override the platform default
    * workerInfo:
    *   instanceType: g2-standard-24
-   *   systemMemoryFraction: 0.75  # Override the default
    * }}}
    */
   final def fractionOfSystemMemoryForExecutors: Double = {
     targetCluster
-      .flatMap(tc => Option(tc.getWorkerInfo.getSystemMemoryFraction))
+      .flatMap(tc => Option(tc.getPlatformDefaults.getAvailableMemoryFraction))
       .fold(defaultFractionOfSystemMemoryForExecutors)(_.doubleValue())
   }
 
