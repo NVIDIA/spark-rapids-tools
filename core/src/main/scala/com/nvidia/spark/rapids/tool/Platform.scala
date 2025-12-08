@@ -279,7 +279,8 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   final def fractionOfSystemMemoryForExecutors: Double = {
     targetCluster
-      .flatMap(tc => Option(tc.getPlatformDefaults.getAvailableMemoryFraction))
+      .flatMap(tc => Option(tc.getPlatformDefaults))
+      .flatMap(pd => Option(pd.getAvailableMemoryFraction))
       .fold(defaultFractionOfSystemMemoryForExecutors)(_.doubleValue())
   }
 
