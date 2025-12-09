@@ -347,7 +347,7 @@ default:
     default: -1.0
     min: -1.0
     max: 0.99
-    usedBy: N/A
+    usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
 
   # Start Delta Lake OSS specific tuning configs
   - name: DELTA_LAKE_OSS_SUPPORT_COMMENT
