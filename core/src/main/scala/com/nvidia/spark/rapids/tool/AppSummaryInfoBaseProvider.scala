@@ -59,6 +59,7 @@ class AppSummaryInfoBaseProvider extends AppInfoPropertyGetter
   override def getDistinctLocationPct: Double = 0.0
   override def getRedundantReadSize: Long = 0
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = None
+  override def getClassPathEntries: Map[String, String] = Map[String, String]()
 }
 
 

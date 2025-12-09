@@ -22,6 +22,7 @@ import scala.beans.BeanProperty
 import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.NodeInstanceMapKey
+import com.nvidia.spark.rapids.tool.tuning.config.TuningEntryDefinition
 
 import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
 
