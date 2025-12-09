@@ -1777,7 +1777,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // Tests for NON_EXECUTOR_MEM_FRACTION tuning config
 
   // This test verifies that AutoTuner uses platform default when
-  // NON_EXECUTOR_MEM_FRACTION is not specified (default is 0)
+  // NON_EXECUTOR_MEM_FRACTION is not specified (default is -1, meaning use platform default)
   test("AutoTuner uses platform default nonExecutorMemoryFraction") {
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       workerNodeInstanceType = Some("g2-standard-8")
