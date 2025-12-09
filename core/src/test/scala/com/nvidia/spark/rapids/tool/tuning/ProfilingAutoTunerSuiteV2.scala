@@ -1774,31 +1774,31 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Tests for AVAILABLE_MEMORY_FRACTION tuning config
+  // Tests for NON_EXECUTOR_MEM_FRACTION tuning config
 
   // This test verifies that AutoTuner uses platform default when
-  // AVAILABLE_MEMORY_FRACTION is not specified (default is 0)
-  test("AutoTuner uses platform default fractionOfSystemMemoryForExecutors") {
+  // NON_EXECUTOR_MEM_FRACTION is not specified (default is 0)
+  test("AutoTuner uses platform default nonExecutorMemoryFraction") {
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       workerNodeInstanceType = Some("g2-standard-8")
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    // Verify platform default is 0.8 for Dataproc
-    assert(platform.fractionOfSystemMemoryForExecutors == 0.8,
-      s"Expected Dataproc default to be 0.8, got ${platform.fractionOfSystemMemoryForExecutors}")
+    // Verify platform default is 0.2 (20% not available for executors) for Dataproc
+    assert(platform.nonExecutorMemoryFraction == 0.2,
+      s"Expected Dataproc default to be 0.2, got ${platform.nonExecutorMemoryFraction}")
   }
 
   // This test verifies that different platforms have different defaults
-  test("Different platforms have different fractionOfSystemMemoryForExecutors defaults") {
+  test("Different platforms have different nonExecutorMemoryFraction defaults") {
     // Create platforms without target cluster info to test default values
     val dataprocPlatform = PlatformFactory.createInstance(PlatformNames.DATAPROC, None)
     val emrPlatform = PlatformFactory.createInstance(PlatformNames.EMR, None)
 
-    assert(dataprocPlatform.fractionOfSystemMemoryForExecutors == 0.8,
-      "Dataproc default should be 0.8")
-    assert(emrPlatform.fractionOfSystemMemoryForExecutors == 0.7,
-      "EMR default should be 0.7")
+    assert(dataprocPlatform.nonExecutorMemoryFraction == 0.2,
+      "Dataproc default should be 0.2 (20% not available for executors)")
+    assert(emrPlatform.nonExecutorMemoryFraction == 0.3,
+      "EMR default should be 0.3 (30% not available for executors)")
   }
 
 }

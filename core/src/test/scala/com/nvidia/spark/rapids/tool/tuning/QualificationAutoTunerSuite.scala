@@ -629,7 +629,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
 
   /**
    * Test to validate onPrem platform with offHeapLimit enabled.
-   * This tests the new memory calculation logic with OS_RESERVED_MEM and offHeapLimit features.
+   * This tests the new memory calculation logic with NON_EXECUTOR_MEM and offHeapLimit features.
    */
   test("test onPrem platform with offHeapLimit enabled") {
     // Log events properties
@@ -681,7 +681,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val defaultTuningConfigsEntries = List(
       TuningConfigEntry(name = "HEAP_PER_CORE", default = "1g"),
       TuningConfigEntry(name = "CONC_GPU_TASKS", max = "2"),
-      TuningConfigEntry(name = "OS_RESERVED_MEM", default = "5g")
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM", default = "5g")
     )
     val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
       default = defaultTuningConfigsEntries)
