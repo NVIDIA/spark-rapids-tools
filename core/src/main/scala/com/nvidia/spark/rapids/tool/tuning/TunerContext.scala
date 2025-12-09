@@ -21,11 +21,12 @@ import scala.util.{Failure, Success, Try}
 import com.nvidia.spark.rapids.tool.Platform
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, RecommendedCommentResult, RecommendedPropertyResult}
+import com.nvidia.spark.rapids.tool.tuning.config.TuningConfiguration
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.{QualificationAppInfo, QualificationSummaryInfo}
-import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
+import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, RapidsToolsConfUtil}
 
 case class TuningResult(
     appID: String,
@@ -41,7 +42,8 @@ case class TuningResult(
  */
 case class TunerContext (
     outputRootDir: String,
-    hadoopConf: Configuration) extends Logging {
+    hadoopConf: Configuration,
+    tuningConfigsPath: Option[String]) extends Logging {
 
   def getOutputPath: String = {
     // Return the root output directory (not the tuning subdirectory)
@@ -49,20 +51,57 @@ case class TunerContext (
     outputRootDir
   }
 
+  /**
+   * Load user provided tuning configurations from the specified path.
+   * @return An optional TuningConfiguration if the path is valid and the file is
+   *         successfully loaded; None otherwise.
+   */
+  private lazy val userProvidedTuningConfigs: Option[TuningConfiguration] = {
+    tuningConfigsPath.flatMap { path =>
+      Try {
+        PropertiesLoader[TuningConfiguration].loadFromFile(path)
+      } match {
+        case Success(configOpt) =>
+          configOpt match {
+            case Some(config) =>
+              logDebug(s"Successfully loaded user tuning configurations from: $path")
+              Some(config)
+            case None =>
+              logWarning(s"Failed to load tuning configurations from: $path. " +
+                "File may be empty or have invalid format.")
+              None
+          }
+        case Failure(e) =>
+          logError(s"Error loading tuning configurations from: $path", e)
+          None
+      }
+    }
+  }
+
+  /**
+   * Get a deep copy of the user provided tuning configurations.
+   * We do not need to copy the user configs because the current implementation does not change the
+   * user configs (it applies updates to the base configs only). However, to be safe in case
+   * future implementations modify the user configs, we return a deep copy here.
+   * @return An optional deep copy of the user provided tuning configurations.
+   */
+  private def getUserProvidedTuningConfigs: Option[TuningConfiguration] = {
+    userProvidedTuningConfigs.map(_.copy())
+  }
+
   def tuneApplication(
       appInfo: QualificationAppInfo,
       appAggStats: Option[QualificationSummaryInfo],
       appIndex: Int = 1,
       dsInfo: Seq[DataSourceProfileResult],
-      platform: Platform,
-      userProvidedTuningConfigs: Option[TuningConfigsProvider]): Option[TuningResult] = {
+      platform: Platform): Option[TuningResult] = {
     val sqlAnalyzer = AppSQLPlanAnalyzer(appInfo)
     val rawAggMetrics =
       QualSparkMetricsAggregator.getAggRawMetrics(appInfo, appIndex, Some(sqlAnalyzer))
     QualificationAutoTunerRunner(appInfo, appAggStats, this, rawAggMetrics, dsInfo).collect {
       case qualTuner =>
         Try {
-          qualTuner.runAutoTuner(platform, userProvidedTuningConfigs)
+          qualTuner.runAutoTuner(platform, getUserProvidedTuningConfigs)
         } match {
           case Success(r) => r
           case Failure(e) =>
@@ -74,17 +113,38 @@ case class TunerContext (
 }
 
 object TunerContext extends Logging {
-  def apply(
-      outputRootDir: String,
-      hadoopConf: Option[Configuration] = None): Option[TunerContext] = {
-    Try {
-      val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
-      TunerContext(outputRootDir, hConf)
-    } match {
-      case Success(c) => Some(c)
-      case Failure(e) =>
-        logError("Could not create Tuner Context", e)
-        None
+  class Builder {
+    private var outputRootDir: String = _
+    private var hadoopConf: Option[Configuration] = None
+    private var tuningConfigsPath: Option[String] = None
+
+    def withOutputRootDir(dir: String): Builder = {
+      this.outputRootDir = dir
+      this
+    }
+
+    def withHadoopConf(conf: Configuration): Builder = {
+      this.hadoopConf = Some(conf)
+      this
+    }
+
+    def withTuningConfigsPath(path: Option[String]): Builder = {
+      this.tuningConfigsPath = path
+      this
+    }
+
+    def build(): Option[TunerContext] = {
+      Try {
+        val hConf = hadoopConf.getOrElse(RapidsToolsConfUtil.newHadoopConf())
+        TunerContext(outputRootDir, hConf, tuningConfigsPath)
+      } match {
+        case Success(c) => Option(c)
+        case Failure(e) =>
+          logError("Could not create Tuner Context", e)
+          None
+      }
     }
   }
+
+  def builder(): Builder = new Builder()
 }

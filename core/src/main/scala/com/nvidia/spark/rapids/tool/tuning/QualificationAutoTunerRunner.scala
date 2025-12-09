@@ -21,6 +21,7 @@ import scala.util.{Failure, Success, Try}
 import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, Platform}
 import com.nvidia.spark.rapids.tool.analysis.AggRawMetricsResult
 import com.nvidia.spark.rapids.tool.profiling.DataSourceProfileResult
+import com.nvidia.spark.rapids.tool.tuning.config.TuningConfiguration
 import com.nvidia.spark.rapids.tool.views.qualification.QualReportGenConfProvider
 import org.apache.hadoop.conf.Configuration
 
@@ -61,7 +62,7 @@ class QualificationAutoTunerRunner(val appInfoProvider: QualAppSummaryInfoProvid
   }
 
   def runAutoTuner(platform: Platform,
-                   userProvidedTuningConfigs: Option[TuningConfigsProvider]): TuningResult = {
+                   userProvidedTuningConfigs: Option[TuningConfiguration]): TuningResult = {
     val autoTuner: AutoTuner =
       QualificationAutoTunerHelper.buildAutoTuner(appInfoProvider, platform,
         userProvidedTuningConfigs = userProvidedTuningConfigs)

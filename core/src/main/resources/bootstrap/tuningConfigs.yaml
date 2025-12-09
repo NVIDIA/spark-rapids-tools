@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This YAML file defines tunable configuration constants for RAPIDS Accelerator for Apache Spark tools.
+# This YAML file defines tunable configuration constants and plugins for RAPIDS Accelerator for
+#  Apache Spark tools.
 #
 # Structure:
 # - 'default': Base configuration values used by both Bootstrap (Qualification Tool) and AutoTuner (Profiling Tool)
 # - 'qualification': Tool-specific overrides for the Qualification Tool
 # - 'profiling': Tool-specific overrides for the Profiling Tool
+# - 'pluginConfigs': Configuration for tuning plugins and rules
 #
 # Each configuration entry contains:
 # - name: The configuration parameter name/key
@@ -26,10 +28,47 @@
 # - min: The minimum allowed value (optional)
 # - max: The maximum allowed value (optional)
 # - usedBy: Comma-separated list of Spark configurations this constant affects
+# - pluginRules: Comma-separated list of plugin rules that reference this config (optional)
 #
 # Usage: Users can override these default values by specifying custom tuning configurations via:
 # - `--tuning-configs /path/to/custom/file.YAML` argument when running the Tools JAR
 # - `--tuning_configs /path/to/custom/file.YAML` argument when running the Tools CLI
+#
+#===============================================================================
+# Plugin Configurations Structure
+#===============================================================================
+# The 'pluginConfigs' section defines tuning plugins and their associated rules.
+# This configuration has been consolidated into this file for easier
+# maintenance and to keep all tuning configurations in one place.
+#
+# Structure:
+# - 'tuningPlugins': List of plugin definitions that provide specialized tuning
+#   capabilities for specific features or technologies (e.g., Delta Lake, Iceberg)
+# - 'tuningRules': List of rules associated with plugins that implement specific
+#   tuning logic (e.g., version checks, migration guidance, optimization settings)
+#
+# Plugin Configuration Fields:
+# - name:        Unique identifier for the plugin
+# - description: Human-readable description of the plugin's purpose
+# - className:   Fully qualified class name of the plugin implementation
+# - priority:    (Optional) Execution priority (default: 50, lower = higher priority)
+# - enabled:     Whether the plugin is active (true/false)
+#
+# Rule Configuration Fields:
+# - name:        Unique identifier for the rule
+# - description: Human-readable description of what the rule does
+# - className:   Fully qualified class name of the rule implementation
+# - pluginName:  Name of the plugin this rule belongs to
+# - priority:    (Optional) Execution priority within the plugin (default: 50)
+# - enabled:     (Optional) Whether the rule is active (default: true)
+#
+# How Plugins and Rules Work Together:
+# 1. Each plugin can have multiple rules associated with it via the 'pluginName' field
+# 2. Rules are executed in priority order (lower priority number = executed first)
+# 3. Plugins can be enabled/disabled, which affects all their associated rules
+# 4. Rules can reference tuning config entries by name via the 'pluginRules' field
+#    in the config entry definition
+#===============================================================================
 
 # Default tuning configs used by both Qualification and Profiling tools
 default:
@@ -352,3 +391,46 @@ profiling:
       Batch size for GPU operations optimized for profiling workloads
     default: 2147483647 # same as "2g - 1"
     usedBy: spark.rapids.sql.batchSizeBytes
+
+#===============================================================================
+# Plugin Configurations
+#===============================================================================
+# See header documentation above for detailed information about plugin structure,
+# configuration fields, and how plugins and rules work together.
+pluginConfigs:
+  tuningPlugins:
+    # Delta Lake OSS Tuning Plugin
+    - name: deltaLakeOSSTuningPlugin
+      description: >-
+        This plugin provides tuning capabilities for applications using Delta Lake OSS (Open Source).
+        It includes rules for version compatibility checks, migration guidance, and write optimization.
+      className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaLakeOSSTuningPlugin
+      # priority: 50        # (default) Normal priority - can be uncommented to override
+      enabled: true         # Plugin is active and will be used during tuning
+
+  tuningRules:
+    #-----------------------------------------------------------------------------
+    # Delta Lake OSS Plugin Rules
+    #-----------------------------------------------------------------------------
+    # These rules are associated with the deltaLakeOSSTuningPlugin and provide
+    # Delta Lake-specific optimizations and compatibility checks.
+    - name: DeltaOSSVersionRule
+      description: >-
+        Ensures that the Delta Lake version used is compatible with RAPIDS acceleration and
+        recommends upgrading to the latest supported version if needed.
+      className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSVersionRule
+      pluginName: deltaLakeOSSTuningPlugin
+
+    - name: DeltaOSSMigrationRule
+      description: >-
+        This only applies to non-GPU Spark applications.
+        Provides comments and guidance about Delta Lake support in the tuning output,
+        helping users understand what features are supported on GPU.
+      className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSMigrationRule
+      pluginName: deltaLakeOSSTuningPlugin
+
+    - name: DeltaOSSWriteRule
+      description: >-
+        Checks whether GPU-accelerated writes are enabled for Delta Lake tables.
+      className: com.nvidia.spark.rapids.tool.tuning.plugins.delta.DeltaOSSWriteGPURule
+      pluginName: deltaLakeOSSTuningPlugin

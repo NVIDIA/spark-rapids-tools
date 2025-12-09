@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import scala.jdk.CollectionConverters._
 
 import com.nvidia.spark.rapids.tool.{EventLogInfo, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{TargetClusterProps, TunerContext, TuningConfigsProvider}
+import com.nvidia.spark.rapids.tool.tuning.{TargetClusterProps, TunerContext}
 import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 import com.nvidia.spark.rapids.tool.views.qualification.{QualPerAppReportGenerator, QualReportGenConfProvider, QualToolReportGenerator}
 import org.apache.hadoop.conf.Configuration
@@ -31,14 +31,22 @@ import org.apache.spark.sql.rapids.tool.qualification._
 import org.apache.spark.sql.rapids.tool.ui.ConsoleProgressBar
 import org.apache.spark.sql.rapids.tool.util._
 
-class Qualification(outputPath: String, hadoopConf: Configuration,
-    timeout: Option[Long], nThreads: Int, pluginTypeChecker: PluginTypeChecker,
+class Qualification(
+    outputPath: String,
+    hadoopConf: Configuration,
+    timeout: Option[Long],
+    nThreads: Int,
+    pluginTypeChecker: PluginTypeChecker,
     enablePB: Boolean,
-    reportSqlLevel: Boolean, maxSQLDescLength: Int, mlOpsEnabled: Boolean,
-    penalizeTransitions: Boolean, tunerContext: Option[TunerContext],
-    clusterReport: Boolean, platformArg: String,
-    targetClusterInfoPath: Option[String], tuningConfigsPath: Option[String])
-  extends ToolBase(timeout) {
+    reportSqlLevel: Boolean,
+    maxSQLDescLength: Int,
+    mlOpsEnabled: Boolean,
+    penalizeTransitions: Boolean,
+    tunerContext: Option[TunerContext],
+    clusterReport: Boolean,
+    platformArg: String,
+    targetClusterInfoPath: Option[String]
+) extends ToolBase(timeout) {
 
   override val simpleName: String = "qualTool"
   override val outputDir: String = QualReportGenConfProvider.getGlobalReportPath(outputPath)
@@ -152,15 +160,11 @@ class Qualification(outputPath: String, hadoopConf: Configuration,
           val qualSumInfo = app.aggregateStats()
           AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
             tunerContext.foreach { tuner =>
-              // Load any user provided tuning configurations
-              val userProvidedTuningConfigs = tuningConfigsPath.flatMap(
-                PropertiesLoader[TuningConfigsProvider].loadFromFile)
               // Run the autotuner if it is enabled.
               // Note that we call the autotuner anyway without checking the aggregate results
               // because the Autotuner can still make some recommendations based on the information
               // enclosed by the QualificationInfo object
-              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo, platform,
-                userProvidedTuningConfigs)
+              tuner.tuneApplication(app, qualSumInfo, appIndex, dsInfo, platform)
             }
           }
           if (qualSumInfo.isDefined) {

@@ -19,10 +19,12 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.util.concurrent.TimeUnit
 
 import scala.jdk.CollectionConverters._
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-import com.nvidia.spark.rapids.tool.{AppSummaryInfoBaseProvider, EventLogInfo, EventLogPathProcessor, FailedEventLog, PlatformFactory, ToolBase}
-import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerHelper, TargetClusterProps, TuningConfigsProvider, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool._
+import com.nvidia.spark.rapids.tool.tuning.{AutoTuner, ProfilingAutoTunerHelper, TargetClusterProps, TuningEntryTrait}
+import com.nvidia.spark.rapids.tool.tuning.config.TuningConfiguration
 import com.nvidia.spark.rapids.tool.views._
 import org.apache.hadoop.conf.Configuration
 
@@ -56,8 +58,34 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
   private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
-  private val userProvidedTuningConfigs = appArgs.tuningConfigs.toOption.flatMap(
-    PropertiesLoader[TuningConfigsProvider].loadFromFile)
+  // load the user provided configs only once
+  private lazy val _providedUserConfigs: Option[TuningConfiguration] = {
+    appArgs.tuningConfigs.toOption.flatMap { path =>
+      Try {
+        PropertiesLoader[TuningConfiguration].loadFromFile(path)
+      } match {
+        case Success(configOpt) =>
+          configOpt match {
+            case Some(config) =>
+              logDebug(s"Successfully loaded user tuning configurations from: $path")
+              Some(config)
+            case None =>
+              logWarning(s"Failed to load tuning configurations from: $path. " +
+                "File may be empty or have invalid format.")
+              None
+          }
+        case Failure(exception) =>
+          logWarning(s"Failed to load tuning configurations from $path. " +
+            s"AutoTuner will run with default configurations.", exception)
+          None
+      }
+    }
+  }
+
+  /** Provides a deep-copy to assure that each thread has its own configuration object. */
+  private def getProvidedTuningConfigs: Option[TuningConfiguration] = {
+    _providedUserConfigs.map(_.copy())
+  }
 
   override def getNumThreads: Int = appArgs.numThreads.getOrElse(
     Math.ceil(Runtime.getRuntime.availableProcessors() / 4f).toInt)
@@ -112,8 +140,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       if (eventLogsEmpty && useAutoTuner) {
         // Since event logs are empty, AutoTuner will not run while processing event logs.
         // We need to run it here explicitly.
-        val (properties, comments) = runAutoTuner(None, driverLogProcessor,
-          userProvidedTuningConfigs)
+        val (properties, comments) =
+          runAutoTuner(None, driverLogProcessor, getProvidedTuningConfigs)
         profileOutputWriter.writeText("\n### A. Recommended Configuration ###\n")
         profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
       }
@@ -323,7 +351,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
   private def runAutoTuner(
       profilerResult: Option[ProfilerResult],
       driverInfoProvider: DriverLogInfoProvider = BaseDriverLogInfoProvider.noneDriverLog,
-      userProvidedTuningConfigs: Option[TuningConfigsProvider])
+      userProvidedTuningConfigs: Option[TuningConfiguration])
   : (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     // only run the auto tuner on GPU event logs for profiling tool right now. There are
     // assumptions made in the code
@@ -388,16 +416,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeTable(ProfFailedJobsView.getLabel, app.failedJobs)
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
     profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
-    profileOutputWriter.writeTable("Unsupported SQL Plan", app.unsupportedOps,
-      Some("Unsupported SQL Ops"))
+    profileOutputWriter.writeCSVTable("Unsupported SQL Plan", app.unsupportedOps)
     if (outputAlignedSQLIds) {
       profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
         Some(ProfSQLPlanAlignedView.getDescription))
     }
     if (useAutoTuner) {
-      val (properties, comments) = runAutoTuner(Some(profilerResult),
-        userProvidedTuningConfigs = userProvidedTuningConfigs)
+      val (properties, comments) =
+        runAutoTuner(Some(profilerResult), userProvidedTuningConfigs = getProvidedTuningConfigs)
       profileOutputWriter.writeText("\n### D. Recommended Configuration ###\n")
       profileOutputWriter.writeText(Profiler.getAutoTunerResultsAsString(properties, comments))
     }

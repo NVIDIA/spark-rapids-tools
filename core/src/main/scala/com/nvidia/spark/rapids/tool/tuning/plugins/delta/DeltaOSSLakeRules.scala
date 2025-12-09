@@ -86,7 +86,7 @@ class DeltaOSSVersionRule extends BaseTuningRule {
   private var currentDLVersion: Option[ComparableVersion] = _
 
   private def getMinRecommendedDLVersion(tuner: AutoTuner): String = {
-    tuner.tuningConfigs.getEntry("RECOMMENDED_DELTA_LAKE_VERSION").min
+    tuner.configProvider.getEntry("RECOMMENDED_DELTA_LAKE_VERSION").min
   }
 
   override val condition: ConditionTrait[AutoTuner] = (tunerInst: AutoTuner) => {
@@ -117,7 +117,7 @@ class DeltaOSSVersionRule extends BaseTuningRule {
         "DELTA_LAKE_OSS_VERSION_UNDEFINED"
     }
     val commentTemplate =
-      tuner.tuningConfigs.getEntry(commentKey).default
+      tuner.configProvider.getEntry(commentKey).default
         .replace("[RECOMMENDED_VERSION]", minDLVersion.toString)
         .replace("[ACTUAL_VERSION]", actualVersion)
     tuner.appendComment(commentTemplate)
@@ -131,7 +131,7 @@ class DeltaOSSVersionRule extends BaseTuningRule {
 class DeltaOSSMigrationRule extends BaseTuningRule {
   // get the related comment from the config file.
   private def getStaticComment(tuner: AutoTuner): String = {
-    tuner.tuningConfigs.getEntry("DELTA_LAKE_OSS_SUPPORT_COMMENT").default
+    tuner.configProvider.getEntry("DELTA_LAKE_OSS_SUPPORT_COMMENT").default
   }
 
   // This rule only activated for non RAPIDS eventlogs.

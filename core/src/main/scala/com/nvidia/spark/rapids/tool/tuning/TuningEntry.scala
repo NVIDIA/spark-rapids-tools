@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.tuning
 
+import com.nvidia.spark.rapids.tool.tuning.config.{ConfTypeEnum, TuningEntryDefinition}
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.rapids.tool.util.StringUtils

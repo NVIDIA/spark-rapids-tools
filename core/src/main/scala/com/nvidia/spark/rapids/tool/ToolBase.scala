@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import org.apache.spark.sql.rapids.tool.util.{AppResult, FailureAppResult, Runti
 abstract class ToolBase(timeout: Option[Long]) extends RuntimeReporter {
 
   protected val simpleName: String
-  protected val waitTimeInSec: Long = timeout.getOrElse(60 * 60 * 24L)
+  protected val waitTimeInSec: Long = timeout.getOrElse(60 * 60 * 48L)
   protected val threadFactory: ThreadFactory = new ThreadFactoryBuilder()
     .setDaemon(true).setNameFormat(getClass.getSimpleName + "-%d").build()
   protected val threadPool: ThreadPoolExecutor =
