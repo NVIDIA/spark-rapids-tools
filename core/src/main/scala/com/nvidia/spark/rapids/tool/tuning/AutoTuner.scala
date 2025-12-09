@@ -231,7 +231,7 @@ abstract class AutoTuner(
     val autoTunerHelper: AutoTunerHelper)
   extends Logging with AutoTunerCommentsWithTuningConfigs with AutoTunerStaticComments {
 
-  lazy val tuningConfigs: TuningConfigsProvider = {
+  override lazy val tuningConfigs: TuningConfigsProvider = {
     // Load the default configs from the resource file (including tool-specific overrides).
     val baseConfigs = PropertiesLoader[TuningConfigsProvider].loadFromContent(
         UTF8Source.fromResource(TuningConfigsProvider.DEFAULT_CONFIGS_FILE).mkString
@@ -266,10 +266,22 @@ abstract class AutoTuner(
     .getDefaultAsMemory(ByteUnit.MiB)
 
   // Available memory fraction, configurable via tuning configs.
-  // If > 0, overrides platform default; if 0, uses platform.fractionOfSystemMemoryForExecutors
+  // If value is in valid range (0, 1], use it; if 0, use platform default.
+  // Invalid values (negative or > 1) fall back to platform default with a warning.
   private lazy val availableMemoryFraction: Double = {
     val configValue = tuningConfigs.getEntry("AVAILABLE_MEMORY_FRACTION").getDefault.toDouble
-    if (configValue > 0) configValue else platform.fractionOfSystemMemoryForExecutors
+    if (configValue > 0.0 && configValue <= 1.0) {
+      configValue
+    } else if (configValue == 0.0) {
+      // 0 means "use platform default"
+      platform.fractionOfSystemMemoryForExecutors
+    } else {
+      // Invalid value - log warning and use platform default
+      logWarning(s"Invalid AVAILABLE_MEMORY_FRACTION value: $configValue. " +
+        s"Must be between 0.0 and 1.0. Using platform default: " +
+        s"${platform.fractionOfSystemMemoryForExecutors}")
+      platform.fractionOfSystemMemoryForExecutors
+    }
   }
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
