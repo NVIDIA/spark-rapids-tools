@@ -263,7 +263,7 @@ abstract class AutoTuner(
   // If value is in valid range (0, 1], use it; if 0, use platform default.
   // Invalid values (negative or > 1) fall back to platform default with a warning.
   private lazy val availableMemoryFraction: Double = {
-    val configValue = tuningConfigs.getEntry("AVAILABLE_MEMORY_FRACTION").getDefault.toDouble
+    val configValue = configProvider.getEntry("AVAILABLE_MEMORY_FRACTION").getDefault.toDouble
     if (configValue > 0.0 && configValue <= 1.0) {
       configValue
     } else if (configValue == 0.0) {
