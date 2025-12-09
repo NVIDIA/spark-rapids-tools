@@ -1,6 +1,16 @@
 
 <br/>
 
+## Release [v25.10.8](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.8)
+Generated on 2025-12-09
+### Autotuner
+
+- Support AutoTuner Plugin-Level Customization ([#1989](https://github.com/NVIDIA/spark-rapids-tools/pull/1989))
+- Add Plugin template to AutoTuner ([#1985](https://github.com/NVIDIA/spark-rapids-tools/pull/1985))
+
+
+<br/>
+
 ## Release [v25.10.7](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.7)
 Generated on 2025-12-02
 ### Performance
