@@ -265,6 +265,13 @@ abstract class AutoTuner(
   private lazy val osReservedMemory = tuningConfigs.getEntry("OS_RESERVED_MEM")
     .getDefaultAsMemory(ByteUnit.MiB)
 
+  // Available memory fraction, configurable via tuning configs.
+  // If > 0, overrides platform default; if 0, uses platform.fractionOfSystemMemoryForExecutors
+  private lazy val availableMemoryFraction: Double = {
+    val configValue = tuningConfigs.getEntry("AVAILABLE_MEMORY_FRACTION").getDefault.toDouble
+    if (configValue > 0) configValue else platform.fractionOfSystemMemoryForExecutors
+  }
+
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
   private lazy val isOffHeapLimitUserEnabled: Boolean = {
     platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
@@ -653,7 +660,7 @@ abstract class AutoTuner(
       // Calculate total system memory needed by dividing executor memory by usable fraction.
       // Accounts for memory reserved by the container manager (e.g., YARN).
       (executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB) /
-        platform.fractionOfSystemMemoryForExecutors
+        availableMemoryFraction
       ).toLong
     notEnoughMemComment(minTotalExecMemRequired)
   }
@@ -736,7 +743,7 @@ abstract class AutoTuner(
       // Our CSP instance map stores full node memory, but container managers
       // (e.g., YARN) may reserve a portion. Adjust to get the memory
       // actually available to the executor.
-      totalMemForExecutors * platform.fractionOfSystemMemoryForExecutors
+      totalMemForExecutors * availableMemoryFraction
     }.toLong
     // Calculate off-heap memory size using new hybrid scan detection logic
     val sparkOffHeapMemMB: Long = userEnforcedMemorySettings.sparkOffHeapMem.getOrElse(

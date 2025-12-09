@@ -295,6 +295,17 @@ default:
     default: 0g
     usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
 
+  - name: AVAILABLE_MEMORY_FRACTION
+    description: >-
+      Fraction of system memory available for Spark executors after resource manager
+      (e.g., YARN) reserves its portion. Set to 0 to use platform-specific defaults:
+      Dataproc=0.8, EMR=0.7, Databricks AWS=0.65, Databricks Azure=0.7, OnPrem=1.0.
+      Values must be between 0.0 and 1.0 (inclusive).
+    default: 0.0
+    min: 0.0
+    max: 1.0
+    usedBy: N/A
+
   # Start Delta Lake OSS specific tuning configs
   - name: DELTA_LAKE_OSS_SUPPORT_COMMENT
     description: >-

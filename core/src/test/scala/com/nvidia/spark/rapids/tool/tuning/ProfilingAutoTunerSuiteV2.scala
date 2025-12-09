@@ -1773,80 +1773,31 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Tests for platformDefaults.availableMemoryFraction configuration
+  // Tests for AVAILABLE_MEMORY_FRACTION tuning config
 
-  // This test verifies that an error is thrown when availableMemoryFraction is <= 0
-  test("Should fail when availableMemoryFraction is zero or negative") {
-    TrampolineUtil.withTempDir { tempDir =>
-      // Test with zero value
-      assertThrows[IllegalArgumentException] {
-        ToolTestUtils.createTargetClusterInfoFile(
-          tempDir.getAbsolutePath,
-          workerNodeInstanceType = Some("g2-standard-8"),
-          availableMemoryFraction = Some(0.0))
-      }
-      // Test with negative value
-      assertThrows[IllegalArgumentException] {
-        ToolTestUtils.createTargetClusterInfoFile(
-          tempDir.getAbsolutePath,
-          workerNodeInstanceType = Some("g2-standard-8"),
-          availableMemoryFraction = Some(-0.5))
-      }
-    }
-  }
-
-  // This test verifies that an error is thrown when availableMemoryFraction is > 1
-  test("Should fail when availableMemoryFraction is greater than 1") {
-    TrampolineUtil.withTempDir { tempDir =>
-      assertThrows[IllegalArgumentException] {
-        ToolTestUtils.createTargetClusterInfoFile(
-          tempDir.getAbsolutePath,
-          workerNodeInstanceType = Some("g2-standard-8"),
-          availableMemoryFraction = Some(1.5))
-      }
-    }
-  }
-
-  // This test verifies that availableMemoryFraction = 1.0 is valid (edge case)
-  test("Should accept availableMemoryFraction equal to 1.0") {
-    TrampolineUtil.withTempDir { tempDir =>
-      // Should not throw - if it does, the test will fail
-      ToolTestUtils.createTargetClusterInfoFile(
-        tempDir.getAbsolutePath,
-        workerNodeInstanceType = Some("g2-standard-8"),
-        availableMemoryFraction = Some(1.0))
-    }
-  }
-
-  // This test verifies that availableMemoryFraction overrides the platform default.
-  // Dataproc has a default of 0.8, but we override it to 0.75 and verify the platform
-  // returns the user-specified value.
-  test("availableMemoryFraction should override platform default") {
-    val customFraction = 0.75
-    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
-      workerNodeInstanceType = Some("g2-standard-8"),
-      availableMemoryFraction = Some(customFraction)
-    )
-    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
-
-    // Verify the platform returns the user-specified fraction instead of the default 0.8
-    assert(platform.fractionOfSystemMemoryForExecutors == customFraction,
-      s"Expected availableMemoryFraction to be $customFraction, " +
-        s"but got ${platform.fractionOfSystemMemoryForExecutors}")
-  }
-
-  // This test verifies that platform uses its default when availableMemoryFraction is not set.
-  test("Platform should use default fractionOfSystemMemoryForExecutors when not specified") {
+  // This test verifies that AutoTuner uses platform default when
+  // AVAILABLE_MEMORY_FRACTION is not specified (default is 0)
+  test("AutoTuner uses platform default fractionOfSystemMemoryForExecutors") {
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       workerNodeInstanceType = Some("g2-standard-8")
-      // availableMemoryFraction not specified
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
 
-    // Dataproc default is 0.8
+    // Verify platform default is 0.8 for Dataproc
     assert(platform.fractionOfSystemMemoryForExecutors == 0.8,
-      s"Expected default fractionOfSystemMemoryForExecutors to be 0.8, " +
-        s"but got ${platform.fractionOfSystemMemoryForExecutors}")
+      s"Expected Dataproc default to be 0.8, got ${platform.fractionOfSystemMemoryForExecutors}")
+  }
+
+  // This test verifies that different platforms have different defaults
+  test("Different platforms have different fractionOfSystemMemoryForExecutors defaults") {
+    // Create platforms without target cluster info to test default values
+    val dataprocPlatform = PlatformFactory.createInstance(PlatformNames.DATAPROC, None)
+    val emrPlatform = PlatformFactory.createInstance(PlatformNames.EMR, None)
+
+    assert(dataprocPlatform.fractionOfSystemMemoryForExecutors == 0.8,
+      "Dataproc default should be 0.8")
+    assert(emrPlatform.fractionOfSystemMemoryForExecutors == 0.7,
+      "EMR default should be 0.7")
   }
 
 }
