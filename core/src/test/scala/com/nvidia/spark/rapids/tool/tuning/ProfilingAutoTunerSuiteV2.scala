@@ -1801,4 +1801,152 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       "EMR default should be 0.3 (30% not available for executors)")
   }
 
+  // Test custom NON_EXECUTOR_MEM_FRACTION value (0.0 = 100% memory utilization)
+  test("AutoTuner accepts NON_EXECUTOR_MEM_FRACTION = 0.0 for full memory utilization") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "26742m",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    // Set NON_EXECUTOR_MEM_FRACTION to 0.0 (100% available for executors)
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM_FRACTION", default = "0.0")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 32,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    // Should use 0.0 (100% available) instead of Dataproc default 0.2
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn),
+      Some(userProvidedTuningConfigs))
+    val (_, _) = autoTuner.getRecommendedProperties()
+  }
+
+  // Test custom NON_EXECUTOR_MEM_FRACTION value (0.5 = 50% reserved)
+  test("AutoTuner accepts custom NON_EXECUTOR_MEM_FRACTION = 0.5") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "26742m",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    // Set NON_EXECUTOR_MEM_FRACTION to 0.5 (50% reserved, 50% available)
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM_FRACTION", default = "0.5")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 32,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn),
+      Some(userProvidedTuningConfigs))
+    val (_, _) = autoTuner.getRecommendedProperties()
+  }
+
+  // Test invalid NON_EXECUTOR_MEM_FRACTION (>= 1.0) falls back to platform default
+  test("AutoTuner falls back to platform default when NON_EXECUTOR_MEM_FRACTION >= 1.0") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "26742m",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    // Set invalid NON_EXECUTOR_MEM_FRACTION >= 1.0 (should fall back to platform default)
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM_FRACTION", default = "1.5")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 32,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    // Should fall back to Dataproc default (0.2) with a warning
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn),
+      Some(userProvidedTuningConfigs))
+    val (_, _) = autoTuner.getRecommendedProperties()
+  }
+
+  // Test that NON_EXECUTOR_MEM takes precedence over NON_EXECUTOR_MEM_FRACTION
+  test("NON_EXECUTOR_MEM takes precedence over NON_EXECUTOR_MEM_FRACTION") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "26742m",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    // Set both absolute and fraction - absolute should take precedence
+    val defaultTuningConfigsEntries = List(
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM", default = "5g"),
+      TuningConfigEntry(name = "NON_EXECUTOR_MEM_FRACTION", default = "0.5")
+    )
+    val userProvidedTuningConfigs = ToolTestUtils.buildTuningConfigs(
+      default = defaultTuningConfigsEntries)
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0), logEventsProps,
+      Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 32,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    // NON_EXECUTOR_MEM (5g) should be used, not NON_EXECUTOR_MEM_FRACTION (0.5)
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn),
+      Some(userProvidedTuningConfigs))
+    val (_, _) = autoTuner.getRecommendedProperties()
+  }
+
 }

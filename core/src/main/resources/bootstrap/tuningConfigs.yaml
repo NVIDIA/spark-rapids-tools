@@ -339,10 +339,10 @@ default:
     description: >-
       Fraction of system memory not available for executors (reserved by resource manager, OS, etc).
       Executor available memory = total * (1 - fraction).
-      Set to -1 (or any negative) to use platform-specific defaults:
+      Set to -1 to use platform-specific defaults:
       Dataproc=0.2, EMR=0.3, Databricks AWS=0.35, Databricks Azure=0.3, OnPrem=0.0.
       Set to 0.0 for 100% memory utilization (no memory reserved).
-      Values must be between 0.0 and 1.0 (exclusive of 1.0), or negative for platform default.
+      Valid range: [0.0, 1.0) or -1 for platform default.
       Note: If NON_EXECUTOR_MEM is set (> 0), it takes precedence over this fraction.
     default: -1.0
     min: -1.0

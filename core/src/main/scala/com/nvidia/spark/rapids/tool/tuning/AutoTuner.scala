@@ -679,12 +679,16 @@ abstract class AutoTuner(
       finalExecutorMemOverhead: Long,
       sparkOffHeapMemMB: Long,
       pySparkMemMB: Long): String = {
-    val minTotalExecMemRequired = (
-      // Calculate total system memory needed by dividing executor memory by usable fraction.
-      // Accounts for memory reserved by the container manager (e.g., YARN).
-      (executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB) /
-        executorAvailableMemFraction
-      ).toLong
+    val executorMemRequired =
+      executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB
+    // Calculate total system memory needed, consistent with actual allocation logic:
+    // - If nonExecutorMemory > 0: add absolute reservation
+    // - Otherwise: divide by available fraction to account for container manager reservation
+    val minTotalExecMemRequired: Long = if (nonExecutorMemory > 0) {
+      executorMemRequired + nonExecutorMemory
+    } else {
+      (executorMemRequired / executorAvailableMemFraction).toLong
+    }
     notEnoughMemComment(minTotalExecMemRequired)
   }
 
