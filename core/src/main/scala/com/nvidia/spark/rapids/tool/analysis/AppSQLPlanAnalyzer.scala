@@ -22,10 +22,9 @@ import com.nvidia.spark.rapids.tool.analysis.util.IOAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, IODiagnosticResult, SQLAccumProfileResults, SQLMetricInfoCase, SQLStageInfoProfileResult, UnsupportedSQLPlan, WholeStageCodeGenResults}
 
-import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper}
+import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraphCluster, SparkPlanGraphNode, ToolsPlanGraph}
 import org.apache.spark.sql.rapids.tool.store.{DataSourceRecord, SQLPlanModel}
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
 
 /**
  * This class processes SQL plan to build some information such as: metrics, wholeStage nodes, and

@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
 
 // A wrapper class to map between

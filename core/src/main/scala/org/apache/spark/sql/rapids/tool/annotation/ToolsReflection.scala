@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import scala.annotation.meta.{beanGetter, beanSetter, field, getter, param, sett
  * Reason is copied here because it is being private to Spark packages which makes it
  * inaccessible for Non-Spark packages.
  *
- * A Scala annotation that indicates entities that are used for reeflection in Tools to match
+ * A Scala annotation that indicates entities that are used for reflection in Tools to match
  * different Spark runtime APIs
  */
 @param @field @getter @setter @beanGetter @beanSetter

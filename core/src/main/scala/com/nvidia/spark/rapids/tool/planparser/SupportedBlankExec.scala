@@ -19,9 +19,9 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.ExecHelper.{EX_NAME_WRITE_FILES, LIST_OF_SUPPORTED_BLANK_EXECS}
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 /**
  * A generic parser for supported execs that do not have any expressions to parse.

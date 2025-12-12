@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import com.nvidia.spark.rapids.tool.planparser.WholeStageExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
-import org.apache.spark.sql.rapids.tool.util.plangraph.PhotonSparkPlanGraphCluster
+import org.apache.spark.sql.rapids.tool.plangraph.PhotonSparkPlanGraphCluster
 
 /**
  * Parses Photon Stage Exec equivalent to Spark's `WholeStageCodegenExec`
@@ -37,4 +37,11 @@ case class PhotonStageExecParser(
     app: AppBase,
     reusedNodeIds: Set[Long],
     nodeIdToStagesFunc: Long => Set[Int])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)
+  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc) {
+
+  /**
+   * Returns the original Photon stage name (e.g., "PhotonShuffleMapStage") for identification,
+   * rather than the Spark CPU equivalent ("WholeStageCodegen").
+   */
+  override def prettyExpression: String = node.platformName
+}

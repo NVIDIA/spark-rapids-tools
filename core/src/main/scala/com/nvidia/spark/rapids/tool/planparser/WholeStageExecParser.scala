@@ -19,8 +19,8 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.ui.SparkPlanGraphCluster
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphCluster
 
 abstract class WholeStageExecParserBase(
     node: SparkPlanGraphCluster,
@@ -28,12 +28,38 @@ abstract class WholeStageExecParserBase(
     sqlID: Long,
     app: AppBase,
     reusedNodeIds: Set[Long],
-    nodeIdToStagesFunc: Long => Set[Int]) extends Logging {
+    nodeIdToStagesFunc: Long => Set[Int]
+) extends Logging {
 
   val fullExecName = "WholeStageCodegenExec"
   // Matches the first alphanumeric characters of a string after trimming leading/trailing
   // white spaces.
   val nodeNameRegeX = """^\s*(\w+).*""".r
+
+  /**
+   * Creates the appropriate SQL plan parser for parsing child operators within this cluster.
+   *
+   * Delegates to SQLPlanParser.createParserAgent to select the correct parser based on the
+   * application's execution engine (PhotonPlanParser for Photon apps, OssSQLPlanParser for
+   * standard Spark). This ensures child operators are parsed using the same platform-specific
+   * logic as their parent cluster.
+   *
+   * @return SQLPlanParserTrait instance (PhotonPlanParser or OssSQLPlanParser)
+   */
+  def createPlanParserObj: SQLPlanParserTrait = {
+    SQLPlanParser.createParserAgent(app)
+  }
+
+  /**
+   * Returns the cluster node's display name for the expression field.
+   *
+   * For standard WholeStageCodegen clusters, this returns the node name (e.g.,
+   * "WholeStageCodegen (3)"). Platform-specific implementations may override this
+   * to return platform-specific names (e.g., "PhotonShuffleMapStage" for Photon).
+   *
+   * @return The node's name as the pretty expression
+   */
+  def prettyExpression: String = node.name
 
   def parse: Seq[ExecInfo] = {
     // TODO - does metrics for time have previous ops?  per op thing, only some do
@@ -46,9 +72,10 @@ abstract class WholeStageExecParserBase(
     // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
     // the children nodes.
     val isDupNode = reusedNodeIds.contains(node.id)
+    val objParser = createPlanParserObj
     val childNodes = node.nodes.flatMap { c =>
       // Pass the nodeToStagesFunc to the child nodes so they can get the stages.
-      SQLPlanParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds,
+      objParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds,
         nodeIdToStagesFunc = nodeIdToStagesFunc)
     }
     // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
@@ -69,7 +96,7 @@ abstract class WholeStageExecParserBase(
       node = node,
       sqlID = sqlID,
       exec = nodeLabel,
-      expr = node.name,
+      expr = prettyExpression,
       speedupFactor = avSpeedupFactor,
       duration = maxDuration,
       nodeId = node.id,
@@ -80,16 +107,17 @@ abstract class WholeStageExecParserBase(
       // unsupported expressions should not be set for the cluster nodes.
       unsupportedExprs = Seq.empty,
       // expressions of wholeStageCodeGen should not be set. They belong to the children nodes.
-      expressions = Seq.empty)
+      expressions = Seq.empty
+    ).withClusterFlag()  // Mark as cluster node for proper identification in analysis
     Seq(execInfo)
   }
 }
 
 case class WholeStageExecParser(
-  node: SparkPlanGraphCluster,
-  checker: PluginTypeChecker,
-  sqlID: Long,
-  app: AppBase,
-  reusedNodeIds: Set[Long],
-  nodeIdToStagesFunc: Long => Set[Int])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)
+    node: SparkPlanGraphCluster,
+    checker: PluginTypeChecker,
+    sqlID: Long,
+    app: AppBase,
+    reusedNodeIds: Set[Long],
+    nodeIdToStagesFunc: Long => Set[Int]
+) extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)

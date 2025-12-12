@@ -25,9 +25,10 @@ import scala.collection.mutable.ArrayBuffer
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.commons.text.StringEscapeUtils
 
-import org.apache.spark.sql.execution.{SparkPlanInfo, WholeStageCodegenExec}
+import org.apache.spark.sql.execution.WholeStageCodegenExec
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
 import org.apache.spark.sql.rapids.tool.profiling.{ApplicationInfo, SparkPlanInfoWithStage}
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 /**
  * Generate a DOT graph for one query plan, or showing differences between two query plans.
@@ -196,7 +197,7 @@ object SparkPlanGraph {
 
   @tailrec
   def isGpuPlan(plan: SparkPlanInfo): Boolean = {
-    plan.nodeName match {
+    plan.platformName match {
       case name if name contains "QueryStage" =>
         plan.children.isEmpty || isGpuPlan(plan.children.head)
       case name if name == "ReusedExchange" =>
@@ -233,13 +234,13 @@ object SparkPlanGraph {
       retStage
     }
 
-    planInfo.nodeName match {
+    planInfo.platformName match {
       case name if name.startsWith("WholeStageCodegen") =>
 
         val codeGenCluster = new SparkPlanGraphCluster(
           nodeIdGenerator.getAndIncrement(),
-          planInfo.nodeName,
-          planInfo.simpleString,
+          planInfo.platformName,
+          planInfo.platformDesc,
           mutable.ArrayBuffer[SparkPlanGraphNode](),
           planInfo.metrics)
         val s = getOrMakeStage(planInfo)
@@ -291,8 +292,8 @@ object SparkPlanGraph {
       case name =>
         val metrics = planInfo.metrics
         val node = new SparkPlanGraphNode(
-          nodeIdGenerator.getAndIncrement(), planInfo.nodeName,
-          planInfo.simpleString, metrics, isGpuPlan(planInfo))
+          nodeIdGenerator.getAndIncrement(), planInfo.platformName,
+          planInfo.platformDesc, metrics, isGpuPlan(planInfo))
 
         val s = if (name.contains("Exchange") ||
             name == "Subquery" ||

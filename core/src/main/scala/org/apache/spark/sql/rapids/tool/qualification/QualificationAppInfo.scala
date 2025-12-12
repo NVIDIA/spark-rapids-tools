@@ -505,7 +505,7 @@ class QualificationAppInfo(
       val origPlanInfos = sqlPlans.collect {
         case (id, plan) if sqlIdToInfo.contains(id) =>
           val sqlDesc = sqlIdToInfo(id).description
-          SQLPlanParser.parseSQLPlan(appId, plan, id, sqlDesc, pluginTypeChecker, this)
+          SQLPlanParser.parseSQLPlan(plan, id, sqlDesc, pluginTypeChecker, this)
       }.toSeq
 
       // get summary of each SQL Query for original plan

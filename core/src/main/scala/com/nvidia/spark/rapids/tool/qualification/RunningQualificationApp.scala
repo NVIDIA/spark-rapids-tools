@@ -291,7 +291,7 @@ class RunningQualificationApp(
     // build the plan graphs to guarantee that the SQL plans were already created
     buildPlanGraphsInternal()
     val origPlanInfo = sqlPlans.get(sqlID).map { plan =>
-      SQLPlanParser.parseSQLPlan(appId, plan, sqlID, sqlDesc.getOrElse(""), pluginTypeChecker, this)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, sqlDesc.getOrElse(""), pluginTypeChecker, this)
     }
     val perSqlInfos = origPlanInfo.flatMap { pInfo =>
       // filter out any execs that should be removed

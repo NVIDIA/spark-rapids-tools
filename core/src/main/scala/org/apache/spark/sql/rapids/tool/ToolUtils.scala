@@ -28,7 +28,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion
 
 import org.apache.spark.internal.{config, Logging}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.util.SparkRuntime
 
 object ToolUtils extends Logging {
