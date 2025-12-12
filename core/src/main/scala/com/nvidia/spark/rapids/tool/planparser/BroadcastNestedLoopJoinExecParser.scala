@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2024, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 abstract class BroadcastNestedLoopJoinExecParserBase(
     node: SparkPlanGraphNode,
@@ -37,6 +37,22 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     (buildSide, joinType)
   }
 
+  /**
+   * Returns an empty string for BroadcastNestedLoopJoin's pretty expression.
+   *
+   * Unlike simpler operators, BroadcastNestedLoopJoin has complex expressions involving:
+   * - Build side specification (BuildLeft/BuildRight)
+   * - Join type (LeftOuter, RightOuter, Inner, etc.)
+   * - Join conditions with nested predicates
+   *
+   * These details are already extracted and processed in the parse() method for support
+   * analysis, making a "pretty" summary redundant. The full details are preserved in the
+   * node description and parsed expressions list.
+   *
+   * @return Empty string as no compact representation is needed
+   */
+  def prettyExpression: String = ""
+
   override def parse: ExecInfo = {
     // BroadcastNestedLoopJoin doesn't have duration
     val exprString = node.desc.replaceFirst("^BroadcastNestedLoopJoin\\s*", "")
@@ -51,8 +67,8 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     } else {
       (1.0, false)
     }
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported,
-      children = None, expressions = expressions)
+    ExecInfo(node, sqlID, node.name, prettyExpression, speedupFactor, duration, node.id,
+      isSupported, children = None, expressions = expressions)
   }
 }
 

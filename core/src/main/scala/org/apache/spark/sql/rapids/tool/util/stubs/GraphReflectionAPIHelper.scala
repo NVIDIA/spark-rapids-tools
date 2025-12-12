@@ -17,8 +17,6 @@
 package org.apache.spark.sql.rapids.tool.util.stubs
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.util.stubs.bd.BDGraphReflectionAPI
-import org.apache.spark.sql.rapids.tool.util.stubs.db.DBGraphReflectionAPI
 
 /**
  * Helper object to load the correct runtime GraphReflectionAPI implementation.
@@ -33,9 +31,7 @@ object GraphReflectionAPIHelper extends Logging {
   private def loadRuntimeGraphAPI(): Option[GraphReflectionAPI] = {
     // defines the available GraphReflectionAPI implementations
     val allAPIS = Map(
-      "Default Graph API" -> new DefaultGraphReflectionAPI(),
-      "BD Graph API" -> BDGraphReflectionAPI(),
-      "DB Graph API" -> DBGraphReflectionAPI()
+      "Default Graph API" -> new DefaultGraphReflectionAPI()
     )
     // Finds the first compatible API by creating a dummy node.
     val res = allAPIS.find { entry =>

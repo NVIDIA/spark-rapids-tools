@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,18 +31,41 @@ class PhotonPlanParserSuite extends BasePlanParserSuite {
   )
   // scalastyle:on line.size.limit
 
-  photonOpTestCases.foreach { case (photonName, sparkName) =>
-    test(s"$photonName is parsed as Spark $sparkName") {
-      val eventLog = s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
-      val pluginTypeChecker = new PluginTypeChecker()
-      val app = createAppFromEventlog(eventLog, platformName = PlatformNames.DATABRICKS_AWS)
-      assert(app.sqlPlans.nonEmpty)
-      val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
-      }
-      val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
-      val reader = allExecInfo.filter(_.exec.contains(sparkName))
-      assert(reader.nonEmpty, s"Failed to find $sparkName in $allExecInfo")
+  /**
+   * Test that verifies Photon-specific operators are correctly parsed and converted to their
+   * Spark CPU equivalents in the execution plan.
+   *
+   * This test:
+   * 1. Loads an event log from a Databricks environment running with Photon enabled
+   * 2. Parses all SQL plans in the application using SQLPlanParser
+   * 3. Extracts all execution operators (ExecInfo) from the parsed plans
+   * 4. For each Photon operator in the test cases:
+   *    - Verifies the corresponding Spark operator name exists in the parsed results
+   *    - Verifies the original Photon operator name does NOT appear in the results
+   *
+   * This ensures that:
+   * - Photon operators are recognized and handled by the parser
+   * - They are correctly converted to Spark-equivalent names for compatibility and analysis
+   * - The conversion applies to regular operators (e.g., PhotonProject -> Project),
+   *   Photon-specific parsers (e.g., PhotonBroadcastNestedLoopJoin -> BroadcastNestedLoopJoin),
+   *   and cluster operators (e.g., PhotonShuffleMapStage -> WholeStageCodegen)
+   */
+  test("Operator in photon is parsed as Spark equivalent") {
+    val eventLog = s"$qualLogDir/nds_q88_photon_db_13_3.zstd"
+    val pluginTypeChecker = new PluginTypeChecker()
+    val app = createAppFromEventlog(eventLog, platformName = PlatformNames.DATABRICKS_AWS)
+    assert(app.sqlPlans.nonEmpty)
+    val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
+    }
+    val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
+    photonOpTestCases.foreach { case (photonName, sparkName) =>
+      val sparkOpExists = allExecInfo.exists(_.exec.contains(sparkName))
+      val photonOpExists = allExecInfo.exists(_.exec.contains(photonName))
+      assert(sparkOpExists,
+        s"Failed to find Spark operator $sparkName for Photon operator $photonName")
+      assert(!photonOpExists,
+        s"Failed to parse Photon operator $photonName as Spark operator $sparkName")
     }
   }
 }

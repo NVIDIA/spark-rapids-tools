@@ -21,10 +21,11 @@ import scala.collection.mutable
 import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, DataWritingCommandExecParser, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.{SparkPlanGraph, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
-import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraph, SparkPlanGraphNode, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanExtensions.{SparkPlanInfoOps, UpStreamSparkPlanInfoOps}
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 /**
  * Represents a version of the SQLPlan holding the specific information related to that SQL plan.
@@ -35,7 +36,8 @@ import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, ToolsPlanGr
  *              (sqlId, SQLPLanVersion) tuples.
  * @param version the version number of this plan. It starts at 0 and increments by 1 for each
  *                SparkListenerSQLAdaptiveExecutionUpdate.
- * @param planInfo The instance of SparkPlanInfo for this version of the plan.
+ * @param planInfo The instance of SparkPlanInfo for this version of the plan. This is a stub
+ *                 implementation provided by core-tools.
  * @param physicalPlanDescription The string representation of the physical plan for this version.
  * @param appInst the application instance the sqlPlan belongs to. This is used to
  *                extract some information and properties to help with parsing and operator
@@ -175,7 +177,7 @@ class SQLPlanVersion(
    * @return Sequence of SparkPlanInfo that have a ReadSchema attached to it.
    */
   private def getPlansWithSchema: Seq[SparkPlanInfo] = {
-    SQLPlanVersion.getPlansWithSchemaRecursive(planInfo)
+    planInfo.getPlansWithSchema
   }
 
   /**
@@ -260,23 +262,83 @@ class SQLPlanVersion(
 }
 
 object SQLPlanVersion {
+
   /**
-   * Recursive call to get all the SparkPlanInfo that have a schema attached to it.
-   * This is mainly used for V1 ReadSchema
-   * @param planInfo The SparkPlanInfo to start the search from
-   * @return A list of SparkPlanInfo that have a schema attached to it.
+   * Builder for constructing SQLPlanVersion instances with validation.
+   *
+   * Provides a fluent API for setting required and optional parameters before building
+   * the SQLPlanVersion. Ensures required fields (planInfo, physicalPlanDescription, appInst)
+   * are set before construction.
    */
-  private def getPlansWithSchemaRecursive(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    // filter out ReusedSubquery nodes as they just point to other nodes. Otherwise, we may end up
-    // visiting the same node multiple times.
-    val childRes = planInfo.children
-        .filterNot(_.nodeName.startsWith("ReusedSubquery"))
-        .flatMap(getPlansWithSchemaRecursive)
-    if (planInfo.metadata != null &&
-      planInfo.metadata.contains(ReadParser.METAFIELD_TAG_READ_SCHEMA)) {
-      childRes :+ planInfo
-    } else {
-      childRes
+  class Builder {
+    private var sqlId: Long = _
+    private var version: Int = _
+    private var planInfo: org.apache.spark.sql.execution.SparkPlanInfo = _
+    private var physicalPlanDescription: String = _
+    private var appInst: AppBase = _
+    private var isFinal: Boolean = true
+
+    /** Sets the SQL plan ID. */
+    def withSqlId(sqlId: Long): Builder = {
+      this.sqlId = sqlId
+      this
+    }
+
+    /** Sets the plan version number (increments with each AQE update). */
+    def withVersion(version: Int): Builder = {
+      this.version = version
+      this
+    }
+
+    /** Sets the SparkPlanInfo from upstream Spark execution. */
+    def withPlanInfo(planInfo: org.apache.spark.sql.execution.SparkPlanInfo): Builder = {
+      this.planInfo = planInfo
+      this
+    }
+
+    /** Sets the physical plan description string. */
+    def withPhysicalPlanDescription(physicalPlanDescription: String): Builder = {
+      this.physicalPlanDescription = physicalPlanDescription
+      this
+    }
+
+    /** Sets the application instance for context and configuration. */
+    def withAppInst(appInst: AppBase): Builder = {
+      this.appInst = appInst
+      this
+    }
+
+    /** Sets whether this is the final plan version (default: true). */
+    def withIsFinal(isFinal: Boolean): Builder = {
+      this.isFinal = isFinal
+      this
+    }
+
+    /**
+     * Builds the SQLPlanVersion instance.
+     *
+     * Validates that required fields are set and converts the upstream SparkPlanInfo
+     * to a platform-aware representation before construction.
+     *
+     * @return A new SQLPlanVersion instance.
+     */
+    @throws[java.lang.IllegalArgumentException]
+    def build(): SQLPlanVersion = {
+      require(planInfo != null, "planInfo must be set")
+      require(physicalPlanDescription != null, "physicalPlanDescription must be set")
+      require(appInst != null, "appInst must be set")
+
+      new SQLPlanVersion(
+        sqlId,
+        version,
+        planInfo.asPlatformAware,
+        physicalPlanDescription,
+        appInst,
+        isFinal
+      )
     }
   }
+
+  /** Creates a new Builder instance for constructing SQLPlanVersion. */
+  def builder: Builder = new Builder()
 }
