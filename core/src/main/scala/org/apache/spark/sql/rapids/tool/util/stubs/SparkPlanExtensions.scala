@@ -16,8 +16,11 @@
 
 package org.apache.spark.sql.rapids.tool.util.stubs
 
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, PhotonOssOpMapper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.auron.AuronOssOpMapper
+import com.nvidia.spark.rapids.tool.plugins.{GpuOssOpMapper, OssOpMapper, OssOpMapperTrait}
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.util.stubs.db.PhotonSparkPlanInfo
 import org.apache.spark.sql.rapids.tool.util.stubs.rapids.RAPIDSSparkPlanInfo
 
@@ -33,6 +36,36 @@ import org.apache.spark.sql.rapids.tool.util.stubs.rapids.RAPIDSSparkPlanInfo
  * representations that can be analyzed and compared across different execution engines.
  */
 object SparkPlanExtensions {
+
+  /**
+   * Ordered sequence of platform-specific operator mappers used for plan conversion.
+   *
+   * This sequence defines the registered converters that transform platform-specific execution
+   * nodes into OSS Spark equivalents. Each converter implements OssOpMapperTrait and is
+   * responsible for:
+   * - Detecting whether a plan node belongs to its platform (via acceptsPlanInfo)
+   * - Mapping platform-specific operator names to OSS Spark operator names
+   * - Converting platform-specific descriptions to OSS equivalents
+   *
+   * The converters are tried in order during plan conversion. The first converter that accepts
+   * a plan node is used to perform the transformation. Currently registered converters:
+   * - GpuOssOpMapper: Handles RAPIDS GPU-accelerated operators (e.g., GpuProject → Project)
+   * - AuronOssOpMapper: Handles Auron/Native Spark operators (e.g., NativeProject → Project)
+   * - PhotonOssOpMapper: Handles Databricks Photon operators (e.g., PhotonProject → Project)
+   *
+   * If no converter accepts a plan node, it falls back to OssOpMapper which returns the node
+   * unchanged as a standard Spark node.
+   *
+   * New platform converters can be added by implementing OssOpMapperTrait and adding them
+   * to this sequence. The order matters when multiple converters might match the same node.
+   */
+  val converters: Seq[OssOpMapperTrait] =
+    Seq(
+      GpuOssOpMapper,   // RAPIDS converter. Only used for RAPIDS plans.
+      AuronOssOpMapper, // Auron/Native Spark converter.
+      PhotonOssOpMapper // Databricks Photon converter.
+    )
+
   /**
    * Implicit class that adds extension methods to upstream Spark's SparkPlanInfo.
    *
@@ -44,63 +77,27 @@ object SparkPlanExtensions {
   implicit class UpStreamSparkPlanInfoOps(
       val planInfo: org.apache.spark.sql.execution.SparkPlanInfo) {
 
-    def isPhoton: Boolean = {
-      DatabricksParseHelper.isPhotonNode(planInfo.nodeName)
-    }
-
-    def isRAPIDS: Boolean = {
-      // TODO: Implement an exhaustive implementation of detecting RAPIDS-specific nodes.
-      planInfo.nodeName.startsWith("Gpu")
-    }
-
     /**
      * Converts an upstream Spark execution plan into a platform-aware representation.
      *
-     * This method analyzes the plan node and determines if it originates from a platform-specific
-     * execution engine (e.g., Databricks Photon). If so, it creates a dual-representation plan
-     * that preserves both the platform-specific node information and the equivalent Spark node
-     * information. For standard Spark nodes, it creates a standard SparkPlanInfo representation.
+     * This method analyzes the plan node and determines if it originates from a
+     * platform-specific execution engine (e.g., Databricks Photon, Apache Auron).
+     * If so, it creates a dual-representation plan that preserves both the
+     * platform-specific node information and the equivalent Spark node information.
+     * For standard Spark nodes, it creates a standard SparkPlanInfo representation.
      *
      * The conversion is recursive - all child nodes in the plan tree are also converted.
      *
+     * @param app The application context providing metadata and configuration
      * @return A platform-aware SparkPlanInfo that may be:
      *         - PhotonSparkPlanInfo if the node is from Databricks Photon engine
+     *         - AuronSparkPlanInfo if the node is from Apache Auron engine
      *         - Standard SparkPlanInfo for native Spark nodes
      */
-    def asPlatformAware: SparkPlanInfo = {
-      // Check if this node is a Databricks Photon-specific execution node
-      if (planInfo.isPhoton) {
-        // Map the Photon node name to its Spark equivalent (e.g., "PhotonProject" -> "Project")
-        val sparkName = DatabricksParseHelper.mapPhotonToSpark(planInfo.nodeName)
-        // Map the Photon description to its Spark equivalent format
-        val sparkDesc = DatabricksParseHelper.mapPhotonToSpark(planInfo.simpleString)
-        // Create a PhotonSparkPlanInfo that maintains both Photon and Spark representations
-        PhotonSparkPlanInfo(
-          actualName = planInfo.nodeName,
-          actualDesc = planInfo.simpleString,
-          sparkName = sparkName,
-          sparkDesc = sparkDesc,
-          children = planInfo.children.map(_.asPlatformAware), // Recursively convert all children
-          metadata = planInfo.metadata,
-          metrics = planInfo.metrics)
-      } else if (planInfo.isRAPIDS) {
-        RAPIDSSparkPlanInfo(
-          actualName = planInfo.nodeName,
-          actualDesc = planInfo.simpleString,
-          sparkName = planInfo.nodeName.stripPrefix("Gpu"), // Simple mapping for RAPIDS nodes
-          sparkDesc = planInfo.simpleString.stripPrefix("Gpu"),
-          children = planInfo.children.map(_.asPlatformAware), // Recursively convert all children
-          metadata = planInfo.metadata,
-          metrics = planInfo.metrics)
-      } else {
-        // This is a standard Spark node, so create a standard SparkPlanInfo
-        new SparkPlanInfo(
-          nodeName = planInfo.nodeName,
-          simpleString = planInfo.simpleString,
-          children = planInfo.children.map(_.asPlatformAware), // Recursively convert all children
-          metadata = planInfo.metadata,
-          metrics = planInfo.metrics)
-      }
+    def asPlatformAware(app: AppBase): SparkPlanInfo = {
+      converters.find(_.acceptsPlanInfo(planInfo, Option(app)))
+        .getOrElse(OssOpMapper)
+        .toPlatformAwarePlan(planInfo, app)
     }
   }
 
@@ -120,6 +117,7 @@ object SparkPlanExtensions {
         case _ => false
       }
     }
+
 
     /**
      * Recursively collects all SparkPlanInfo nodes that match the given predicate.

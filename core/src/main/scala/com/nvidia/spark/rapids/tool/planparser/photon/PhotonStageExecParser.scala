@@ -27,7 +27,7 @@ import org.apache.spark.sql.rapids.tool.plangraph.PhotonSparkPlanGraphCluster
  * (e.g. PhotonShuffleMapStage, PhotonUnionShuffleMapStage etc.).
  * This can be extended if specific parsing is needed for a particular Stage operator.
  *
- * @see Resource file in `photonOperatorMappings` for the mapping of Photon operators
+ * @see Resource file in `parser/auron/databricks-13_3.json` for the mapping of Photon operators
  *      to Spark operators
  */
 case class PhotonStageExecParser(

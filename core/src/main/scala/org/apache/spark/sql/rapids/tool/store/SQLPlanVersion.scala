@@ -331,7 +331,7 @@ object SQLPlanVersion {
       new SQLPlanVersion(
         sqlId,
         version,
-        planInfo.asPlatformAware,
+        planInfo.asPlatformAware(appInst),
         physicalPlanDescription,
         appInst,
         isFinal

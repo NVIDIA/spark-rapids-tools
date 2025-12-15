@@ -27,9 +27,11 @@ case class HashAggregateExecParser(
     override val checker: PluginTypeChecker,
     override val sqlID: Long,
     override val expressionFunction: Option[String => Array[String]],
-    appBase: AppBase) extends
-    GenericExecParser(node, checker, sqlID,
-      expressionFunction = expressionFunction, app = Some(appBase)) with Logging {
+    appBase: AppBase
+) extends GenericExecParser(
+    node,
+    checker, sqlID, expressionFunction = expressionFunction, app = Some(appBase)
+) with Logging {
 
   override def getDurationSqlMetrics: Set[String] = Set("time in aggregation build")
 }
