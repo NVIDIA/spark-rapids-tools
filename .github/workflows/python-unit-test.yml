@@ -35,7 +35,7 @@ jobs:
           scripts/prefetch_deps.sh "$RAPIDS_USER_TOOLS_CACHE_FOLDER" "onprem,dataproc,emr,databricks_aws,databricks_azure" "user_tools/src/spark_rapids_pytools/resources"
 
       - name: Upload RAPIDS cache artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rapids-cache
           path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
@@ -56,7 +56,7 @@ jobs:
           ./build.sh non-fat
 
       - name: Upload generated tools resources
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: tools-generated
           path: user_tools/src/spark_rapids_pytools/resources/generated_files
@@ -77,18 +77,18 @@ jobs:
         uses: NVIDIA/spark-rapids-common/checkout@main
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Restore RAPIDS cache artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: rapids-cache
           path: ${{ env.RAPIDS_USER_TOOLS_CACHE_FOLDER }}
 
       - name: Restore generated tools resources
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: tools-generated
           path: user_tools/src/spark_rapids_pytools/resources/generated_files
