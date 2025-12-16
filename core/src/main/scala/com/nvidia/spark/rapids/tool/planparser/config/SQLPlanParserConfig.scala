@@ -92,7 +92,7 @@ class SQLPlanParserConfig(
    * Get all enabled parsers from the configuration.
    */
   def getEnabledParsers: Seq[ParserConfig] = {
-    parsers.asScala.filter(_.enabled)
+    parsers.asScala.filter(_.enabled).toSeq
   }
 
   override def toString: String = {
