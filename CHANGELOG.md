@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v25.10.9](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.9)
+Generated on 2025-12-16
+### Build and CI/CD
+
+- Bump urllib3 from 2.5.0 to 2.6.0 in /user_tools ([#1992](https://github.com/NVIDIA/spark-rapids-tools/pull/1992))
+
+### Core
+
+- Refactor core-tools module to support multi-platform extensibility ([#1994](https://github.com/NVIDIA/spark-rapids-tools/pull/1994))
+- Allow configuring Platform specific reserved memory per executor ([#1988](https://github.com/NVIDIA/spark-rapids-tools/pull/1988))
+
+
+<br/>
+
 ## Release [v25.10.8](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.8)
 Generated on 2025-12-09
 ### Autotuner
