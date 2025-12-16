@@ -58,7 +58,7 @@ case class SQLPlanMetric(
  */
 @ToolsReflection(
   ToolsPlanGraph.SPARK_VERSION,
-  ToolsPlanGraph.INJECT_PLATFORM_MSG)
+  ToolsPlanGraph.INJECT_PLATFORM_MSG + ToolsPlanGraph.CONSTRUCTOR_STUB_MSG + ".")
 class SparkPlanGraphNode(
     val id: Long,
     val name: String,
@@ -90,7 +90,7 @@ class SparkPlanGraphNode(
  */
 @ToolsReflection(
   ToolsPlanGraph.SPARK_VERSION,
-  ToolsPlanGraph.INJECT_PLATFORM_MSG)
+  ToolsPlanGraph.INJECT_PLATFORM_MSG + ToolsPlanGraph.CONSTRUCTOR_STUB_MSG + ".")
 class SparkPlanGraphCluster(
     id: Long,
     name: String,
@@ -640,12 +640,10 @@ object ToolsPlanGraph {
 
   // Constants for ToolsReflection annotations to avoid duplication
   val SPARK_VERSION = "Spark OSS 3.5.x"
+  val INJECT_PLATFORM_MSG = "Inject information related to the platform. "
   val CONSTRUCTOR_STUB_MSG =
     "Constructors in different spark versions may have different parameters. " +
       "So we use that stub for tools"
-  val INJECT_PLATFORM_MSG =
-    "Inject information related to the platform. Constructors in different spark versions " +
-      "may have different parameters. So we use that stub for tools."
 
   // The actual code used to build the graph. If the API is not available, then fallback to the
   // Spark default API.
