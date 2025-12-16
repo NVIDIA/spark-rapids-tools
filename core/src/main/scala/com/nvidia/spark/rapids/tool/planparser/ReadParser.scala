@@ -21,7 +21,7 @@ import scala.collection.mutable.HashMap
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 case class ReadMetaData(schema: String, location: String, format: String,

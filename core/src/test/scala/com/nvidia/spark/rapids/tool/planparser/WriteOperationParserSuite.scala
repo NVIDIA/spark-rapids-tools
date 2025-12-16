@@ -20,8 +20,7 @@ import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
 import org.scalatest.funsuite.AnyFunSuite
 
-import org.apache.spark.sql.execution.ui
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.store.{CompressionCodec, WriteOperationMetadataTrait}
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -170,7 +169,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHadoopFsRelationCommand — Long schema") {
     // Long schema shows up as ellipses in the description.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHadoopFsRelationCommand",
       desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/database/table1, " +
@@ -196,7 +195,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHadoopFsRelationCommand — CatalogEntry and Partitions") {
     // Long schema shows up as ellipses in the description.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHadoopFsRelationCommand",
       desc = "Execute InsertIntoHadoopFsRelationCommand gs://path/to/metastore/database1.db/tableName, " +
@@ -239,7 +238,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHadoopFsRelationCommand — With Compression Codec") {
     // Tests CPU eventlog that has defined compression codec in the options
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHadoopFsRelationCommand",
       desc = "Execute InsertIntoHadoopFsRelationCommand " +
@@ -271,7 +270,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
     // Tests CPU eventlog that has defined compression codec in the options.
     // This tests the InsertHadoopFsRelationCommand with hive ORC serde library.
     // In addition it tests that the compression is enabled to SNAPPY
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHadoopFsRelationCommand",
       desc = "Execute InsertIntoHadoopFsRelationCommand " +
@@ -345,7 +344,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
     // This test ensures that we can parse GpuInsert when there is a CatalogTable defined.
     // The format in this test should be HiveParquet because we extract the format from the serDe
     // library.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute GpuInsertIntoHadoopFsRelationCommand",
       desc = "Execute GpuInsertIntoHadoopFsRelationCommand gs://path/to/metastore/databaseName/table1, " +
@@ -389,7 +388,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
   test("GpuInsertIntoHadoopFsRelationCommand — Insert into file (no Database/Table)") {
     // This tests when an exec does not have a table. Instead, it writes immediately to a file.
     // In that case, the write operation should not have a database/table names.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute GpuInsertIntoHadoopFsRelationCommand",
       desc = "Execute GpuInsertIntoHadoopFsRelationCommand " +
@@ -415,7 +414,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("GpuInsertIntoHadoopFsRelationCommand — CatalogTable entry with path enclosed in brackets") {
     // Tests GPU eventlog that has defined a path between brackets
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute GpuInsertIntoHadoopFsRelationCommand",
       desc = "Execute GpuInsertIntoHadoopFsRelationCommand " +
@@ -500,7 +499,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHiveTable cmd — No catalog prefix") {
     // The catalog piece has `database`.`table`
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHiveTable",
       desc = "Execute InsertIntoHiveTable `database1`.`table1`, " +
@@ -525,7 +524,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
   test("InsertIntoHiveTable cmd — With compression codec") {
     // The plan resulting from inserting into a Hive table with Snappy compression and Parquet
     // format
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHiveTable",
       desc = "Execute InsertIntoHiveTable `spark_catalog`.`default`.`hive_table_with_snappy`, " +
@@ -554,7 +553,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHiveTable cmd — Catalog prefix") {
     // The catalog piece has `spark_catalog`.`database`.`table`
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHiveTable",
       desc = "Execute InsertIntoHiveTable `spark_catalog`.`database1`.`table1`, " +
@@ -578,7 +577,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("InsertIntoHiveTable cmd — Dynamic partitions") {
     // The partitions argument is missing
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute InsertIntoHiveTable",
       desc = "Execute InsertIntoHiveTable `spark_catalog`.`database1`.`table1`, " +
@@ -602,7 +601,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("GpuInsertIntoHiveTable — Gpu logs profiler case") {
     // The GPU eventlog has 2 different format arguments. For now, we pick the serDe library.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "Execute GpuInsertIntoHiveTable",
       desc = "Execute GpuInsertIntoHiveTable `database1`.`table1`, " +
@@ -633,7 +632,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
 
   test("AppendData — Iceberg table Parquet format") {
     // Test that AppendData is parsed correctly for Iceberg tables.
-    val node = new ui.SparkPlanGraphNode(
+    val node = new SparkPlanGraphNode(
       id = 5,
       name = "AppendData",
       desc = "AppendData org.apache.spark.sql.execution.datasources.v2.DataSourceV2Strategy$$Lambda$2293/1470843699@46290193, " +

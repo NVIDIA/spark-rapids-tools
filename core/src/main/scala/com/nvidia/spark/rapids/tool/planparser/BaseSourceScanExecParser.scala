@@ -22,8 +22,8 @@ import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 /**
  * Base parser for data source scan execution nodes (e.g., FileSourceScanExec, BatchScan).

@@ -19,8 +19,8 @@ package com.nvidia.spark.rapids.tool.planparser.delta
 import com.nvidia.spark.rapids.tool.planparser.{OpTypes, SupportedBlankExec, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 /**
  * Create an execInfo for a Delta Lake operator. Some Delta Lake operators do not have content in

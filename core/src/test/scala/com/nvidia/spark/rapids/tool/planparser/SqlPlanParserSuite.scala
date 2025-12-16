@@ -31,12 +31,12 @@ import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor2
 
 import org.apache.spark.sql.{DataFrame, SparkSession, TrampolineUtil}
-import org.apache.spark.sql.execution.ui.SQLPlanMetric
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.rapids.tool.ExecHelper._
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.util.{FSUtils, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.plangraph.{SQLPlanMetric, ToolsPlanGraph}
+import org.apache.spark.sql.rapids.tool.util.{FSUtils, UTF8Source}
 
 class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
 
@@ -88,8 +88,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       assert(app.sqlPlans.size == 1)
       try {
         app.sqlPlans.foreach { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-            pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
       } catch {
         case NonFatal(e) =>
@@ -116,8 +115,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val sparkVersion = app.sparkVersion
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
-        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-          pluginTypeChecker, app)
+        val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         val allChildren = wholeStages.flatMap(_.children).flatten
@@ -184,8 +182,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
-        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-          pluginTypeChecker, app)
+        val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         verifyPlanExecToStageMap(planInfo)
         val allExecInfo = planInfo.execInfo
         // Note that:
@@ -227,8 +224,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
-        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-          pluginTypeChecker, app)
+        val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
@@ -248,7 +244,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size == 7)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -271,7 +267,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size == 9)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -302,7 +298,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         app.sqlPlans.size shouldBe 2
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -338,7 +334,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         assert(app.sqlPlans.size == 6)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -378,7 +374,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         assert(app.sqlPlans.size == 6)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -410,8 +406,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val pluginTypeChecker = new PluginTypeChecker()
     assert(app.sqlPlans.size == 1)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-        pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -441,7 +436,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -456,7 +451,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size > 0)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -477,7 +472,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val pluginTypeChecker = new PluginTypeChecker()
     val app = createAppFromEventlog(eventLog)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -488,7 +483,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     // There are 7 nodes that are duplicated including 1 ReusedExchangeExec node and
     // 1 WholeStageCodegen.
     assert(1 == nodesWithRemove.count(
-      exec => exec.expr.contains("WholeStageCodegen")))
+      exec => exec.exec.contains("WholeStageCodegen")))
     assert(1 == nodesWithRemove.count(exec => exec.exec.equals("ReusedExchange")))
   }
 
@@ -499,7 +494,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size > 0)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -514,7 +509,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size > 0)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -544,7 +539,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         "TakeOrderedAndProject", "Union")
       val unsupportedExecs = Array("CollectLimit")
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -575,7 +570,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       assert(app.sqlPlans.size == 2)
       val supportedExecs = Array("CartesianProduct", "Generate")
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -612,7 +607,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 5)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -655,7 +650,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 5)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -690,7 +685,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       // Verify execution plan
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", new PluginTypeChecker(), app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", new PluginTypeChecker(), app)
       }
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
       val aggExprs = execInfo.filter(_.exec == "HashAggregate")
@@ -716,7 +711,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -739,7 +734,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -760,7 +755,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -787,7 +782,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -803,7 +798,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     val app = createAppFromEventlog(eventLog)
     assert(app.sqlPlans.size > 0)
     val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-      SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
     }
     verifyExecToStageMapping(parsedPlans.toSeq, app)
     val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -830,7 +825,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     assert(app.sqlPlans.size == 1)
     val supportedExecs = Array("GlobalLimit", "LocalLimit")
     app.sqlPlans.foreach { case (sqlID, plan) =>
-      val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+      val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       verifyPlanExecToStageMap(planInfo)
       // GlobalLimit and LocalLimit are inside WholeStageCodegen. So getting the children of
       // WholeStageCodegenExec
@@ -855,8 +850,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
-        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-          pluginTypeChecker, app)
+        val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 1)
@@ -880,8 +874,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       app.sqlPlans.foreach { case (sqlID, plan) =>
-        val planInfo = SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "",
-          pluginTypeChecker, app)
+        val planInfo = SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         verifyPlanExecToStageMap(planInfo)
         val wholeStages = planInfo.execInfo.filter(_.exec.contains("WholeStageCodegen"))
         assert(wholeStages.size == 2)
@@ -905,7 +898,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -930,7 +923,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -958,7 +951,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         assert(app.sqlPlans.size == 2)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -983,7 +976,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -1010,7 +1003,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         assert(app.sqlPlans.size == 4)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -1036,7 +1029,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val app = createAppFromEventlog(eventLog)
         assert(app.sqlPlans.size == 2)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "test desc", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "test desc", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         parsedPlans.foreach { pInfo =>
@@ -1190,7 +1183,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 2)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -1261,7 +1254,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
 
         assert(app.sqlPlans.size == 2)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -1289,7 +1282,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val app = createAppFromEventlog(eventLog)
       assert(app.sqlPlans.size == 1)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       val execInfo = getAllExecsFromPlan(parsedPlans.toSeq)
@@ -1388,7 +1381,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         // TODO: Spark shows a weird behavior as the entire plan with SQL 65 loses the metrics
         //       and the associated jobs. This causes some execs to be isolated without stage.
@@ -1470,7 +1463,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         // The promote_precision should be part of the project exec.
@@ -1514,7 +1507,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         val pluginTypeChecker = new PluginTypeChecker()
         val app = createAppFromEventlog(eventLog)
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         // The current_database should be part of the project-exec and the parser should ignore it.
@@ -1768,7 +1761,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       // Note that the generated plan, there are skipped stages that causes some execs to appear
       // without their relevant stages. so we skip the stage verification here.
@@ -1849,7 +1842,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val pluginTypeChecker = new PluginTypeChecker()
       val app = createAppFromEventlog(eventLog)
       val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-        SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+        SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
       }
       verifyExecToStageMapping(parsedPlans.toSeq, app)
       // we should have 2 hash aggregates with min_by and max_by expressions
@@ -1879,7 +1872,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         assert(app.sqlPlans.size == 2)
         val pluginTypeChecker = new PluginTypeChecker()
         val parsedPlans = app.sqlPlans.map { case (sqlID, plan) =>
-          SQLPlanParser.parseSQLPlan(app.appId, plan, sqlID, "", pluginTypeChecker, app)
+          SQLPlanParser.parseSQLPlan(plan, sqlID, "", pluginTypeChecker, app)
         }
         verifyExecToStageMapping(parsedPlans.toSeq, app)
         val allExecInfo = getAllExecsFromPlan(parsedPlans.toSeq)

@@ -22,7 +22,7 @@ import com.nvidia.spark.rapids.tool.planparser.{DataWritingCmdWrapper, DataWriti
 import com.nvidia.spark.rapids.tool.plugins.{AppPropVersionExtractorFromCPTrait, PropConditionOnSparkExtTrait}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.{SparkPlanGraphCluster, SparkPlanGraphNode}
+import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraphCluster, SparkPlanGraphNode}
 import org.apache.spark.sql.rapids.tool.store.SQLPlanModel
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 

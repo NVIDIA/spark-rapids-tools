@@ -22,9 +22,8 @@ import scala.collection.mutable.ArrayBuffer
 import com.nvidia.spark.rapids.BaseTestSuite
 import org.scalatest.matchers.should.Matchers.{be, convertToAnyShouldWrapper}
 
-import org.apache.spark.sql.execution.ui.{SparkPlanGraphNode, SQLPlanMetric}
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraphNode, SQLPlanMetric, ToolsPlanGraph}
 
 // Tests the implementation of the ReadParser independently of end-2-end tests
 class ReadParserSuite extends BaseTestSuite {

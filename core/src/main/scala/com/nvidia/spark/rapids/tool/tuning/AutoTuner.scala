@@ -255,9 +255,35 @@ abstract class AutoTuner(
   protected val limitedLogicRecommendations: mutable.HashSet[String] = mutable.HashSet[String]()
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
-  // OS reserved memory for system processes, configurable via tuning configs
-  private lazy val osReservedMemory = configProvider.getEntry("OS_RESERVED_MEM")
+  // Non-executor memory (reserved for OS, resource manager, etc), configurable via tuning configs
+  private lazy val nonExecutorMemory = configProvider.getEntry("NON_EXECUTOR_MEM")
     .getDefaultAsMemory(ByteUnit.MiB)
+
+  // Non-executor memory fraction -> fraction of node memory not available for executors.
+  // Executor available memory = total * (1 - nonExecutorMemFraction).
+  // If value is in valid range [0, 1), use it; if negative, use platform default.
+  // Values >= 1 are invalid and fall back to platform default with a warning.
+  private lazy val nonExecutorMemFraction: Double = {
+    val configValue = configProvider.getEntry("NON_EXECUTOR_MEM_FRACTION").getDefault.toDouble
+    val platformDefault = platform.nonExecutorMemoryFraction
+    if (configValue >= 0.0 && configValue < 1.0) {
+      // Valid range [0, 1) - use the configured value
+      // 0.0 means 100% available for executors (no memory reserved)
+      configValue
+    } else if (configValue < 0.0) {
+      // Negative means "use platform default"
+      platformDefault
+    } else {
+      // Invalid value (>= 1.0) - log warning and use platform default
+      logWarning(s"Invalid NON_EXECUTOR_MEM_FRACTION value: $configValue. " +
+        s"Must be between 0.0 and 1.0 (exclusive), or negative for platform default. " +
+        s"Using platform default: $platformDefault")
+      platformDefault
+    }
+  }
+
+  // Executor available memory fraction = 1 - non-executor fraction
+  private lazy val executorAvailableMemFraction: Double = 1.0 - nonExecutorMemFraction
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
   private lazy val isOffHeapLimitUserEnabled: Boolean = {
@@ -653,12 +679,16 @@ abstract class AutoTuner(
       finalExecutorMemOverhead: Long,
       sparkOffHeapMemMB: Long,
       pySparkMemMB: Long): String = {
-    val minTotalExecMemRequired = (
-      // Calculate total system memory needed by dividing executor memory by usable fraction.
-      // Accounts for memory reserved by the container manager (e.g., YARN).
-      (executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB) /
-        platform.fractionOfSystemMemoryForExecutors
-      ).toLong
+    val executorMemRequired =
+      executorHeap + finalExecutorMemOverhead + sparkOffHeapMemMB + pySparkMemMB
+    // Calculate total system memory needed, consistent with actual allocation logic:
+    // - If nonExecutorMemory > 0: add absolute reservation
+    // - Otherwise: divide by available fraction to account for container manager reservation
+    val minTotalExecMemRequired: Long = if (nonExecutorMemory > 0) {
+      executorMemRequired + nonExecutorMemory
+    } else {
+      (executorMemRequired / executorAvailableMemFraction).toLong
+    }
     notEnoughMemComment(minTotalExecMemRequired)
   }
 
@@ -734,16 +764,16 @@ abstract class AutoTuner(
           .getDefaultAsMemory(ByteUnit.MiB) * numExecutorCores)
     }
     // Calculate total available memory for executors based on OS reserved memory:
-    // - If osReservedMemory > 0: use absolute subtraction (for on-prem environments)
-    // - If osReservedMemory = 0: use platform fraction (for CSPs with container managers)
+    // - If nonExecutorMemory > 0: use absolute subtraction (for on-prem environments)
+    // - If nonExecutorMemory = 0: use platform fraction (for CSPs with container managers)
     val totalMemForExecutors = totalMemForExecExpr.apply().toLong
-    val totalMemMinusReserved: Long = if (osReservedMemory > 0) {
-      totalMemForExecutors - osReservedMemory
+    val totalMemMinusReserved: Long = if (nonExecutorMemory > 0) {
+      totalMemForExecutors - nonExecutorMemory
     } else {
       // Our CSP instance map stores full node memory, but container managers
       // (e.g., YARN) may reserve a portion. Adjust to get the memory
       // actually available to the executor.
-      totalMemForExecutors * platform.fractionOfSystemMemoryForExecutors
+      totalMemForExecutors * executorAvailableMemFraction
     }.toLong
     // Calculate off-heap memory size using new hybrid scan detection logic
     val sparkOffHeapMemMB: Long = userEnforcedMemorySettings.sparkOffHeapMem.getOrElse(
@@ -1091,7 +1121,7 @@ abstract class AutoTuner(
               // offHeapLimit is enabled
               if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
                 val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
-                  offHeapSizeMB - osReservedMemory
+                  offHeapSizeMB - nonExecutorMemory
                 if (hostOffHeapLimitSizeMB > 0) {
                   appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size",
                     s"$hostOffHeapLimitSizeMB")

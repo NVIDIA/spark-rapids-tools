@@ -24,9 +24,9 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
-import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.metric.SQLMetricInfo
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 
 class SparkPlanInfoWithStage(
@@ -144,7 +144,7 @@ object SparkPlanInfoWithStage {
       accumIdToStageId.get(m.accumulatorId)
     }.reduceOption((l, r) => Math.min(l, r))
 
-    new SparkPlanInfoWithStage(plan.nodeName, plan.simpleString, newChildren, plan.metadata,
+    new SparkPlanInfoWithStage(plan.platformName, plan.platformDesc, newChildren, plan.metadata,
       plan.metrics, stageId)
   }
 
@@ -169,10 +169,10 @@ object SparkPlanInfoWithStage {
       val coalesce = info.children.head
       val shuffle = coalesce.children.head
       val firstTopN = shuffle.children.head
-      info.nodeName == "GpuTopN" &&
-          (coalesce.nodeName == "GpuShuffleCoalesce" ||
-              coalesce.nodeName == "GpuCoalesceBatches") &&
-          shuffle.nodeName == "GpuColumnarExchange" && firstTopN.nodeName == "GpuTopN"
+      info.platformName == "GpuTopN" &&
+          (coalesce.platformName == "GpuShuffleCoalesce" ||
+              coalesce.platformName == "GpuCoalesceBatches") &&
+          shuffle.platformName == "GpuColumnarExchange" && firstTopN.platformName == "GpuTopN"
     } else {
       false
     }

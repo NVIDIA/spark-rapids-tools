@@ -18,8 +18,8 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.{immutable, mutable}
 
-import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 // This SparkPlanInfoTruncated is used to trim and serialize
 // SparkPlanInfo by removing the unnecessary fields. Only three fields are kept:
@@ -56,8 +56,8 @@ case class SparkPlanInfoTruncated(
 
 object SparkPlanInfoTruncated {
   def apply(info: SparkPlanInfo): SparkPlanInfoTruncated = {
-    SparkPlanInfoTruncated(info.nodeName,
-      info.simpleString,
+    SparkPlanInfoTruncated(info.platformName,
+      info.platformDesc,
       info.children.map(apply))
   }
 }
@@ -109,7 +109,11 @@ class SQLPlanModelManager(appInst: AppBase) {
    * @param planInfo SparkPlanInfo for the new version of the plan.
    * @param physicalDescription String representation of the physical plan for the new version.
    */
-  def addNewExecution(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
+  def addNewExecution(
+      id: Long,
+      planInfo: org.apache.spark.sql.execution.SparkPlanInfo,
+      physicalDescription: String
+  ): Unit = {
     // TODO: in future we should pass more arguments to this method to capture the common
     //  information of an SqlPlan (i.e., startTime,..etc))
     val planModel = sqlPlans.getOrElseUpdate(id, new SQLPlanModelPrimaryWithDSCaching(id, appInst))
@@ -123,7 +127,11 @@ class SQLPlanModelManager(appInst: AppBase) {
    * @param planInfo SparkPlanInfo for the new version of the plan.
    * @param physicalDescription String representation of the physical plan for the new version.
    */
-  def addAQE(id: Long, planInfo: SparkPlanInfo, physicalDescription: String): Unit = {
+  def addAQE(
+      id: Long,
+      planInfo: org.apache.spark.sql.execution.SparkPlanInfo,
+      physicalDescription: String
+  ): Unit = {
     // TODO: we can verify that the id already exists, but we ignore that verification now as it is
     //  undefined how we should handle an AQE without the original plan.
     addNewExecution(id, planInfo, physicalDescription)

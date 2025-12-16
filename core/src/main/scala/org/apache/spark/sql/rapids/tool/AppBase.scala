@@ -25,7 +25,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, M
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, HiveParseHelper, ReadParser}
-import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper.isHiveTableScanNode
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
@@ -35,10 +34,11 @@ import org.apache.spark.deploy.history.{EventLogFileReader, EventLogFileWriter}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
-import org.apache.spark.sql.execution.SparkPlanInfo
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraphNode, ToolsPlanGraph}
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModel, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, SuccessAppResult, ToolsPlanGraph, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, SuccessAppResult, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanExtensions.SparkPlanInfoOps
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 import org.apache.spark.util.Utils
 
 abstract class AppBase(
@@ -65,14 +65,14 @@ abstract class AppBase(
    * If `appMetaData` is defined, the identifier is retrieved from the metadata.
    * Otherwise, a default identifier (`_id`) is returned.
    *
-   *  @return A `String` representing the unique identifier of the application.
+   * @return A `String` representing the unique identifier of the application.
    */
   override def id: String = {
-      appMetaData match {
-        case Some(meta) => meta.id
-        case _ => _id
-      }
+    appMetaData match {
+      case Some(meta) => meta.id
+      case _ => _id
     }
+  }
 
   // appId is string is stored as a field in the AppMetaData class
   def appId: String = {
@@ -426,7 +426,7 @@ abstract class AppBase(
   def checkMetadataForReadSchema(
       sqlPlanInfoGraph: SQLPlanModel): ArrayBuffer[DataSourceRecord] = {
     // check if planInfo has ReadSchema
-    val allMetaWithSchema = AppBase.getPlanMetaWithSchema(sqlPlanInfoGraph.planInfo)
+    val allMetaWithSchema = sqlPlanInfoGraph.planInfo.getPlansWithSchema
     val allNodes = sqlPlanInfoGraph.getToolsPlanGraph.allNodes
     // use linked hashSet to preserve order of insertion and avoid duplicate nodes. This guarantees
     // that each node is matched only once.
@@ -474,7 +474,7 @@ abstract class AppBase(
     if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
       // TODO: this needs to be refactored to follow the same fix in the generic case.
       //       We should not be checking the hive scans explicitly in the caller.
-      val allPlanWithHiveScan = AppBase.getPlanInfoWithHiveScan(sqlPlanInfoGraph.planInfo)
+      val allPlanWithHiveScan = sqlPlanInfoGraph.planInfo.getPlansWithHiveScan
       allPlanWithHiveScan.foreach { hiveReadPlan =>
         val sqlGraph = ToolsPlanGraph(hiveReadPlan)
         val hiveScanNode = sqlGraph.allNodes.head
@@ -715,35 +715,6 @@ object AppBase {
       str.substring(0, index)
     } else {
       str
-    }
-  }
-
-  private def getPlanMetaWithSchema(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    // TODO: This method does not belong to AppBase. It should move to another member.
-    // Filter out "ResuedSubquery" nodes as they just point to other nodes. Otherwise, the planInfo
-    // will show up twice in the recursive results.
-    val childRes =
-      planInfo.children
-        .filterNot(_.nodeName.startsWith("ReusedSubquery")).flatMap(getPlanMetaWithSchema)
-    if (planInfo.metadata != null && planInfo.metadata.contains("ReadSchema")) {
-      childRes :+ planInfo
-    } else {
-      childRes
-    }
-  }
-
-  // Finds all the nodes that scan a hive table
-  private def getPlanInfoWithHiveScan(planInfo: SparkPlanInfo): Seq[SparkPlanInfo] = {
-    // TODO: This method does not belong to AppBAse. It should move to another member.
-    // Filter out "ResuedSubquery" nodes as they just point to other nodes. Otherwise, the planInfo
-    // will show up twice in the recursive results.
-    val childRes = planInfo.children
-      .filterNot(_.nodeName.startsWith("ReusedSubquery"))
-      .flatMap(getPlanInfoWithHiveScan)
-    if (isHiveTableScanNode(planInfo.nodeName)) {
-      childRes :+ planInfo
-    } else {
-      childRes
     }
   }
 

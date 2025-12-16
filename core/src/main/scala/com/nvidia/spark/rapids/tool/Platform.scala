@@ -257,11 +257,11 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   def defaultNumGpus: Int = 1
 
   /**
-   * Fraction of the system's total memory that is available for executor use.
-   * This value should be set based on the platform to account for memory
-   * reserved by the resource managers (e.g., YARN).
+   * Fraction of the system's total memory reserved by resource managers (e.g., YARN).
+   * Available memory for executors = total * (1 - nonExecutorMemoryFraction).
+   * For example, if YARN reserves 20% of memory, this value should be 0.2.
    */
-  def fractionOfSystemMemoryForExecutors: Double
+  def nonExecutorMemoryFraction: Double
 
   val sparkVersionLabel: String = "Spark version"
 
@@ -819,9 +819,9 @@ class DatabricksAwsPlatform(gpuDevice: Option[GpuDevice],
 
   /**
    * Could not find public documentation for this. This was determined based on
-   * manual inspection of Databricks AWS configurations.
+   * manual inspection of Databricks AWS configurations. 35% reserved.
    */
-  override def fractionOfSystemMemoryForExecutors = 0.65
+  override def nonExecutorMemoryFraction = 0.35
 }
 
 class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
@@ -835,9 +835,9 @@ class DatabricksAzurePlatform(gpuDevice: Option[GpuDevice],
 
   /**
    * Could not find public documentation for this. This was determined based on
-   * manual inspection of Databricks Azure configurations.
+   * manual inspection of Databricks Azure configurations. 30% reserved.
    */
-  override def fractionOfSystemMemoryForExecutors = 0.7
+  override def nonExecutorMemoryFraction = 0.3
 }
 
 class DataprocPlatform(gpuDevice: Option[GpuDevice],
@@ -847,12 +847,12 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 
   // scalastyle:off line.size.limit
   /**
-   * For YARN on Dataproc, this limit is set to 0.8 which is a representation of the
-   * yarn.nodemanager.resource.memory-mb
+   * For YARN on Dataproc, 20% of memory is reserved by the resource manager.
+   * yarn.nodemanager.resource.memory-mb is typically set to 80% of total memory.
    * Reference: https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/autoscaling#hadoop_yarn_metrics
    */
   // scalastyle:on line.size.limit
-  override def fractionOfSystemMemoryForExecutors: Double = 0.8
+  override def nonExecutorMemoryFraction: Double = 0.2
 
   override val platformSpecificRecommendations: Map[String, String] = Map(
     // Keep disabled. This property does not work well with GPU clusters.
@@ -892,12 +892,12 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
 
   // scalastyle:off line.size.limit
   /**
-   * For YARN on EMR, this limit is set to 0.7 which is a representation of the
-   * yarn.nodemanager.resource.memory-mb
+   * For YARN on EMR, 30% of memory is reserved by the resource manager.
+   * yarn.nodemanager.resource.memory-mb is typically set to 70% of total memory.
    * Reference: https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-hadoop-task-config.html#emr-hadoop-task-config-g6
    */
   // scalastyle:on line.size.limit
-  override def fractionOfSystemMemoryForExecutors: Double = 0.7
+  override def nonExecutorMemoryFraction: Double = 0.3
 
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
@@ -937,12 +937,12 @@ class OnPremPlatform(gpuDevice: Option[GpuDevice],
   override lazy val maxGpusSupported: Int = 1
 
   /**
-   * For OnPrem, setting this value to 1.0 since we are calculating the
+   * For OnPrem, no memory is reserved by resource manager since we are calculating the
    * overall memory by ourselves or it is provided by the user.
    *
    * See `getMemoryPerNodeMb()` in [[com.nvidia.spark.rapids.tool.ClusterConfigurationStrategy]]
    */
-  def fractionOfSystemMemoryForExecutors: Double = 1.0
+  def nonExecutorMemoryFraction: Double = 0.0
 
   /**
    * Returns the recommended instance info based on the provided WorkerInfo for OnPrem.

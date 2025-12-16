@@ -327,11 +327,26 @@ default:
     default: 2
     usedBy: spark.rapids.sql.multiThreadedRead.numThreads
 
-  - name: OS_RESERVED_MEM
+  - name: NON_EXECUTOR_MEM
     description: >-
-      Amount of memory reserved for the operating system and other system processes.
-      This is subtracted from the total available memory when calculating executor memory overhead.
+      Absolute amount of memory not available for executors (reserved for OS, resource manager, etc).
+      This is subtracted from total memory when calculating executor memory.
+      If set (> 0), takes precedence over NON_EXECUTOR_MEM_FRACTION.
     default: 0g
+    usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
+
+  - name: NON_EXECUTOR_MEM_FRACTION
+    description: >-
+      Fraction of system memory not available for executors (reserved by resource manager, OS, etc).
+      Executor available memory = total * (1 - fraction).
+      Set to -1 to use platform-specific defaults:
+      Dataproc=0.2, EMR=0.3, Databricks AWS=0.35, Databricks Azure=0.3, OnPrem=0.0.
+      Set to 0.0 for 100% memory utilization (no memory reserved).
+      Valid range: [0.0, 1.0) or -1 for platform default.
+      Note: If NON_EXECUTOR_MEM is set (> 0), it takes precedence over this fraction.
+    default: -1.0
+    min: -1.0
+    max: 0.99
     usedBy: spark.executor.memoryOverhead, spark.rapids.memory.host.offHeapLimit.size
 
   # Start Delta Lake OSS specific tuning configs

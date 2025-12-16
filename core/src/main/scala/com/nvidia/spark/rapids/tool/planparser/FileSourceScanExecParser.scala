@@ -20,8 +20,8 @@ import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper.{DELTALAKE_
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.{AppBase, RDDCheckHelper}
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
 
 

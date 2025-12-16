@@ -18,9 +18,9 @@ package org.apache.spark.sql.rapids.tool.store
 
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.AppBase
-import org.apache.spark.sql.rapids.tool.util.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.plangraph.ToolsPlanGraph
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 
 /**
@@ -55,24 +55,31 @@ class SQLPlanModel(val id: Long, appInst: AppBase) {
    * A shortcut to the planInfo to abstract the internal details of the SQLPlanVersion.
    * @return SparkPlanInfo of the latest version of the plan.
    */
-  def planInfo = plan.planInfo
+  def planInfo: SparkPlanInfo = plan.planInfo
 
   /**
    * A shortcut to the physicalPlanDescription to abstract the internal details of the
    * SQLPlanVersion.
    * @return physicalPlanDesc of the latest version of the plan.
    */
-  def physicalPlanDesc = plan.physicalPlanDescription
+  def physicalPlanDesc: String = plan.physicalPlanDescription
 
   /**
    * Public method to add a new version of the plan.
    * @param planInfo SparkPlanInfo for the new version of the plan.
    * @param physicalPlanDescription String representation of the physical plan for the new version.
    */
-  def addPlan(planInfo: SparkPlanInfo, physicalPlanDescription: String): Unit = {
+  def addPlan(
+      planInfo: org.apache.spark.sql.execution.SparkPlanInfo,
+      physicalPlanDescription: String): Unit = {
     // By default, a new planVersion is defined as final.
-    val planVersion = new SQLPlanVersion(
-        id, versionsCount, planInfo, physicalPlanDescription, appInst)
+    val planVersion = SQLPlanVersion.builder
+      .withSqlId(id)
+      .withVersion(versionsCount)
+      .withPlanInfo(planInfo)
+      .withPhysicalPlanDescription(physicalPlanDescription)
+      .withAppInst(appInst)
+      .build()
     // Update references and shortcuts to the latest plan and cache previous one if any
     updateVersions(planVersion)
   }

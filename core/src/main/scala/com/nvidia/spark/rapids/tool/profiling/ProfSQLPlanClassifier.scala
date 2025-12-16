@@ -21,7 +21,6 @@ import scala.collection.mutable
 import com.nvidia.spark.rapids.tool.analysis.{AppAnalysisBase, SparkSQLPlanInfoVisitor, SQLPlanInfoContext}
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
 
-import org.apache.spark.sql.execution.ui
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.SQLPlanModel
 
@@ -51,7 +50,10 @@ class SQLPlanClassifier(app: ApplicationInfo)
   val sqlCategories: mutable.HashMap[String, mutable.LinkedHashSet[Long]] =
     mutable.HashMap("deltaOp" -> mutable.LinkedHashSet.empty)
 
-  override def visitNode(sqlPlanCtxt: SQLPlanClassifierCtxt, node: ui.SparkPlanGraphNode): Unit = {
+  override def visitNode(
+      sqlPlanCtxt: SQLPlanClassifierCtxt,
+      node: org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
+  ): Unit = {
     // Check if the node is a delta metadata operation
     val isDeltaLog = DeltaLakeHelper.isDeltaOpNode(sqlPlanCtxt.sqlPIGEntry,
       app.sqlManager.getPhysicalPlanById(sqlPlanCtxt.getSQLPIGEntry.id).get, node)

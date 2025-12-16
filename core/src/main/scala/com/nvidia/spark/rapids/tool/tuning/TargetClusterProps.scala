@@ -29,6 +29,11 @@ import org.apache.spark.sql.rapids.tool.util.ValidatableProperties
 /**
  * Base class to hold the worker information for the target cluster
  * See subclasses below for concrete implementations.
+ *
+ * @param instanceType The instance type (e.g., "g2-standard-24" for Dataproc)
+ * @param cpuCores Number of CPU cores (for OnPrem configurations)
+ * @param memoryGB Total memory in GB (for OnPrem configurations)
+ * @param gpu GPU configuration
  */
 class WorkerInfo (
   @BeanProperty var instanceType: String,
@@ -134,7 +139,7 @@ class DriverInfo (
  *
  * For more examples, see:
  * - Default tuning definitions: core/src/main/resources/bootstrap/tuningTable.yaml
- * - Target cluster examples: core/src/main/resources/targetClusterInfo/
+ * - Target cluster examples: core/docs/sampleFiles/targetClusterInfo/
  */
 class SparkProperties(
   @BeanProperty var enforced: util.LinkedHashMap[String, String],

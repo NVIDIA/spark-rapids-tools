@@ -18,8 +18,8 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.sql.execution.ui.SparkPlanGraphNode
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 // SubQuery is simply a "collect" execution.
 // It points to the actual execution. RAPIDS plugin usually skips that exec. Here we

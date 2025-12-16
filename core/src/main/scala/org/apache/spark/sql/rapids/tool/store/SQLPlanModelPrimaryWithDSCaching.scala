@@ -16,8 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.store
 
-import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.rapids.tool.AppBase
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 /**
  * An extension of SQLPlanModelWithDSCaching to also cache the
