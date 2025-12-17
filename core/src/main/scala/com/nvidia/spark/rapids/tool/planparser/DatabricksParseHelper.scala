@@ -59,7 +59,7 @@ import org.apache.spark.sql.rapids.tool.util.stubs.db.PhotonSparkPlanInfo
  */
 object PhotonOssOpMapper extends OssOpMapperFromFileTrait {
   /** Pattern matching Photon operators: "Photon" followed by any alphabetic characters */
-  private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
+  private val PHOTON_PATTERN: Regex = "Photon[A-Z][a-zA-Z]+".r
 
   /** Directory containing Photon operator mapping files */
   private val OPS_MAPPING_DIR = "parser/photon"
