@@ -35,7 +35,11 @@ class QualAppSummaryInfoProvider(
     val appInfo: QualificationAppInfo,
     val appAggStats: Option[QualificationSummaryInfo],
     val rawAggMetrics: AggRawMetricsResult,
-    val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging{
+    val dsInfo: Seq[DataSourceProfileResult]) extends AppSummaryInfoBaseProvider with Logging {
+  // Group data source info by location for distinct location calculations.
+  // TODO: Should We only consider data sources from the final plan?
+  //       And also drop the location is unknown.
+  //      dsInfo.filter(_.fromFinalPlan)
   private lazy val distinctLocations = dsInfo.groupBy(_.location)
 
   override def isAppInfoAvailable = true
