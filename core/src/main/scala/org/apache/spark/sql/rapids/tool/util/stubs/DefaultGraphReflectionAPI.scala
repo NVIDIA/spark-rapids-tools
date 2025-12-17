@@ -18,7 +18,8 @@ package org.apache.spark.sql.rapids.tool.util.stubs
 
 import scala.collection.mutable
 
-import org.apache.spark.sql.rapids.tool.plangraph.{PhotonSparkPlanGraphCluster, PhotonSparkPlanGraphNode, RAPIDSSparkPlanGraphCluster, RAPIDSSparkPlanGraphNode, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
+import org.apache.spark.sql.rapids.tool.plangraph.{AuronSparkPlanGraphCluster, AuronSparkPlanGraphNode, PhotonSparkPlanGraphCluster, PhotonSparkPlanGraphNode, RAPIDSSparkPlanGraphCluster, RAPIDSSparkPlanGraphNode, SparkPlanGraphCluster, SparkPlanGraphEdge, SparkPlanGraphNode, SQLPlanMetric}
+import org.apache.spark.sql.rapids.tool.util.stubs.auron.AuronSparkPlanInfo
 import org.apache.spark.sql.rapids.tool.util.stubs.db.PhotonSparkPlanInfo
 import org.apache.spark.sql.rapids.tool.util.stubs.rapids.RAPIDSSparkPlanInfo
 
@@ -56,6 +57,14 @@ class DefaultGraphReflectionAPI extends GraphReflectionAPI {
       planInfo: SparkPlanInfo,
       metrics: collection.Seq[SQLPlanMetric]): SparkPlanGraphNode = {
     planInfo match {
+      case aP: AuronSparkPlanInfo =>
+        AuronSparkPlanGraphNode(
+          id,
+          aP.actualName,
+          aP.actualDesc,
+          aP.sparkName,
+          aP.sparkDesc,
+          metrics)
       case pI: PhotonSparkPlanInfo =>
         PhotonSparkPlanGraphNode(
           id,
@@ -92,6 +101,15 @@ class DefaultGraphReflectionAPI extends GraphReflectionAPI {
       metrics: collection.Seq[SQLPlanMetric]
   ): SparkPlanGraphCluster = {
     planInfo match {
+      case pI: AuronSparkPlanInfo =>
+        AuronSparkPlanGraphCluster(
+          id,
+          pI.actualName,
+          pI.actualDesc,
+          pI.sparkName,
+          pI.sparkDesc,
+          nodes,
+          metrics)
       case pI: PhotonSparkPlanInfo =>
         PhotonSparkPlanGraphCluster(
           id,
@@ -102,9 +120,7 @@ class DefaultGraphReflectionAPI extends GraphReflectionAPI {
           nodes,
           metrics)
       case pI: RAPIDSSparkPlanInfo =>
-        // TODO: For RAPIDS, we set both actual/platform names to be the same.
-        //       This is a work around to keep the behavior as before where both actual and
-        //       spark.
+        // We should not really be here. RAPIDS plans have no cluster nodes.
         RAPIDSSparkPlanGraphCluster(
           id,
           pI.actualName,

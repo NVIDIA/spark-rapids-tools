@@ -158,4 +158,15 @@ trait SQLPlanParserTrait {
    * @return true if the node represents a cluster, false for individual operators
    */
   def isClusterNode(node: SparkPlanGraphNode): Boolean
+
+  /**
+   * Determines if the parser can handle plans from the given application.
+   *
+   * Implementations should check the application's platform type or other
+   * identifying characteristics to confirm compatibility.
+   *
+   * @param app Application context containing platform information
+   * @return true if the parser supports the application's platform, false otherwise
+   */
+  def acceptsCtxt(app: AppBase): Boolean
 }

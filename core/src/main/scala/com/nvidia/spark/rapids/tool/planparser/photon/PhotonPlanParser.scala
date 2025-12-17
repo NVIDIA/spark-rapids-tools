@@ -111,4 +111,8 @@ object PhotonPlanParser extends OssSparkPlanParserTrait {
     }
   }
 
+  def acceptsCtxt(app: AppBase): Boolean = {
+    app.isPhoton
+  }
+
 }

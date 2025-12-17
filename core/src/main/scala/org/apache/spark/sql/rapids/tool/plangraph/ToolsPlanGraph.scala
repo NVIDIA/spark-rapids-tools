@@ -82,6 +82,8 @@ class SparkPlanGraphNode(
    * @return A string representing the description of the platform's entity.
    */
   override def platformDesc: String = desc
+
+  def isOssSparkNode: Boolean = true
 }
 
 /**
@@ -98,7 +100,6 @@ class SparkPlanGraphCluster(
     val nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
     metrics: collection.Seq[SQLPlanMetric])
     extends SparkPlanGraphNode(id, name, desc, metrics) {
-
 }
 
 

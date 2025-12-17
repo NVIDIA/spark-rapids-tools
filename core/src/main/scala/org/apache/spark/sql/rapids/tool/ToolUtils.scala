@@ -258,9 +258,19 @@ object JoinType {
 object BuildSide {
   val BuildLeft = "BuildLeft"
   val BuildRight = "BuildRight"
+  // TODO: This is a workaround to deal with native converters in Auron.
+  //       We need a better way to configure this for each added parser.
+  val BroadcastLeft = "BroadcastLeft"
+  val BroadcastRight = "BroadcastRight"
+  // Currently, we use only those 2 buildSides relying on the fact that the OssOpMapper
+  // converts Auron keywords to OSS equivalents.
+  val allBuildSides = Set(BuildLeft, BuildRight)
 
-  val supportedBuildSides = Map(BuildLeft -> JoinType.supportedJoinTypeForBuildLeft,
-    BuildRight -> JoinType.supportedJoinTypeForBuildRight)
+  val supportedBuildSides =
+    Map(
+      BuildLeft -> JoinType.supportedJoinTypeForBuildLeft,
+      BuildRight -> JoinType.supportedJoinTypeForBuildRight
+    )
 }
 
 object SQLMetricsStats {
@@ -338,8 +348,14 @@ object ExecHelper {
     "ResultQueryStage",
     // AdaptiveSparkPlan is not a real exec. It is a wrapper for the whole plan.
     // Our customer-integration team requested this to be added to the list of execs to be removed.
-    "AdaptiveSparkPlan",        // according to request from our customer facing team
-    SubqueryExecParser.execName // Subquery represents a simple collect
+    "AdaptiveSparkPlan",          // according to request from our customer facing team
+    SubqueryExecParser.execName,  // Subquery represents a simple collect
+    // TODO: This is a hack now for Auron ConvertToNative. Ideally we should define this as part of
+    //  the parser for Auron. Since, there is some considerable work involved to set that up, we
+    //  are adding this here for now.
+    // ConvertToNative a specific exec to Auron. This exec should be removed from the plan when
+    // parsing it because it does not represent any actual operation for the GPU.
+    "ConvertToNative"
   )
 
   def isUDF(node: SparkPlanGraphNode): Boolean = {

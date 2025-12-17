@@ -1,0 +1,77 @@
+{
+  "//comments": [
+    "This file contains the mapping between Auron operators and Spark operators for Auron Incubator 6.0",
+    "Based on the supported native operators from https://auron.apache.org/introduction.html#currently-supported-native-operators-expressions",
+    "Currently, only the first mapping in the list is used.",
+    "TODO: Create separate mapping file for different Auron versions"
+  ],
+  "ConvertToNative": [
+    "ConvertToNative"
+  ],
+  "NativeParquetScan": [
+    "Scan parquet"
+  ],
+  "NativeParquetInsert": [
+    "InsertIntoHadoopFsRelationCommand"
+  ],
+  "NativeOrcScan": [
+    "Scan orc"
+  ],
+  "NativeShuffleExchange": [
+    "Exchange"
+  ],
+  "NativeBroadcastExchange": [
+    "BroadcastExchange"
+  ],
+  "NativeProjectExec": [
+    "Project"
+  ],
+  "NativeFilter": [
+    "Filter"
+  ],
+  "NativeSort": [
+    "Sort"
+  ],
+  "NativeLocalLimit": [
+    "LocalLimit"
+  ],
+  "NativeGlobalLimit": [
+    "GlobalLimit"
+  ],
+  "NativeTakeOrdered": [
+    "TakeOrderedAndProject"
+  ],
+  "NativeUnion": [
+    "Union"
+  ],
+  "NativeWindow": [
+    "Window"
+  ],
+  "NativeWindowGroupLimit": [
+    "WindowGroupLimit"
+  ],
+  "NativeExpand": [
+    "Expand"
+  ],
+  "NativeGenerate": [
+    "Generate"
+  ],
+  "NativeHashAggregate": [
+    "HashAggregate"
+  ],
+  "NativeSortAggregate": [
+    "SortAggregate"
+  ],
+  "NativeBroadcastJoin": [
+    "BroadcastHashJoin"
+  ],
+  "NativeShuffledHashJoin": [
+    "ShuffledHashJoin"
+  ],
+  "NativeSortMergeJoinExec": [
+    "SortMergeJoin"
+  ],
+  "NativeBroadcastNestedLoopJoin": [
+    "BroadcastNestedLoopJoin"
+  ]
+}

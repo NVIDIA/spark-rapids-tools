@@ -53,6 +53,8 @@ class PWPlanGraphNode(
    * @return A string representing the description of the platform's entity.
    */
   override def platformDesc: String = actualDesc
+
+  override def isOssSparkNode: Boolean = false
 }
 
 /**
@@ -93,4 +95,6 @@ class PWPlanGraphCluster(
    * @return A string representing the description of the platform's entity.
    */
   override def platformDesc: String = actualDesc
+
+  override def isOssSparkNode: Boolean = false
 }

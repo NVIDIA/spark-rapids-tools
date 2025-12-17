@@ -22,25 +22,117 @@ import java.util.concurrent.TimeUnit
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.plugins.{ConditionTrait, OssOpMapperFromFileTrait}
 import com.nvidia.spark.rapids.tool.profiling.SQLAccumProfileResults
 import com.nvidia.spark.rapids.tool.views.IoMetrics
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.jackson.JsonMethods
+import org.json4s.DefaultFormats
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.rapids.tool.UnsupportedMetricNameException
-import org.apache.spark.sql.rapids.tool.util.UTF8Source
+import org.apache.spark.sql.execution
+import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedMetricNameException}
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanExtensions.UpStreamSparkPlanInfoOps
+import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
+import org.apache.spark.sql.rapids.tool.util.stubs.db.PhotonSparkPlanInfo
 
-// Utilities used to handle Databricks and Photon Ops
+
+/**
+ * Mapper for Databricks Photon execution operators.
+ *
+ * Photon is Databricks' vectorized execution engine that uses operators with "Photon" prefix
+ * (e.g., PhotonProject, PhotonFilter). This mapper transforms Photon operators to OSS Spark
+ * equivalents for analysis while preserving the original Photon execution information.
+ *
+ * Key differences from parent:
+ * - Loads operator mappings from JSON file (databricks-13_3.json)
+ * - Pattern matches "Photon*" operators (any alphabetic characters after "Photon")
+ * - Only active when running on Databricks with Photon enabled (app.isPhoton)
+ * - Creates PhotonSparkPlanInfo to maintain Photon-specific context
+ *
+ * Example transformations:
+ * - PhotonProject → Project
+ * - PhotonHashAggregate → HashAggregate
+ * - PhotonBroadcastHashJoin → BroadcastHashJoin
+ *
+ * Note: Currently uses a single mapping file for all Databricks/Photon versions.
+ * TODO: Create separate mapping files for different versions.
+ */
+object PhotonOssOpMapper extends OssOpMapperFromFileTrait {
+  /** Pattern matching Photon operators: "Photon" followed by any alphabetic characters */
+  private val PHOTON_PATTERN: Regex = "Photon[A-Z][a-zA-Z]+".r
+
+  /** Directory containing Photon operator mapping files */
+  private val OPS_MAPPING_DIR = "parser/photon"
+
+  // TODO: Create separate mapping file for different Photon/Databricks versions
+  /** Default operator mapping file for Databricks 13.3 */
+  private val DEFAULT_OPS_MAPPING_FILE = "databricks-13_3.json"
+
+  override def mappingFilePath: String =
+    Paths.get(OPS_MAPPING_DIR, DEFAULT_OPS_MAPPING_FILE).toString
+
+  /** Checks if a node name matches the Photon operator pattern */
+  def isPhotonNode(nodeName: String): Boolean = PHOTON_PATTERN.findFirstIn(nodeName).isDefined
+
+  /**
+   * Creates a PhotonSparkPlanInfo preserving both Photon and OSS representations.
+   * Uses PhotonSparkPlanInfo instead of generic SparkPlanInfo to maintain Photon context.
+   */
+  override def toPlatformAwarePlan(
+    planInfo: org.apache.spark.sql.execution.SparkPlanInfo, app: AppBase): SparkPlanInfo = {
+    val (ossPlanName, ossPlanDesc) = mapPlanDataToOss(planInfo)
+    // Create a PhotonSparkPlanInfo that maintains both Photon and Spark representations
+    PhotonSparkPlanInfo(
+      actualName = planInfo.nodeName,
+      actualDesc = planInfo.simpleString,
+      sparkName = ossPlanName,
+      sparkDesc = ossPlanDesc,
+      children = planInfo.children.map(_.asPlatformAware(app)),
+      metadata = planInfo.metadata,
+      metrics = planInfo.metrics)
+  }
+
+  /**
+   * Maps Photon operator names to OSS equivalents using the loaded JSON mapping.
+   * Performs lookup-based transformation (e.g., PhotonProject → Project).
+   *
+   * @param inputStr String potentially containing Photon operator names
+   * @return String with Photon operators replaced by OSS equivalents
+   */
+  def mapContentToOss(inputStr: String): String = {
+    PHOTON_PATTERN.replaceAllIn(inputStr, m => ossSparkMapping.getOrElse(m.matched, m.matched))
+  }
+
+  /** Only active when Photon is enabled in the Databricks application */
+  override val appCtxtCondition: ConditionTrait[AppBase] = (app: AppBase) => app.isPhoton
+
+  override def acceptPlanInfo(planInfo: execution.SparkPlanInfo): Boolean = {
+    isPhotonNode(planInfo.nodeName)
+  }
+}
+
+/**
+ * Utilities for detecting and handling Databricks Photon applications.
+ *
+ * Provides helper methods for:
+ * - Detecting Photon apps via Spark properties
+ * - Parsing Databricks cluster metadata (JobId, cluster tags)
+ * - Handling Photon-specific metrics that differ from standard Spark metrics
+ *
+ * Photon Detection:
+ * An application is identified as Photon if any of the PHOTON_SPARK_PROPS keys contain
+ * Photon-related values (e.g., sparkVersion contains "-photon-", runtimeEngine is "PHOTON").
+ */
 object DatabricksParseHelper extends Logging {
-  // A photon app is identified using the following properties from spark properties.
+  /** Spark properties used to identify Photon applications */
   private val PHOTON_SPARK_PROPS = Map(
     "spark.databricks.clusterUsageTags.sparkVersion" -> ".*-photon-.*",
     "spark.databricks.clusterUsageTags.effectiveSparkVersion" -> ".*-photon-.*",
     "spark.databricks.clusterUsageTags.sparkImageLabel" -> ".*-photon-.*",
     "spark.databricks.clusterUsageTags.runtimeEngine" -> "PHOTON"
   )
+
+  /** Property keys for Databricks cluster metadata */
   val PROP_ALL_TAGS_KEY = "spark.databricks.clusterUsageTags.clusterAllTags"
   val PROP_TAG_CLUSTER_ID_KEY = "spark.databricks.clusterUsageTags.clusterId"
   val PROP_TAG_CLUSTER_NAME_KEY = "spark.databricks.clusterUsageTags.clusterName"
@@ -48,27 +140,30 @@ object DatabricksParseHelper extends Logging {
   val PROP_WORKER_TYPE_ID_KEY = "spark.databricks.workerNodeTypeId"
   val PROP_DRIVER_TYPE_ID_KEY = "spark.databricks.driverNodeTypeId"
 
+  /** Sub-properties extracted from cluster tags JSON */
   val SUB_PROP_CLUSTER_ID = "ClusterId"
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
 
   // scalastyle:off
-  // Photon metric labels that are used as alternatives to Spark metric labels
+  /**
+   * Photon-specific metric labels that serve as alternatives to standard Spark metrics.
+   * Photon uses different terminology for some metrics:
+   * - "cumulative time" instead of "scan time"
+   * - "peak memory usage" instead of "peak execution memory"
+   * - "part of shuffle file write" instead of "shuffle write time"
+   */
   val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
   val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
   val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
   // scalastyle:on
 
-  private val PHOTON_PATTERN: Regex = "Photon[a-zA-Z]*".r
-  private val PHOTON_OPS_MAPPING_DIR = "photonOperatorMappings"
-  // TODO: Create separate mapping file for different Photon/Databricks versions
-  private val DEFAULT_PHOTON_OPS_MAPPING_FILE = "databricks-13_3.json"
   /**
-   * Checks if the properties indicate that the application is a Photon app.
-   * This ca be checked by looking for keywords in one of the keys defined in PHOTON_SPARK_PROPS
+   * Checks if the properties indicate a Photon application.
+   * Searches for Photon indicators in any of the PHOTON_SPARK_PROPS keys.
    *
-   * @param properties spark properties captured from the eventlog environment details
-   * @return true if the properties indicate that it is a photon app.
+   * @param properties Spark properties from eventlog environment details
+   * @return true if Photon indicators are found
    */
   def isPhotonApp(properties: collection.Map[String, String]): Boolean = {
     PHOTON_SPARK_PROPS.exists { case (key, value) =>
@@ -76,18 +171,19 @@ object DatabricksParseHelper extends Logging {
     }
   }
 
+  /** Extracts Spark version from cluster properties */
   def getSparkVersion(properties: collection.Map[String, String]): String = {
     properties.getOrElse(PROP_TAG_CLUSTER_SPARK_VERSION_KEY, "")
   }
 
   /**
-   * Try to get the JobId from the cluster name. Parse the clusterName string which
-   * looks like:
-   * "spark.databricks.clusterUsageTags.clusterName":"job-***-run-****"
-   * and look for job-XXXXX where XXXXX represents the JobId.
+   * Extracts JobId from cluster name string.
    *
-   * @param clusterNameString String which contains property clusterUsageTags.clusterName
-   * @return Optional JobId if found
+   * Databricks cluster names for jobs follow the pattern: "job-{jobId}-run-{runId}"
+   * This method parses the cluster name and extracts the JobId portion.
+   *
+   * @param clusterNameString Cluster name (e.g., "job-215-run-1")
+   * @return Optional JobId if found in the expected format
    */
   def parseClusterNameForJobId(clusterNameString: String): Option[String] = {
     var jobId: Option[String] = None
@@ -100,12 +196,13 @@ object DatabricksParseHelper extends Logging {
   }
 
   /**
-   * Parses the string which contains configs in JSON format ( key : value ) pairs and
-   * returns the Map of [String, String]
- *
-   * @param clusterTag  String which contains property clusterUsageTags.clusterAllTags in
-   *                    JSON format
-   * @return Map of ClusterTags
+   * Parses Databricks cluster tags from JSON format to key-value map.
+   *
+   * Cluster tags contain metadata like Vendor, Creator, ClusterId, JobId, RunName, etc.
+   * The input is a JSON array of objects with "key" and "value" properties.
+   *
+   * @param clusterTag JSON string from spark.databricks.clusterUsageTags.clusterAllTags
+   * @return Map of cluster tag keys to values, or empty map if parsing fails
    */
   def parseClusterTags(clusterTag: String): Map[String, String] = {
     // clusterTags will be in this format -
@@ -115,7 +212,6 @@ object DatabricksParseHelper extends Logging {
     // {"key":"JobId","value":"215"},{"key":"RunName","value":"test73longer"},
     // {"key":"DatabricksEnvironment","value":"workerenv-7026851462233806"}]
 
-    // case class to hold key -> value pairs
     case class ClusterTags(key: String, value: String)
     implicit val formats = DefaultFormats
     try {
@@ -131,46 +227,17 @@ object DatabricksParseHelper extends Logging {
   }
 
   /**
-   * Maps the Photon operator names to Spark operator names using a mapping JSON file.
-   */
-  private lazy val photonToSparkMapping: Map[String, String] = {
-    val mappingFile = Paths.get(PHOTON_OPS_MAPPING_DIR, DEFAULT_PHOTON_OPS_MAPPING_FILE).toString
-    val jsonString = UTF8Source.fromResource(mappingFile).mkString
-    val json = JsonMethods.parse(jsonString)
-    // Implicitly define JSON formats for deserialization using DefaultFormats
-    implicit val formats: Formats = DefaultFormats
-    // Extract and deserialize the JValue object into a Map[String, String]
-    // TODO: Currently, only the first mapping in the list is used.
-    //       This limitation exists because we cannot differentiate between
-    //       these operators in the SparkPlan.
-    json.extract[Map[String, List[String]]]
-      .iterator
-      .map { case (k, v) => k -> v.head }
-      .toMap
-  }
-
-  def isPhotonNode(nodeName: String): Boolean = PHOTON_PATTERN.findFirstIn(nodeName).isDefined
-
-  /**
-   * Replaces all occurrences in the input string that match the PHOTON_PATTERN
-   * with corresponding values from the photonToSparkMapping map.
-   *
-   * @param inputStr the node name, potentially containing a Photon identifier
-   * @return an `Option[String]` with the Spark node name, or `None` if no match is found
-   */
-  def mapPhotonToSpark(inputStr: String): String = {
-    PHOTON_PATTERN.replaceAllIn(inputStr, m => photonToSparkMapping.getOrElse(m.matched, m.matched))
-  }
-
-  /**
-   * Checks if 'accum' is a Photon I/O metric.
+   * Checks if an accumulator represents a Photon I/O metric.
+   * Photon I/O metrics are identified by "cumulative time" name on Scan nodes.
    */
   def isPhotonIoMetric(accum: SQLAccumProfileResults): Boolean =
     accum.name == PHOTON_METRIC_CUMULATIVE_TIME_LABEL && accum.nodeName.contains("Scan")
 
   /**
-   * Updates the I/O metrics for Photon apps based on the accumulator values.
+   * Updates I/O metrics for Photon applications using Photon-specific metric names.
+   * Converts Photon's "cumulative time" (in nanoseconds) to scanTime (in milliseconds).
    */
+  @throws[UnsupportedMetricNameException]
   def updatePhotonIoMetric(accum: SQLAccumProfileResults, ioMetrics: IoMetrics): Unit = {
     accum.name match {
       case PHOTON_METRIC_CUMULATIVE_TIME_LABEL if accum.nodeName.contains("Scan") =>

@@ -107,6 +107,34 @@ class GenericExecParser(
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.
   def reportedExecName: String = trimmedNodeName
 
+  /**
+   * Returns the expression string to report in ExecInfo, which shows the original platform-specific
+   * operator name for plans that have been converted to OSS equivalents.
+   *
+   * This is primarily needed for non-OSS parsers (e.g., Photon, Auron, GPU) that convert
+   * platform-specific operators to OSS Spark operators for analysis. The reported expression
+   * preserves the original operator name so users can see what was actually executed.
+   *
+   * For example:
+   * - A PhotonProject node is converted to Project for analysis, but reportedExpr shows
+   *   "PhotonProject"
+   * - A GpuFilter node is converted to Filter, but reportedExpr shows "GpuFilter"
+   * - A NativeHashAggregate is converted to HashAggregate, but reportedExpr shows
+   *   "NativeHashAggregate"
+   *
+   * For OSS Spark nodes (node.isOssSparkNode == true), returns empty string since no conversion
+   * occurred and the exec name already represents what was executed.
+   *
+   * @return The original platform-specific operator name, or empty string for OSS nodes
+   */
+  def reportedExpr: String = {
+    if (node.isOssSparkNode) {
+      ""
+    } else {
+      node.platformName
+    }
+  }
+
   protected def createExecInfo(
       speedupFactor: Double,
       isSupported: Boolean,
@@ -119,7 +147,7 @@ class GenericExecParser(
       sqlID,
       // Remove trailing spaces from node name if any
       reportedExecName,
-      "",
+      reportedExpr,
       speedupFactor,
       duration,
       node.id,
