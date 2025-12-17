@@ -16,16 +16,16 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import scala.collection.mutable.{ArrayBuffer, HashMap, LinkedHashMap}
+import scala.collection.mutable.{HashMap, LinkedHashMap}
 
-import com.nvidia.spark.rapids.tool.analysis.util.{AggAccumHelper, AggAccumPhotonHelper}
+import com.nvidia.spark.rapids.tool.analysis.photon.PhotonAppSparkMetricsAnalyzer
+import com.nvidia.spark.rapids.tool.analysis.util.AggAccumHelper
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling._
 
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
-import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumMetaRef}
+import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
 
 /**
  * Does analysis on the DataFrames from object of AppBase.
@@ -359,60 +359,29 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
   }
 
   /**
+   * Creates the appropriate accumulator helper for aggregating metrics.
+   * This method can be overridden by subclasses to provide platform-specific implementations.
+   *
+   * @param stageId The stage ID for which to create the helper
+   * @return AggAccumHelper instance for standard Spark metrics aggregation
+   */
+  protected def createAccumHelper(stageId: Int): AggAccumHelper = {
+    new AggAccumHelper()
+  }
+
+  /**
    * Aggregates the SparkMetrics by completed stage information.
    * This is an internal method to populate the cached metrics
    * to be used by other aggregators.
    * @param index AppIndex (used by the profiler tool)
    */
-  private def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
-    // For Photon apps, peak memory and shuffle write time need to be calculated from accumulators
-    // instead of task metrics.
-    // Approach:
-    //   1. Collect accumulators for each metric type.
-    //   2. For each stage, retrieve the relevant accumulators and calculate aggregated values.
-    // Note:
-    //  - A HashMap could be used instead of separate mutable.ArrayBuffer for each metric type,
-    //    but avoiding it for readability.
-    val photonPeakMemoryAccumInfos = ArrayBuffer[AccumInfo]()
-    val photonShuffleWriteTimeAccumInfos = ArrayBuffer[AccumInfo]()
-
-    if (app.isPhoton) {
-      app.accumManager.applyToAccumInfoMap { accumInfo =>
-        accumInfo.infoRef.name.value match {
-          case name if name.contains(
-            DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>
-              // Collect accumulators for peak memory
-              photonPeakMemoryAccumInfos += accumInfo
-          case name if name.contains(
-            DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL) =>
-              // Collect accumulators for shuffle write time
-              photonShuffleWriteTimeAccumInfos += accumInfo
-          case _ => // Ignore other accumulators
-        }
-      }
-    }
-
+  protected def aggregateSparkMetricsByStageInternal(index: Int): Unit = {
     app.stageManager.getAllStages.foreach { sm =>
       // TODO: Should we only consider successful tasks?
       val tasksInStage = app.taskManager.getTasks(sm.stageInfo.stageId,
         sm.stageInfo.attemptNumber())
 
-      val accumHelperObj = if (app.isPhoton) { // If this a photon app, use the photonHelper
-        // For max peak memory, we need to look at the accumulators at the task level.
-        // We leverage the stage level metrics and get the max task update from it
-        val peakMemoryValues = photonPeakMemoryAccumInfos.flatMap { accumInfo =>
-          accumInfo.getMaxForStage(sm.stageInfo.stageId)
-        }
-        // For sum of shuffle write time, we need to look at the accumulators at the stage level.
-        // We get the values associated with all tasks for a stage
-        val shuffleWriteValues = photonShuffleWriteTimeAccumInfos.flatMap { accumInfo =>
-          accumInfo.getTotalForStage(sm.stageInfo.stageId)
-        }
-        new AggAccumPhotonHelper(shuffleWriteValues, peakMemoryValues)
-      } else {
-        // For non-Photon apps, use the task metrics directly.
-        new AggAccumHelper()
-      }
+      val accumHelperObj = createAccumHelper(sm.stageInfo.stageId)
       val perStageRec = accumHelperObj.accumPerStage(tasksInStage)
       val stageRow = StageAggTaskMetricsProfileResult(
         sm.stageInfo.stageId,
@@ -456,6 +425,29 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         .map(_.aggregateStageProfileMetric(stageRow))
         .getOrElse(stageRow)
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, rowToStore)
+    }
+  }
+}
+
+/**
+ * Factory for creating the appropriate AppSparkMetricsAnalyzer based on the application type.
+ */
+object AppSparkMetricsAnalyzer {
+  /**
+   * Creates an AppSparkMetricsAnalyzer instance appropriate for the given application.
+   *
+   * For Photon applications, creates a PhotonAppSparkMetricsAnalyzer that handles
+   * Photon-specific metric aggregation from accumulators. For other applications,
+   * creates a standard AppSparkMetricsAnalyzer.
+   *
+   * @param app The application to analyze
+   * @return AppSparkMetricsAnalyzer or PhotonAppSparkMetricsAnalyzer instance
+   */
+  def apply(app: AppBase): AppSparkMetricsAnalyzer = {
+    if (app.isPhoton) {
+      new PhotonAppSparkMetricsAnalyzer(app)
+    } else {
+      new AppSparkMetricsAnalyzer(app)
     }
   }
 }
