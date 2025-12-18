@@ -95,15 +95,15 @@ trait IoMetricsTrait {
  * I/O metrics trait for open-source Spark engines.
  */
 trait OssIoMetricsTrait extends IoMetricsTrait {
-  val BUFFER_TIME_LABEL = "buffer time"
-  val SCAN_TIME_LABEL = "scan time"
-  val DATA_SIZE_LABEL = "size of files read"
+  override protected val BUFFER_TIME_LABEL = "buffer time"
+  override protected val SCAN_TIME_LABEL = "scan time"
+  override protected val DATA_SIZE_LABEL = "size of files read"
   // It is incorrect to define GPU decode time as an I/O metric, but it is included here to be
   // backward compatible with previous code that used to collect it as part of I/O metrics.
   // The correct way is to define GPU decode time in a child trait for RAPIDS engine metrics.
-  val DECODE_TIME_LABEL = "GPU decode time"
+  override protected val DECODE_TIME_LABEL = "GPU decode time"
 
-  override val ioLabels: Set[String] = Set(
+  override protected val ioLabels: Set[String] = Set(
     BUFFER_TIME_LABEL, SCAN_TIME_LABEL, DATA_SIZE_LABEL, DECODE_TIME_LABEL
   )
 }
@@ -130,10 +130,6 @@ object IoMetrics extends OssIoMetricsTrait {
  * I/O metrics handler for Photon engine.
  */
 object PhotonIoMetrics extends OssIoMetricsTrait {
-
-  override def isIoMetric(arg: String): Boolean = {
-    ioLabels.contains(arg)
-  }
 
   override def isIoMetric(srcAccum: SQLAccumProfileResults): Boolean = {
     DatabricksParseHelper.isPhotonIoMetric(srcAccum) || super.isIoMetric(srcAccum)
@@ -170,7 +166,7 @@ object AuronIoMetrics extends OssIoMetricsTrait {
   private val AURON_DECODE_TIME_LABEL = "Native.elapsed_compute"
   private val AURON_DATA_SIZE_LABEL = "Native.bytes_scanned"
 
-  override val ioLabels: Set[String] = Set(
+  override protected val ioLabels: Set[String] = Set(
       AURON_SCAN_TIME_LABEL,
       AURON_DECODE_TIME_LABEL,
       AURON_DATA_SIZE_LABEL,
