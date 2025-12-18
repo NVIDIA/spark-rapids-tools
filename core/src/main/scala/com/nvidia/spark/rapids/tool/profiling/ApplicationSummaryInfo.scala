@@ -251,7 +251,8 @@ class SingleAppSummaryInfoProvider(
 
     // Calculate stageIds of scan stages (i.e. stages with 'scan time' metrics)
     val scanStages = app.stageMetrics.collect {
-      case metric if metric.accMetaRef.getName() == IoMetrics.SCAN_TIME_LABEL => metric.stageId
+      case metric if IoMetrics.getIoMetricsHelper(appInfo).isScanTimeMetric(metric) =>
+        metric.stageId
     }.toSet
 
     if (scanStages.isEmpty) {

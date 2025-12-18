@@ -17,50 +17,23 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AppSQLPlanAnalyzer, ProfAppIndexMapperTrait, QualAppIndexMapperTrait}
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, SQLAccumProfileResults}
 
-import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedMetricNameException}
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
 
-case class IoMetrics(
-    var bufferTime: Long,
-    var scanTime: Long,
-    var dataSize: Long,
-    var decodeTime: Long
-)
-
-object IoMetrics {
-  val BUFFER_TIME_LABEL = "buffer time"
-  val SCAN_TIME_LABEL = "scan time"
-  val DATA_SIZE_LABEL = "size of files read"
-  val DECODE_TIME_LABEL = "GPU decode time"
-
-  val EMPTY_IO_METRICS: IoMetrics = IoMetrics(0, 0, 0, 0)
-
-  /**
-   * Get all labels for IoMetrics
-   */
-  def getAllLabels: Seq[String] = Seq(
-    BUFFER_TIME_LABEL, SCAN_TIME_LABEL, DATA_SIZE_LABEL, DECODE_TIME_LABEL)
-}
 
 trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
   override def getLabel: String = "Data Source Information"
 
-  private def getIoMetrics(sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
+  private def getIoMetrics(app: AppBase, sqlAccums: Seq[SQLAccumProfileResults]): IoMetrics = {
+    val ioMetricHelper = IoMetrics.getIoMetricsHelper(app)
     val finalRes = IoMetrics(0, 0, 0, 0)
     try {
-      sqlAccums.foreach(accum => accum.name match {
-        case IoMetrics.BUFFER_TIME_LABEL => finalRes.bufferTime = accum.total
-        case IoMetrics.SCAN_TIME_LABEL => finalRes.scanTime = accum.total
-        case IoMetrics.DATA_SIZE_LABEL => finalRes.dataSize = accum.total
-        case IoMetrics.DECODE_TIME_LABEL => finalRes.decodeTime = accum.total
-        case _ if DatabricksParseHelper.isPhotonIoMetric(accum) =>
-          DatabricksParseHelper.updatePhotonIoMetric(accum, finalRes)
-        case _ => throw UnsupportedMetricNameException(accum.name)
-      })
+      sqlAccums.foreach { accum =>
+        ioMetricHelper.updateIoRecord(finalRes, accum)
+      }
     } catch {
       case e: Exception =>
         logError(s"Error while processing DataSource metrics: ${e.getMessage}")
@@ -103,15 +76,14 @@ trait AppDataSourceViewTrait extends ViewableTrait[DataSourceProfileResult] {
       app: AppBase,
       appSqlAccums: Seq[SQLAccumProfileResults]): Seq[DataSourceProfileResult] = {
     // Filter appSqlAccums to get only required metrics
-    val dataSourceMetrics = appSqlAccums.filter(sqlAccum =>
-      IoMetrics.getAllLabels.contains(sqlAccum.name) ||
-        app.isPhoton && DatabricksParseHelper.isPhotonIoMetric(sqlAccum))
+    val ioMetricHelper = IoMetrics.getIoMetricsHelper(app)
+    val dataSourceMetrics = appSqlAccums.filter(sqlAccum => ioMetricHelper.isIoMetric(sqlAccum))
 
     val dsFromLastPlan = app.dataSourceInfo.map { ds =>
       val sqlIdtoDs = dataSourceMetrics.filter(
         sqlAccum => sqlAccum.sqlID == ds.sqlID && sqlAccum.nodeID == ds.nodeId)
       val ioMetrics = if (sqlIdtoDs.nonEmpty) {
-        getIoMetrics(sqlIdtoDs)
+        getIoMetrics(app, sqlIdtoDs)
       } else {
         IoMetrics.EMPTY_IO_METRICS
       }
