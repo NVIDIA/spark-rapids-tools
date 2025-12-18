@@ -140,7 +140,7 @@ object PhotonIoMetrics extends OssIoMetricsTrait {
   }
 
   override def isScanTimeMetric(srcAccum: SQLAccumProfileResults): Boolean = {
-    DatabricksParseHelper.isPhotonIoMetric(srcAccum)
+    DatabricksParseHelper.isPhotonIoMetric(srcAccum) || super.isScanTimeMetric(srcAccum)
   }
 
   override def updateIoRecord(destRec: IoMetrics, srcAccum: SQLAccumProfileResults): Unit = {
