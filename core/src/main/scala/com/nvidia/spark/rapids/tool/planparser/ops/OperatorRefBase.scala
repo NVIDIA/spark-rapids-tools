@@ -16,8 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.planparser.ops
 
-import com.nvidia.spark.rapids.tool.planparser.OpTypes
-
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**

@@ -23,7 +23,7 @@ import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.ToolTestUtils
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
-import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpActions, OpRef, OpTypes}
 import com.nvidia.spark.rapids.tool.qualification._
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.matchers.should.Matchers
@@ -1548,7 +1548,7 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
         "[trim(field_01#7415, None)], LeftOuter", Seq[SQLPlanMetric]())
     SortMergeJoinExecParser.accepts(node.name) shouldBe true
     val pluginTypeChecker = new PluginTypeChecker()
-    val execInfo = SortMergeJoinExecParser(node, pluginTypeChecker, 2).parse
+    val execInfo = SortMergeJoinExecParser(node, pluginTypeChecker, 2, app = None).parse
     execInfo.isSupported shouldBe true
     execInfo.exec shouldEqual "SortMergeJoin"
   }

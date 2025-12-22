@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,38 +22,30 @@ import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
-
-abstract class BroadcastNestedLoopJoinExecParserBase(
-    override val node: SparkPlanGraphNode,
-    override val checker: PluginTypeChecker,
-    override val sqlID: Long,
-    override val app: Option[AppBase]
+/**
+ * Base class for hash join parsers that need to validate join types.
+ * Handles common logic for parsing equijoin expressions and checking if the join type is supported.
+ */
+abstract class BaseHashJoinExecParser(
+    node: SparkPlanGraphNode,
+    checker: PluginTypeChecker,
+    sqlID: Long,
+    execName: Option[String],
+    app: Option[AppBase]
 ) extends GenericExecParser(
     node,
     checker,
     sqlID,
-    execName = Option("BroadcastNestedLoopJoinExec"),
+    execName = execName,
     app = app
 ) {
 
   private var supportedJoinType: Boolean = true
 
-  protected def extractBuildAndJoinTypes(exprStr: String): (String, String) = {
-    // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
-    // AND (cast(id1#1490 as bigint) < CEIL(cast(id2#1496 as double))))
-    // Get joinType and buildSide by splitting the input string.
-    val nestedLoopParameters = exprStr.split(",", 3)
-    val buildSide = nestedLoopParameters(0).trim
-    val joinType = nestedLoopParameters(1).trim
-    (buildSide, joinType)
-  }
-
   override protected def parseExpressions(): Array[String] = {
     val exprString = getExprString
-    val (buildSide, joinType) = extractBuildAndJoinTypes(exprString)
-    val (expressions, joinTypeIsSupported) =
-      SQLPlanParser.parseNestedLoopJoinExpressions(exprString, buildSide, joinType)
-    supportedJoinType = joinTypeIsSupported
+    val (expressions, joinTypeSupported) = SQLPlanParser.parseEquijoinsExpressions(exprString)
+    supportedJoinType = joinTypeSupported
     if (!supportedJoinType) {
       setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_JOIN_TYPE)
     }
@@ -63,12 +55,4 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     supportedJoinType && super.pullSupportedFlag(registeredName)
   }
-
 }
-
-case class BroadcastNestedLoopJoinExecParser(
-    override val node: SparkPlanGraphNode,
-    override val checker: PluginTypeChecker,
-    override val sqlID: Long,
-    override val app: Option[AppBase]
-) extends BroadcastNestedLoopJoinExecParserBase(node, checker, sqlID, app)

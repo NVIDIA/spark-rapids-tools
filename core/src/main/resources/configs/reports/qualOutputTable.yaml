@@ -211,7 +211,7 @@ qualTableDefinitions:
       - name: Expression Name
         dataType: String
         description: >-
-          The name of the expression in the executor
+          The name of the expression in the executor. For non OSS-Spark (i.e., Auron, Photon), this field can show the original operator name.
       - name: Exec Duration
         dataType: Long
         description: >-

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,10 @@ package com.nvidia.spark.rapids.tool.planparser.ops
  * Extends `OperatorRefBase` and includes a reason why the expression is unsupported.
  *
  * @param opRef             The underlying `OpRef` for the expression.
- * @param unsupportedReason A string describing why the expression is unsupported.
+ * @param unsupportedReason A reference to a string describing why the expression is unsupported.
  */
 case class UnsupportedExprOpRef(opRef: OpRef,
-    unsupportedReason: String) extends OpRefWrapperBase(opRef)
+    unsupportedReason: UnsupportedReasonRef) extends OpRefWrapperBase(opRef)
 
 // Provides a factory method to create an instance from an expression name and unsupported reason.
 object UnsupportedExprOpRef {
@@ -38,6 +38,6 @@ object UnsupportedExprOpRef {
    */
   def apply(exprName: String, unsupportedReason: String): UnsupportedExprOpRef = {
     val opRef = OpRef.fromExpr(exprName)
-    UnsupportedExprOpRef(opRef, unsupportedReason)
+    UnsupportedExprOpRef(opRef, UnsupportedReasonRef.getOrCreate(unsupportedReason))
   }
 }

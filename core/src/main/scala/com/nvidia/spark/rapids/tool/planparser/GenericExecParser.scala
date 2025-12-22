@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.ops.{UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -31,14 +31,37 @@ class GenericExecParser(
     val sqlID: Long,
     val execName: Option[String] = None,
     val expressionFunction: Option[String => Array[String]] = None,
+    var unsupportedReason: Option[UnsupportedReasonRef] = None,
     val app: Option[AppBase] = None
 ) extends ExecParser {
-
-  var unsupportedReason = ""
-
   lazy val trimmedNodeName: String = GenericExecParser.cleanupNodeName(node)
 
   lazy val fullExecName: String = execName.getOrElse(trimmedNodeName + "Exec")
+
+  /**
+   * Set of SQL metric names used to calculate the duration of this operator.
+   *
+   * Override this field in child classes to specify which metrics should be summed
+   * to compute the operator's total duration. The metric names should match exactly
+   * as they appear in the Spark execution plan (e.g., "scan time", "time to build").
+   *
+   * By default, this is empty, meaning no duration will be calculated.
+   *
+   * Note: The actual metric lookup supports substring matching - if a metric name in the
+   * plan contains any of these strings, it will be included. For example, "scan time"
+   * will match "scan time (ms)".
+   *
+   * See also:
+   * - `useDriverMetrics`: Set to true if these metrics are driver-side (not executor-side)
+   * - `getDurationMetricIds`: Retrieves the accumulator IDs for these metrics
+   * - `computeDuration`: Sums the metric values to calculate total duration
+   *
+   * Examples:
+   * - Scan operators: Set("scan time", "metadata time")
+   * - Aggregate operators: Set("time in aggregation build")
+   * - Exchange operators: Set("time to collect", "time to build", "time to broadcast")
+   */
+  protected val durationSqlMetrics: Set[String] = Set.empty
 
   def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     checker.isExecSupported(registeredName.getOrElse(fullExecName))
@@ -48,8 +71,25 @@ class GenericExecParser(
     checker.getSpeedupFactor(registeredName.getOrElse(fullExecName))
   }
 
+  def setUnsupportedReason(r: UnsupportedReasonRef): Unit = {
+    unsupportedReason = Some(r)
+  }
+
   def setUnsupportedReason(r: String): Unit = {
-    unsupportedReason = r
+    // Only set the reason if the unsupportedReason is not already set
+    if (unsupportedReason.isEmpty) {
+      r match {
+        case "" => unsupportedReason = None
+        case _ => unsupportedReason = Some(UnsupportedReasonRef.getOrCreate(r))
+      }
+    }
+  }
+
+  def setUnsupportedReasonFromChecker(registeredName: Option[String] = None): Unit = {
+    if (unsupportedReason.isEmpty) {
+      setUnsupportedReason(
+        checker.getNotSupportedExecsReason(registeredName.getOrElse(fullExecName)))
+    }
   }
 
   override def parse: ExecInfo = {
@@ -62,6 +102,8 @@ class GenericExecParser(
     val (speedupFactor, isSupported) = if (isExecSupported) {
       (pullSpeedupFactor(), true)
     } else {
+      // Set the custom reasons for unsupported execs
+      setUnsupportedReasonFromChecker()
       (1.0, false)
     }
 
@@ -90,16 +132,29 @@ class GenericExecParser(
     checker.getNotSupportedExprs(expressions)
   }
 
-  protected def getDurationSqlMetrics: Set[String] = Set.empty
+  /** Override this to return true if the metrics are driver-side (not executor-side) */
+  protected def useDriverMetrics: Boolean = false
 
   protected def getDurationMetricIds: Seq[Long] = {
-    node.metrics.find(m => getDurationSqlMetrics.contains(m.name)).map(_.accumulatorId).toSeq
+    if (durationSqlMetrics.isEmpty) {
+      return Seq.empty
+    }
+    node.metrics.collect {
+      case m if durationSqlMetrics.contains(m.name) => m.accumulatorId
+    }.toSeq
   }
 
   protected def computeDuration: Option[Long] = {
     // Sum the durations for all metrics returned by getDurationMetricIds
     val durations = getDurationMetricIds.flatMap { metricId =>
-      app.flatMap(appInstance => SQLPlanParser.getTotalDuration(Some(metricId), appInstance))
+      app.flatMap { appInstance =>
+        if (useDriverMetrics) {
+          // this is for metrics that are only available on the driver
+          SQLPlanParser.getDriverTotalDuration(Some(metricId), appInstance)
+        } else {
+          SQLPlanParser.getTotalDuration(Some(metricId), appInstance)
+        }
+      }
     }
     durations.reduceOption(_ + _)
   }
@@ -153,6 +208,7 @@ class GenericExecParser(
       node.id,
       isSupported,
       children = getChildren,
+      unsupportedExecReason = unsupportedReason,
       unsupportedExprs = notSupportedExprs,
       expressions = expressions
     )
@@ -175,6 +231,13 @@ object GenericExecParser {
       app: Option[AppBase] = None
   ): GenericExecParser = {
     val fullExecName = execName.getOrElse(node.name + "Exec")
-    new GenericExecParser(node, checker, sqlID, Some(fullExecName), expressionFunction, app)
+    new GenericExecParser(
+      node = node,
+      checker = checker,
+      sqlID = sqlID,
+      execName = Some(fullExecName),
+      expressionFunction = expressionFunction,
+      unsupportedReason = None,
+      app = app)
   }
 }

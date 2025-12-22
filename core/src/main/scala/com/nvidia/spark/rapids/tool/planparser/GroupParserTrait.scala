@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase

@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper.{DELTALAKE_LOG_FILE_KEYWORD, DELTALAKE_META_KEYWORD, DELTALAKE_META_SCAN_RDD_KEYWORD}
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
@@ -86,7 +87,13 @@ case class FileSourceScanExecParser(
     super.pullOpType
   }
 
-  override protected def getDurationSqlMetrics: Set[String] = Set(
+  /**
+   * Duration metrics for file source scans.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   *
+   * Includes both regular scan time and metadata time (for Delta Lake metadata scans).
+   */
+  override protected val durationSqlMetrics: Set[String] = Set(
     "scan time",
     // delta lake metadata tables have a metric called metadata time.
     "metadata time")

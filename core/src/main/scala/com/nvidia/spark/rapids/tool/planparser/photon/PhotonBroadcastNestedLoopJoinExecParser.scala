@@ -19,17 +19,19 @@ package com.nvidia.spark.rapids.tool.planparser.photon
 import com.nvidia.spark.rapids.tool.planparser.BroadcastNestedLoopJoinExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class PhotonBroadcastNestedLoopJoinExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long)
-  extends BroadcastNestedLoopJoinExecParserBase(node, checker, sqlID) {
-
-  // Override to use platform-specific name for pretty expression.
-  // This helps identify the original operator of the platform.
-  override def prettyExpression: String = node.platformName
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends BroadcastNestedLoopJoinExecParserBase(
+    node,
+    checker,
+    sqlID,
+    app = app) {
 
   override def extractBuildAndJoinTypes(exprStr: String): (String, String) = {
     // LeftOuter, BuildRight, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))

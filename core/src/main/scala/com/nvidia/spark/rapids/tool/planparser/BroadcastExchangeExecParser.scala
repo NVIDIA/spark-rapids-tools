@@ -18,33 +18,38 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class BroadcastExchangeExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser with Logging {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    app = app
+) {
+  // TODO - check the relation to see if really supported
 
-  val fullExecName = node.name + "Exec"
+  /** BroadcastExchange uses driver-side metrics since the broadcast happens on the driver */
+  override protected def useDriverMetrics: Boolean = true
 
-  override def parse: ExecInfo = {
-    // TODO - check the relation to see if really supported
-    val collectTimeId = node.metrics.find(_.name == "time to collect").map(_.accumulatorId)
-    val buildTimeId = node.metrics.find(_.name == "time to build").map(_.accumulatorId)
-    val broadcastTimeId = node.metrics.find(_.name == "time to broadcast").map(_.accumulatorId)
-    val maxCollectTime = SQLPlanParser.getDriverTotalDuration(collectTimeId, app)
-    val maxBuildTime = SQLPlanParser.getDriverTotalDuration(buildTimeId, app)
-    val maxBroadcastTime = SQLPlanParser.getDriverTotalDuration(broadcastTimeId, app)
-    val duration = (maxCollectTime ++ maxBuildTime ++ maxBroadcastTime).reduceOption(_ + _)
-    val (filterSpeedupFactor, isSupported) = if (checker.isExecSupported(fullExecName)) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor,
-      duration, node.id, isSupported, children = None, expressions = Seq.empty)
-  }
+  /**
+   * Broadcast exchange duration is the sum of driver-side metrics.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   *
+   * Metrics summed:
+   * - time to collect: time to collect data on driver
+   * - time to build: time to build broadcast relation on driver
+   * - time to broadcast: time to broadcast data to executors
+   */
+  override protected val durationSqlMetrics: Set[String] = Set(
+    "time to collect",
+    "time to collect (ms)",
+    "time to build",
+    "time to broadcast"
+  )
 }

@@ -16,8 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, OpTypes, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -43,9 +43,9 @@ class AppendDataIcebergParser(
     node = node,
     checker = checker,
     sqlID = sqlID,
+    execName = Some(opStub.nodeName),
     app = app) {
 
-  override val execName: Option[String] = Some(opStub.nodeName)
   override lazy val fullExecName: String = opStub.execID
   // Extract the write operation metadata from the node description
   // This will parse the node description to extract format, compression, etc.
