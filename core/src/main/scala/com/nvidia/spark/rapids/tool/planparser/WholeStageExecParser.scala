@@ -16,25 +16,36 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import scala.collection.mutable.ArrayBuffer
+
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphCluster
 
 abstract class WholeStageExecParserBase(
-    node: SparkPlanGraphCluster,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase,
+    override val node: SparkPlanGraphCluster,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    val appInst: AppBase,
     reusedNodeIds: Set[Long],
     nodeIdToStagesFunc: Long => Set[Int]
-) extends Logging {
-
-  val fullExecName = "WholeStageCodegenExec"
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Some("WholeStageCodegenExec"),
+    app = Some(appInst)
+) {
   // Matches the first alphanumeric characters of a string after trimming leading/trailing
   // white spaces.
   val nodeNameRegeX = """^\s*(\w+).*""".r
+
+  /**
+   * Duration metric for whole stage codegen execution.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   */
+  override protected val durationSqlMetrics: Set[String] = Set("duration")
 
   /**
    * Creates the appropriate SQL plan parser for parsing child operators within this cluster.
@@ -47,7 +58,7 @@ abstract class WholeStageExecParserBase(
    * @return SQLPlanParserTrait instance (PhotonPlanParser or OssSQLPlanParser)
    */
   def createPlanParserObj: SQLPlanParserTrait = {
-    SQLPlanParser.createParserAgent(app)
+    SQLPlanParser.createParserAgent(appInst)
   }
 
   /**
@@ -59,48 +70,79 @@ abstract class WholeStageExecParserBase(
    *
    * @return The node's name as the pretty expression
    */
-  def prettyExpression: String = node.name
+  override def reportedExpr: String = node.name
 
-  def parse: Seq[ExecInfo] = {
-    // TODO - does metrics for time have previous ops?  per op thing, only some do
-    // the durations in wholestage code gen can include durations of other wholestage code
-    // gen in the same stage, so we can't just add them all up.
-    // Perhaps take the max of those in Stage?
-    val accumId = node.metrics.find(_.name == "duration").map(_.accumulatorId)
-    val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val stagesInNode = nodeIdToStagesFunc.apply(node.id)
-    // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
-    // the children nodes.
-    val isDupNode = reusedNodeIds.contains(node.id)
+  var childNodes: ArrayBuffer[ExecInfo] = ArrayBuffer.empty[ExecInfo]
+
+  def populateChildNodes(): Unit = {
     val objParser = createPlanParserObj
-    val childNodes = node.nodes.flatMap { c =>
+    childNodes = node.nodes.flatMap { c =>
       // Pass the nodeToStagesFunc to the child nodes so they can get the stages.
-      objParser.parsePlanNode(c, sqlID, checker, app, reusedNodeIds,
+      objParser.parsePlanNode(c, sqlID, checker, appInst, reusedNodeIds,
         nodeIdToStagesFunc = nodeIdToStagesFunc)
     }
-    // if any of the execs in WholeStageCodegen supported mark this entire thing as supported
-    val anySupported = childNodes.exists(_.isSupported == true)
-    // average speedup across the execs in the WholeStageCodegen for now
-    val supportedChildren = childNodes.filterNot(_.shouldRemove)
-    val avSpeedupFactor = SQLPlanParser.averageSpeedup(supportedChildren.map(_.speedupFactor).toSeq)
-    // The node should be marked as shouldRemove when all the children of the
-    // wholeStageCodeGen are marked as shouldRemove.
-    val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
+  }
+
+  override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
+    childNodes.exists(_.isSupported == true)
+  }
+
+  override def getChildren: Option[Seq[ExecInfo]] = {
+    if (childNodes.isEmpty) {
+      None
+    } else {
+      Some(childNodes.toSeq)
+    }
+  }
+
+  override def pullSpeedupFactor(registeredName: Option[String] = None): Double = {
+    // average speedup across the execs in the WholeStageCodegen for now.
+    SQLPlanParser.averageSpeedup(
+      childNodes.filterNot(_.shouldRemove).map(_.speedupFactor).toSeq)
+  }
+
+  override def reportedExecName: String = {
     // Remove any suffix to get the node label without any trailing number.
-    val nodeLabel = nodeNameRegeX.findFirstMatchIn(node.name) match {
+    nodeNameRegeX.findFirstMatchIn(node.name) match {
       case Some(m) => m.group(1)
       // in case not found, use the full exec name
       case None => fullExecName
     }
+  }
+
+  override def parse: ExecInfo = {
+    // TODO - does metrics for time have previous ops?  per op thing, only some do
+    // the durations in wholestage code gen can include durations of other wholestage code
+    // gen in the same stage, so we can't just add them all up.
+    // Perhaps take the max of those in Stage?
+    val duration = computeDuration
+    val stagesInNode = nodeIdToStagesFunc.apply(node.id)
+    // We could skip the entire wholeStage if it is duplicate; but we will lose the information of
+    // the children nodes.
+    val isDupNode = reusedNodeIds.contains(node.id)
+    populateChildNodes()
+    val isExecSupported = pullSupportedFlag()
+    val (speedupFactor, isSupported) = if (isExecSupported) {
+      (pullSpeedupFactor(), true)
+    } else {
+      // Set the custom reasons for unsupported execs
+      setUnsupportedReasonFromChecker()
+      (1.0, false)
+    }
+
+    // The node should be marked as shouldRemove when all the children of the
+    // wholeStageCodeGen are marked as shouldRemove.
+    val removeNode = isDupNode || childNodes.forall(_.shouldRemove)
+
     val execInfo = ExecInfo(
       node = node,
       sqlID = sqlID,
-      exec = nodeLabel,
-      expr = prettyExpression,
-      speedupFactor = avSpeedupFactor,
-      duration = maxDuration,
+      exec = reportedExecName,
+      expr = reportedExpr,
+      speedupFactor = speedupFactor,
+      duration = duration,
       nodeId = node.id,
-      isSupported = anySupported,
+      isSupported = isSupported,
       children = Some(childNodes.toSeq),
       stages = stagesInNode,
       shouldRemove = removeNode,
@@ -109,15 +151,15 @@ abstract class WholeStageExecParserBase(
       // expressions of wholeStageCodeGen should not be set. They belong to the children nodes.
       expressions = Seq.empty
     ).withClusterFlag()  // Mark as cluster node for proper identification in analysis
-    Seq(execInfo)
+    execInfo
   }
 }
 
 case class WholeStageExecParser(
-    node: SparkPlanGraphCluster,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase,
+    override val node: SparkPlanGraphCluster,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val appInst: AppBase,
     reusedNodeIds: Set[Long],
     nodeIdToStagesFunc: Long => Set[Int]
-) extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc)
+) extends WholeStageExecParserBase(node, checker, sqlID, appInst, reusedNodeIds, nodeIdToStagesFunc)

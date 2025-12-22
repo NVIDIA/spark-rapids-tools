@@ -265,9 +265,7 @@ class PluginTypeChecker(platform: Platform = PlatformFactory.createInstance(),
         if (OpSuppLevel.suppLevelsWithPropagation.contains(opSupVal) &&
             opSupVal.shouldLoadNotesFromFile(cols(2))) {
           val loadedReason = opSupVal.getNotesForDisabledOp(cols(2))
-          // Exec names have Exec at the end, we need to remove it to match with the names
-          // saved in the csv file.
-          Seq((cols(0).dropRight(4), loadedReason))
+          Seq((cols(0), loadedReason))
         } else {
           Seq.empty
         }

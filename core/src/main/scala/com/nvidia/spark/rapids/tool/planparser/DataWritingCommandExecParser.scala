@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
@@ -60,12 +61,12 @@ case class DataWritingCommandExecParser(
   override def parse: ExecInfo = {
     // At this point we are sure the wrapper is defined
     val wStub = DataWritingCommandExecParser.getWriteCMDWrapper(node).get
-    var unsupportedReason = ""
+    var unsupportedReason: Option[UnsupportedReasonRef] = None
     val writeSupported = if (checker.isWriteFormatSupported(wStub.dataFormat)) {
       // check if the compression is supported
       val compressionSupportFlag = checkCompressionSupported(wStub)
       if (!compressionSupportFlag) {
-        unsupportedReason = "Unsupported compression"
+        unsupportedReason = Some(UnsupportedReasonRef.UNSUPPORTED_COMPRESSION)
       }
       compressionSupportFlag
     } else {

@@ -31,17 +31,22 @@ import org.apache.spark.sql.rapids.tool.plangraph.PhotonSparkPlanGraphCluster
  *      to Spark operators
  */
 case class PhotonStageExecParser(
-    node: PhotonSparkPlanGraphCluster,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase,
+    override val node: PhotonSparkPlanGraphCluster,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val  appInst: AppBase,
     reusedNodeIds: Set[Long],
-    nodeIdToStagesFunc: Long => Set[Int])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc) {
+    nodeIdToStagesFunc: Long => Set[Int]
+) extends WholeStageExecParserBase(
+    node, checker, sqlID, appInst, reusedNodeIds, nodeIdToStagesFunc) {
+
+  override val durationSqlMetrics: Set[String] = Set(
+    "stage duration"
+  )
 
   /**
    * Returns the original Photon stage name (e.g., "PhotonShuffleMapStage") for identification,
    * rather than the Spark CPU equivalent ("WholeStageCodegen").
    */
-  override def prettyExpression: String = node.platformName
+  override def reportedExpr: String = node.platformName
 }

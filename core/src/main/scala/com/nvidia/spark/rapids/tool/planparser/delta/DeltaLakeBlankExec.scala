@@ -16,7 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.planparser.delta
 
-import com.nvidia.spark.rapids.tool.planparser.{OpTypes, SupportedBlankExec, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.{SupportedBlankExec, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -45,7 +46,11 @@ class DeltaLakeBlankExec(
     sqlID = sqlID,
     app = app) {
 
-  override def getDurationSqlMetrics: Set[String] = {
+  /**
+   * Duration metrics are dynamically determined from the operator stub.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   */
+  override protected val durationSqlMetrics: Set[String] = {
     opStub.sqlMetricNames
   }
 

@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging

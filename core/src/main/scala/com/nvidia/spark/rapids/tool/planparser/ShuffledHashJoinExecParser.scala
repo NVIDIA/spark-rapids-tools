@@ -18,32 +18,29 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class ShuffledHashJoinExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser with Logging {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends BaseHashJoinExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Option("ShuffledHashJoinExec"),
+    app = app
+) {
 
-  val fullExecName = node.name + "Exec"
-
-  override def parse: ExecInfo = {
-    // TODO - Its partial duration only. We need a way to specify it as partial.
-    val accumId = node.metrics.find(_.name == "time to build hash map").map(_.accumulatorId)
-    val maxDuration = SQLPlanParser.getTotalDuration(accumId, app)
-    val exprString = node.desc.replaceFirst("ShuffledHashJoin ", "")
-    val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty && supportedJoinType) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", speedupFactor,
-      maxDuration, node.id, isSupported, children = None, expressions = expressions)
-  }
+  /**
+   * Duration metric for building the hash map.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   *
+   * Note: This is a partial duration only. We need a way to specify it as partial.
+   */
+  override protected val durationSqlMetrics: Set[String] = Set(
+    "time to build hash map"
+  )
 }

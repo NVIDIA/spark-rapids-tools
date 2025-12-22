@@ -16,6 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -26,22 +27,36 @@ import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 // can represent it to be ignored with shouldRemove set to true.
 // The reason we are implementing this as class is for future extensibility and to read the metrics.
 case class SubqueryExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser {
-  override val fullExecName: String = node.name + "Exec"
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    // set the reason why it shows up as unsupported.
+    unsupportedReason = Some(UnsupportedReasonRef.getOrCreate(
+      "Subquery is a collect execution pointing to an actual one")),
+    app = app
+) {
+  /** Subquery uses driver-side metrics */
+  override protected def useDriverMetrics: Boolean = true
 
-  override def parse: ExecInfo = {
-    // Note: the name of the metric may not be trailed by "(ms)" So, we only check for the prefix
-    val collectTimeId =
-      node.metrics.find(_.name.contains("time to collect")).map(_.accumulatorId)
-    // TODO: Should we also collect the "data size" metric?
-    val duration = SQLPlanParser.getDriverTotalDuration(collectTimeId, app)
-    // should remove is kept in 1 place. So no need to set it here.
-    ExecInfo(node, sqlID, node.name, "", 1.0, duration, node.id, isSupported = false,
-      children = None, expressions = Seq.empty)
-  }
+  /**
+   * Duration based on time to collect data on the driver.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   */
+  override protected val durationSqlMetrics: Set[String] = Set(
+    "time to collect",
+    "time to collect (ms)")
+
+  // Subquery is always marked as not supported (isSupported = false)
+  override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = false
+
+  setUnsupportedReason("Subquery is a collect execution pointing to an actual one")
+
+  // TODO: Should we also collect the "data size" metric?
 }
 
 object SubqueryExecParser extends GroupParserTrait {
@@ -69,6 +84,6 @@ object SubqueryExecParser extends GroupParserTrait {
       execName: Option[String] = None,
       opType: Option[OpTypes.Value] = None,
       app: Option[AppBase]): ExecParser = {
-    SubqueryExecParser(node, checker, sqlID, app.get)
+    SubqueryExecParser(node, checker, sqlID, app)
   }
 }

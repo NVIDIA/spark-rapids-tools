@@ -16,7 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{OpTypes, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.SupportedOpStub
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
 

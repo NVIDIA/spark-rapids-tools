@@ -190,7 +190,7 @@ class AppQualUnsupportedOpsTable(
       stageId: Int): String = {
       // scalastyle:off line.size.limit
       // P.S: Use raw because it offers better performance compared to sInterpolation.
-      raw"${unSupExecInfo.sqlId}$delim$stageId$delim${unSupExecInfo.execId.toString}$delim${unSupExecInfo.finalOpType}$delim${unSupExecInfo.unsupportedOperatorCSVFormat}$delim${formatStr(unSupExecInfo.details)}$delim${getStageDuration(stageId)}$delim$appDuration$delim${unSupExecInfo.opAction}"
+      raw"${unSupExecInfo.sqlId}$delim$stageId$delim${unSupExecInfo.execId.toString}$delim${unSupExecInfo.finalOpType}$delim${unSupExecInfo.unsupportedOperatorCSVFormat}$delim${unSupExecInfo.detailsCSV}$delim${getStageDuration(stageId)}$delim$appDuration$delim${unSupExecInfo.opAction}"
       // scalastyle:on line.size.limit
     }
 

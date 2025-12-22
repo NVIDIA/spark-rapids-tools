@@ -18,7 +18,8 @@ package com.nvidia.spark.rapids.tool.planparser.delta
 
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.planparser.{DataWritingCmdWrapper, DataWritingCommandExecParser, ExecInfo, ExecParser, GenericExecParser, OpTypes, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{DataWritingCmdWrapper, DataWritingCommandExecParser, ExecInfo, ExecParser, GenericExecParser, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.plugins.{AppPropVersionExtractorFromCPTrait, PropConditionOnSparkExtTrait}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 

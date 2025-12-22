@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
@@ -228,6 +228,13 @@ class BaseSourceScanExecParser(
     false
   }
 
+  override def reportedExpr: String = {
+    if (readInfo.hasUnknownFormat) {
+      node.desc
+    } else {
+      s"Format: $readFormat"
+    }
+  }
   /**
    * Create an ExecInfo object with scan-specific information.
    *
@@ -263,15 +270,10 @@ class BaseSourceScanExecParser(
     notSupportedExprs: Seq[UnsupportedExprOpRef],
     expressions: Array[String]
   ): ExecInfo = {
-    val expr = if (readInfo.hasUnknownFormat) {
-      node.desc
-    } else {
-      s"Format: $readFormat"
-    }
     ExecInfo.createExecNoNode(
       sqlID = sqlID,
       exec = reportedExecName,
-      expr = expr,
+      expr = reportedExpr,
       speedupFactor = speedupFactor,
       duration = duration,
       nodeId = node.id,
