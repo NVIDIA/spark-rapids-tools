@@ -1,6 +1,22 @@
 
 <br/>
 
+## Release [v25.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.0)
+Generated on 2025-12-23
+### User Tools
+
+- Upgrade GitHub Actions for Node 24 compatibility ([#1997](https://github.com/NVIDIA/spark-rapids-tools/pull/1997))
+
+### Core
+
+- Refactor Exec Parsers to Use GenericExecParser Base Class ([#2005](https://github.com/NVIDIA/spark-rapids-tools/pull/2005))
+- Handles IO metrics for Auron operators ([#2003](https://github.com/NVIDIA/spark-rapids-tools/pull/2003))
+- Add Auron specific SQLPlan parser ([#2000](https://github.com/NVIDIA/spark-rapids-tools/pull/2000))
+- Refactor ToolsPlanGraph for Improved Code Quality ([#1999](https://github.com/NVIDIA/spark-rapids-tools/pull/1999))
+
+
+<br/>
+
 ## Release [v25.10.9](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.10.9)
 Generated on 2025-12-16
 ### Build and CI/CD
