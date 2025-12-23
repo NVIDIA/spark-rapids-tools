@@ -16,17 +16,15 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import java.util.concurrent.ConcurrentHashMap
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.config.SQLPlanParserConfig
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
 import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
-import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OperatorRefTrait, OpRef, UnsupportedExprOpRef}
-import com.nvidia.spark.rapids.tool.planparser.photon.PhotonPlanParser
+import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpActions, OperatorRefTrait, OpRef, OpTypes, UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.internal.Logging
@@ -35,61 +33,12 @@ import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraph, SparkPlanGrap
 import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 
 
-object OpActions extends Enumeration {
-  type OpAction = Value
-  val NONE, IgnoreNoPerf, IgnorePerf, Triage = Value
-}
-
-object OpTypes extends Enumeration {
-  type OpType = Value
-  val ReadDeltaLog, ReadRDDDeltaLog, ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
-}
-
-object UnsupportedReasons extends Enumeration {
-  type UnsupportedReason = Value
-  val IS_UDF, CONTAINS_UDF,
-      IS_DATASET, CONTAINS_DATASET,
-      IS_UNSUPPORTED, CONTAINS_UNSUPPORTED_EXPR,
-      UNSUPPORTED_IO_FORMAT,
-      UNSUPPORTED_DELTA_LAKE_LOG,
-      UNSUPPORTED_DELTA_META_QUERY,
-      UNSUPPORTED_COMPRESSION,
-      UNSUPPORTED_CATALOG = Value
-
-  // Mutable map to cache custom reasons
-  // this cache has to be concurrent to be threadSafe. Otherwise, multiple threads can cause
-  // assertion error as they would be accessing the same nextId of the enumType
-  private val customReasonsCache = new ConcurrentHashMap[String, Value]()
-
-  // Method to get or create a custom reason
-  def CUSTOM_REASON(reason: String): Value = {
-    customReasonsCache.computeIfAbsent(reason, _ => new Val(nextId, reason))
-  }
-
-  def reportUnsupportedReason(unsupportedReason: UnsupportedReason): String = {
-    unsupportedReason match {
-      case IS_UDF => "Is UDF"
-      case CONTAINS_UDF => "Contains UDF"
-      case IS_DATASET => "Is Dataset or RDD"
-      case CONTAINS_DATASET => "Contains Dataset or RDD"
-      case IS_UNSUPPORTED => "Unsupported"
-      case CONTAINS_UNSUPPORTED_EXPR => "Contains unsupported expr"
-      case UNSUPPORTED_IO_FORMAT => "Unsupported IO format"
-      case UNSUPPORTED_DELTA_LAKE_LOG => "Delta Lake metadata scans are not supported"
-      case UNSUPPORTED_DELTA_META_QUERY => "Exec is part of Delta Lake metadata query"
-      case UNSUPPORTED_COMPRESSION => "Unsupported compression"
-      case UNSUPPORTED_CATALOG => "Unsupported catalog"
-      case customReason @ _ => customReason.toString
-    }
-  }
-}
-
 case class UnsupportedExecSummary(
     sqlId: Long,
     execId: Long,
     execRef: OperatorRefTrait,
     opType: OpTypes.OpType,
-    reason: UnsupportedReasons.UnsupportedReason,
+    reason: UnsupportedReasonRef,
     opAction: OpActions.OpAction) {
 
   val finalOpType: String = if (opType.equals(OpTypes.UDF) || opType.equals(OpTypes.DataSet)) {
@@ -100,7 +49,8 @@ case class UnsupportedExecSummary(
 
   val unsupportedOperatorCSVFormat: String = execRef.getOpNameCSV
 
-  val details: String = UnsupportedReasons.reportUnsupportedReason(reason)
+  val details: String = reason.value
+  val detailsCSV: String = reason.csvValue
 }
 
 case class ExecInfo(
@@ -115,7 +65,7 @@ case class ExecInfo(
     children: Option[Seq[ExecInfo]], // only one level deep
     var stages: Set[Int],
     var shouldRemove: Boolean,
-    var unsupportedExecReason: String,
+    var unsupportedExecReason: Option[UnsupportedReasonRef],
     unsupportedExprs: Seq[UnsupportedExprOpRef],
     dataSet: Boolean,
     udf: Boolean,
@@ -190,14 +140,8 @@ case class ExecInfo(
     shouldRemove ||= value
   }
 
-  def setUnsupportedExecReason(reason: String): Unit = {
-    unsupportedExecReason = reason
-  }
-
-  // Helper function to determine the unsupported reason
-  def determineUnsupportedReason(reason: String,
-      knownReason: UnsupportedReasons.Value): UnsupportedReasons.Value = {
-    if (reason.nonEmpty) UnsupportedReasons.CUSTOM_REASON(reason) else knownReason
+  def setUnsupportedExecReason(reason: UnsupportedReasonRef): Unit = {
+    unsupportedExecReason = Option(reason)
   }
 
   def getOpAction: OpActions.OpAction = {
@@ -216,35 +160,37 @@ case class ExecInfo(
     }
   }
 
-  private def getUnsupportedReason: UnsupportedReasons.UnsupportedReason = {
+  private def getUnsupportedReason: UnsupportedReasonRef = {
     if (children.isDefined) {
       // TODO: Handle the children
     }
 
     if (udf) {
-      UnsupportedReasons.CONTAINS_UDF
+      UnsupportedReasonRef.CONTAINS_UDF
     } else if (dataSet) {
       if (unsupportedExprs.isEmpty) { // case when the node itself is a DataSet or RDD
-        UnsupportedReasons.IS_DATASET
+        UnsupportedReasonRef.IS_DATASET
       } else {
-        UnsupportedReasons.CONTAINS_DATASET
+        UnsupportedReasonRef.CONTAINS_DATASET
       }
     } else if (unsupportedExprs.nonEmpty) {
-      UnsupportedReasons.CONTAINS_UNSUPPORTED_EXPR
+      UnsupportedReasonRef.CONTAINS_UNSUPPORTED_EXPR
     } else {
       opType match {
-        case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
+        case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT
         case OpTypes.ReadDeltaLog | OpTypes.ReadRDDDeltaLog =>
-          UnsupportedReasons.UNSUPPORTED_DELTA_LAKE_LOG
-        case _ => UnsupportedReasons.IS_UNSUPPORTED
+          UnsupportedReasonRef.UNSUPPORTED_DELTA_LAKE_LOG
+        case _ => UnsupportedReasonRef.EMPTY_REASON
       }
     }
   }
 
   def getUnsupportedExecSummaryRecord(execId: Long): Seq[UnsupportedExecSummary] = {
     // Get the custom reason if it exists
-    val execUnsupportedReason = determineUnsupportedReason(unsupportedExecReason,
-      getUnsupportedReason)
+    val execUnsupportedReason = unsupportedExecReason match {
+      case Some(r) => r
+      case _ => getUnsupportedReason
+    }
 
     // Initialize the result with the exec summary
     val res = ArrayBuffer(UnsupportedExecSummary(sqlID, execId, execRef, opType,
@@ -255,15 +201,19 @@ case class ExecInfo(
     // to the result appropriately
     if (unsupportedExprs.nonEmpty) {
       val exprKnownReason = execUnsupportedReason match {
-        case UnsupportedReasons.CONTAINS_UDF => UnsupportedReasons.IS_UDF
-        case UnsupportedReasons.CONTAINS_DATASET => UnsupportedReasons.IS_DATASET
-        case UnsupportedReasons.UNSUPPORTED_IO_FORMAT => UnsupportedReasons.UNSUPPORTED_IO_FORMAT
-        case _ => UnsupportedReasons.IS_UNSUPPORTED
+        case UnsupportedReasonRef.CONTAINS_UDF => UnsupportedReasonRef.IS_UDF
+        case UnsupportedReasonRef.CONTAINS_DATASET => UnsupportedReasonRef.IS_DATASET
+        case UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT =>
+          UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT
+        case _ => UnsupportedReasonRef.EMPTY_REASON
       }
 
       unsupportedExprs.foreach { expr =>
-        val exprUnsupportedReason = determineUnsupportedReason(expr.unsupportedReason,
-          exprKnownReason)
+        val exprUnsupportedReason = expr match {
+          case UnsupportedExprOpRef(_, UnsupportedReasonRef.EMPTY_REASON) =>
+            exprKnownReason
+          case _ => expr.unsupportedReason
+        }
         res += UnsupportedExecSummary(sqlID, execId, expr, OpTypes.Expr,
           exprUnsupportedReason, getOpAction)
       }
@@ -287,7 +237,7 @@ object ExecInfo {
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
-      unsupportedExecReason: String = "",
+      unsupportedExecReason: Option[UnsupportedReasonRef] = None,
       unsupportedExprs: Seq[UnsupportedExprOpRef] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
@@ -348,7 +298,7 @@ object ExecInfo {
       children: Option[Seq[ExecInfo]], // only one level deep
       stages: Set[Int] = Set.empty,
       shouldRemove: Boolean = false,
-      unsupportedExecReason: String = "",
+      unsupportedExecReason: Option[UnsupportedReasonRef] = None,
       unsupportedExprs: Seq[UnsupportedExprOpRef] = Seq.empty,
       dataSet: Boolean = false,
       udf: Boolean = false,
@@ -409,9 +359,10 @@ case class PlanInfo(
   }
 }
 
-object SQLPlanParser
-  extends Logging {
+object SQLPlanParser extends Logging {
 
+  // regex pattern matches and captures content within square brackets [] that contains join
+  // expressions, typically from Spark's physical plan output.
   val equiJoinRegexPattern = """\[([\w#, +*\\\-\.<>=$\`\(\)]+\])""".r
 
   val functionPattern = """(\w+)\(.*\)""".r
@@ -446,6 +397,11 @@ object SQLPlanParser
   // the parse_url
   val regExParseURLPart =
     s"(?i)parse_url\\(.*,\\s*(${unsupportedParseURLParts.mkString("|")})(?:\\s*,.*)*\\)".r
+
+  // Dynamically load and instantiate parsers based on configuration
+  lazy val registeredSQLPlanParsers: Seq[SQLPlanParserTrait] =
+    SQLPlanParserConfig.REGISTERED_PARSERS
+
 
   /**
    * This function is used to create a set of nodes that should be skipped while parsing the Execs
@@ -540,9 +496,7 @@ object SQLPlanParser
           // mark it as unsupported and set the reason
           suppExec.setSupportedFlag(false)
           suppExec.setShouldIgnore(true)
-          suppExec.setUnsupportedExecReason(
-            UnsupportedReasons.reportUnsupportedReason(
-              UnsupportedReasons.UNSUPPORTED_DELTA_META_QUERY))
+          suppExec.setUnsupportedExecReason(UnsupportedReasonRef.UNSUPPORTED_DELTA_META_QUERY)
         }
       }
     }
@@ -555,11 +509,7 @@ object SQLPlanParser
     // operators.
     // However, the latter approach may have some corner cases: 1. it is less efficient because it
     // requires recursive calls to all children. 2. There may be cases where the plan has
-    if (app.isPhoton) {
-      PhotonPlanParser
-    } else {
-      OssSQLPlanParser
-    }
+    registeredSQLPlanParsers.find(_.acceptsCtxt(app)).getOrElse(OssSQLPlanParser)
   }
 
   def parseSQLPlan(
@@ -657,7 +607,7 @@ object SQLPlanParser
     // example parse_url:
     // Project [url_col#7, parse_url(url_col#7, HOST, false) AS HOST#9,
     //          parse_url(url_col#7, QUERY, false) AS QUERY#10]
-    val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*\\2).*))(?=.*?\\)" +
+    val parseURLPattern = ("parse_url(?=\\()(?:(?=.*?\\((?!.*?\\1)(.*\\)(?!.*?\\2).*))(?=.*?\\)" +
       "(?!.*?\\2)(.*)).)+?.*?(?=\\1)[^(]*(?=\\2$)").r
     val allMatches = parseURLPattern.findAllMatchIn(expr)
     if (allMatches.nonEmpty) {
@@ -859,49 +809,127 @@ object SQLPlanParser
     functionNames.foreach(parsedExpressions += _)
   }
 
+  /**
+   * Helper function to find the first comma after balanced parentheses.
+   * Used for parsing partitioning expressions with nested parentheses.
+   *
+   * @param str The string to search
+   * @return The index of the first comma after balanced parentheses, or -1 if not found
+   */
+  private def findFirstCommaAfterBalancedParens(str: String): Int = {
+    var depth = 0
+    var i = 0
+    while (i < str.length) {
+      str.charAt(i) match {
+        case '(' => depth += 1
+        case ')' => depth -= 1
+        case ',' if depth == 0 => return i
+        case _ =>
+      }
+      i += 1
+    }
+    -1
+  }
+
   // This parser is used for BroadcastHashJoin, ShuffledHashJoin and SortMergeJoin
+  // It handles optional partitioning expressions that may appear at the beginning
   def parseEquijoinsExpressions(exprStr: String): (Array[String], Boolean) = {
+    // Examples:
     // ShuffledHashJoin [name#11, CEIL(DEPT#12)], [name#28, CEIL(DEPT_ID#27)], Inner, BuildLeft
     // SortMergeJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner
     // BroadcastHashJoin [name#11, CEIL(dept#12)], [name#28, CEIL(dept_id#27)], Inner,
     // BuildRight, false
     // BroadcastHashJoin exprString: [i_item_id#56], [i_item_id#56#86], ExistenceJoin(exists#86),
     // BuildRight
+    // With partitioning: (hashpartitioning(cs_order_number#752, 1000)),
+    // [cs_ship_date_sk#737], [d_date_sk#44], Inner, BroadcastRight
+    // With partitioning: UnknownPartitioning(0), [sr_returned_date_sk#443],
+    // [d_date_sk#44], Inner, BroadcastRight
+
     val parsedExpressions = ArrayBuffer[String]()
-    // Get all the join expressions and split it with delimiter :: so that it could be used to
-    // parse function names (if present) later.
-    val joinExprs = equiJoinRegexPattern.findAllMatchIn(exprStr).mkString("::")
-    // Get joinType and buildSide(if applicable)
+
+    // Step 1: Remove optional partitioning expression at the beginning
+    // Partitioning patterns can appear in several forms:
+    // - (hashpartitioning(cs_order_number#752, 1000)), ... (enclosed in outer parentheses)
+    // - hashpartitioning(cs_order_number#752, 1000), ... (not enclosed)
+    // - UnknownPartitioning(0), ...
+    // - SinglePartition, ...
+    val exprWithoutPartitioning = if (exprStr.toLowerCase.contains("partitioning") ||
+        exprStr.startsWith("SinglePartition")) {
+      // Check if it starts with an opening parenthesis followed by partitioning content
+      if (exprStr.startsWith("(") && exprStr.contains("partitioning")) {
+        // Handle (hashpartitioning(...)), (rangepartitioning(...))
+        val firstCommaAfterBalancedParens = findFirstCommaAfterBalancedParens(exprStr)
+        if (firstCommaAfterBalancedParens > 0) {
+          exprStr.substring(firstCommaAfterBalancedParens + 1).trim
+        } else {
+          exprStr
+        }
+      } else {
+        // Handle patterns without outer parentheses:
+        // - hashpartitioning(...), ...
+        // - UnknownPartitioning(N), ...
+        // - SinglePartition, ...
+        val firstCommaAfterBalancedParens = findFirstCommaAfterBalancedParens(exprStr)
+        if (firstCommaAfterBalancedParens > 0) {
+          exprStr.substring(firstCommaAfterBalancedParens + 1).trim
+        } else {
+          exprStr
+        }
+      }
+    } else {
+      exprStr
+    }
+
+    // Step 2: Extract join expressions (the bracketed columns)
+    val joinExprs = equiJoinRegexPattern.findAllMatchIn(exprWithoutPartitioning).mkString("::")
+
+
+    // Step 3: Extract parameters (joinType, buildSide, conditions) by removing bracketed
+    // expressions
     val joinParams = equiJoinRegexPattern.replaceAllIn(
-      exprStr, "").split(",").map(_.trim).filter(_.nonEmpty)
+      exprWithoutPartitioning, "").split(",").map(_.trim).filter(_.nonEmpty)
+
+    // Step 4: Extract joinType (always at index 0 in joinParams)
+    // Format examples after removing bracketed expressions:
+    // - "Inner, BuildRight" -> joinType = "Inner"
+    // - "LeftOuter, BuildLeft, condition" -> joinType = "LeftOuter"
+    // - "Inner" -> joinType = "Inner" (SortMergeJoin with no buildSide)
     val joinType = if (joinParams.nonEmpty) {
       joinParams(0).split("\\(")(0).trim
     } else {
       ""
     }
 
-    // This is to differentiate between SortMergeJoin and other Joins. SortMergeJoin has no
-    // buildSide.
-    val possibleBuildSides = Set(BuildSide.BuildLeft, BuildSide.BuildRight)
-    val buildSide = joinParams.find(possibleBuildSides.contains).getOrElse("")
+    // Step 5: Extract buildSide (if present)
+    // This differentiates between SortMergeJoin (no buildSide) and other Joins
+    val buildSide = joinParams.find(BuildSide.allBuildSides.contains).getOrElse("")
     val isSortMergeJoin = buildSide.isEmpty
 
+    // Step 6: Extract join condition (everything after joinType and buildSide)
     val joinCondition = joinParams.dropWhile(param =>
-          possibleBuildSides.contains(param) || param.contains(joinType)).map(_.trim).mkString(",")
-    // Get individual expressions which is later used to get the function names.
-    val colExpressions = joinExprs.split("::").map(_.trim).map(
-      _.replaceAll("""^\[+|\]+$""", "")).map(_.split(",")).flatten.map(_.trim)
+      BuildSide.allBuildSides.contains(param) || param.contains(joinType)
+    ).map(_.trim).mkString(",")
+
+    // Step 7: Parse column expressions from the bracketed parts
+    val colExpressions = joinExprs.split("::").map(_.trim)
+      .flatMap(_.replaceAll("""^\[+|\]+$""", "").split(","))
+      .map(_.trim)
+    // Extract function names from each column expression
     colExpressions.foreach(expr => addFunctionNames(expr, parsedExpressions))
+
+    // Step 8: Parse conditional expressions if present
     if (joinCondition.nonEmpty) {
       val conditionExprs = parseConditionalExpressions(joinCondition)
       conditionExprs.foreach(parsedExpressions += _)
     }
-    // Check corner cases for SortMergeJoin
+
+    // Step 9: Check for unsupported SortMergeJoin conditions
     val isSortMergeSupported = !(isSortMergeJoin &&
-        joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition))
+      joinCondition.nonEmpty && isSMJConditionUnsupported(joinCondition))
 
     (parsedExpressions.toArray, equiJoinSupportedTypes(buildSide, joinType)
-        && isSortMergeSupported)
+      && isSortMergeSupported)
   }
 
   def isSMJConditionUnsupported(joinCondition: String): Boolean = {
@@ -1172,7 +1200,7 @@ object SQLPlanParser
           s"Reason: duplicate - ancestor of ReusedExchange")
       }
 
-      node match {
+      val execInst = node match {
         // For clusters, use the cluster's parser to handle them.
         case nCluster if isClusterNode(nCluster) =>
           parseClusterNode(
@@ -1202,13 +1230,10 @@ object SQLPlanParser
           // node
           // is a duplicate
           execInfo.setShouldRemove(isDupNode)
-          // Set the custom reasons for unsupported execs
-          if (!execInfo.isSupported && execInfo.unsupportedExecReason.isEmpty) {
-            val unsupportedExecsReason = checker.getNotSupportedExecsReason(execInfo.exec)
-            execInfo.setUnsupportedExecReason(unsupportedExecsReason)
-          }
-          Seq(execInfo)
+          // Setting the custom reason is handled inside the exec parser class.
+          execInfo
       }
+      Seq(execInst)
     }
 
     /**
@@ -1235,56 +1260,69 @@ object SQLPlanParser
           // BatchScan operation
           BatchScanExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
         case "BroadcastExchange" =>
-          BroadcastExchangeExecParser(node, checker, sqlID, app).parse
+          BroadcastExchangeExecParser(node, checker, sqlID, app = Option(app)).parse
         case "BroadcastHashJoin" =>
-          BroadcastHashJoinExecParser(node, checker, sqlID).parse
+          BroadcastHashJoinExecParser(node, checker, sqlID, app = Option(app)).parse
         case "BroadcastNestedLoopJoin" =>
-          BroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
+          BroadcastNestedLoopJoinExecParser(node, checker, sqlID, app = Option(app)).parse
         case "Exchange" =>
-          ShuffleExchangeExecParser(node, checker, sqlID, app).parse
+          ShuffleExchangeExecParser(node, checker, sqlID, app = Option(app)).parse
         case "Expand" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseExpandExpressions)).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseExpandExpressions), app = Option(app)
+          ).parse
         case "Filter" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseFilterExpressions)).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseFilterExpressions), app = Option(app)
+          ).parse
         case "Generate" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseGenerateExpressions)).parse
-        case "HashAggregate" =>
+            node, checker, sqlID,
+            expressionFunction = Some(parseGenerateExpressions), app = Option(app)
+          ).parse
+        case "HashAggregate" | "ObjectHashAggregate" =>
           HashAggregateExecParser(
-            node, checker, sqlID, Some(parseAggregateExpressions), app).parse
-        case "ObjectHashAggregate" =>
-          ObjectHashAggregateExecParser(
-            node, checker, sqlID, Some(parseAggregateExpressions), app).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseAggregateExpressions), app = Option(app)
+          ).parse
         case "Project" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseProjectExpressions)).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseProjectExpressions), app = Option(app)
+          ).parse
         case "ShuffledHashJoin" =>
-          ShuffledHashJoinExecParser(node, checker, sqlID, app).parse
+          ShuffledHashJoinExecParser(node, checker, sqlID, app = Option(app)).parse
         case "Sort" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseSortExpressions)).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseSortExpressions), app = Option(app)
+          ).parse
         case s if FileSourceScanExecParser.accepts(s) =>
           // Scan operation
           FileSourceScanExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
         case "SortAggregate" =>
           GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseAggregateExpressions)).parse
+            node, checker, sqlID,
+            expressionFunction = Some(parseAggregateExpressions), app = Option(app)
+          ).parse
         case smj if SortMergeJoinExecParser.accepts(smj) =>
-          SortMergeJoinExecParser(node, checker, sqlID).parse
+          SortMergeJoinExecParser(node, checker, sqlID, app = Option(app)).parse
         case "SubqueryBroadcast" =>
-          SubqueryBroadcastExecParser(node, checker, sqlID, app).parse
+          SubqueryBroadcastExecParser(node, checker, sqlID, app = Option(app)).parse
         case sqe if SubqueryExecParser.accepts(sqe) =>
           SubqueryExecParser.createExecParser(node, checker, sqlID, app = Option(app)).parse
         case "TakeOrderedAndProject" =>
-          GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseTakeOrderedExpressions)).parse
+          GenericExecParser(node, checker, sqlID,
+            expressionFunction = Some(parseTakeOrderedExpressions), app = Option(app)
+          ).parse
         case "Window" =>
-          GenericExecParser(
-            node, checker, sqlID, expressionFunction = Some(parseWindowExpressions)).parse
+          GenericExecParser(node, checker, sqlID,
+            expressionFunction = Some(parseWindowExpressions), app = Option(app)
+          ).parse
         case "WindowGroupLimit" =>
-          WindowGroupLimitParser(node, checker, sqlID).parse
+          WindowGroupLimitParser(node, checker, sqlID, app = Option(app)).parse
         case iwo if IcebergWriteOps.accepts(iwo, Some(app)) =>
           // Iceberg write ops such as AppendDataExec
           IcebergWriteOps.createExecParser(
@@ -1321,7 +1359,7 @@ object SQLPlanParser
         app: AppBase,
         reusedNodeIds: Set[Long],
         nodeIdToStagesFunc: Long => Set[Int]
-    ): Seq[ExecInfo] = {
+    ): ExecInfo = {
       WholeStageExecParser(
         node.asInstanceOf[SparkPlanGraphCluster],
         checker,
@@ -1341,6 +1379,8 @@ object SQLPlanParser
    * the baseline parser for Apache Spark's physical execution plans.
    */
   object OssSQLPlanParser extends OssSparkPlanParserTrait {
-
+    def acceptsCtxt(app: AppBase): Boolean = {
+      true
+    }
   }
 }

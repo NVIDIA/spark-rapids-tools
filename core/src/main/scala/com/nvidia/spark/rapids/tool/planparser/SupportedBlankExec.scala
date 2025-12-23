@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -96,7 +96,7 @@ class SupportedBlankExec(
     ExecInfo.createExecNoNode(
       sqlID,
       reportedExecName,
-      "",
+      reportedExpr,
       pullSpeedupFactor(),
       duration,
       node.id,

@@ -16,16 +16,27 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedReasonRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
-abstract class BroadcastNestedLoopJoinExecParserBase(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
 
-  val fullExecName: String = node.name + "Exec"
+abstract class BroadcastNestedLoopJoinExecParserBase(
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Option("BroadcastNestedLoopJoinExec"),
+    app = app
+) {
+
+  private var supportedJoinType: Boolean = true
 
   protected def extractBuildAndJoinTypes(exprStr: String): (String, String) = {
     // BuildRight, LeftOuter, ((CEIL(cast(id1#1490 as double)) <= cast(id2#1496 as bigint))
@@ -37,43 +48,27 @@ abstract class BroadcastNestedLoopJoinExecParserBase(
     (buildSide, joinType)
   }
 
-  /**
-   * Returns an empty string for BroadcastNestedLoopJoin's pretty expression.
-   *
-   * Unlike simpler operators, BroadcastNestedLoopJoin has complex expressions involving:
-   * - Build side specification (BuildLeft/BuildRight)
-   * - Join type (LeftOuter, RightOuter, Inner, etc.)
-   * - Join conditions with nested predicates
-   *
-   * These details are already extracted and processed in the parse() method for support
-   * analysis, making a "pretty" summary redundant. The full details are preserved in the
-   * node description and parsed expressions list.
-   *
-   * @return Empty string as no compact representation is needed
-   */
-  def prettyExpression: String = ""
-
-  override def parse: ExecInfo = {
-    // BroadcastNestedLoopJoin doesn't have duration
-    val exprString = node.desc.replaceFirst("^BroadcastNestedLoopJoin\\s*", "")
+  override protected def parseExpressions(): Array[String] = {
+    val exprString = getExprString
     val (buildSide, joinType) = extractBuildAndJoinTypes(exprString)
-    val (expressions, supportedJoinType) =
+    val (expressions, joinTypeIsSupported) =
       SQLPlanParser.parseNestedLoopJoinExpressions(exprString, buildSide, joinType)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
-    val duration = None
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty && supportedJoinType) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
+    supportedJoinType = joinTypeIsSupported
+    if (!supportedJoinType) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_JOIN_TYPE)
     }
-    ExecInfo(node, sqlID, node.name, prettyExpression, speedupFactor, duration, node.id,
-      isSupported, children = None, expressions = expressions)
+    expressions
   }
+
+  override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
+    supportedJoinType && super.pullSupportedFlag(registeredName)
+  }
+
 }
 
 case class BroadcastNestedLoopJoinExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long)
-  extends BroadcastNestedLoopJoinExecParserBase(node, checker, sqlID)
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends BroadcastNestedLoopJoinExecParserBase(node, checker, sqlID, app)

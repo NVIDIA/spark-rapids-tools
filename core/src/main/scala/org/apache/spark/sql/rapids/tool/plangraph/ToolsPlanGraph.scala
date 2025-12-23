@@ -32,9 +32,8 @@ import org.apache.spark.sql.rapids.tool.util.stubs.{GraphReflectionAPI, GraphRef
  * node id.
  */
 @ToolsReflection(
-  "Spark OSS 3.5.x",
-  "Constructors in different spark versions may have different parameters. " +
-    "So we use that stub for tools")
+  ToolsPlanGraph.SPARK_VERSION,
+  ToolsPlanGraph.CONSTRUCTOR_STUB_MSG)
 case class SparkPlanGraphEdge(fromId: Long, toId: Long)
 
 /**
@@ -42,9 +41,8 @@ case class SparkPlanGraphEdge(fromId: Long, toId: Long)
  * Represent metric for a spark plan node.
  */
 @ToolsReflection(
-  "Spark OSS 3.5.x",
-  "Constructors in different spark versions may have different parameters. " +
-    "So we use that stub for tools")
+  ToolsPlanGraph.SPARK_VERSION,
+  ToolsPlanGraph.CONSTRUCTOR_STUB_MSG)
 case class SQLPlanMetric(
     name: String,
     accumulatorId: Long,
@@ -59,9 +57,8 @@ case class SQLPlanMetric(
  * @param metrics metrics that this SparkPlan node will track
  */
 @ToolsReflection(
-  "Spark OSS 3.5.x",
-  "Inject information related to the platform. Constructors in different spark versions may have" +
-    "different parameters. So we use that stub for tools.")
+  ToolsPlanGraph.SPARK_VERSION,
+  ToolsPlanGraph.INJECT_PLATFORM_MSG + ToolsPlanGraph.CONSTRUCTOR_STUB_MSG)
 class SparkPlanGraphNode(
     val id: Long,
     val name: String,
@@ -85,6 +82,8 @@ class SparkPlanGraphNode(
    * @return A string representing the description of the platform's entity.
    */
   override def platformDesc: String = desc
+
+  def isOssSparkNode: Boolean = true
 }
 
 /**
@@ -92,9 +91,8 @@ class SparkPlanGraphNode(
  * Represent a tree of SparkPlan for WholeStageCodegen.
  */
 @ToolsReflection(
-  "Spark OSS 3.5.x",
-  "Inject information related to the platform. Constructors in different spark versions may have" +
-    "different parameters. So we use that stub for tools.")
+  ToolsPlanGraph.SPARK_VERSION,
+  ToolsPlanGraph.INJECT_PLATFORM_MSG + ToolsPlanGraph.CONSTRUCTOR_STUB_MSG)
 class SparkPlanGraphCluster(
     id: Long,
     name: String,
@@ -102,7 +100,6 @@ class SparkPlanGraphCluster(
     val nodes: mutable.ArrayBuffer[SparkPlanGraphNode],
     metrics: collection.Seq[SQLPlanMetric])
     extends SparkPlanGraphNode(id, name, desc, metrics) {
-
 }
 
 
@@ -185,9 +182,8 @@ class NodeStageMapper {
  * SparkPlan tree, and each edge represents a parent-child relationship between two nodes.
  */
 @ToolsReflection(
-    "Spark OSS 3.5.x",
-    "Constructors in different spark versions may have different parameters. " +
-      "So we use that stub for tools")
+    ToolsPlanGraph.SPARK_VERSION,
+    ToolsPlanGraph.CONSTRUCTOR_STUB_MSG)
 case class SparkPlanGraph(
     nodes: collection.Seq[SparkPlanGraphNode],
     edges: collection.Seq[SparkPlanGraphEdge]) {
@@ -422,6 +418,104 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
   }
 
   /**
+   * Handle the special corner case for shuffleRead nodes that are reading from the driver
+   * followed by an exchange without metrics. This method attempts to break cycles in the graph
+   * by allowing shuffleRead to pick the highest stage order of the ancestor node.
+   *
+   * Called by: assignNodesToStageClusters
+   *
+   * @param orphanNodes the buffer of nodes that haven't been assigned to any cluster yet
+   * @return true if any shuffleRead node was successfully assigned, false otherwise
+   */
+  private def tryAssignShuffleReadCornerCase(
+      orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode]): Boolean = {
+    orphanNodes.filter(
+      n => isPrologueExec(ToolsPlanGraph.processPlanInfo(n.name))).exists { // Picks shuffleRead
+      orphanNode =>
+        // Get adjacent nodes to the shuffleRead that have cluster assignment.
+        val inEdgesWithIds =
+          edges.filter(e => e.toId == orphanNode.id && nodeStageMapper.hasLogicKey(e.fromId))
+        if (inEdgesWithIds.nonEmpty) {
+          // At this point, we need to get all the possible stageIDs that can be assigned to the
+          // adjacent nodes because and not only the logical ones.
+          val possibleIds = inEdgesWithIds.map { e =>
+            val adjacentNode = allNodes.find(eN => eN.id == e.fromId).get
+            getAllNodeStages(adjacentNode)
+          }.reduce(_ ++ _)
+          // Assign the maximum value clusterId to the node.
+          val newIDs = Set[Int](possibleIds.max)
+          commitNodeToStageCluster(orphanNode, orphanNodes, newIDs)
+        } else {
+          false
+        }
+    }
+  }
+
+  /**
+   * Try to assign an orphan node to a cluster based on adjacent nodes.
+   *
+   * Called by: assignNodesToStageClusters
+   *
+   * @param currNode the current orphan node to process
+   * @param currNodeName the normalized name of the node (already processed)
+   * @param orphanNodes the buffer of nodes that haven't been assigned to any cluster yet
+   * @return true if the node was successfully assigned to a cluster, false otherwise
+   */
+  private def tryAssignOrphanNode(currNode: SparkPlanGraphNode, currNodeName: String,
+      orphanNodes: mutable.ArrayBuffer[SparkPlanGraphNode]): Boolean = {
+    currNode match {
+      case wNode: SparkPlanGraphCluster =>
+        // WholeStageCodeGen is a corner case because it is not connected by edges.
+        // The only way to set the clusterID is to get it from the children if any.
+        wNode.nodes.find { childNode => nodeStageMapper.hasLogicKey(childNode.id) } match {
+          case Some(childNode) =>
+            val clusterIDs = nodeStageMapper.getLogicalNTS(childNode.id)
+            commitNodeToStageCluster(wNode, orphanNodes, clusterIDs)
+          case _ => // do nothing if we could not find a child node with a clusterId
+            false
+        }
+      case _ =>
+        // Handle all other nodes.
+        // Set the node type to determine the restrictions (i.e., exchange is
+        // positioned at the tail of a stage and shuffleRead should be the head of a stage).
+        val nodeCase = multiplexCases(currNodeName)
+        var clusterIDs = ToolsPlanGraph.EMPTY_CLUSTERS
+        if ((nodeCase & 1) > 0) {
+          // Assign cluster based on incoming edges.
+          val inEdgesWithIds =
+            edges.filter(e => e.toId == currNode.id && nodeStageMapper.hasLogicKey(e.fromId))
+          if (inEdgesWithIds.nonEmpty) {
+            // For simplicity, assign the node based on the first incoming adjacent node.
+            clusterIDs = nodeStageMapper.getLogicalNTS(inEdgesWithIds.head.fromId)
+          }
+        }
+        if (clusterIDs.isEmpty && (nodeCase & 2) > 0) {
+          // Assign cluster based on outgoing edges (i.e., ShuffleRead).
+          // Corner case: TPC-DS Like Bench q2 (sqlID 24).
+          //              A shuffleReader is reading on driver followed by an exchange without
+          //              metrics.
+          //              The metrics will not have a valid accumID.
+          //              In that case, it is not feasible to match it to a cluster without
+          //              considering the incoming node (exchange in that case). This corner
+          //              case is handled later as a last-ditch effort.
+          val outEdgesWithIds =
+            edges.filter(e => e.fromId == currNode.id && nodeStageMapper.hasLogicKey(e.toId))
+          if (outEdgesWithIds.nonEmpty) {
+            // For simplicity, assign the node based on the first outgoing adjacent node.
+            clusterIDs = nodeStageMapper.getLogicalNTS(outEdgesWithIds.head.toId)
+          }
+        }
+        if (clusterIDs.nonEmpty) {
+          // There is a possible assignment. Commit it.
+          commitNodeToStageCluster(currNode, orphanNodes, clusterIDs)
+        } else {
+          // nothing has changed
+          false
+        }
+    }
+  }
+
+  /**
    * Walk through the graph nodes and assign them to the correct stage cluster.
    */
   protected def assignNodesToStageClusters(): Unit = {
@@ -455,56 +549,8 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
       orphanNodesCopy.foreach { currNode =>
         if (orphanNodes.contains(currNode)) { // Avoid dup processing caused by wholeStageCodeGen
           val currNodeName = ToolsPlanGraph.processPlanInfo(currNode.name)
-          val updatedFlag = currNode match {
-            case wNode: SparkPlanGraphCluster =>
-              // WholeStageCodeGen is a corner case because it is not connected by edges.
-              // The only way to set the clusterID is to get it from the children if any.
-              wNode.nodes.find { childNode => nodeStageMapper.hasLogicKey(childNode.id) } match {
-                case Some(childNode) =>
-                  val clusterIDs = nodeStageMapper.getLogicalNTS(childNode.id)
-                  commitNodeToStageCluster(wNode, orphanNodes, clusterIDs)
-                case _ => // do nothing if we could not find a child node with a clusterId
-                  false
-              }
-            case _ =>
-              // Handle all other nodes.
-              // Set the node type to determine the restrictions (i.e., exchange is
-              // positioned at the tail of a stage and shuffleRead should be the head of a stage).
-              val nodeCase = multiplexCases(currNodeName)
-              var clusterIDs = ToolsPlanGraph.EMPTY_CLUSTERS
-              if ((nodeCase & 1) > 0) {
-                // Assign cluster based on incoming edges.
-                val inEdgesWithIds =
-                  edges.filter(e => e.toId == currNode.id && nodeStageMapper.hasLogicKey(e.fromId))
-                if (inEdgesWithIds.nonEmpty) {
-                  // For simplicity, assign the node based on the first incoming adjacent node.
-                  clusterIDs = nodeStageMapper.getLogicalNTS(inEdgesWithIds.head.fromId)
-                }
-              }
-              if (clusterIDs.isEmpty && (nodeCase & 2) > 0) {
-                // Assign cluster based on outgoing edges (i.e., ShuffleRead).
-                // Corner case: TPC-DS Like Bench q2 (sqlID 24).
-                //              A shuffleReader is reading on driver followed by an exchange without
-                //              metrics.
-                //              The metrics will not have a valid accumID.
-                //              In that case, it is not feasible to match it to a cluster without
-                //              considering the incoming node (exchange in that case). This corner
-                //              case is handled later as a last-ditch effort.
-                val outEdgesWithIds =
-                  edges.filter(e => e.fromId == currNode.id && nodeStageMapper.hasLogicKey(e.toId))
-                if (outEdgesWithIds.nonEmpty) {
-                  // For simplicity, assign the node based on the first outgoing adjacent node.
-                  clusterIDs = nodeStageMapper.getLogicalNTS(outEdgesWithIds.head.toId)
-                }
-              }
-              if (clusterIDs.nonEmpty) {
-                // There is a possible assignment. Commit it.
-                commitNodeToStageCluster(currNode, orphanNodes, clusterIDs)
-              } else {
-                // nothing has changed
-                false
-              }
-          } // End of setting the UpdatedFlag variable.
+          // Try to assign this orphan node to a cluster based on its adjacent nodes.
+          val updatedFlag = tryAssignOrphanNode(currNode, currNodeName, orphanNodes)
           changeFlag |= updatedFlag
         } // End of if orphanNodes.contains(currNode).
       } // End of iteration on orphanNodes.
@@ -516,26 +562,8 @@ class ToolsPlanGraph(val sparkGraph: SparkPlanGraph,
         // and we need to break it.
         // This is done by breaking the rule, allowing the shuffleRead to pick the highest stage
         // order of the ancestor node.
-        changeFlag |= orphanNodes.filter(
-          n => isPrologueExec(ToolsPlanGraph.processPlanInfo(n.name))).exists { // Picks shuffleRead
-          orphanNode =>
-            // Get adjacent nodes to the shuffleRead that have cluster assignment.
-            val inEdgesWithIds =
-              edges.filter(e => e.toId == orphanNode.id && nodeStageMapper.hasLogicKey(e.fromId))
-            if (inEdgesWithIds.nonEmpty) {
-              // At this point, we need to get all the possible stageIDs that can be assigned to the
-              // adjacent nodes because and not only the logical ones.
-              val possibleIds = inEdgesWithIds.map { e =>
-                val adjacentNode = allNodes.find(eN => eN.id == e.fromId).get
-                getAllNodeStages(adjacentNode)
-              }.reduce(_ ++ _)
-              // Assign the maximum value clusterId to the node.
-              val newIDs = Set[Int](possibleIds.max)
-              commitNodeToStageCluster(orphanNode, orphanNodes, newIDs)
-            } else {
-              false
-            }
-        }
+        // The corner case logic has been extracted to tryAssignShuffleReadCornerCase() method.
+        changeFlag |= tryAssignShuffleReadCornerCase(orphanNodes)
       } // end of corner case handling
     } // end of changeFlag loop
   } // end of assignNodesToStageClusters
@@ -610,6 +638,13 @@ object ToolsPlanGraph {
   val EMPTY_CLUSTERS: Set[Int] = Set.empty
   // Captures the API loaded at runtime if any.
   var api: GraphReflectionAPI = _
+
+  // Constants for ToolsReflection annotations to avoid duplication
+  val SPARK_VERSION = "Spark OSS 3.5.x"
+  val INJECT_PLATFORM_MSG = "Inject information related to the platform. "
+  val CONSTRUCTOR_STUB_MSG =
+    "Constructors in different spark versions may have different parameters. " +
+      "So we use that stub for tools."
 
   // The actual code used to build the graph. If the API is not available, then fallback to the
   // Spark default API.

@@ -19,21 +19,51 @@ package com.nvidia.spark.rapids.tool.planparser
 import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class WindowGroupLimitParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Some("WindowGroupLimitExec"),
+    expressionFunction = Some(SQLPlanParser.parseWindowGroupLimitExpressions),
+    app = app
+) {
 
-  val fullExecName: String = node.name + "Exec"
-  val supportedRankingExprs = Set("rank", "dense_rank", "row_number")
+  private var parsedExpressions = Array.empty[String]
+
+  private val supportedRankingExprs = Set("rank", "dense_rank", "row_number")
 
   private def validateRankingExpr(rankingExprs: Array[String]): Boolean = {
     rankingExprs.length == 1 && supportedRankingExprs.contains(rankingExprs.head)
   }
 
-  override def getUnsupportedExprReasonsForExec(
+  override protected def parseExpressions(): Array[String] = {
+    parsedExpressions = super.parseExpressions()
+    parsedExpressions
+  }
+
+  override protected def getNotSupportedExprs(
+      expressions: Array[String]): Seq[UnsupportedExprOpRef] = {
+    // Get unsupported expressions from parent
+    val parentUnsupported = super.getNotSupportedExprs(expressions)
+    // Add our custom ranking expression validation
+    val rankingUnsupported = getUnsupportedExprReasonsForExec(expressions)
+    parentUnsupported ++ rankingUnsupported
+  }
+
+  override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
+    // Parse expressions to check ranking validation
+    super.pullSupportedFlag(registeredName) && validateRankingExpr(parsedExpressions)
+  }
+
+  private def getUnsupportedExprReasonsForExec(
       expressions: Array[String]): Seq[UnsupportedExprOpRef] = {
     expressions.distinct.flatMap { expr =>
       if (!supportedRankingExprs.contains(expr)) {
@@ -43,31 +73,5 @@ case class WindowGroupLimitParser(
         None
       }
     }
-  }
-
-  /**
-   * Node Description:
-   * WindowGroupLimit [category#16], [amount#17 DESC NULLS LAST], dense_rank(amount#17), 2, Final
-   *
-   * Support criteria:
-   * 1. Exec is supported by the plugin.
-   * 2. Ranking function is supported by the plugin.
-   * 3. Ranking function is supported by plugin's implementation of WindowGroupLimitExec.
-   */
-  override def parse: ExecInfo = {
-    val exprString = node.desc.replaceFirst("WindowGroupLimit\\s*", "")
-    val expressions = SQLPlanParser.parseWindowGroupLimitExpressions(exprString)
-    val notSupportedExprs = checker.getNotSupportedExprs(expressions) ++
-        getUnsupportedExprReasonsForExec(expressions)
-    // Check if exec is supported and ranking expression is supported.
-    val isExecSupported = checker.isExecSupported(fullExecName)
-    val areAllExprsSupported = notSupportedExprs.isEmpty && validateRankingExpr(expressions)
-    val (speedupFactor, isSupported) = if (isExecSupported && areAllExprsSupported) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, None, node.id, isSupported, None,
-      unsupportedExprs = notSupportedExprs, expressions = expressions)
   }
 }

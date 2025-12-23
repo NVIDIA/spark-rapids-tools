@@ -18,7 +18,6 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
@@ -27,9 +26,18 @@ case class HashAggregateExecParser(
     override val checker: PluginTypeChecker,
     override val sqlID: Long,
     override val expressionFunction: Option[String => Array[String]],
-    appBase: AppBase) extends
-    GenericExecParser(node, checker, sqlID,
-      expressionFunction = expressionFunction, app = Some(appBase)) with Logging {
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    expressionFunction = expressionFunction,
+    app = app
+) {
 
-  override def getDurationSqlMetrics: Set[String] = Set("time in aggregation build")
+  /**
+   * Duration metric for hash aggregation build phase.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   */
+  override protected val durationSqlMetrics: Set[String] = Set("time in aggregation build")
 }

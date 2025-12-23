@@ -18,37 +18,35 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
+
 case class SortMergeJoinExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
-  private val opName = "SortMergeJoin"
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends BaseHashJoinExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Option(s"${SortMergeJoinExecParser.OP_NAME}Exec"),
+    app = app
+) {
 
-  val fullExecName = opName + "Exec"
+  override def reportedExecName: String = SortMergeJoinExecParser.OP_NAME
 
-  override def parse: ExecInfo = {
-    // SortMergeJoin doesn't have duration
-    val duration = None
+  override protected def getExprString: String = {
     // parse the description after getting rid of the prefix that can include an argument
     val trimPosition = node.desc.indexOf(" ")
-    val exprString = node.desc.substring(trimPosition + 1)
-    val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
-    val (speedupFactor, isSupported) = if (supportedJoinType &&
-      checker.isExecSupported(fullExecName) && notSupportedExprs.isEmpty) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, opName, "", speedupFactor, duration, node.id, isSupported,
-      children = None, expressions = expressions)
+    node.desc.substring(trimPosition + 1)
   }
 }
 
 object SortMergeJoinExecParser {
-  private val execNameRegEx = "(SortMergeJoin)(?:\\(.+\\))?".r
+  private val OP_NAME = "SortMergeJoin"
+  private val execNameRegEx = s"($OP_NAME)(?:\\(.+\\))?".r
 
   def accepts(nodeName: String): Boolean = {
     nodeName.matches(execNameRegEx.regex)

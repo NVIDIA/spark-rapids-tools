@@ -1171,7 +1171,7 @@ object QualOutputWriter {
         s"${unSupExecInfo.execId.toString}" + delimiter +
         s"${reformatCSVFunc(unSupExecInfo.finalOpType)}" + delimiter +
         s"${unSupExecInfo.unsupportedOperatorCSVFormat}" + delimiter +
-        s"${reformatCSVFunc(unSupExecInfo.details)}" + delimiter +
+        s"${unSupExecInfo.detailsCSV}" + delimiter +
         s"$stageAppDuration" + delimiter +
         s"$appDuration" + delimiter +
         s"${unSupExecInfo.opAction}\n"

@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.planparser
 
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
+
 /**
  * A stub class to hold the static information about a Delta Lake operator.
  *

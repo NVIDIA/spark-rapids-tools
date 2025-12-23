@@ -27,21 +27,26 @@ import org.apache.spark.sql.rapids.tool.plangraph.PhotonSparkPlanGraphCluster
  * (e.g. PhotonShuffleMapStage, PhotonUnionShuffleMapStage etc.).
  * This can be extended if specific parsing is needed for a particular Stage operator.
  *
- * @see Resource file in `photonOperatorMappings` for the mapping of Photon operators
+ * @see Resource file in `parser/auron/databricks-13_3.json` for the mapping of Photon operators
  *      to Spark operators
  */
 case class PhotonStageExecParser(
-    node: PhotonSparkPlanGraphCluster,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase,
+    override val node: PhotonSparkPlanGraphCluster,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val  appInst: AppBase,
     reusedNodeIds: Set[Long],
-    nodeIdToStagesFunc: Long => Set[Int])
-  extends WholeStageExecParserBase(node, checker, sqlID, app, reusedNodeIds, nodeIdToStagesFunc) {
+    nodeIdToStagesFunc: Long => Set[Int]
+) extends WholeStageExecParserBase(
+    node, checker, sqlID, appInst, reusedNodeIds, nodeIdToStagesFunc) {
+
+  override val durationSqlMetrics: Set[String] = Set(
+    "stage duration"
+  )
 
   /**
    * Returns the original Photon stage name (e.g., "PhotonShuffleMapStage") for identification,
    * rather than the Spark CPU equivalent ("WholeStageCodegen").
    */
-  override def prettyExpression: String = node.platformName
+  override def reportedExpr: String = node.platformName
 }

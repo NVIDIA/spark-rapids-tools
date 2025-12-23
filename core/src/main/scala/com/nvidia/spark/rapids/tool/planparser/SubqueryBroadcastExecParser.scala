@@ -22,23 +22,27 @@ import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class SubqueryBroadcastExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    app = app
+) {
 
-  val fullExecName = node.name + "Exec"
+  /** SubqueryBroadcast uses driver-side metrics */
+  override protected def useDriverMetrics: Boolean = true
 
-  override def parse: ExecInfo = {
-    val collectTimeId =
-      node.metrics.find(_.name.contains("time to collect")).map(_.accumulatorId)
-    val duration = SQLPlanParser.getDriverTotalDuration(collectTimeId, app)
-    val (filterSpeedupFactor, isSupported) = if (checker.isExecSupported(fullExecName)) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported,
-      children = None, expressions = Seq.empty)
-  }
+  /**
+   * Duration based on time to collect data on the driver.
+   * See [[GenericExecParser.durationSqlMetrics]] for details.
+   *
+   * Note: some eventlogs show the metric as "time to collect (ms)".
+   */
+  override protected val durationSqlMetrics: Set[String] = Set(
+    "time to collect",
+    "time to collect (ms)")
 }

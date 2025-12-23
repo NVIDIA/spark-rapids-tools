@@ -68,7 +68,7 @@ object PhotonPlanParser extends OssSparkPlanParserTrait {
   ): ExecInfo = {
     node.platformName match {
       case "PhotonBroadcastNestedLoopJoin" =>
-        PhotonBroadcastNestedLoopJoinExecParser(node, checker, sqlID).parse
+        PhotonBroadcastNestedLoopJoinExecParser(node, checker, sqlID, app = Option(app)).parse
       case _ =>
         // If no photon specific parser is defined, parse using Spark CPU parser.
         // This is allowed because `node.name` and `node.desc` are set to the Spark CPU
@@ -91,7 +91,7 @@ object PhotonPlanParser extends OssSparkPlanParserTrait {
       app: AppBase,
       reusedNodeIds: Set[Long],
       nodeIdToStagesFunc: Long => Set[Int]
-  ): Seq[ExecInfo] = {
+  ): ExecInfo = {
     // It is possible to have non-photon cluster in an eventlog with photon enabled,
     // so we need to match the type here.
     node match {
@@ -109,6 +109,10 @@ object PhotonPlanParser extends OssSparkPlanParserTrait {
         super.parseClusterNode(
           node, sqlID, checker, app, reusedNodeIds, nodeIdToStagesFunc = nodeIdToStagesFunc)
     }
+  }
+
+  def acceptsCtxt(app: AppBase): Boolean = {
+    app.isPhoton
   }
 
 }

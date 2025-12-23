@@ -20,31 +20,35 @@ import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
-import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class ShuffleExchangeExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long,
-    app: AppBase) extends ExecParser with Logging {
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends GenericExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Option("ShuffleExchangeExec"),
+    app = app
+) {
 
-  val fullExecName = "ShuffleExchangeExec"
-
-  override def parse: ExecInfo = {
-    val writeId = node.metrics.find(_.name == "shuffle write time").map(_.accumulatorId)
-    // shuffle write time is in nanoseconds
-    val maxWriteTime = SQLPlanParser.getTotalDuration(writeId, app).map(NANOSECONDS.toMillis(_))
-    val fetchId = node.metrics.find(_.name == "fetch wait time").map(_.accumulatorId)
-    val maxFetchTime = SQLPlanParser.getTotalDuration(fetchId, app)
-    val duration = (maxWriteTime ++ maxFetchTime).reduceOption(_ + _)
-    val (filterSpeedupFactor, isSupported) = if (checker.isExecSupported(fullExecName)) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
+  /**
+   * Compute duration by summing:
+   * - shuffle write time (in nanoseconds, needs conversion)
+   * - fetch wait time (in milliseconds)
+   */
+  override protected def computeDuration: Option[Long] = {
+    app.flatMap { appObj =>
+      val writeId = node.metrics.find(_.name == "shuffle write time").map(_.accumulatorId)
+      // shuffle write time is in nanoseconds, convert to milliseconds
+      val maxWriteTime = SQLPlanParser.getTotalDuration(writeId, appObj).map(NANOSECONDS.toMillis)
+      val fetchId = node.metrics.find(_.name == "fetch wait time").map(_.accumulatorId)
+      val maxFetchTime = SQLPlanParser.getTotalDuration(fetchId, appObj)
+      (maxWriteTime ++ maxFetchTime).reduceOption(_ + _)
     }
-    ExecInfo(node, sqlID, node.name, "", filterSpeedupFactor, duration, node.id, isSupported,
-      children = None, expressions = Seq.empty)
   }
 }

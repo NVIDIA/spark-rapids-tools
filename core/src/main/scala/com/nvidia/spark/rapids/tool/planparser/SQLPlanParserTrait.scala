@@ -133,7 +133,7 @@ trait SQLPlanParserTrait {
    * @param app Application context
    * @param reusedNodeIds Set of reused node IDs to mark as shouldRemove
    * @param nodeIdToStagesFunc Function mapping node IDs to stage IDs
-   * @return Sequence of ExecInfo containing the cluster with nested child operators
+   * @return ExecInfo containing the cluster with nested child operators
    */
   def parseClusterNode(
       node: SparkPlanGraphNode,
@@ -142,7 +142,7 @@ trait SQLPlanParserTrait {
       app: AppBase,
       reusedNodeIds: Set[Long],
       nodeIdToStagesFunc: Long => Set[Int]
-  ): Seq[ExecInfo]
+  ): ExecInfo
 
   /**
    * Determines if a graph node represents a cluster node.
@@ -158,4 +158,15 @@ trait SQLPlanParserTrait {
    * @return true if the node represents a cluster, false for individual operators
    */
   def isClusterNode(node: SparkPlanGraphNode): Boolean
+
+  /**
+   * Determines if the parser can handle plans from the given application.
+   *
+   * Implementations should check the application's platform type or other
+   * identifying characteristics to confirm compatibility.
+   *
+   * @param app Application context containing platform information
+   * @return true if the parser supports the application's platform, false otherwise
+   */
+  def acceptsCtxt(app: AppBase): Boolean
 }

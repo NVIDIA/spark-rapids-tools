@@ -18,28 +18,18 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
+import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
 
 case class BroadcastHashJoinExecParser(
-    node: SparkPlanGraphNode,
-    checker: PluginTypeChecker,
-    sqlID: Long) extends ExecParser {
-
-  val fullExecName = node.name + "Exec"
-
-  override def parse: ExecInfo = {
-    // BroadcastHashJoin doesn't have duration
-    val duration = None
-    val exprString = node.desc.replaceFirst("^BroadcastHashJoin\\s*", "")
-    val (expressions, supportedJoinType) = SQLPlanParser.parseEquijoinsExpressions(exprString)
-    val notSupportedExprs = expressions.filterNot(expr => checker.isExprSupported(expr))
-    val (speedupFactor, isSupported) = if (checker.isExecSupported(fullExecName) &&
-      notSupportedExprs.isEmpty && supportedJoinType) {
-      (checker.getSpeedupFactor(fullExecName), true)
-    } else {
-      (1.0, false)
-    }
-    ExecInfo(node, sqlID, node.name, "", speedupFactor, duration, node.id, isSupported,
-      children = None, expressions = expressions)
-  }
-}
+    override val node: SparkPlanGraphNode,
+    override val checker: PluginTypeChecker,
+    override val sqlID: Long,
+    override val app: Option[AppBase]
+) extends BaseHashJoinExecParser(
+    node,
+    checker,
+    sqlID,
+    execName = Option("BroadcastHashJoinExec"),
+    app = app
+)
