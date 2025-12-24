@@ -88,8 +88,6 @@ toolsConfig:
       - logStart
       - streamingQueryStart
       - streamingQueryEnd
-  - className: RunningQualificationApp
-    # Accepts all the events. It does not define any supportedEvents entry
   - className: ApplicationInfo
     supportedEvents:
       - taskEnd
