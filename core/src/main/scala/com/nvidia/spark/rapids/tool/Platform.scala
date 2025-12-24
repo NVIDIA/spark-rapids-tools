@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.tuning.{SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
 
 import org.apache.spark.internal.Logging

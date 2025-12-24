@@ -112,8 +112,12 @@ object ToolUtils extends Logging {
   }
 
   def isPluginEnabled(properties: Map[String, String]): Boolean = {
-    (properties.getOrElse(config.PLUGINS.key, "").contains("com.nvidia.spark.SQLPlugin")
-      && properties.getOrElse("spark.rapids.sql.enabled", "true").toBoolean)
+    val hasPlugin = properties.getOrElse(config.PLUGINS.key, "")
+      .contains("com.nvidia.spark.SQLPlugin")
+    val isEnabled = Try {
+      properties.getOrElse("spark.rapids.sql.enabled", "true").toBoolean
+    }.getOrElse(true) // Default to true if parsing fails, matching the default value
+    hasPlugin && isEnabled
   }
 
   def showString(df: DataFrame, numRows: Int) = {

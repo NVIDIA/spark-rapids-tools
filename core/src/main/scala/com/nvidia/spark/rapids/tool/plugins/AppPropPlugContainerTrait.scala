@@ -16,6 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.plugins
 
+import com.nvidia.spark.rapids.tool.planparser.db.DBPlugin
+
 import org.apache.spark.sql.rapids.tool.util.SparkRuntime.SparkRuntime
 
 /**
@@ -28,7 +30,19 @@ trait AppPropPlugContainerTrait {
   def initPluginMap(): Map[String, BaseAppPropPlug] = BaseAppPropPlug.loadAppPropPlugs()
 
   // Map of plugin ID to AppPropPlugTrait instances
-  val pluginMap: Map[String, AppPropPlugTrait] = initPluginMap()
+  val pluginMap: Map[String, BaseAppPropPlug] = initPluginMap()
+
+  /**
+   * Retrieves a plugin instance by its ID with type-safe casting.
+   * @tparam T The type of plugin to return, must extend BaseAppPropPlug
+   * @param pluginId The ID of the plugin to retrieve
+   * @return The plugin instance cast to the requested type
+   */
+  @throws[ClassCastException]
+  @throws[NoSuchElementException]
+  def getPluginInst[T <: BaseAppPropPlug](pluginId: String): T = {
+    pluginMap(pluginId).asInstanceOf[T]
+  }
 
   /**
    * Re-evaluates all plugins with the provided application properties. This is typically invoked
@@ -40,6 +54,12 @@ trait AppPropPlugContainerTrait {
     pluginMap.values.foreach(_.reEvaluate(properties))
   }
 
+  def reEvaluateOnJobLevel(jobProperties: collection.Map[String, String]): Unit = {
+    pluginMap.values
+      .filter(_.hasJobLevelConfigs)
+      .foreach(_.reEvaluate(jobProperties))
+  }
+
   /**
    * Checks if a plugin with the given ID is enabled.
    * @param pluginId The ID of the plugin to check.
@@ -49,6 +69,20 @@ trait AppPropPlugContainerTrait {
     pluginMap.get(pluginId).exists(_.isEnabled)
   }
 
+  /**
+   * Retrieves the Spark version from the first enabled plugin that defines it in its metadata.
+   * This method searches through all enabled plugins and returns the "spark.version" value
+   * from the first plugin that has it stored in its metadata map.
+   *
+   * @return An Option containing the Spark version string if any enabled plugin defines it,
+   *         otherwise None. The version is extracted from the plugin's metadata using the
+   *         "spark.version" key.
+   */
+  def getSparkVersionPlugins: Option[String] = {
+    pluginMap.values.filter(_.isEnabled)
+      .find(_.getMetadata.contains("spark.version"))
+      .flatMap(_.getMetadata.get("spark.version").map(_.toString))
+  }
   /**
    * Retrieves the Spark runtime associated with the enabled plugins.
    * @return An Option containing the SparkRuntime if any enabled plugin has a defined runtime,
@@ -68,5 +102,17 @@ trait AppPropPlugContainerTrait {
   // Note that this is only a best-effort flag based on the spark properties.
   def isDeltaLakeOSSEnabled: Boolean = {
     isEnabled(BaseAppPropPlug.DELTA_OSS_PLUG_ID)
+  }
+  // A flag to indicate whether the spark App is configured to use Iceberg.
+  // Note that this is only a best-effort flag based on the spark properties.
+  def isIcebergEnabled: Boolean = {
+    isEnabled(BaseAppPropPlug.ICEBERG_PLUG_ID)
+  }
+  def isHiveEnabled: Boolean = {
+    isEnabled(BaseAppPropPlug.HIVE_PLUG_ID)
+  }
+
+  def dbPlugin: DBPlugin = {
+    getPluginInst[DBPlugin](BaseAppPropPlug.DB_PLUG_ID)
   }
 }

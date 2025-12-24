@@ -18,8 +18,6 @@ package org.apache.spark.sql.rapids.tool.util
 
 import scala.jdk.CollectionConverters._
 
-import com.nvidia.spark.rapids.tool.planparser.HiveParseHelper
-import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.plugins.AppPropPlugContainerTrait
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
@@ -59,14 +57,11 @@ object SparkRuntime extends Enumeration {
 
   /**
    * Returns the SparkRuntime value based on the given parameters.
-   * @param isPhoton Boolean flag indicating whether the application is running on Photon.
    * @param isGpu    Boolean flag indicating whether the application is running on GPU.
    * @return
    */
-  def getRuntime(isPhoton: Boolean, isGpu: Boolean): SparkRuntime.SparkRuntime = {
-    if (isPhoton) {
-      PHOTON
-    } else if (isGpu) {
+  def getRuntime(isGpu: Boolean): SparkRuntime.SparkRuntime = {
+    if (isGpu) {
       SPARK_RAPIDS
     } else {
       SPARK
@@ -116,18 +111,25 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   )
 
   // caches the spark-version from the eventlogs
-  var sparkVersion: String = ""
+  private var _sparkVersion: String = ""
+
+  /** Getter for Spark version */
+  def sparkVersion: String = {
+    // get the spark version from the plugins if any.
+    // If None is defined, fall back to the cached one.
+    getSparkVersionPlugins match {
+      case Some(ver) => ver
+      case None => _sparkVersion
+    }
+  }
+
+  /** Setter for Spark version */
+  def sparkVersion_=(value: String): Unit = {
+    _sparkVersion = value
+  }
+
   // A flag to indicate whether the eventlog is an eventlog with Spark RAPIDS runtime.
   var gpuMode = false
-  // A flag to indicate whether the eventlog is an eventlog from Photon runtime.
-  var isPhoton = false
-  // A flag whether hive is enabled or not. Note that we assume that the
-  // property is global to the entire application once it is set. a.k.a, it cannot be disabled
-  // once it was set to true.
-  var hiveEnabled = false
-  // A flag to indicate whether the spark App is configured to use Iceberg.
-  // Note that this is only a best-effort flag based on the spark properties.
-  var icebergEnabled = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
   // By default, it is empty.
   var mlEventLogType = ""
@@ -157,8 +159,7 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
 
   def updatePredicatesFromSparkProperties(): Unit = {
     gpuMode ||= ProfileUtils.isPluginEnabled(sparkProperties)
-    icebergEnabled ||= IcebergHelper.isIcebergEnabled(sparkProperties)
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(sparkProperties)
+    // auron, deltaOss, and iceberg enabled flags are updated in reEvaluate.
     reEvaluate(sparkProperties)
   }
 
@@ -179,8 +180,7 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
     // TODO: we need to improve this in order to support per-job-level
-    icebergEnabled ||= IcebergHelper.isIcebergEnabled(event.properties.asScala)
-    hiveEnabled ||= HiveParseHelper.isHiveEnabled(event.properties.asScala)
+    reEvaluateOnJobLevel(event.properties.asScala)
   }
 
   def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
@@ -198,7 +198,7 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   def getSparkRuntime: SparkRuntime.SparkRuntime = {
     getSparkRuntimePlugins match {
       case Some(rt) => rt
-      case None => SparkRuntime.getRuntime(isPhoton, gpuMode)
+      case _ => SparkRuntime.getRuntime(gpuMode)
     }
   }
 }

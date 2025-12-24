@@ -24,7 +24,8 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, LinkedHashSet, M
 
 import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
-import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, HiveParseHelper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
@@ -36,7 +37,7 @@ import org.apache.spark.rapids.tool.benchmarks.RuntimeInjector
 import org.apache.spark.scheduler.{SparkListenerEvent, StageInfo}
 import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraphNode, ToolsPlanGraph}
 import org.apache.spark.sql.rapids.tool.store.{AccumManager, DataSourceRecord, SparkPlanInfoTruncated, SQLPlanModel, SQLPlanModelManager, StageModel, StageModelManager, TaskModelManager, WriteOperationRecord}
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, RapidsToolsConfUtil, StringUtils, SuccessAppResult, UTF8Source}
+import org.apache.spark.sql.rapids.tool.util.{CacheablePropsHandler, EventUtils, RapidsToolsConfUtil, StringUtils, SuccessAppResult, UTF8Source}
 import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanExtensions.SparkPlanInfoOps
 import org.apache.spark.sql.rapids.tool.util.stubs.SparkPlanInfo
 import org.apache.spark.util.Utils
@@ -45,7 +46,7 @@ abstract class AppBase(
     val eventLogInfo: Option[EventLogInfo],
     val hadoopConf: Option[Configuration],
     val platform: Option[Platform] = None) extends Logging
-  with ClusterTagPropHandler
+  with CacheablePropsHandler
   with AccumToStageRetriever
   with Identifiable[String]
   with EventLogParserTrait {
@@ -471,7 +472,7 @@ abstract class AppBase(
     }
     // "scan hive" has no "ReadSchema" defined. So, we need to look explicitly for nodes
     // that are scan hive and add them one by one to the dataSource
-    if (hiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
+    if (isHiveEnabled) { // only scan for hive when the CatalogImplementation is using hive
       // TODO: this needs to be refactored to follow the same fix in the generic case.
       //       We should not be checking the hive scans explicitly in the caller.
       val allPlanWithHiveScan = sqlPlanInfoGraph.planInfo.getPlansWithHiveScan

@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.SupportedOpStub
 import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
+import com.nvidia.spark.rapids.tool.plugins.PropConditionOnSparkExtTrait
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
 
@@ -26,11 +27,22 @@ import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
  * This includes methods to check if Iceberg is enabled in the Spark properties,
  * and to extract the catalog type among other static functionalities.
  */
-object IcebergHelper {
+object IcebergHelper extends PropConditionOnSparkExtTrait {
   // An Iceberg app is identified using the following properties from spark properties.
-  private val SPARK_PROPS_ENABLING_ICEBERG = Map(
+  override val extensionRegxMap: Map[String, String] = Map(
     "spark.sql.extensions" -> ".*IcebergSparkSessionExtensions.*"
   )
+
+  /**
+   * used to identify if a property key represents a Spark catalog configuration
+   * (e.g., spark.sql.catalog.my_catalog), which is one way to detect that Iceberg is being used
+   * in the application, since Iceberg requires catalog configuration in Spark properties.
+   * @param properties spark properties captured from the eventlog environment details
+   * @return true if any spark catalog is defined, false otherwise
+   */
+  private def isSparkCatalogDefined(properties: collection.Map[String, String]): Boolean = {
+    properties.keys.exists(key => SPARK_CATALOG_REGEX.pattern.matcher(key).matches())
+  }
 
   // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
   private val SUPPORTED_CATALOGS = Set("hadoop")
@@ -51,15 +63,13 @@ object IcebergHelper {
   /**
    * Checks if the properties indicate that the application is using Iceberg.
    * This can be checked by looking for keywords in one of the keys defined in
-   * SPARK_PROPS_ENABLING_ICEBERG or if any spark catalog is set.
+   * extensionRegxMap or if any spark catalog is set.
    *
    * @param properties spark properties captured from the eventlog environment details
    * @return true if the properties indicate that it is an Iceberg app.
    */
-  def isIcebergEnabled(properties: collection.Map[String, String]): Boolean = {
-    SPARK_PROPS_ENABLING_ICEBERG.exists { case (key, value) =>
-      properties.get(key).exists(_.matches(value))
-    } || properties.keys.exists(key => SPARK_CATALOG_REGEX.pattern.matcher(key).matches())
+  override def eval(properties: collection.Map[String, String]): Boolean = {
+    super.eval(properties) || isSparkCatalogDefined(properties)
   }
 
   /**

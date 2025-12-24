@@ -62,8 +62,8 @@ object IcebergWriteOps extends GroupParserTrait {
       nodeName: String,
       confProvider: Option[CacheablePropsHandler]): Boolean = {
     confProvider match {
-      case Some(a) if a.icebergEnabled =>
-        a.icebergEnabled && accepts(nodeName)
+      case Some(a) if a.isIcebergEnabled =>
+        a.isIcebergEnabled && accepts(nodeName)
       case _ => accepts(nodeName)
     }
   }

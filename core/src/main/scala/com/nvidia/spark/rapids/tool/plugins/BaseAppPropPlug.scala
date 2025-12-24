@@ -24,10 +24,44 @@ import org.apache.spark.internal.Logging
  * Abstract base class for application property plugins.
  * This class provides a common structure for plugins that handle application properties.
  *
- * @param id The unique identifier for the plugin.
+ * @param pluginConfig The configuration for the application property plugin.
  */
-abstract class BaseAppPropPlug(val id: String) extends AppPropPlugTrait {
+abstract class BaseAppPropPlug(
+    val pluginConfig: AppPropPlugConfig
+) extends AppPropPlugTrait {
+  val id: String = pluginConfig.plugId
+  override val hasJobLevelConfigs: Boolean = pluginConfig.hasJobLevelConfigs
 
+  /**
+   * Mutable metadata container that child classes can populate with custom key-value pairs.
+   * This allows plugins to store additional information such as versions, configurations,
+   * or feature flags discovered during property evaluation.
+   */
+  protected val pluginMetadata: scala.collection.mutable.Map[String, Any] =
+    scala.collection.mutable.Map.empty[String, Any]
+
+  /**
+   * Returns an immutable view of the plugin metadata.
+   * @return Immutable map containing all metadata key-value pairs.
+   */
+  def getMetadata: Map[String, Any] = pluginMetadata.toMap
+
+  /**
+   * Helper method to add a metadata entry.
+   * @param key The metadata key.
+   * @param value The metadata value.
+   */
+  protected def addMetadata(key: String, value: Any): Unit = {
+    pluginMetadata(key) = value
+  }
+
+  /**
+   * Helper method to add multiple metadata entries at once.
+   * @param entries Map of key-value pairs to add to metadata.
+   */
+  protected def addMetadata(entries: Map[String, Any]): Unit = {
+    pluginMetadata ++= entries
+  }
 }
 
 /**
@@ -42,6 +76,10 @@ case class AppPropPlugConfig(
     enabled: Boolean,
     additionalConfigs: Map[String, String]) {
   def getClassName: String = additionalConfigs.getOrElse("className", "")
+  def hasJobLevelConfigs: Boolean = {
+    additionalConfigs.get("hasJobLevelConfigs")
+      .exists(_.equalsIgnoreCase("true"))
+  }
 }
 
 /**
@@ -54,7 +92,7 @@ object BaseAppPropPlug extends Logging {
   val DELTA_OSS_PLUG_ID: String = "delta-oss"
   val HIVE_PLUG_ID: String = "hive"
   val ICEBERG_PLUG_ID: String = "iceberg"
-  val PHOTON_PLUG_ID: String = "photon"
+  val DB_PLUG_ID: String = "databricks"
 
   /**
    * Default configuration map for application property plugins.
@@ -74,6 +112,30 @@ object BaseAppPropPlug extends Logging {
       enabled = true,
       additionalConfigs = Map(
         "className" -> "com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOSSPlugin"
+      )
+    ),
+    ICEBERG_PLUG_ID -> AppPropPlugConfig(
+      plugId = ICEBERG_PLUG_ID,
+      enabled = true,
+      additionalConfigs = Map(
+        "hasJobLevelConfigs" -> "true", // config this plugin to be re-evaluated on job level
+        "className" -> "com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergPlugin"
+      )
+    ),
+    DB_PLUG_ID -> AppPropPlugConfig(
+      plugId = DB_PLUG_ID,
+      enabled = true,
+      additionalConfigs = Map(
+        "hasJobLevelConfigs" -> "true", // config this plugin to be re-evaluated on job level
+        "className" -> "com.nvidia.spark.rapids.tool.planparser.db.DBPlugin"
+      )
+    ),
+    HIVE_PLUG_ID -> AppPropPlugConfig(
+      plugId = HIVE_PLUG_ID,
+      enabled = true,
+      additionalConfigs = Map(
+        "hasJobLevelConfigs" -> "true", // config this plugin to be re-evaluated on job level
+        "className" -> "com.nvidia.spark.rapids.tool.planparser.hive.HivePlugin"
       )
     )
   )
@@ -96,8 +158,8 @@ object BaseAppPropPlug extends Logging {
     val clazz = Class.forName(className)
     val plugin = try {
       // Try to instantiate with a String constructor (plugId)
-      clazz.getConstructor(classOf[String])
-        .newInstance(plugConf.plugId)
+      clazz.getConstructor(classOf[AppPropPlugConfig])
+        .newInstance(plugConf)
         .asInstanceOf[BaseAppPropPlug]
     } catch {
       case _: NoSuchMethodException =>

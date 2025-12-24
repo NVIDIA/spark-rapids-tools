@@ -115,7 +115,7 @@ class SQLPlanVersion(
   private def initWriteOperationRecords(): Iterable[WriteOperationRecord] = {
     // pick nodes that satisfies IcebergWriteOps.accepts
     val checkIceberg = _sparkConfigProvider match {
-      case Some(conf) => conf.icebergEnabled
+      case Some(conf) => conf.isIcebergEnabled
       case None => false
     }
     getToolsPlanGraph.allNodes

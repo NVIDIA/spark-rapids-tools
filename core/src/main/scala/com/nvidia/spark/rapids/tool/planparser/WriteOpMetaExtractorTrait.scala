@@ -19,6 +19,8 @@ package com.nvidia.spark.rapids.tool.planparser
 import scala.util.Try
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
+
 import org.apache.spark.sql.rapids.tool.store.{WriteOperationMetaBuilder, WriteOperationMetadataTrait}
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -558,7 +560,7 @@ object InsertIntoHadoopExtract extends InsertCmdExtractorTrait {
   // Regular expression to capture text enclosed in backticks. This is used to
   // extract potential catalog details like database and table names.
   val BACKTICKS_CATALOG_REG_EX: Regex = """`([^`]+)`""".r
-  // Capture the reference to inapplicable extracts instead of a llocating a new one for each call.
+  // Capture the reference to inapplicable extracts instead of locating a new one for each call.
   val INAPPLICABLE_EXTRACT_OPTION: Option[String] = Some(StringUtils.INAPPLICABLE_EXTRACT)
 
   // Builds the write operation metadata based on the node description.
