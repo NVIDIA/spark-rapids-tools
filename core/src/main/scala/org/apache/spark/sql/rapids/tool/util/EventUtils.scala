@@ -141,7 +141,7 @@ object EventUtils extends Logging {
    */
   private lazy val acceptedLinesToolMap: Map[String, List[String]] = {
     val toolNames = Seq(
-      "ApplicationInfo", "RunningQualificationApp", "QualificationAppInfo", "FilterAppInfo"
+      "ApplicationInfo", "QualificationAppInfo", "FilterAppInfo"
     )
     toolNames.map(toolName => toolName -> EventLogReaderConf.getAcceptedLines(toolName)).toMap
   }
