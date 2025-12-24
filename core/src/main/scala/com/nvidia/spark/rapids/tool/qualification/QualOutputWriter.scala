@@ -22,7 +22,8 @@ import scala.collection.mutable
 import scala.collection.mutable.{Buffer, LinkedHashMap, ListBuffer}
 
 import com.nvidia.spark.rapids.tool.ToolTextFileWriter
-import com.nvidia.spark.rapids.tool.planparser.{DatabricksParseHelper, ExecInfo, PlanInfo, UnsupportedExecSummary}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, PlanInfo, UnsupportedExecSummary}
+import com.nvidia.spark.rapids.tool.planparser.db.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.planparser.ops.OperatorCounter
 import com.nvidia.spark.rapids.tool.profiling.AppStatusResult
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils.replaceDelimiter

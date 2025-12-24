@@ -16,8 +16,10 @@
 
 package org.apache.spark.sql.rapids.tool.util.stubs
 
-import com.nvidia.spark.rapids.tool.planparser.{HiveParseHelper, PhotonOssOpMapper, ReadParser}
+import com.nvidia.spark.rapids.tool.planparser.ReadParser
 import com.nvidia.spark.rapids.tool.planparser.auron.AuronOssOpMapper
+import com.nvidia.spark.rapids.tool.planparser.db.PhotonOssOpMapper
+import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
 import com.nvidia.spark.rapids.tool.plugins.{GpuOssOpMapper, OssOpMapper, OssOpMapperTrait}
 
 import org.apache.spark.sql.rapids.tool.AppBase

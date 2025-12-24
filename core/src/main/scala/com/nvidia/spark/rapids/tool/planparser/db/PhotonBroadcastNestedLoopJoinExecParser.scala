@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser.photon
+package com.nvidia.spark.rapids.tool.planparser.db
 
 import com.nvidia.spark.rapids.tool.planparser.BroadcastNestedLoopJoinExecParserBase
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker

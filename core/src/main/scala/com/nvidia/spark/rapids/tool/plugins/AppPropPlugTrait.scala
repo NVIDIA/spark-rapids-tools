@@ -25,7 +25,7 @@ import org.apache.spark.sql.rapids.tool.util.SparkRuntime
  * the Auron plugin which indicates the Auron runtime.
  */
 trait AppPropRuntimeTrait {
-  val runtime: Option[SparkRuntime.SparkRuntime] = None
+  def runtime: Option[SparkRuntime.SparkRuntime] = None
 }
 
 /**
@@ -37,6 +37,11 @@ trait AppPropPlugTrait extends AppPropRuntimeTrait {
    * Indicates that once the property is set to True, it should remain True and not be re-evaluated.
    */
   val stickyTrue: Boolean = true
+  /**
+   * Indicates whether the property has job-level configuration.
+   * By default, this is set to false.
+   */
+  val hasJobLevelConfigs: Boolean = false
   /**
    * Indicates whether the property is currently enabled. This flag is mutable and can be updated
    * based on the evaluation of application properties.
@@ -60,7 +65,19 @@ trait AppPropPlugTrait extends AppPropRuntimeTrait {
   def reEvaluate(properties: collection.Map[String, String]): Unit = {
     if (!(isEnabled && stickyTrue)) {
       isEnabled ||= propCondition.eval(properties)
+      if (isEnabled) {
+        // trigger an action once a plugin becomes enabled.
+        postEnableAction(properties)
+      }
     }
+  }
+
+  /**
+   * Callback function that is invoked after the property has been enabled.
+   * @param properties Application properties based on which the property was enabled.
+   */
+  def postEnableAction(properties: collection.Map[String, String]): Unit = {
+    // default no-op
   }
 
   /**

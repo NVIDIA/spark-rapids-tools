@@ -187,7 +187,7 @@ trait ScanMetadataExtractorTrait {
       case None => false  // no app provided then we assume it is false to be safe.
       case Some(a) =>
         // If the app is provided, then check if iceberg is enabled
-        a.icebergEnabled
+        a.isIcebergEnabled
     }
     appEnabled
   }

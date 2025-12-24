@@ -23,7 +23,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.DatabricksParseHelper
 import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
 import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.matchers.should.Matchers._

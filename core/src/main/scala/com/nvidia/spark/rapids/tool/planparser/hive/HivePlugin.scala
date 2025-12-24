@@ -14,24 +14,21 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser.delta
+package com.nvidia.spark.rapids.tool.planparser.hive
 
-import com.nvidia.spark.rapids.tool.plugins.{AppPropPlugConfig, AppPropVersionExtractorTrait, BaseAppPropPlug, PropConditionTrait}
+import com.nvidia.spark.rapids.tool.plugins.{AppPropPlugConfig, BaseAppPropPlug, PropConditionTrait}
 
 /**
- * Plugin implementation for Delta OSS usage in Spark applications.
+ * Plugin implementation for detecting Hive usage in Spark applications.
+ * Detects Hive by checking spark.sql.catalogImplementation property.
+ *
+ * @param pluginConfig Configuration for the Hive plugin.
+ * @see BaseAppPropPlug
  */
-class DeltaLakeOSSPlugin(
+class HivePlugin(
     override val pluginConfig: AppPropPlugConfig
 ) extends BaseAppPropPlug(pluginConfig = pluginConfig) {
 
-  /**
-   * Callback function to evaluate the property based on application properties.
-   */
-  override val propCondition: PropConditionTrait = DeltaLakeHelper
-  /**
-   * Callback function to extract the version of Delta OSS from application properties.
-   */
-  override val versionExtractor: Option[AppPropVersionExtractorTrait] = Some(DeltaLakeHelper)
-
+  /** Condition evaluator for Hive detection. @see HiveParseHelper */
+  override val propCondition: PropConditionTrait = HiveParseHelper
 }

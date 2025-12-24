@@ -524,7 +524,7 @@ class QualificationAppInfo(
 
       val appName = appMetaData.map(_.appName).getOrElse("")
 
-      val allClusterTagsMap = prepareClusterTags
+      val allClusterTagsMap = dbPlugin.prepareClusterTags
 
       val perSqlInfos = if (reportSqlLevel) {
         Some(planInfos.flatMap { pInfo =>
@@ -636,7 +636,7 @@ class QualificationAppInfo(
         perSQLEstimatedInfo = perSqlInfos,
         unSupportedExecs = unSupportedExecs,
         unSupportedExprs = unSupportedExprs,
-        clusterTags = clusterTags,
+        clusterTags = dbPlugin.clusterTags,
         allClusterTagsMap = allClusterTagsMap,
         mlFunctions = mlFuncReportInfo.mlFunctionsAndStageInfo,
         mlFunctionsStageDurations = mlFuncReportInfo.mlTotalStageDurations,

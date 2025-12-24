@@ -41,7 +41,7 @@ import org.apache.spark.sql.rapids.tool.util.{PropertiesLoader, ValidatablePrope
  *     description: Parser for Auron (Native Spark) execution nodes
  *     nodePattern: Native[A-Z][a-zA-Z]+|ConvertToNative
  *   - name: Photon
- *     className: com.nvidia.spark.rapids.tool.planparser.photon.PhotonPlanParser
+ *     className: com.nvidia.spark.rapids.tool.planparser.db.PhotonPlanParser
  *     enabled: true
  *     description: Parser for Databricks Photon execution nodes
  *     nodePattern: Photon[A-Z][a-zA-Z]+

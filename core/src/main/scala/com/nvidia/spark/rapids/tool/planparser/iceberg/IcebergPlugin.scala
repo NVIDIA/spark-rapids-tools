@@ -14,24 +14,19 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser.delta
+package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.plugins.{AppPropPlugConfig, AppPropVersionExtractorTrait, BaseAppPropPlug, PropConditionTrait}
+import com.nvidia.spark.rapids.tool.plugins.{AppPropPlugConfig, BaseAppPropPlug, PropConditionTrait}
 
 /**
- * Plugin implementation for Delta OSS usage in Spark applications.
+ * Plugin implementation for Iceberg usage in Spark applications.
+ * Note that it is possible that Iceberg is enabled along other plugins.
  */
-class DeltaLakeOSSPlugin(
+class IcebergPlugin(
     override val pluginConfig: AppPropPlugConfig
 ) extends BaseAppPropPlug(pluginConfig = pluginConfig) {
-
   /**
    * Callback function to evaluate the property based on application properties.
    */
-  override val propCondition: PropConditionTrait = DeltaLakeHelper
-  /**
-   * Callback function to extract the version of Delta OSS from application properties.
-   */
-  override val versionExtractor: Option[AppPropVersionExtractorTrait] = Some(DeltaLakeHelper)
-
+  override val propCondition: PropConditionTrait = IcebergHelper
 }

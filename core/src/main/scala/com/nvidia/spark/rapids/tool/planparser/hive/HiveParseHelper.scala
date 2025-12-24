@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser
+package com.nvidia.spark.rapids.tool.planparser.hive
+
+import com.nvidia.spark.rapids.tool.planparser.ReadMetaData
+import com.nvidia.spark.rapids.tool.planparser.ReadParser
+import com.nvidia.spark.rapids.tool.plugins.PropConditionOnSparkExtTrait
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
@@ -36,10 +40,19 @@ case class HiveScanSerdeClasses(className: String, format: String) extends Loggi
 }
 
 // Utilities used to handle Hive Ops.
-object HiveParseHelper extends Logging {
+object HiveParseHelper extends PropConditionOnSparkExtTrait with Logging {
   private val SCAN_HIVE_LABEL = "scan hive"
   val SCAN_HIVE_EXEC_NAME = "HiveTableScanExec"
   val INSERT_INTO_HIVE_LABEL = "InsertIntoHiveTable"
+
+  /**
+   * A map where keys are Spark extension property names and values are
+   * regex patterns to match against the property values.
+   */
+  override val extensionRegxMap: Map[String, String] = Map(
+    // Check if Hive support is enabled in Spark
+    "spark.sql.catalogImplementation" -> "(?i)hive"
+  )
 
   // The following is a list of Classes we can look for is SerDe.
   // We should maintain this table with custom classes as needed.
@@ -88,10 +101,6 @@ object HiveParseHelper extends Logging {
   def getWriteFormat(node: SparkPlanGraphNode): String = {
     val readMetaData = parseReadNode(node)
     readMetaData.format
-  }
-
-  def isHiveEnabled(properties: collection.Map[String, String]): Boolean = {
-    EventUtils.isPropertyMatch(properties, "spark.sql.catalogImplementation", "", "hive")
   }
 
   // Keep for future improvement as we can pass this information to the AutoTuner/user to suggest

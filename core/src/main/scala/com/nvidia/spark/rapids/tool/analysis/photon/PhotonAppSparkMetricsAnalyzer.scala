@@ -20,7 +20,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import com.nvidia.spark.rapids.tool.analysis.AppSparkMetricsAnalyzer
 import com.nvidia.spark.rapids.tool.analysis.util.{AggAccumHelper, AggAccumPhotonHelper}
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.PhotonParseHelper
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.store.AccumInfo
@@ -64,11 +64,11 @@ class PhotonAppSparkMetricsAnalyzer(app: AppBase) extends AppSparkMetricsAnalyze
     app.accumManager.applyToAccumInfoMap { accumInfo =>
       accumInfo.infoRef.name.value match {
         case name if name.contains(
-          DatabricksParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>
+          PhotonParseHelper.PHOTON_METRIC_PEAK_MEMORY_LABEL) =>
           // Collect accumulators for peak memory
           photonPeakMemoryAccumInfos += accumInfo
         case name if name.contains(
-          DatabricksParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL) =>
+          PhotonParseHelper.PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL) =>
           // Collect accumulators for shuffle write time
           photonShuffleWriteTimeAccumInfos += accumInfo
         case _ => // Ignore other accumulators
