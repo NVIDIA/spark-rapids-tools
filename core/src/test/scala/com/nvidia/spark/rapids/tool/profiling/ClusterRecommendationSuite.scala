@@ -88,7 +88,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 8,
         numGpusPerNode = 1,
         numExecutors = 8,
-        gpuDevice = "nvidia-l4",
+        gpuDevice = "nvidia-tesla-l4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
