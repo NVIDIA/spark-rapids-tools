@@ -185,7 +185,7 @@ class DataprocPlatform(PlatformBase):
         """
         Get the platform-specific GPU device name for Dataproc.
         Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
-        
+
         Supported GPU devices mapped to GCP accelerator type names:
         - L4 -> nvidia-l4
         - A100 -> nvidia-a100-80gb
