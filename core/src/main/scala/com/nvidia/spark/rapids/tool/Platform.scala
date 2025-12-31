@@ -491,6 +491,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   /**
+   * Get the platform-specific GPU device name.
+   * By default, returns the GPU device's string representation.
+   * Override this method in platform-specific classes to provide
+   * platform-specific GPU device naming (e.g., "nvidia-l4" for Dataproc).
+   *
+   * @param gpuDevice The GPU device to convert to platform-specific name
+   * @return Platform-specific GPU device name
+   */
+  def getPlatformGpuDeviceName(gpuDevice: GpuDevice): String = {
+    gpuDevice.toString
+  }
+
+  /**
    * Important system properties that should be retained based on platform.
    */
   def getRetainedSystemProps: Set[String] = Set.empty
@@ -702,7 +715,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               numWorkerNodes = numWorkerNodes,
               numGpusPerNode = _recommendedWorkerNode.numGpus,
               numExecutors = recommendedNumExecutors,
-              gpuDevice = _recommendedWorkerNode.gpuDevice.toString,
+              gpuDevice = getPlatformGpuDeviceName(_recommendedWorkerNode.gpuDevice),
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
@@ -865,6 +878,21 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME
+  }
+
+  /**
+   * Get the platform-specific GPU device name for Dataproc.
+   * Returns GPU device names in the format expected by Dataproc (e.g., "nvidia-l4", "nvidia-tesla-t4").
+   *
+   * @param gpuDevice The GPU device to convert to Dataproc-specific name
+   * @return Dataproc-specific GPU device name
+   */
+  override def getPlatformGpuDeviceName(gpuDevice: GpuDevice): String = {
+    gpuDevice match {
+      case T4Gpu => "nvidia-tesla-t4"
+      case L4Gpu => "nvidia-l4"
+      case _ => gpuDevice.toString  // Fallback to default for unsupported devices
+    }
   }
 }
 
