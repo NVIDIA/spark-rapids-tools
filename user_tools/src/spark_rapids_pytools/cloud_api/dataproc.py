@@ -186,17 +186,17 @@ class DataprocPlatform(PlatformBase):
         Get the platform-specific GPU device name for Dataproc.
         Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
         
-        Supported GPU devices:
-        - nvidia-tesla-l4 - NVIDIA® Tesla® L4
-        - nvidia-tesla-a100 - NVIDIA® Tesla® A100
-        - nvidia-tesla-p100 - NVIDIA® Tesla® P100
-        - nvidia-tesla-v100 - NVIDIA® Tesla® V100
-        - nvidia-tesla-p4 - NVIDIA® Tesla® P4
-        - nvidia-tesla-t4 - NVIDIA® Tesla® T4
+        Supported GPU devices mapped to GCP accelerator type names:
+        - L4 -> nvidia-l4
+        - A100 -> nvidia-a100-80gb
+        - P100 -> nvidia-tesla-p100
+        - V100 -> nvidia-tesla-v100
+        - P4 -> nvidia-tesla-p4
+        - T4 -> nvidia-tesla-t4
         """
         return {
-            GpuDevice.L4: 'nvidia-tesla-l4',
-            GpuDevice.A100: 'nvidia-tesla-a100',
+            GpuDevice.L4: 'nvidia-l4',
+            GpuDevice.A100: 'nvidia-a100-80gb',
             GpuDevice.P100: 'nvidia-tesla-p100',
             GpuDevice.V100: 'nvidia-tesla-v100',
             GpuDevice.P4: 'nvidia-tesla-p4',

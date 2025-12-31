@@ -885,21 +885,21 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
    * Returns GPU device names in the format expected by Dataproc.
    * Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
    *
-   * Supported GPU devices:
-   * - nvidia-tesla-l4 - NVIDIA® Tesla® L4
-   * - nvidia-tesla-a100 - NVIDIA® Tesla® A100
-   * - nvidia-tesla-p100 - NVIDIA® Tesla® P100
-   * - nvidia-tesla-v100 - NVIDIA® Tesla® V100
-   * - nvidia-tesla-p4 - NVIDIA® Tesla® P4
-   * - nvidia-tesla-t4 - NVIDIA® Tesla® T4
+   * Supported GPU devices mapped to GCP accelerator type names:
+   * - L4 -> nvidia-l4
+   * - A100 -> nvidia-a100-80gb
+   * - P100 -> nvidia-tesla-p100
+   * - V100 -> nvidia-tesla-v100
+   * - P4 -> nvidia-tesla-p4
+   * - T4 -> nvidia-tesla-t4
    *
    * @param gpuDevice The GPU device to convert to Dataproc-specific name
    * @return Dataproc-specific GPU device name
    */
   override def getPlatformGpuDeviceName(gpuDevice: GpuDevice): String = {
     gpuDevice match {
-      case L4Gpu => "nvidia-tesla-l4"
-      case A100Gpu => "nvidia-tesla-a100"
+      case L4Gpu => "nvidia-l4"
+      case A100Gpu => "nvidia-a100-80gb"
       case P100Gpu => "nvidia-tesla-p100"
       case V100Gpu => "nvidia-tesla-v100"
       case P4Gpu => "nvidia-tesla-p4"
