@@ -323,14 +323,6 @@ MapZipWith,1.5
 Uuid,1.5
 Invoke,1.5
 MapFromEntries,1.5
-OverwriteByExpressionExec,1.5
-StaticInvoke,1.5
 Keep,1.5
-CollationAwareXxHash64,1.5
-OverwritePartitionsDynamicExec,1.5
-CollationAwareMurmur3Hash,1.5
-MergeRowsExec,1.5
-WriteDeltaExec,1.5
 Discard,1.5
-ReplaceDataExec,1.5
 Split,1.5
