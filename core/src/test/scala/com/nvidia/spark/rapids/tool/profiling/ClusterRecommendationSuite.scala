@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 8,
         numGpusPerNode = 1,
         numExecutors = 8,
-        gpuDevice = GpuTypes.T4,
+        gpuDevice = "nvidia-tesla-t4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
@@ -71,7 +71,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 4,
         numGpusPerNode = 2,
         numExecutors = 8,
-        gpuDevice = GpuTypes.T4,
+        gpuDevice = "nvidia-tesla-t4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
@@ -88,7 +88,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 8,
         numGpusPerNode = 1,
         numExecutors = 8,
-        gpuDevice = GpuTypes.L4,
+        gpuDevice = "nvidia-l4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
@@ -270,7 +270,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       numWorkerNodes = 2,
       numGpusPerNode = 1,
       numExecutors = 2,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
@@ -397,7 +397,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       numWorkerNodes = 4,
       numGpusPerNode = 1,
       numExecutors = 4,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
@@ -502,7 +502,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       numWorkerNodes = 8,
       numGpusPerNode = 1,
       numExecutors = 8,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",

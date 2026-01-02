@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable, Union, Optional, final, Dict
+from typing import Type, Any, List, Callable, Union, Optional
 
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
@@ -937,23 +937,17 @@ class PlatformBase:
         template_path = Utils.resource_path(f'templates/cluster_template/{CspEnv.pretty_print(self.type_id)}.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
-    @classmethod
-    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
+    def get_platform_gpu_device_name(self, gpu_device_str: str) -> str:
         """
-        Returns a dictionary mapping GPU device names to the platform-specific GPU device names.
-        This should be overridden by subclasses.
-        """
-        return {}
+        Convert generic GPU device name to platform-specific GPU device name.
+        By default, returns the GPU device string as-is.
+        Override this method in platform-specific classes to provide
+        platform-specific GPU device naming (e.g., "nvidia-l4" for Dataproc).
 
-    @final
-    def lookup_gpu_device_name(self, gpu_device: GpuDevice) -> Optional[str]:
+        :param gpu_device_str: Generic GPU device name (e.g., "T4", "L4")
+        :return: Platform-specific GPU device name
         """
-        Lookup the GPU name from the GPU device based on the platform. Define the lookup map
-        in `_gpu_device_name_lookup_map`.
-        """
-        gpu_device_str = GpuDevice.tostring(gpu_device)
-        lookup_map = self._gpu_device_name_lookup_map()
-        return lookup_map.get(gpu_device, gpu_device_str)
+        return gpu_device_str
 
 
 @dataclass
@@ -1237,12 +1231,13 @@ class ClusterBase(ClusterGetAccessor):
         Returns a dictionary containing the GPU configuration of the cluster
         """
         gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
-        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
+        # Convert generic GPU device name to platform-specific name
+        platform_gpu_name = self.platform.get_platform_gpu_device_name(gpu_device_str)
         # Need to handle case this was CPU event log and just make a recommendation
-        if gpu_name and gpu_per_machine > 0:
+        if platform_gpu_name and gpu_per_machine > 0:
             return {
                 'gpuInfo': {
-                    'device': gpu_name,
+                    'device': platform_gpu_name,
                     'gpuPerWorker': gpu_per_machine
                 }
             }

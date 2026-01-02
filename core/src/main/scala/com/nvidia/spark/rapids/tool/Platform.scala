@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -491,6 +491,19 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   /**
+   * Get the platform-specific GPU device name.
+   * By default, returns the GPU device's string representation.
+   * Override this method in platform-specific classes to provide
+   * platform-specific GPU device naming (e.g., "nvidia-l4" for Dataproc).
+   *
+   * @param gpuDevice The GPU device to convert to platform-specific name
+   * @return Platform-specific GPU device name
+   */
+  def getPlatformGpuDeviceName(gpuDevice: GpuDevice): String = {
+    gpuDevice.toString
+  }
+
+  /**
    * Important system properties that should be retained based on platform.
    */
   def getRetainedSystemProps: Set[String] = Set.empty
@@ -702,7 +715,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               numWorkerNodes = numWorkerNodes,
               numGpusPerNode = _recommendedWorkerNode.numGpus,
               numExecutors = recommendedNumExecutors,
-              gpuDevice = _recommendedWorkerNode.gpuDevice.toString,
+              gpuDevice = getPlatformGpuDeviceName(_recommendedWorkerNode.gpuDevice),
               dynamicAllocationEnabled = dynamicAllocSettings.enabled,
               dynamicAllocationMaxExecutors = dynamicAllocSettings.max,
               dynamicAllocationMinExecutors = dynamicAllocSettings.min,
@@ -865,6 +878,34 @@ class DataprocPlatform(gpuDevice: Option[GpuDevice],
 
   override def getInstanceMapByName: Map[NodeInstanceMapKey, InstanceInfo] = {
     PlatformInstanceTypes.DATAPROC_BY_INSTANCE_NAME
+  }
+
+  /**
+   * Get the platform-specific GPU device name for Dataproc.
+   * Returns GPU device names in the format expected by Dataproc.
+   * Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
+   *
+   * Supported GPU devices mapped to GCP accelerator type names:
+   * - L4 -> nvidia-l4
+   * - A100 -> nvidia-a100-80gb
+   * - P100 -> nvidia-tesla-p100
+   * - V100 -> nvidia-tesla-v100
+   * - P4 -> nvidia-tesla-p4
+   * - T4 -> nvidia-tesla-t4
+   *
+   * @param gpuDevice The GPU device to convert to Dataproc-specific name
+   * @return Dataproc-specific GPU device name
+   */
+  override def getPlatformGpuDeviceName(gpuDevice: GpuDevice): String = {
+    gpuDevice match {
+      case L4Gpu => "nvidia-l4"
+      case A100Gpu => "nvidia-a100-80gb"
+      case P100Gpu => "nvidia-tesla-p100"
+      case V100Gpu => "nvidia-tesla-v100"
+      case P4Gpu => "nvidia-tesla-p4"
+      case T4Gpu => "nvidia-tesla-t4"
+      case _ => gpuDevice.toString  // Fallback to default for unsupported devices
+    }
   }
 }
 

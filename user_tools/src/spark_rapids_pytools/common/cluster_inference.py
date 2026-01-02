@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ from logging import Logger
 
 import pandas as pd
 
-from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase, GpuDevice
+from spark_rapids_pytools.cloud_api.sp_types import PlatformBase, ClusterBase
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer
 from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools import CspEnv
@@ -55,9 +55,9 @@ class ClusterInference:
         :param cluster_info_df: DataFrame containing cluster information
         """
         recommended_num_gpus = cluster_info_df.get('Recommended Num GPUs Per Node', 0)
-        recommended_gpu_device = GpuDevice(cluster_info_df.get('Recommended GPU Device'))
-        # Lookup GPU name from the GPU device based on platform
-        gpu_name = self.platform.lookup_gpu_device_name(recommended_gpu_device)
+        # The GPU device name is already platform-specific (e.g., "nvidia-l4" for Dataproc)
+        # as it comes from the Scala tool's platform-specific output
+        gpu_name = cluster_info_df.get('Recommended GPU Device')
         if gpu_name and recommended_num_gpus > 0:
             return {
                 'GPU_NAME': f'"{gpu_name}"',
