@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,6 +59,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some("n1-standard-16"),
         workerNodeType = Some("n1-standard-16"))
     ),
     (
@@ -76,6 +77,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some("n1-standard-16"),
         workerNodeType = Some("n1-standard-32"))
     ),
     (
@@ -93,6 +95,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some("n1-standard-16"),
         workerNodeType = Some("g2-standard-16"))
     ),
     (
@@ -110,6 +113,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some("i3.2xlarge"),
         workerNodeType = Some("g6.8xlarge"))
     ),
     (
@@ -127,6 +131,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some("m6gd.2xlarge"),
         workerNodeType = Some("g5.8xlarge"))
     )
   )
@@ -402,7 +407,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      driverNodeType = None,
+      driverNodeType = Some("n1-standard-16"),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -496,6 +501,11 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
+    //
+    // Expected behavior:
+    // - workerNodeType: "N/A" because the target cluster uses OnPrem-style specs (cpuCores,
+    //   memoryGB, GPU) instead of a CSP instance type
+    // - driverNodeType: "n1-standard-16" (platform default for dataproc)
     val expectedClusterInfo = RecommendedClusterInfo(
       vendor = PlatformNames.DATAPROC,
       coresPerExecutor = 16,
@@ -507,6 +517,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some("n1-standard-16"),
       workerNodeType = Some("N/A"))
 
     TrampolineUtil.withTempDir { tempDir =>
