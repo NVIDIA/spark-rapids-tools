@@ -298,28 +298,6 @@
       ]
     },
     {
-      "Expression": "MapFromEntries",
-      "Context": "project",
-      "Params": "input",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Expression": "MapFromEntries",
-      "Context": "project",
-      "Params": "result",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
       "Expression": "StaticInvoke",
       "Context": "project",
       "Params": "result",

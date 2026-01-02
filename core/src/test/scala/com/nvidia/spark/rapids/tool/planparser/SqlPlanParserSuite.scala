@@ -1162,6 +1162,19 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       val df2 = writeAndReadParquet(spark, df3, s"$parquetOutputLoc/testtext")
       // array_position should be part of ProjectExec
       df2.select(array_position(col("array_col"), col("target")))
+    }}),
+    // MapFromEntries is supported in ProjectExec
+    ("MapFromEntries", { parquetOutputLoc => { spark =>
+      import spark.implicits._
+      // Create DataFrame with array of structs (key-value pairs)
+      val df1 = Seq(
+        Seq(("a", 1), ("b", 2), ("c", 3)),
+        Seq(("x", 10), ("y", 20))
+      ).toDF("entries")
+      // write df1 to parquet to transform LocalTableScan to ProjectExec
+      val df2 = writeAndReadParquet(spark, df1, s"$parquetOutputLoc/testtext")
+      // map_from_entries should be part of ProjectExec
+      df2.select(map_from_entries(df2("entries")).as("map"))
     }})
   )
 
