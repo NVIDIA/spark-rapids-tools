@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Union, Optional, Dict
+from typing import Any, List, Union, Optional
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -179,29 +179,6 @@ class DataprocPlatform(PlatformBase):
         render_args['IMAGE'] = f'"{image_version}"'
         render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
-
-    @classmethod
-    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
-        """
-        Get the platform-specific GPU device name for Dataproc.
-        Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
-
-        Supported GPU devices mapped to GCP accelerator type names:
-        - L4 -> nvidia-l4
-        - A100 -> nvidia-a100-80gb
-        - P100 -> nvidia-tesla-p100
-        - V100 -> nvidia-tesla-v100
-        - P4 -> nvidia-tesla-p4
-        - T4 -> nvidia-tesla-t4
-        """
-        return {
-            GpuDevice.L4: 'nvidia-l4',
-            GpuDevice.A100: 'nvidia-a100-80gb',
-            GpuDevice.P100: 'nvidia-tesla-p100',
-            GpuDevice.V100: 'nvidia-tesla-v100',
-            GpuDevice.P4: 'nvidia-tesla-p4',
-            GpuDevice.T4: 'nvidia-tesla-t4'
-        }
 
 
 @dataclass
@@ -465,6 +442,17 @@ class DataprocCluster(ClusterBase):
     Represents an instance of running cluster on Dataproc.
     """
 
+    # Mapping of generic GPU device names to Dataproc accelerator names
+    # Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
+    GPU_DEVICE_TO_ACCELERATOR_MAP = {
+        'L4': 'nvidia-l4',
+        'A100': 'nvidia-a100-80gb',
+        'P100': 'nvidia-tesla-p100',
+        'V100': 'nvidia-tesla-v100',
+        'P4': 'nvidia-tesla-p4',
+        'T4': 'nvidia-tesla-t4'
+    }
+
     def _get_temp_gs_storage(self) -> str:
         temp_bucket = self.props.get_value_silent('config', 'tempBucket')
         if temp_bucket:
@@ -629,6 +617,39 @@ class DataprocCluster(ClusterBase):
             ssd_config = self._get_ssd_configuration()
             cluster_config.update(ssd_config)
         return cluster_config
+
+    # def _get_gpu_configuration(self) -> dict:
+    #     """
+    #     Override to return platform-specific GPU name for Dataproc.
+    #     Returns the accelerator name from cluster properties (e.g., "nvidia-l4")
+    #     instead of the generic GPU device enum string (e.g., "L4").
+    #     """
+    #     gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
+    #     # Get the platform-specific accelerator name from worker node properties
+    #     worker_node = self.get_worker_node()
+    #     accelerator_name = None
+    #     if worker_node.props and worker_node.props.get_value_silent('accelerators'):
+    #         accelerator_arr = worker_node.props.get_value('accelerators')
+    #         if accelerator_arr and len(accelerator_arr) > 0:
+    #             accelerator_type = accelerator_arr[0].get('acceleratorTypeUri') or accelerator_arr[0].get('acceleratorType')
+    #             # Extract just the accelerator name (e.g., "nvidia-l4" from full URI)
+    #             if accelerator_type:
+    #                 accelerator_name = FSUtil.get_resource_name(accelerator_type) if '/' in accelerator_type else accelerator_type
+
+    #     # If we couldn't get the accelerator name from properties, convert the GPU device enum
+    #     # to platform-specific name using the mapping
+    #     if not accelerator_name and gpu_device_str:
+    #         accelerator_name = self.GPU_DEVICE_TO_ACCELERATOR_MAP.get(gpu_device_str, gpu_device_str)
+
+    #     # Need to handle case this was CPU event log and just make a recommendation
+    #     if accelerator_name and gpu_per_machine > 0:
+    #         return {
+    #             'gpuInfo': {
+    #                 'device': accelerator_name,
+    #                 'gpuPerWorker': gpu_per_machine
+    #             }
+    #         }
+    #     return {}
 
     @classmethod
     def _get_ssd_configuration(cls) -> dict:

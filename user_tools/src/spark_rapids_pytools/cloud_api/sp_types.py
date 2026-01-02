@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from logging import Logger
-from typing import Type, Any, List, Callable, Union, Optional, final, Dict
+from typing import Type, Any, List, Callable, Union, Optional
 
 from spark_rapids_pytools.common.prop_manager import AbstractPropertiesContainer, JSONPropertiesContainer, \
     get_elem_non_safe
@@ -937,24 +937,6 @@ class PlatformBase:
         template_path = Utils.resource_path(f'templates/cluster_template/{CspEnv.pretty_print(self.type_id)}.ms')
         return TemplateGenerator.render_template_file(template_path, render_args)
 
-    @classmethod
-    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
-        """
-        Returns a dictionary mapping GPU device names to the platform-specific GPU device names.
-        This should be overridden by subclasses.
-        """
-        return {}
-
-    @final
-    def lookup_gpu_device_name(self, gpu_device: GpuDevice) -> Optional[str]:
-        """
-        Lookup the GPU name from the GPU device based on the platform. Define the lookup map
-        in `_gpu_device_name_lookup_map`.
-        """
-        gpu_device_str = GpuDevice.tostring(gpu_device)
-        lookup_map = self._gpu_device_name_lookup_map()
-        return lookup_map.get(gpu_device, gpu_device_str)
-
 
 @dataclass
 class ClusterBase(ClusterGetAccessor):
@@ -1237,12 +1219,11 @@ class ClusterBase(ClusterGetAccessor):
         Returns a dictionary containing the GPU configuration of the cluster
         """
         gpu_per_machine, gpu_device_str = self.get_gpu_per_worker()
-        gpu_name = self.platform.lookup_gpu_device_name(GpuDevice(gpu_device_str))
         # Need to handle case this was CPU event log and just make a recommendation
-        if gpu_name and gpu_per_machine > 0:
+        if gpu_device_str and gpu_per_machine > 0:
             return {
                 'gpuInfo': {
-                    'device': gpu_name,
+                    'device': gpu_device_str,
                     'gpuPerWorker': gpu_per_machine
                 }
             }
