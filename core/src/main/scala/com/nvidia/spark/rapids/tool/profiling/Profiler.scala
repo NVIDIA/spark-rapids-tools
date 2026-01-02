@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -447,6 +447,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // - This is available only after AutoTuner is run
     // - There is at most one entry in app.appLogPath
     app.appLogPath.headOption.foreach { logInfo =>
+      // Set default driver node if missing to match Qualification behavior
+      profilerResult.app.platform.foreach(_.setDefaultDriverNodeToRecommendedClusterIfMissing())
       val clusterSummary = ClusterSummary(logInfo.appName, logInfo.appId.get,
         Some(logInfo.eventLogPath),
         profilerResult.app.platform.flatMap(_.clusterInfoFromEventLog),
