@@ -17,7 +17,7 @@
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, List, Union, Optional, Dict
+from typing import Any, List, Union, Optional
 
 from spark_rapids_tools import CspEnv
 from spark_rapids_pytools.cloud_api.dataproc_job import DataprocLocalRapidsJob
@@ -180,12 +180,24 @@ class DataprocPlatform(PlatformBase):
         render_args['ZONE'] = f'"{self.cli.get_zone()}"'
         return super().generate_cluster_configuration(render_args)
 
-    @classmethod
-    def _gpu_device_name_lookup_map(cls) -> Dict[GpuDevice, str]:
-        return {
-            GpuDevice.T4: 'nvidia-tesla-t4',
-            GpuDevice.L4: 'nvidia-l4'
+    def get_platform_gpu_device_name(self, gpu_device_str: str) -> str:
+        """
+        Convert generic GPU device name to Dataproc-specific accelerator name.
+        Reference: https://docs.cloud.google.com/dataproc/docs/concepts/compute/gpus#types_of_gpus
+
+        :param gpu_device_str: Generic GPU device name (e.g., "T4", "L4")
+        :return: Dataproc-specific accelerator name (e.g., "nvidia-tesla-t4", "nvidia-l4")
+        """
+        # Mapping of generic GPU device names to Dataproc accelerator names
+        gpu_device_map = {
+            'L4': 'nvidia-l4',
+            'A100': 'nvidia-a100-80gb',
+            'P100': 'nvidia-tesla-p100',
+            'V100': 'nvidia-tesla-v100',
+            'P4': 'nvidia-tesla-p4',
+            'T4': 'nvidia-tesla-t4'
         }
+        return gpu_device_map.get(gpu_device_str, gpu_device_str)
 
 
 @dataclass

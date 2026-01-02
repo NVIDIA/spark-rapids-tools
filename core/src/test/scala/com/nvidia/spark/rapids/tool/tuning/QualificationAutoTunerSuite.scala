@@ -210,7 +210,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       numWorkerNodes = 4,
       numGpusPerNode = 1,
       numExecutors = 4,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
