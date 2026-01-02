@@ -296,6 +296,191 @@
           "value": "`hive-hash`"
         }
       ]
+    },
+    {
+      "Expression": "MapFromEntries",
+      "Context": "project",
+      "Params": "input",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "MapFromEntries",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "StaticInvoke",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Discard",
+      "Context": "project",
+      "Params": "condition",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Discard",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Keep",
+      "Context": "project",
+      "Params": "condition",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Keep",
+      "Context": "project",
+      "Params": "outputs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Keep",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Split",
+      "Context": "project",
+      "Params": "condition",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Split",
+      "Context": "project",
+      "Params": "outputs",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Expression": "Split",
+      "Context": "project",
+      "Params": "result",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    }
+  ],
+  "supportedDataSource.csv": [
+    {
+      "Format": "Iceberg",
+      "Direction": "write",
+      "override": [
+        {
+          "key": "BOOLEAN",
+          "value": "TNEW"
+        }
+      ]
+    }
+  ],
+  "supportedExecs.csv": [
+    {
+      "Exec": "MergeRowsExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwriteByExpressionExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "OverwritePartitionsDynamicExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "ReplaceDataExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
+    },
+    {
+      "Exec": "WriteDeltaExec",
+      "Params": "Input/Output",
+      "override": [
+        {
+          "key": "Supported",
+          "value": "TNEW"
+        }
+      ]
     }
   ]
 }
