@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 import java.nio.file.Paths
 
-import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformInstanceTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.tuning.ProfilingAutoTunerSuiteBase
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
@@ -59,7 +59,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some("n1-standard-16"),
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-16"))
     ),
     (
@@ -77,7 +77,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some("n1-standard-16"),
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-32"))
     ),
     (
@@ -95,7 +95,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some("n1-standard-16"),
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("g2-standard-16"))
     ),
     (
@@ -113,7 +113,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some("i3.2xlarge"),
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.EMR)),
         workerNodeType = Some("g6.8xlarge"))
     ),
     (
@@ -131,7 +131,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some("m6gd.2xlarge"),
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATABRICKS_AWS)),
         workerNodeType = Some("g5.8xlarge"))
     )
   )
@@ -407,7 +407,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      driverNodeType = Some("n1-standard-16"),
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -505,7 +505,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
     // Expected behavior:
     // - workerNodeType: "N/A" because the target cluster uses OnPrem-style specs (cpuCores,
     //   memoryGB, GPU) instead of a CSP instance type
-    // - driverNodeType: "n1-standard-16" (platform default for dataproc)
+    // - driverNodeType: platform default for dataproc
     val expectedClusterInfo = RecommendedClusterInfo(
       vendor = PlatformNames.DATAPROC,
       coresPerExecutor = 16,
@@ -517,7 +517,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      driverNodeType = Some("n1-standard-16"),
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("N/A"))
 
     TrampolineUtil.withTempDir { tempDir =>
