@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,6 +171,11 @@ case class EventlogProviderImpl(descr: String) extends EventlogProviderTrait {
       df.collect()
       newAppId = spark.sparkContext.applicationId
     } finally {
+      // When Hive is enabled, allow time for async Hive metastore operations to complete
+      // before shutting down to prevent RejectedExecutionException
+      if (isHiveEnabled) {
+        Thread.sleep(100)
+      }
       // close the event log
       spark.close()
     }
