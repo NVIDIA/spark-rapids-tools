@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -210,7 +210,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       numWorkerNodes = 4,
       numGpusPerNode = 1,
       numExecutors = 4,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",

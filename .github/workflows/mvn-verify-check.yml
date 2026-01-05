@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,8 +42,16 @@ jobs:
             spark-version: '357'
             scala: '2.12'
             profile_flag: ''
+          - java-version: 17
+            spark-version: '357'
+            scala: '2.12'
+            profile_flag: ''
           # Scala 2.13 builds (Spark 3.5.x only)
           - java-version: 11
+            spark-version: '357'
+            scala: '2.13'
+            profile_flag: '-Pscala213'
+          - java-version: 17
             spark-version: '357'
             scala: '2.13'
             profile_flag: '-Pscala213'
