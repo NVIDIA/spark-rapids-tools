@@ -131,7 +131,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
-        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATABRICKS_AWS)),
+        driverNodeType = Some(
+          PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATABRICKS_AWS)),
         workerNodeType = Some("g5.8xlarge"))
     )
   )
