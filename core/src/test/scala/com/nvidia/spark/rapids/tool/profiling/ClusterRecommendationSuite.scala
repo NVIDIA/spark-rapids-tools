@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 import java.nio.file.Paths
 
-import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformInstanceTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.tuning.ProfilingAutoTunerSuiteBase
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
@@ -59,6 +59,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-16"))
     ),
     (
@@ -76,6 +77,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-32"))
     ),
     (
@@ -93,6 +95,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("g2-standard-16"))
     ),
     (
@@ -110,6 +113,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.EMR)),
         workerNodeType = Some("g6.8xlarge"))
     ),
     (
@@ -127,6 +131,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(
+          PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATABRICKS_AWS)),
         workerNodeType = Some("g5.8xlarge"))
     )
   )
@@ -402,7 +408,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      driverNodeType = None,
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -496,6 +502,11 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
+    //
+    // Expected behavior:
+    // - workerNodeType: "N/A" because the target cluster uses OnPrem-style specs (cpuCores,
+    //   memoryGB, GPU) instead of a CSP instance type
+    // - driverNodeType: platform default for dataproc
     val expectedClusterInfo = RecommendedClusterInfo(
       vendor = PlatformNames.DATAPROC,
       coresPerExecutor = 16,
@@ -507,6 +518,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("N/A"))
 
     TrampolineUtil.withTempDir { tempDir =>
