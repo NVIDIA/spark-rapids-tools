@@ -444,7 +444,7 @@ object AppSparkMetricsAnalyzer {
    * @return AppSparkMetricsAnalyzer or PhotonAppSparkMetricsAnalyzer instance
    */
   def apply(app: AppBase): AppSparkMetricsAnalyzer = {
-    if (app.isPhoton) {
+    if (app.dbPlugin.isPhotonEnabled) {
       new PhotonAppSparkMetricsAnalyzer(app)
     } else {
       new AppSparkMetricsAnalyzer(app)

@@ -22,7 +22,7 @@ import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{A100Gpu, AppSummaryInfoBaseProvider, GpuDevice, NodeInstanceMapKey, Platform, PlatformFactory, PlatformInstanceTypes, PlatformNames, T4Gpu}
 import com.nvidia.spark.rapids.tool.ToolTestUtils
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.DBVersionExtractor
 import com.nvidia.spark.rapids.tool.profiling.{DriverLogUnsupportedOperators, ProfileArgs, ProfileMain, Profiler}
 import org.scalatest.prop.TableDrivenPropertyChecks._
 import org.scalatest.prop.TableFor4
@@ -2382,7 +2382,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
         mutable.Map("spark.rapids.sql.enabled" -> "true",
           "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
-          DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
+          DBVersionExtractor.DB_SPARK_VERSION_KEY -> databricksVersion),
         Some(databricksVersion), Seq())
       val autoTuner = buildAutoTunerForTests(
         infoProvider,
@@ -2437,7 +2437,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
       mutable.Map("spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
-        DatabricksParseHelper.PROP_TAG_CLUSTER_SPARK_VERSION_KEY -> databricksVersion),
+        DBVersionExtractor.DB_SPARK_VERSION_KEY -> databricksVersion),
       Some(databricksVersion), Seq())
     // Do not set the platform as DB to see if it can work correctly irrespective
     val autoTuner = buildAutoTunerForTests(

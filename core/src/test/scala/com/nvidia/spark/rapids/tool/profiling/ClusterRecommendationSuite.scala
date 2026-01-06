@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.profiling
 import java.io.File
 import java.nio.file.Paths
 
-import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{GpuTypes, PlatformInstanceTypes, PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.tuning.ProfilingAutoTunerSuiteBase
 import com.nvidia.spark.rapids.tool.views.CLUSTER_INFORMATION_LABEL
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor3, TableFor4}
@@ -54,11 +54,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 8,
         numGpusPerNode = 1,
         numExecutors = 8,
-        gpuDevice = GpuTypes.T4,
+        gpuDevice = "nvidia-tesla-t4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-16"))
     ),
     (
@@ -71,11 +72,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 4,
         numGpusPerNode = 2,
         numExecutors = 8,
-        gpuDevice = GpuTypes.T4,
+        gpuDevice = "nvidia-tesla-t4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("n1-standard-32"))
     ),
     (
@@ -88,11 +90,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         numWorkerNodes = 8,
         numGpusPerNode = 1,
         numExecutors = 8,
-        gpuDevice = GpuTypes.L4,
+        gpuDevice = "nvidia-l4",
         dynamicAllocationEnabled = false,
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
         workerNodeType = Some("g2-standard-16"))
     ),
     (
@@ -110,6 +113,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.EMR)),
         workerNodeType = Some("g6.8xlarge"))
     ),
     (
@@ -127,6 +131,8 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
         dynamicAllocationMaxExecutors = "N/A",
         dynamicAllocationMinExecutors = "N/A",
         dynamicAllocationInitialExecutors = "N/A",
+        driverNodeType = Some(
+          PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATABRICKS_AWS)),
         workerNodeType = Some("g5.8xlarge"))
     )
   )
@@ -270,7 +276,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       numWorkerNodes = 2,
       numGpusPerNode = 1,
       numExecutors = 2,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
@@ -397,12 +403,12 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
       numWorkerNodes = 4,
       numGpusPerNode = 1,
       numExecutors = 4,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
-      driverNodeType = None,
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("g2-standard-8")
     )
     val expectedEnforcedSparkProperties = Map(
@@ -496,17 +502,23 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
+    //
+    // Expected behavior:
+    // - workerNodeType: "N/A" because the target cluster uses OnPrem-style specs (cpuCores,
+    //   memoryGB, GPU) instead of a CSP instance type
+    // - driverNodeType: platform default for dataproc
     val expectedClusterInfo = RecommendedClusterInfo(
       vendor = PlatformNames.DATAPROC,
       coresPerExecutor = 16,
       numWorkerNodes = 8,
       numGpusPerNode = 1,
       numExecutors = 8,
-      gpuDevice = GpuTypes.L4,
+      gpuDevice = "nvidia-l4",
       dynamicAllocationEnabled = false,
       dynamicAllocationMaxExecutors = "N/A",
       dynamicAllocationMinExecutors = "N/A",
       dynamicAllocationInitialExecutors = "N/A",
+      driverNodeType = Some(PlatformInstanceTypes.DEFAULT_DRIVER_NODES(PlatformNames.DATAPROC)),
       workerNodeType = Some("N/A"))
 
     TrampolineUtil.withTempDir { tempDir =>

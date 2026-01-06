@@ -174,11 +174,17 @@ class AccumInfo(val infoRef: AccumMetaRef) {
    */
   def calculateAccStats(): StatisticsMetrics = {
     val reduced_val = stagesStatMap.values.reduce { (a, b) =>
+      val totalCount = a.count + b.count
+      val medianValue = if (totalCount == 0) {
+        0L
+      } else {
+        (a.med * a.count + b.med * b.count) / totalCount
+      }
       StatisticsMetrics(
         Math.min(a.min, b.min),
-        (a.med * a.count + b.med * b.count) / (a.count + b.count),
+        medianValue,
         Math.max(a.max, b.max),
-        a.count + b.count,
+        totalCount,
         a.total + b.total
       )
     }

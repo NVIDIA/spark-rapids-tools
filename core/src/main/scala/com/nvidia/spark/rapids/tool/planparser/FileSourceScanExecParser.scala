@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper.{DELTALAKE_LOG_FILE_KEYWORD, DELTALAKE_META_KEYWORD, DELTALAKE_META_SCAN_RDD_KEYWORD}
+import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
 import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -126,7 +127,7 @@ case class FileSourceScanExecParser(
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.
-        a.isDeltaLakeOSSEnabled || a.isDatabricks
+        a.isDeltaLakeOSSEnabled || a.dbPlugin.isEnabled
     }
     appEnabled &&
       (node.desc.contains(DELTALAKE_META_KEYWORD) || node.desc.contains(DELTALAKE_LOG_FILE_KEYWORD))
@@ -138,7 +139,7 @@ case class FileSourceScanExecParser(
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.
-        a.isDeltaLakeOSSEnabled || a.isDatabricks
+        a.isDeltaLakeOSSEnabled || a.dbPlugin.isEnabled
     }
     appEnabled &&
       (node.name.contains(DELTALAKE_META_SCAN_RDD_KEYWORD) ||

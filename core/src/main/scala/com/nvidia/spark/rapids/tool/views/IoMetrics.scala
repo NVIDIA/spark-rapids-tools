@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.views
 
 import java.util.concurrent.TimeUnit
 
-import com.nvidia.spark.rapids.tool.planparser.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.PhotonParseHelper
 import com.nvidia.spark.rapids.tool.profiling.{AccumProfileResults, SQLAccumProfileResults}
 
 import org.apache.spark.sql.rapids.tool.{AppBase, UnsupportedMetricNameException}
@@ -118,7 +118,7 @@ object IoMetrics extends OssIoMetricsTrait {
   def getIoMetricsHelper(app: AppBase): IoMetricsTrait = {
     if (app.isAuronEnabled) {
       AuronIoMetrics
-    } else if (app.isPhoton) {
+    } else if (app.dbPlugin.isPhotonEnabled) {
       PhotonIoMetrics
     } else {
       IoMetrics
@@ -132,17 +132,17 @@ object IoMetrics extends OssIoMetricsTrait {
 object PhotonIoMetrics extends OssIoMetricsTrait {
 
   override def isIoMetric(srcAccum: SQLAccumProfileResults): Boolean = {
-    DatabricksParseHelper.isPhotonIoMetric(srcAccum) || super.isIoMetric(srcAccum)
+    PhotonParseHelper.isPhotonIoMetric(srcAccum) || super.isIoMetric(srcAccum)
   }
 
   override def isScanTimeMetric(srcAccum: SQLAccumProfileResults): Boolean = {
-    DatabricksParseHelper.isPhotonIoMetric(srcAccum) || super.isScanTimeMetric(srcAccum)
+    PhotonParseHelper.isPhotonIoMetric(srcAccum) || super.isScanTimeMetric(srcAccum)
   }
 
   override def updateIoRecord(destRec: IoMetrics, srcAccum: SQLAccumProfileResults): Unit = {
     srcAccum.name match {
-      case _ if DatabricksParseHelper.isPhotonIoMetric(srcAccum) =>
-        DatabricksParseHelper.updatePhotonIoMetric(srcAccum, destRec)
+      case _ if PhotonParseHelper.isPhotonIoMetric(srcAccum) =>
+        PhotonParseHelper.updatePhotonIoMetric(srcAccum, destRec)
       case _ => super.updateIoRecord(destRec, srcAccum)
     }
   }

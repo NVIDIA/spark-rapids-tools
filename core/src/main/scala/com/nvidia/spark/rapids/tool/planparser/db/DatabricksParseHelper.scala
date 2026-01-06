@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.nvidia.spark.rapids.tool.planparser
+package com.nvidia.spark.rapids.tool.planparser.db
 
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import com.nvidia.spark.rapids.tool.plugins.{ConditionTrait, OssOpMapperFromFileTrait}
+import com.nvidia.spark.rapids.tool.plugins.{AppPropVersionExtractorTrait, ConditionTrait, OssOpMapperFromFileTrait, PropConditionOnSparkExtTrait}
 import com.nvidia.spark.rapids.tool.profiling.SQLAccumProfileResults
 import com.nvidia.spark.rapids.tool.views.IoMetrics
 import org.json4s.DefaultFormats
@@ -104,10 +104,70 @@ object PhotonOssOpMapper extends OssOpMapperFromFileTrait {
   }
 
   /** Only active when Photon is enabled in the Databricks application */
-  override val appCtxtCondition: ConditionTrait[AppBase] = (app: AppBase) => app.isPhoton
+  override val appCtxtCondition: ConditionTrait[AppBase] =
+    (app: AppBase) => app.dbPlugin.isPhotonEnabled
 
   override def acceptPlanInfo(planInfo: execution.SparkPlanInfo): Boolean = {
     isPhotonNode(planInfo.nodeName)
+  }
+}
+
+object DBVersionExtractor extends AppPropVersionExtractorTrait {
+  /** Property key containing the Databricks runtime version */
+  val DB_SPARK_VERSION_KEY = "spark.databricks.clusterUsageTags.sparkVersion"
+  /**
+   * Extracts Databricks runtime version directly from property value.
+   * The version string is the value of spark.databricks.clusterUsageTags.sparkVersion.
+   */
+  override def extractVersion(properties: collection.Map[String, String]): Option[String] = {
+    properties.get(DB_SPARK_VERSION_KEY)
+  }
+}
+
+object PhotonParseHelper extends PropConditionOnSparkExtTrait {
+  // scalastyle:off
+  /**
+   * Photon-specific metric labels that serve as alternatives to standard Spark metrics.
+   * Photon uses different terminology for some metrics:
+   * - "cumulative time" instead of "scan time"
+   * - "peak memory usage" instead of "peak execution memory"
+   * - "part of shuffle file write" instead of "shuffle write time"
+   */
+  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
+  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
+  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
+  // scalastyle:on
+
+  /**
+   * Spark properties used to identify Photon applications.
+   * A map where keys are Spark extension property names and values are
+   * regex patterns to match against the property values.
+   */
+  override val extensionRegxMap: Map[String, String] = Map(
+    "spark.databricks.clusterUsageTags.sparkVersion" -> ".*-photon-.*",
+    "spark.databricks.clusterUsageTags.effectiveSparkVersion" -> ".*-photon-.*",
+    "spark.databricks.clusterUsageTags.sparkImageLabel" -> ".*-photon-.*",
+    "spark.databricks.clusterUsageTags.runtimeEngine" -> "PHOTON"
+  )
+
+  /**
+   * Checks if an accumulator represents a Photon I/O metric.
+   * Photon I/O metrics are identified by "cumulative time" name on Scan nodes.
+   */
+  def isPhotonIoMetric(accum: SQLAccumProfileResults): Boolean =
+    accum.name == PHOTON_METRIC_CUMULATIVE_TIME_LABEL && accum.nodeName.contains("Scan")
+
+  /**
+   * Updates I/O metrics for Photon applications using Photon-specific metric names.
+   * Converts Photon's "cumulative time" (in nanoseconds) to scanTime (in milliseconds).
+   */
+  @throws[UnsupportedMetricNameException]
+  def updatePhotonIoMetric(accum: SQLAccumProfileResults, ioMetrics: IoMetrics): Unit = {
+    accum.name match {
+      case PHOTON_METRIC_CUMULATIVE_TIME_LABEL if accum.nodeName.contains("Scan") =>
+        ioMetrics.scanTime = TimeUnit.NANOSECONDS.toMillis(accum.total)
+      case _ => throw UnsupportedMetricNameException(accum.name)
+    }
   }
 }
 
@@ -124,19 +184,10 @@ object PhotonOssOpMapper extends OssOpMapperFromFileTrait {
  * Photon-related values (e.g., sparkVersion contains "-photon-", runtimeEngine is "PHOTON").
  */
 object DatabricksParseHelper extends Logging {
-  /** Spark properties used to identify Photon applications */
-  private val PHOTON_SPARK_PROPS = Map(
-    "spark.databricks.clusterUsageTags.sparkVersion" -> ".*-photon-.*",
-    "spark.databricks.clusterUsageTags.effectiveSparkVersion" -> ".*-photon-.*",
-    "spark.databricks.clusterUsageTags.sparkImageLabel" -> ".*-photon-.*",
-    "spark.databricks.clusterUsageTags.runtimeEngine" -> "PHOTON"
-  )
-
   /** Property keys for Databricks cluster metadata */
   val PROP_ALL_TAGS_KEY = "spark.databricks.clusterUsageTags.clusterAllTags"
   val PROP_TAG_CLUSTER_ID_KEY = "spark.databricks.clusterUsageTags.clusterId"
   val PROP_TAG_CLUSTER_NAME_KEY = "spark.databricks.clusterUsageTags.clusterName"
-  val PROP_TAG_CLUSTER_SPARK_VERSION_KEY = "spark.databricks.clusterUsageTags.sparkVersion"
   val PROP_WORKER_TYPE_ID_KEY = "spark.databricks.workerNodeTypeId"
   val PROP_DRIVER_TYPE_ID_KEY = "spark.databricks.driverNodeTypeId"
 
@@ -145,35 +196,10 @@ object DatabricksParseHelper extends Logging {
   val SUB_PROP_JOB_ID = "JobId"
   val SUB_PROP_RUN_NAME = "RunName"
 
-  // scalastyle:off
-  /**
-   * Photon-specific metric labels that serve as alternatives to standard Spark metrics.
-   * Photon uses different terminology for some metrics:
-   * - "cumulative time" instead of "scan time"
-   * - "peak memory usage" instead of "peak execution memory"
-   * - "part of shuffle file write" instead of "shuffle write time"
-   */
-  val PHOTON_METRIC_CUMULATIVE_TIME_LABEL = "cumulative time"               // Alternative for "scan time"
-  val PHOTON_METRIC_PEAK_MEMORY_LABEL = "peak memory usage"                 // Alternative for "peak execution memory"
-  val PHOTON_METRIC_SHUFFLE_WRITE_TIME_LABEL = "part of shuffle file write" // Alternative for "shuffle write time"
-  // scalastyle:on
-
-  /**
-   * Checks if the properties indicate a Photon application.
-   * Searches for Photon indicators in any of the PHOTON_SPARK_PROPS keys.
-   *
-   * @param properties Spark properties from eventlog environment details
-   * @return true if Photon indicators are found
-   */
-  def isPhotonApp(properties: collection.Map[String, String]): Boolean = {
-    PHOTON_SPARK_PROPS.exists { case (key, value) =>
-      properties.get(key).exists(_.matches(value))
-    }
-  }
 
   /** Extracts Spark version from cluster properties */
   def getSparkVersion(properties: collection.Map[String, String]): String = {
-    properties.getOrElse(PROP_TAG_CLUSTER_SPARK_VERSION_KEY, "")
+    DBVersionExtractor.extractVersion(properties).getOrElse("")
   }
 
   /**
@@ -226,23 +252,4 @@ object DatabricksParseHelper extends Logging {
     }
   }
 
-  /**
-   * Checks if an accumulator represents a Photon I/O metric.
-   * Photon I/O metrics are identified by "cumulative time" name on Scan nodes.
-   */
-  def isPhotonIoMetric(accum: SQLAccumProfileResults): Boolean =
-    accum.name == PHOTON_METRIC_CUMULATIVE_TIME_LABEL && accum.nodeName.contains("Scan")
-
-  /**
-   * Updates I/O metrics for Photon applications using Photon-specific metric names.
-   * Converts Photon's "cumulative time" (in nanoseconds) to scanTime (in milliseconds).
-   */
-  @throws[UnsupportedMetricNameException]
-  def updatePhotonIoMetric(accum: SQLAccumProfileResults, ioMetrics: IoMetrics): Unit = {
-    accum.name match {
-      case PHOTON_METRIC_CUMULATIVE_TIME_LABEL if accum.nodeName.contains("Scan") =>
-        ioMetrics.scanTime = TimeUnit.NANOSECONDS.toMillis(accum.total)
-      case _ => throw UnsupportedMetricNameException(accum.name)
-    }
-  }
 }
