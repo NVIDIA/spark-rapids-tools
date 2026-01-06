@@ -1,6 +1,26 @@
 
 <br/>
 
+## Release [v25.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.1)
+Generated on 2026-01-06
+### Bug Fixes
+
+- Fix missing driver instance type in Profiling tool recommendations ([#2014](https://github.com/NVIDIA/spark-rapids-tools/pull/2014))
+- Align GPU device naming between Qualification and Profiling outputs ([#2012](https://github.com/NVIDIA/spark-rapids-tools/pull/2012))
+
+### Build and CI/CD
+
+- Add jdk17 support to tools-core build ([#2017](https://github.com/NVIDIA/spark-rapids-tools/pull/2017))
+
+### Core
+
+- Syncing supported ops as of 12-23-2025 ([#2015](https://github.com/NVIDIA/spark-rapids-tools/pull/2015))
+- Remove Running Qualification feature from core-tools ([#2009](https://github.com/NVIDIA/spark-rapids-tools/pull/2009))
+- Use plugin-based approach to process eventlogs ([#2008](https://github.com/NVIDIA/spark-rapids-tools/pull/2008))
+
+
+<br/>
+
 ## Release [v25.12.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.0)
 Generated on 2025-12-23
 ### User Tools
