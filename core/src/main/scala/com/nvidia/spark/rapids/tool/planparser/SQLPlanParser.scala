@@ -468,10 +468,8 @@ object SQLPlanParser extends Logging {
 
   /**
    * Configuration for detecting and marking metadata scans for a specific table format.
-   * This allows for extensible support of multiple table formats (Delta Lake, Iceberg, etc.)
-   * without duplicating the marking logic.
    *
-   * @param name Human-readable name of the table format (for logging)
+   * @param name Human-readable name of the table format
    * @param isEnabled Function to check if the format is enabled in the application
    * @param isMetadataType Function to check if an exec is a metadata scan for this format
    * @param unsupportedReason The reason code to use when marking execs as unsupported
