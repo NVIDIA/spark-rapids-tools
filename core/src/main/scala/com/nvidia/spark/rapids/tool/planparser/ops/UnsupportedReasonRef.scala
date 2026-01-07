@@ -39,6 +39,10 @@ object UnsupportedReasonRef {
     getOrCreate("Delta Lake metadata scans are not supported")
   val UNSUPPORTED_DELTA_META_QUERY: UnsupportedReasonRef =
     getOrCreate("Exec is part of Delta Lake metadata query")
+  val UNSUPPORTED_ICEBERG_METADATA_SCAN: UnsupportedReasonRef =
+    getOrCreate("Iceberg metadata scans are not supported")
+  val UNSUPPORTED_ICEBERG_META_QUERY: UnsupportedReasonRef =
+    getOrCreate("Exec is part of Iceberg metadata query")
   val UNSUPPORTED_COMPRESSION: UnsupportedReasonRef = getOrCreate("Unsupported compression")
   val UNSUPPORTED_CATALOG: UnsupportedReasonRef = getOrCreate("Unsupported catalog")
   val UNSUPPORTED_JOIN_TYPE: UnsupportedReasonRef = getOrCreate("Unsupported join type")

@@ -18,5 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser.ops
 
 object OpTypes extends Enumeration {
   type OpType = Value
-  val ReadDeltaLog, ReadRDDDeltaLog, ReadExec, ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
+  val ReadDeltaLog, ReadRDDDeltaLog,
+  ReadIcebergMetadata, ReadRDDIcebergMetadata, ReadExec,
+  ReadRDD, WriteExec, Exec, Expr, UDF, DataSet = Value
 }

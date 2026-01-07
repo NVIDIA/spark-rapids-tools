@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -412,6 +413,57 @@ class BatchScanExecParser(
     case Some(m) => m.group(1)
     // in case not found, use the full exec name
     case None => actualExecName
+  }
+
+  /**
+   * Check if the scan operation is an Iceberg metadata scan.
+   * Iceberg metadata scans read from the /metadata/ directory which contains manifest files,
+   * snapshot files, and other metadata. These scans are not supported by RAPIDS.
+   * Iceberg metadata tables include: all_data_files, all_manifests, files, history,
+   * manifests, partitions, and snapshots.
+   * @return true if it is an Iceberg metadata scan, false otherwise.
+   */
+  private lazy val isIcebergMetaScan: Boolean = {
+    val appEnabled = app match {
+      case None => true  // no app provided then we assume it is true to be safe.
+      case Some(a) =>
+        // If the app is provided, then check if Iceberg is enabled
+        a.isIcebergEnabled
+    }
+    appEnabled &&
+      (node.desc.contains(IcebergHelper.ICEBERG_METADATA_KEYWORD) ||
+       node.desc.contains(IcebergHelper.ICEBERG_MANIFEST_KEYWORD) ||
+       node.desc.contains(IcebergHelper.ICEBERG_SNAPSHOT_KEYWORD) ||
+       node.desc.contains(IcebergHelper.ICEBERG_DATA_FILES_KEYWORD) ||
+       node.desc.contains(IcebergHelper.ICEBERG_HISTORY_KEYWORD) ||
+       node.desc.contains(IcebergHelper.ICEBERG_PARTITIONS_KEYWORD))
+  }
+
+  /**
+   * Check if the scan operation is supported.
+   * Iceberg metadata scans are not supported.
+   * @return true if supported, false otherwise
+   */
+  override def isScanOpSupported: Boolean = {
+    if (isIcebergMetaScan) {
+      // Iceberg metadata scans are not supported
+      // No need to set the reason because it is set automatically inside the object ExecInfo
+      false
+    } else {
+      true
+    }
+  }
+
+  /**
+   * Determine the operation type for the scan.
+   * If it is an Iceberg metadata scan, then return ReadIcebergMetadata.
+   * Otherwise, return ReadExec.
+   * @return the operation type
+   */
+  override def pullOpType: OpTypes.Value = if (isIcebergMetaScan) {
+    OpTypes.ReadIcebergMetadata
+  } else {
+    super.pullOpType
   }
 
   /**

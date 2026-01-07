@@ -47,6 +47,18 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
   private val SUPPORTED_CATALOGS = Set("hadoop")
 
+  // Keywords used to identify Iceberg metadata scans
+  // Iceberg stores metadata in /metadata/ directory and provides metadata tables that can be
+  // queried directly. These metadata tables are not supported on GPU and include:
+  // - all_data_files, all_manifests, files, history, manifests, partitions, snapshots
+  // Reference: https://iceberg.apache.org/docs/latest/spark-queries/#querying-with-sql
+  val ICEBERG_METADATA_KEYWORD: String = "/metadata/"
+  val ICEBERG_MANIFEST_KEYWORD: String = "manifest"
+  val ICEBERG_SNAPSHOT_KEYWORD: String = "snapshot"
+  val ICEBERG_DATA_FILES_KEYWORD: String = "data_files"
+  val ICEBERG_HISTORY_KEYWORD: String = "history"
+  val ICEBERG_PARTITIONS_KEYWORD: String = "partitions"
+
   val EXEC_APPEND_DATA: String = "AppendData"
   // A Map between the spark node name and the SupportedOpStub.
   // Note that AppendDataExec is not supported for Iceberg.
