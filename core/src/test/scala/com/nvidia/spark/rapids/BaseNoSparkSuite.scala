@@ -45,6 +45,12 @@ class BaseNoSparkSuite extends AnyFunSuite with BeforeAndAfterEach with Logging 
     (!ToolUtils.isSpark320OrLater(), "The UDF in query can be detected only for Spark-3.1.1")
   }
 
+  protected def checkIcebergSupportForSpark(): (Boolean, String) = {
+    // Iceberg metadata scan tests require Spark 3.3.0+
+    // Earlier versions may not have proper Iceberg support or behave differently
+    (ToolUtils.isSpark330OrLater(), "Iceberg metadata scan tests require Spark 3.3.0+")
+  }
+
   protected def shouldSkipFailedLogsForSpark(): (Boolean, String) = {
     (!ToolUtils.runtimeIsSparkVersion("3.4.0"),
       "Spark340 does not parse the eventlog correctly")

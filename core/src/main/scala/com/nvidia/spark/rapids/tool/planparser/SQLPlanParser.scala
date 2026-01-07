@@ -22,8 +22,9 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool.planparser.config.SQLPlanParserConfig
-import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeOps
-import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
+import com.nvidia.spark.rapids.tool.planparser.db.DBPlugin
+import com.nvidia.spark.rapids.tool.planparser.delta.{DeltaLakeOps, DeltaLakeOSSPlugin}
+import com.nvidia.spark.rapids.tool.planparser.iceberg.{IcebergPlugin, IcebergWriteOps}
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpActions, OperatorRefTrait, OpRef, OpTypes, UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -180,7 +181,7 @@ case class ExecInfo(
         case OpTypes.ReadExec | OpTypes.WriteExec => UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT
         case OpTypes.ReadDeltaLog | OpTypes.ReadRDDDeltaLog =>
           UnsupportedReasonRef.UNSUPPORTED_DELTA_LAKE_LOG
-        case OpTypes.ReadIcebergMetadata | OpTypes.ReadRDDIcebergMetadata =>
+        case OpTypes.ReadIcebergMetadata =>
           UnsupportedReasonRef.UNSUPPORTED_ICEBERG_METADATA_SCAN
         case _ => UnsupportedReasonRef.EMPTY_REASON
       }
@@ -254,7 +255,7 @@ object ExecInfo {
       // ignore DeltaLake delta_log metadata scans.
       opType.equals(OpTypes.ReadDeltaLog) || opType.equals(OpTypes.ReadRDDDeltaLog) ||
       // ignore Iceberg metadata scans.
-      opType.equals(OpTypes.ReadIcebergMetadata) || opType.equals(OpTypes.ReadRDDIcebergMetadata)
+      opType.equals(OpTypes.ReadIcebergMetadata)
     val removeFlag = shouldRemove || ExecHelper.shouldBeRemoved(exec)
     val finalOpType = if (udf) {
       OpTypes.UDF
@@ -462,71 +463,81 @@ object SQLPlanParser extends Logging {
   }
 
   private def isIcebergMetadataType(exec: ExecInfo): Boolean = {
-    exec.opType.equals(OpTypes.ReadIcebergMetadata) ||
-      exec.opType.equals(OpTypes.ReadRDDIcebergMetadata)
+    exec.opType.equals(OpTypes.ReadIcebergMetadata)
   }
-
-  /**
-   * Configuration for detecting and marking metadata scans for a specific table format.
-   *
-   * @param name Human-readable name of the table format
-   * @param isEnabled Function to check if the format is enabled in the application
-   * @param isMetadataType Function to check if an exec is a metadata scan for this format
-   * @param unsupportedReason The reason code to use when marking execs as unsupported
-   */
-  case class MetadataScanConfig(
-      name: String,
-      isEnabled: AppBase => Boolean,
-      isMetadataType: ExecInfo => Boolean,
-      unsupportedReason: UnsupportedReasonRef)
 
   /**
    * Mark all the execs that are part of metadata scans as unsupported.
    *
    * The function:
-   * 1. Checks which metadata scan types are present in the plan
-   * 2. If any metadata scan is found, marks ALL execs in the plan as unsupported
-   * 3. Sets the appropriate unsupported reason based on which format was detected
+   * 1. Iterates through all enabled plugins in the application
+   * 2. For each plugin that handles metadata scans (Delta, Iceberg), checks if metadata
+   *    scan operations are present in the plan
+   * 3. If any metadata scan is found, marks ALL execs in the plan as unsupported
+   * 4. Sets the appropriate unsupported reason based on which format was detected
    *
-   * @param app the application being parsed, used to check which formats are enabled
+   * Why all execs are marked:
+   * Metadata scans indicate the query is reading table metadata (e.g., Delta _delta_log,
+   * Iceberg snapshots), not actual data. Such queries are not candidates for GPU acceleration,
+   * so all operations in the plan should be excluded from performance analysis.
+   *
+   * @param app the application being parsed, contains pluginMap with enabled plugins
    * @param planExecs the execs parsed from the plan
-   * @param scanConfigs configurations for all supported metadata scan types
    * @return the execs with metadata scans marked as unsupported
    */
   private def markMetadataScansAsUnsupported(
       app: AppBase,
-      planExecs: Seq[ExecInfo],
-      scanConfigs: Seq[MetadataScanConfig]
+      planExecs: Seq[ExecInfo]
   ): Seq[ExecInfo] = {
-    // Filter to only enabled formats
-    val enabledConfigs = scanConfigs.filter(_.isEnabled(app))
 
-    if (enabledConfigs.isEmpty) {
-      // No formats enabled, return as-is
-      return planExecs
-    }
-
-    // Helper function to check if an exec (or its children) is a metadata scan
-    def hasMetadataScan(exec: ExecInfo, config: MetadataScanConfig): Boolean = {
+    // Helper function to check if an exec (or its children) is a metadata scan of a specific type
+    def hasMetadataScan(exec: ExecInfo, isMetadataType: ExecInfo => Boolean): Boolean = {
       if (exec.isClusterNode) {
         exec.children match {
-          case Some(children) => children.exists(config.isMetadataType)
+          case Some(children) => children.exists(isMetadataType)
           case _ => false
         }
       } else {
-        config.isMetadataType(exec)
+        isMetadataType(exec)
       }
     }
 
-    // Phase 1: Detect which metadata scan type is present (if any)
-    // We only need to find one to contaminate the entire plan
-    val detectedConfig = enabledConfigs.find { config =>
-      planExecs.exists(hasMetadataScan(_, config))
+    // Phase 1: Iterate through enabled plugins and detect metadata scans
+    // Check each plugin type and see if it has metadata scans in the plan
+    var detectedMetadataType: Option[(ExecInfo => Boolean, UnsupportedReasonRef)] = None
+
+    // Get all enabled plugins from the app's plugin container
+    val enabledPlugins = app.pluginMap.values.filter(_.isEnabled)
+
+    // Iterate through plugins and check for metadata scans
+    enabledPlugins.foreach { plugin =>
+      if (detectedMetadataType.isEmpty) {  // Only check until we find one
+        plugin match {
+          case _: DeltaLakeOSSPlugin | _: DBPlugin =>
+            // Check for Delta Lake metadata scans
+            // Both Delta OSS and Databricks (which has Delta built-in) handle Delta metadata
+            if (planExecs.exists(hasMetadataScan(_, isDeltaLogType))) {
+              detectedMetadataType = Some((isDeltaLogType,
+                UnsupportedReasonRef.UNSUPPORTED_DELTA_META_QUERY))
+            }
+
+          case _: IcebergPlugin =>
+            // Check for Iceberg metadata scans
+            if (planExecs.exists(hasMetadataScan(_, isIcebergMetadataType))) {
+              detectedMetadataType = Some((isIcebergMetadataType,
+                UnsupportedReasonRef.UNSUPPORTED_ICEBERG_META_QUERY))
+            }
+
+          case _ =>
+            // Ignore other plugins (Auron, Hive, etc. don't have metadata scan concerns)
+        }
+      }
     }
 
-    detectedConfig match {
-      case Some(config) =>
-        // Phase 2: Mark all execs in the plan as unsupported
+    // Phase 2: If metadata scan detected, mark all execs in the plan as unsupported
+    detectedMetadataType match {
+      case Some((_, unsupportedReason)) =>
+        // Mark all execs in the plan as unsupported
         // Only mark execs that are currently supported or not already ignored
         // to avoid changing the OpAction from "IgnorePerf" to "Triage"
         planExecs.filter(eI => eI.isSupported || !eI.shouldIgnore).flatMap { eInfo =>
@@ -539,7 +550,7 @@ object SQLPlanParser extends Logging {
         }.foreach { suppExec =>
           suppExec.setSupportedFlag(false)
           suppExec.setShouldIgnore(true)
-          suppExec.setUnsupportedExecReason(config.unsupportedReason)
+          suppExec.setUnsupportedExecReason(unsupportedReason)
         }
         planExecs
       case None =>
@@ -1218,24 +1229,10 @@ object SQLPlanParser extends Logging {
           nodeIdToStagesFunc = toolsGraph.getNodeStageLogicalAssignment)
       }.toVector
 
-      // Define all metadata scan configurations
-      val metadataScanConfigs = Seq(
-        MetadataScanConfig(
-          name = "Delta Lake",
-          isEnabled = app => app.isDeltaLakeOSSEnabled || app.dbPlugin.isEnabled,
-          isMetadataType = isDeltaLogType,
-          unsupportedReason = UnsupportedReasonRef.UNSUPPORTED_DELTA_META_QUERY
-        ),
-        MetadataScanConfig(
-          name = "Iceberg",
-          isEnabled = _.isIcebergEnabled,
-          isMetadataType = isIcebergMetadataType,
-          unsupportedReason = UnsupportedReasonRef.UNSUPPORTED_ICEBERG_META_QUERY
-        )
-      )
-
-      // Mark all metadata scans as unsupported in a single pass
-      val execInfos = markMetadataScansAsUnsupported(app, parsedExecs, metadataScanConfigs)
+      // Mark all metadata scans as unsupported using the plugin system
+      // The function will iterate through enabled plugins (Delta Lake, Iceberg, etc.)
+      // and check if any metadata scan operations are present in the plan
+      val execInfos = markMetadataScansAsUnsupported(app, parsedExecs)
       PlanInfo(app.appId, sqlID, sqlDesc, execInfos)
     }
 

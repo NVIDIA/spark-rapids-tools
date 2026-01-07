@@ -1486,10 +1486,19 @@ class QualificationSuite extends BaseWithSparkSuite {
     }
   }
 
-  test("Iceberg metadata table scans are unsupported") {
-    // This test verifies that Iceberg metadata table scans (all_data_files, all_manifests, files,
-    // history, manifests, partitions, snapshots) are detected and marked as unsupported.
+  runConditionalTest("Iceberg metadata table scans are unsupported",
+   checkIcebergSupportForSpark) {
+    // This test verifies that Iceberg metadata table scans are detected and marked as unsupported.
     // All execs in a SQL containing metadata scans should be marked unsupported with IgnorePerf.
+    //
+    // Tests all Iceberg metadata tables:
+    // - snapshots: Lists all snapshots in the table
+    // - manifests: Lists manifest files for current snapshot
+    // - files: Lists current data files
+    // - history: Shows table history
+    // - partitions: Shows partition information
+    // - all_manifests: Lists all manifest files
+    // - all_data_files: Lists all data files
     TrampolineUtil.withTempDir { warehouseDir =>
       QToolTestCtxtBuilder()
         .withEvLogProvider(
@@ -1514,11 +1523,15 @@ class QualificationSuite extends BaseWithSparkSuite {
               val df2 = Seq((3L, "third"), (4L, "fourth")).toDF("id", "value")
               df2.writeTo("local.db.iceberg_test").append()
 
-              // 2. Query metadata tables - these should be marked as unsupported
-              // Test representative metadata tables
+              // 2. Query ALL metadata tables - these should ALL be marked as unsupported
+              // Test each metadata table type to ensure comprehensive coverage
               spark.read.format("iceberg").load("local.db.iceberg_test.snapshots").collect()
               spark.read.format("iceberg").load("local.db.iceberg_test.manifests").collect()
               spark.read.format("iceberg").load("local.db.iceberg_test.files").collect()
+              spark.read.format("iceberg").load("local.db.iceberg_test.history").collect()
+              spark.read.format("iceberg").load("local.db.iceberg_test.partitions").collect()
+              spark.read.format("iceberg").load("local.db.iceberg_test.all_manifests").collect()
+              spark.read.format("iceberg").load("local.db.iceberg_test.all_data_files").collect()
 
               // 3. Query normal data table - this should be supported
               spark.sql("SELECT * FROM local.db.iceberg_test WHERE id > 1")
@@ -1529,80 +1542,71 @@ class QualificationSuite extends BaseWithSparkSuite {
             .withExpectedSize(1)
             .withSuccessCode())
         .withChecker(
-          QToolOutFileCheckerImpl("Metadata scans should be marked unsupported")
+          QToolOutFileCheckerImpl("All metadata table scans should be marked unsupported")
             .withTableLabel("execCSVReport")
             .withContentVisitor(
-              "Iceberg metadata scans should be unsupported with IgnorePerf",
+              "All Iceberg metadata table scans should be unsupported with IgnorePerf",
               csvF => {
-                if (ToolUtils.isSpark330OrLater()) {
-                  // This check is only enabled for Spark 3.3.0+
-                  // Earlier versions may not have proper Iceberg support
-                  // Find a BatchScan that is marked as unsupported with IgnorePerf
-                  // This indicates an Iceberg metadata scan
-                  val metadataScanRows = csvF.csvRows.filter { r =>
-                    r("Exec Name").contains("BatchScan") &&
-                      r("Exec Is Supported").equals("false") &&
-                      r("Action").equals("IgnorePerf")
-                  }
+                // Find all BatchScan operations marked as unsupported with IgnorePerf
+                // These should be the metadata table scans
+                val metadataScanRows = csvF.csvRows.filter { r =>
+                  r("Exec Name").contains("BatchScan") &&
+                    r("Exec Is Supported").equals("false") &&
+                    r("Action").equals("IgnorePerf")
+                }
 
-                  // Should have at least one metadata scan (from snapshots, manifests, or files)
-                  metadataScanRows.size should be >= 1
+                // We queried 7 metadata tables, so we should have at least 7 unsupported scans
+                // (snapshots, manifests, files, history, partitions, all_manifests, all_data_files)
+                metadataScanRows.size should be >= 7
 
-                  // For each metadata scan SQL, verify ALL execs in that SQL are unsupported
-                  metadataScanRows.foreach { metaScanRow =>
-                    val metaSqlID = metaScanRow("SQL ID")
-                    val allExecsInSQL = csvF.csvRows.filter(r => r("SQL ID").equals(metaSqlID))
+                // For each metadata scan SQL, verify ALL execs in that SQL are unsupported
+                metadataScanRows.foreach { metaScanRow =>
+                  val metaSqlID = metaScanRow("SQL ID")
+                  val allExecsInSQL = csvF.csvRows.filter(r => r("SQL ID").equals(metaSqlID))
 
-                    // All execs (except AdaptiveSparkPlan) should be unsupported with IgnorePerf
-                    allExecsInSQL.foreach { execRow =>
-                      if (!execRow("Exec Name").equals("AdaptiveSparkPlan")) {
-                        execRow("Exec Is Supported") shouldBe "false"
-                        execRow("Action") shouldBe "IgnorePerf"
-                      }
+                  // All execs (except AdaptiveSparkPlan) should be unsupported with IgnorePerf
+                  allExecsInSQL.foreach { execRow =>
+                    if (!execRow("Exec Name").equals("AdaptiveSparkPlan")) {
+                      execRow("Exec Is Supported") shouldBe "false"
+                      execRow("Action") shouldBe "IgnorePerf"
                     }
                   }
                 }
               }
             ))
         .withChecker(
-          QToolOutFileCheckerImpl("Unsupported ops should contain Iceberg metadata scans")
+          QToolOutFileCheckerImpl("Unsupported ops should contain all metadata table scans")
             .withTableLabel("unsupportedOpsCSVReport")
             .withContentVisitor(
-              "BatchScan with ReadIcebergMetadata type should be listed",
+              "All metadata table BatchScans should be listed with ReadIcebergMetadata type",
               csvF => {
-                if (ToolUtils.isSpark330OrLater()) {
-                  // This check is only enabled for Spark 3.3.0+
-                  // Earlier versions may not have proper Iceberg support
-                  // Verify that Iceberg metadata scans appear in unsupported ops report
-                  val icebergMetaScans = csvF.csvRows.filter { r =>
-                    r("Unsupported Type").equals("ReadIcebergMetadata") &&
-                      r("Unsupported Operator").contains("BatchScan") &&
-                      r("Details").equals("Iceberg metadata scans are not supported") &&
-                      r("Action").equals("IgnorePerf")
-                  }
-
-                  // Should have at least one metadata scan entry
-                  icebergMetaScans.size should be >= 1
+                // Verify that Iceberg metadata scans appear in unsupported ops report
+                val icebergMetaScans = csvF.csvRows.filter { r =>
+                  r("Unsupported Type").equals("ReadIcebergMetadata") &&
+                    r("Unsupported Operator").contains("BatchScan") &&
+                    r("Details").equals("Iceberg metadata scans are not supported") &&
+                    r("Action").equals("IgnorePerf")
                 }
+
+                // Should have at least 7 metadata scan entries
+                // (one for each metadata table type tested)
+                icebergMetaScans.size should be >= 7
               }))
         .withChecker(
-          QToolOutFileCheckerImpl("Normal Iceberg data scans should be supported")
+          QToolOutFileCheckerImpl("Normal Iceberg data scans should remain supported")
             .withTableLabel("execCSVReport")
             .withContentVisitor(
               "Normal data table scans should not be marked as metadata scans",
               csvF => {
-                if (ToolUtils.isSpark330OrLater()) {
-                  // This check is only enabled for Spark 3.3.0+
-                  // Earlier versions may not properly generate Iceberg data scans
-                  // Find the normal data query (id > 1)
-                  val normalDataScans = csvF.csvRows.filter { r =>
-                    r("Exec Name").contains("BatchScan") &&
-                      r("Exec Is Supported").equals("true")
-                  }
-
-                  // Should have at least one normal supported scan
-                  normalDataScans.size should be >= 1
+                // Find the normal data query (id > 1)
+                // This should be a regular BatchScan that is supported
+                val normalDataScans = csvF.csvRows.filter { r =>
+                  r("Exec Name").contains("BatchScan") &&
+                    r("Exec Is Supported").equals("true")
                 }
+
+                // Should have at least one normal supported scan
+                normalDataScans.size should be >= 1
               }))
         .build()
     }
