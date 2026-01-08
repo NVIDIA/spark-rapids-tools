@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,12 @@ class BaseNoSparkSuite extends AnyFunSuite with BeforeAndAfterEach with Logging 
     // Follow https://issues.apache.org/jira/browse/SPARK-43131 for updates on detecting
     // UDFs in spark3.2+
     (!ToolUtils.isSpark320OrLater(), "The UDF in query can be detected only for Spark-3.1.1")
+  }
+
+  protected def checkIcebergSupportForSpark(): (Boolean, String) = {
+    // Iceberg metadata scan tests require Spark 3.3.0+
+    // Earlier versions may not have proper Iceberg support or behave differently
+    (ToolUtils.isSpark330OrLater(), "Iceberg metadata scan tests require Spark 3.3.0+")
   }
 
   protected def shouldSkipFailedLogsForSpark(): (Boolean, String) = {
