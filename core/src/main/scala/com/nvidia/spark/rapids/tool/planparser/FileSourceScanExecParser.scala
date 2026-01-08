@@ -123,7 +123,7 @@ case class FileSourceScanExecParser(
    */
   private lazy val isDeltaLakeMetaScan: Boolean = {
     val appEnabled = app match {
-      case None => true  // no app provided then we assume it is true to be safe.
+      case None => false  // no app provided then we assume it is false to be safe.
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.
@@ -135,7 +135,7 @@ case class FileSourceScanExecParser(
 
   private lazy val isDeltaLakeMetaScanRDD: Boolean = {
     val appEnabled = app match {
-      case None => true  // no app provided then we assume it is true to be safe.
+      case None => false  // no app provided then we assume it is false to be safe.
       case Some(a) =>
         // If the app is provided, then check if delta lake is enabled or it is databricks
         // Databricks has delta lake built-in.

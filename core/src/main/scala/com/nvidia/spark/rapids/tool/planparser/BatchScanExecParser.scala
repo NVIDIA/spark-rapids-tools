@@ -440,7 +440,7 @@ class BatchScanExecParser(
    */
   private lazy val isIcebergMetaScan: Boolean = {
     val appEnabled = app match {
-      case None => true  // no app provided then we assume it is true to be safe.
+      case None => false  // no app provided then we assume it is false to be safe.
       case Some(a) =>
         // If the app is provided, then check if Iceberg is enabled
         a.isIcebergEnabled
