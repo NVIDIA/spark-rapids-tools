@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,6 +46,38 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
 
   // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
   private val SUPPORTED_CATALOGS = Set("hadoop")
+
+  // Iceberg metadata table suffixes used to identify metadata table scans in BatchScan operations.
+  // When querying Iceberg metadata tables through the catalog API, the table name appears with
+  // a metadata table suffix in the BatchScan node description.
+  //
+  // Examples in node.desc:
+  //   - "BatchScan local.db.table.snapshots[...]"
+  //   - "BatchScan catalog.database.table.manifests[...]"
+  //   - "BatchScan table.files[...]"
+  //
+  // Reference: https://iceberg.apache.org/docs/latest/spark-queries/#querying-with-sql
+  //
+  // Supported Iceberg metadata tables:
+  //   - snapshots: Lists all snapshots in the table
+  //   - manifests: Lists manifest files for current snapshot
+  //   - files: Lists current data files (alias for data_files)
+  //   - history: Shows table history and snapshots
+  //   - partitions: Shows partition information
+  //   - all_manifests: Lists all manifest files
+  //   - all_data_files: Lists all data files in the table
+  //
+  // Note: These are NOT matched against file paths like "/metadata/snap-*.avro" because
+  // Iceberg metadata tables accessed via DataSource V2 show table names, not file paths.
+  val ICEBERG_METADATA_TABLE_SUFFIXES: Set[String] = Set(
+    ".snapshots",
+    ".manifests",
+    ".files",
+    ".history",
+    ".partitions",
+    ".all_manifests",
+    ".all_data_files"
+  )
 
   val EXEC_APPEND_DATA: String = "AppendData"
   // A Map between the spark node name and the SupportedOpStub.

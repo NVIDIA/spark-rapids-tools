@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2022-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import scala.util.matching.Regex
 
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -412,6 +413,79 @@ class BatchScanExecParser(
     case Some(m) => m.group(1)
     // in case not found, use the full exec name
     case None => actualExecName
+  }
+
+  /**
+   * Check if the scan operation is an Iceberg metadata table scan.
+   *
+   * Iceberg metadata tables are special system tables that provide access to table metadata
+   * such as snapshots, manifests, and history. These are accessed via the Iceberg catalog API
+   * and appear in BatchScan operations with the table name followed by a metadata table suffix.
+   *
+   * Detection Strategy:
+   * - Extract the table name from the BatchScan node description
+   * - Check if it ends with one of the known Iceberg metadata table suffixes
+   *   (e.g., ".snapshots", ".manifests", ".files", ".history", etc.)
+   *
+   * Example node descriptions that would be detected:
+   * - "BatchScan local.db.table.snapshots[...]"
+   * - "BatchScan catalog.database.table.manifests[...]"
+   * - "BatchScan table.files[...]"
+   *
+   * Example node descriptions that would NOT be detected:
+   * - "BatchScan local.db.regular_table[...]" (normal data table)
+   * - "BatchScan table_with_history_column[...]" (table name happens to contain "history")
+   *
+   * @return true if it is an Iceberg metadata table scan, false otherwise
+   */
+  private lazy val isIcebergMetaScan: Boolean = {
+    val appEnabled = app match {
+      case None => false  // no app provided then we assume it is false to be safe.
+      case Some(a) =>
+        // If the app is provided, then check if Iceberg is enabled
+        a.isIcebergEnabled
+    }
+
+    if (!appEnabled) {
+      false
+    } else {
+      // Extract the table name from the BatchScan description
+      // Format: "BatchScan <tableName>[schema]..."
+      val tableNameOpt = BatchScanExtractorHelper.extractTableName(node.desc)
+
+      tableNameOpt match {
+        case Some(tableName) =>
+          // Check if the table name ends with any of the Iceberg metadata table suffixes
+          IcebergHelper.ICEBERG_METADATA_TABLE_SUFFIXES.exists(suffix =>
+            tableName.endsWith(suffix))
+        case None =>
+          // Could not extract table name, not a metadata scan
+          false
+      }
+    }
+  }
+
+  /**
+   * Check if the scan operation is supported.
+   * Iceberg metadata scans are not supported.
+   * @return true if supported, false otherwise
+   */
+  override def isScanOpSupported: Boolean = {
+    // Iceberg metadata scans are not supported
+    // No need to set the reason because it is set automatically inside the object ExecInfo
+    !isIcebergMetaScan
+  }
+
+  /**
+   * Determine the operation type for the scan.
+   * If it is an Iceberg metadata scan, then return ReadIcebergMetadata.
+   * Otherwise, return ReadExec.
+   * @return the operation type
+   */
+  override def pullOpType: OpTypes.Value = if (isIcebergMetaScan) {
+    OpTypes.ReadIcebergMetadata
+  } else {
+    super.pullOpType
   }
 
   /**
