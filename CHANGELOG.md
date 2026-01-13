@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.12.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.2)
+Generated on 2026-01-13
+### Core
+
+- Mark IceBerg Metadata Scan Execs as Unsupported ([#2022](https://github.com/NVIDIA/spark-rapids-tools/pull/2022))
+
+
+<br/>
+
 ## Release [v25.12.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.1)
 Generated on 2026-01-06
 ### Bug Fixes
