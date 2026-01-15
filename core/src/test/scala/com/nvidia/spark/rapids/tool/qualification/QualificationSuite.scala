@@ -1612,6 +1612,117 @@ class QualificationSuite extends BaseWithSparkSuite {
     }
   }
 
+runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are marked unsupported",
+    checkIcebergSupportForSpark) {
+    // This test verifies that BOTH MergeRows AND ReplaceData from Iceberg MERGE INTO operations
+    // are correctly parsed and marked as unsupported.
+    //
+    // DAG structure (copy-on-write mode):
+    //   ReplaceData (12)       <- Write operator (OpType: WriteExec)
+    //   +- Project (11)
+    //      +- MergeRows (10)   <- Merge logic operator (OpType: Exec)
+    //         +- SortMergeJoin FullOuter (9)
+    //
+    // Note: Spark plan shows "MergeRows" and "ReplaceData" (without Exec suffix).
+    val expectedMergeExec = "MergeRows"
+    val expectedWriteExec = "ReplaceData"
+    TrampolineUtil.withTempDir { warehouseDir =>
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl(s"create an app with Iceberg MERGE INTO operation")
+            .withAppName(s"TestAppIcebergMergeInto")
+            .withSparkConfigs(
+              Map(
+                "spark.sql.extensions" ->
+                  "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+                "spark.sql.catalog.local" -> "org.apache.iceberg.spark.SparkCatalog",
+                "spark.sql.catalog.local.type" -> "hadoop",
+                "spark.sql.catalog.local.warehouse" -> warehouseDir.getAbsolutePath))
+            .withFunc { (_, spark) =>
+              import spark.implicits._
+              // 1. Create target Iceberg table with initial data
+              spark.sql(
+                "CREATE TABLE local.db.target_table (id BIGINT, value STRING) USING iceberg")
+              val targetData = Seq((1L, "old_value1"), (2L, "old_value2")).toDF("id", "value")
+              targetData.writeTo("local.db.target_table").append()
+
+              // 2. Create source data for merge
+              val sourceData = Seq((1L, "new_value1"), (3L, "new_value3")).toDF("id", "value")
+              sourceData.createOrReplaceTempView("source_data")
+
+              // 3. Perform MERGE INTO operation which generates:
+              //    - MergeRows (merge logic)
+              //    - ReplaceData (write operator in copy-on-write mode)
+              spark.sql(
+                """MERGE INTO local.db.target_table t
+                  |USING source_data s
+                  |ON t.id = s.id
+                  |WHEN MATCHED THEN UPDATE SET t.value = s.value
+                  |WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value)
+                  |""".stripMargin)
+
+              // 4. Verify the merge worked
+              spark.sql("SELECT * FROM local.db.target_table ORDER BY id")
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl("Execs should contain both MergeRows and ReplaceData")
+            .withTableLabel("execCSVReport")
+            .withContentVisitor(
+              "Both MergeRows and ReplaceData should appear in the exec report",
+              csvF => {
+                // Check MergeRows
+                val mergeRowsExecs = csvF.csvRows.filter { r =>
+                  r("Exec Name").contains(expectedMergeExec)
+                }
+                mergeRowsExecs.size should be >= 1
+                mergeRowsExecs.foreach { row =>
+                  row("Exec Is Supported") shouldBe "false"
+                }
+
+                // Check ReplaceData (the write operator for CoW mode)
+                val replaceDataExecs = csvF.csvRows.filter { r =>
+                  r("Exec Name").contains(expectedWriteExec)
+                }
+                replaceDataExecs.size should be >= 1
+                replaceDataExecs.foreach { row =>
+                  row("Exec Is Supported") shouldBe "false"
+                }
+              }))
+        .withChecker(
+          QToolOutFileCheckerImpl("Unsupported operators should contain MergeRows and ReplaceData")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "MergeRows (Exec) and ReplaceData (WriteExec) should appear in unsupported operators",
+              csvF => {
+                // Check MergeRows is listed as unsupported with Exec type
+                val mergeRowsUnsupported = csvF.csvRows.filter { r =>
+                  r("Unsupported Operator").contains(expectedMergeExec)
+                }
+                mergeRowsUnsupported.size should be >= 1
+                mergeRowsUnsupported.foreach { row =>
+                  // MergeRows is an intermediate Exec, not WriteExec
+                  row("Unsupported Type") shouldBe "Exec"
+                }
+
+                // Check ReplaceData is listed as unsupported with WriteExec type
+                val replaceDataUnsupported = csvF.csvRows.filter { r =>
+                  r("Unsupported Operator").contains(expectedWriteExec)
+                }
+                replaceDataUnsupported.size should be >= 1
+                replaceDataUnsupported.foreach { row =>
+                  // ReplaceData is a WriteExec
+                  row("Unsupported Type") shouldBe "WriteExec"
+                }
+              }))
+        .build()
+    }
+  }
+
   test("TableCacheQueryStage does not show up in the Qual report") {
     // TableCacheQueryStage is a wrapper that is skipped during the construction of the graph.
     // this unit test is to make sure that the exec does not show up at all in the report.
