@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package org.apache.spark.sql.rapids.tool.store
 import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, DataWritingCommandExecParser, ReadParser}
-import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergOps
 
 import org.apache.spark.sql.rapids.tool.{AccumToStageRetriever, AppBase}
 import org.apache.spark.sql.rapids.tool.plangraph.{SparkPlanGraph, SparkPlanGraphNode, ToolsPlanGraph}
@@ -109,28 +109,36 @@ class SQLPlanVersion(
 
   /**
    * Builds the list of write records for this plan.
-   * This works by looping on all the nodes and filtering write execs.
+   * This works by looping on all the nodes and filtering write execs where we can extract
+   * metadata (table name, format, etc.).
+   *
    * @return the list of write records for this plan if any.
    */
   private def initWriteOperationRecords(): Iterable[WriteOperationRecord] = {
-    // pick nodes that satisfies IcebergWriteOps.accepts
     val checkIceberg = _sparkConfigProvider match {
       case Some(conf) => conf.isIcebergEnabled
       case None => false
     }
+    // Pass physicalPlanDescription for ReplaceData/WriteDelta
+    // metadata extraction for Iceberg.
+    val physPlanOpt = Option(physicalPlanDescription).filter(_.nonEmpty)
+
     getToolsPlanGraph.allNodes
-      // pick only nodes that marked as write Execs
       .flatMap { node =>
-        // check Iceberg first
-        val metaFromIcberg = if (checkIceberg) {
-          IcebergWriteOps.extractOpMeta(node, _sparkConfigProvider)
+        // Try Iceberg-specific extraction first.
+        // - AppendData: extracted from simpleString
+        // - ReplaceData/WriteDelta: extracted from physicalPlanDescription
+        // - MergeRows: intentionally excluded (not a write operation)
+        val metaFromIceberg = if (checkIceberg) {
+          IcebergOps.extractOpMeta(node, _sparkConfigProvider, physPlanOpt)
         } else {
           None
         }
-        val opMeta = metaFromIcberg match {
-          case Some(_) => metaFromIcberg
+        val opMeta = metaFromIceberg match {
+          case Some(_) => metaFromIceberg
           case _ =>
-            // Fall back to the generic DataWritingCommandExecParser which handles DeltaLake too.
+            // Fall back to the generic DataWritingCommandExecParser which handles
+            // standard Spark write commands and DeltaLake.
             if (DataWritingCommandExecParser.isWritingCmdExec(node.name.stripSuffix("$"))) {
               Option(DataWritingCommandExecParser.getWriteOpMetaFromNode(node))
             } else {

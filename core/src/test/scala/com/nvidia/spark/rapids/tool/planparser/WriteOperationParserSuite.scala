@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser
 
 import com.nvidia.spark.rapids.tool.planparser.delta.DeltaLakeHelper
-import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergWriteOps
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergOps
 import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
@@ -52,7 +52,7 @@ class WriteOperationParserSuite extends AnyFunSuite {
     expectedCompressionOpt: String = CompressionCodec.UNCOMPRESSED): Unit = {
 
     val metadata: WriteOperationMetadataTrait =
-      IcebergWriteOps.extractOpMeta(node, confProvider = None)
+      IcebergOps.extractOpMeta(node, confProvider = None)
         .getOrElse(DataWritingCommandExecParser.getWriteOpMetaFromNode(node))
 
     assert(metadata.execName() == expectedExecName, "execName")
@@ -651,6 +651,184 @@ class WriteOperationParserSuite extends AnyFunSuite {
       expectedDatabaseName = "db",
       expectedPartitionCols = StringUtils.UNKNOWN_EXTRACT
     )
+  }
+
+  test("MergeRows — Iceberg MERGE INTO operation is recognized") {
+    // Test that MergeRows is correctly identified for Iceberg MERGE INTO operations.
+    // Note: Spark plan shows "MergeRows" (without Exec suffix) as nodeName.
+    //
+    // Real event log structure:
+    //   nodeName: "MergeRows"
+    //   simpleString: "MergeRowsExec[_c0#523, _c1#524, ...]"  <- This becomes node.desc
+    //
+    // The simpleString only contains output columns, NOT table metadata.
+    // Table/format info is in physicalPlanDescription (Arguments section), not simpleString.
+    val node = new SparkPlanGraphNode(
+      id = 6,
+      name = "MergeRows",
+      // Real simpleString format: "MergeRowsExec[output_columns...]"
+      desc = "MergeRowsExec[_c0#523, _c1#524, _c2#525, _c3#526L, _c4#527, _c5#528, " +
+        "_c6#529, _c7#530, _c8#531, _c9#532, _c10#533, _c11#534, _c12#535, " +
+        "_c13#536, _c14#537, _c15#538, _file#539]",
+      Seq.empty
+    )
+
+    // Verify IcebergOps accepts MergeRows
+    assert(IcebergOps.accepts(node.name),
+      "IcebergOps should accept MergeRows")
+
+    // MergeRows doesn't have metadata in simpleString - metadata extraction returns None.
+    // The IcebergWrite(table=..., format=...) info is only in physicalPlanDescription.
+    val metadata: Option[WriteOperationMetadataTrait] =
+      IcebergOps.extractOpMeta(node, confProvider = None)
+    assert(metadata.isEmpty,
+      "MergeRows metadata should be None - no table/format info in simpleString")
+  }
+
+  test("ReplaceData — Iceberg copy-on-write MERGE INTO operation is recognized") {
+    // Test that ReplaceData is correctly identified for Iceberg copy-on-write MERGE INTO operations.
+    // ReplaceData is the write operator that follows MergeRows in CoW mode.
+    //
+    // Real event log structure:
+    //   nodeName: "ReplaceData"
+    //   simpleString: "ReplaceData"  <- Just the name, NO metadata!
+    //
+    // The IcebergWrite(table=..., format=PARQUET) appears in physicalPlanDescription:
+    //   (12) ReplaceData
+    //   Arguments: IcebergWrite(table=spark_catalog.default.table, format=PARQUET)
+    val node = new SparkPlanGraphNode(
+      id = 7,
+      name = "ReplaceData",
+      // Real simpleString is just the operator name - no metadata
+      desc = "ReplaceData",
+      Seq.empty
+    )
+
+    // Verify IcebergOps accepts ReplaceData
+    assert(IcebergOps.accepts(node.name),
+      "IcebergOps should accept ReplaceData")
+
+    // ReplaceData doesn't have metadata in simpleString - it's in physicalPlanDescription
+    val metadata: Option[WriteOperationMetadataTrait] =
+      IcebergOps.extractOpMeta(node, confProvider = None)
+    assert(metadata.isEmpty,
+      "ReplaceData metadata should be None - no table/format info in simpleString")
+  }
+
+  test("WriteDelta — Iceberg merge-on-read MERGE INTO operation is recognized") {
+    // Test that WriteDelta is correctly identified for Iceberg merge-on-read MERGE INTO operations.
+    // WriteDelta writes "delete files" instead of rewriting data files (MoR strategy).
+    //
+    // Event log structure:
+    //   nodeName: "WriteDelta"
+    //   simpleString: "WriteDelta"
+    //
+    // Merge-on-Read DAG:
+    //   WriteDelta (14)          <- MoR write operator
+    //   +- Exchange (13)
+    //      +- MergeRows (12)
+    //         +- SortMergeJoin RightOuter (10)
+    //
+    // The SparkPositionDeltaWrite info appears in physicalPlanDescription:
+    //   (14) WriteDelta
+    //   Arguments: org.apache.iceberg.spark.source.SparkPositionDeltaWrite@...
+    val node = new SparkPlanGraphNode(
+      id = 8,
+      name = "WriteDelta",
+      // Real simpleString is just the operator name - no metadata
+      desc = "WriteDelta",
+      Seq.empty
+    )
+
+    // Verify IcebergOps accepts WriteDelta
+    assert(IcebergOps.accepts(node.name),
+      "IcebergOps should accept WriteDelta")
+
+    // WriteDelta doesn't have metadata in simpleString - extraction needs physicalPlanDescription
+    val metadataWithoutPhysPlan: Option[WriteOperationMetadataTrait] =
+      IcebergOps.extractOpMeta(node, confProvider = None, physicalPlanDescription = None)
+    assert(metadataWithoutPhysPlan.isEmpty,
+      "WriteDelta metadata should be None without physicalPlanDescription")
+  }
+
+  test("ReplaceData — metadata extracted from physicalPlanDescription") {
+    // Test that ReplaceData metadata (table, format) can be extracted from physicalPlanDescription
+    val node = new SparkPlanGraphNode(
+      id = 12,
+      name = "ReplaceData",
+      desc = "ReplaceData",  // simpleString has no metadata
+      Seq.empty
+    )
+
+    // Real physicalPlanDescription format from Spark UI
+    val physicalPlanDescription =
+      """(12) ReplaceData
+        |Input [16]: [_c0#523, _c1#524, _c2#525, _c3#526L, _c4#527, _c5#528]
+        |Arguments: IcebergWrite(table=spark_catalog.default.my_target_table, format=PARQUET)
+        |""".stripMargin
+
+    val metadata = IcebergOps.extractOpMeta(
+      node, confProvider = None, physicalPlanDescription = Some(physicalPlanDescription))
+
+    assert(metadata.isDefined, "ReplaceData metadata should be extracted from physicalPlanDescription")
+    val meta = metadata.get
+    assert(meta.execName() == "ReplaceData", s"execName should be ReplaceData, got ${meta.execName()}")
+    assert(meta.dataFormat() == "IcebergParquet",
+      s"dataFormat should be IcebergParquet, got ${meta.dataFormat()}")
+    assert(meta.table() == "my_target_table",
+      s"table should be my_target_table, got ${meta.table()}")
+    assert(meta.dataBase() == "default",
+      s"dataBase should be default, got ${meta.dataBase()}")
+  }
+
+  test("WriteDelta — metadata extracted from physicalPlanDescription") {
+    // Test that WriteDelta is recognized as Iceberg position delete format
+    val node = new SparkPlanGraphNode(
+      id = 16,
+      name = "WriteDelta",
+      desc = "WriteDelta",  // simpleString has no metadata
+      Seq.empty
+    )
+
+    // Real physicalPlanDescription format from Spark UI
+    val physicalPlanDescription =
+      """(16) WriteDelta
+        |Input [21]: [__row_operation#10023, _c0#10024, _c1#10025]
+        |Arguments: org.apache.iceberg.spark.source.SparkPositionDeltaWrite@5c5feaaa
+        |""".stripMargin
+
+    val metadata = IcebergOps.extractOpMeta(
+      node, confProvider = None, physicalPlanDescription = Some(physicalPlanDescription))
+
+    assert(metadata.isDefined, "WriteDelta metadata should be extracted from physicalPlanDescription")
+    val meta = metadata.get
+    assert(meta.execName() == "WriteDelta", s"execName should be WriteDelta, got ${meta.execName()}")
+    // WriteDelta is for merge-on-read position deletes
+    assert(meta.dataFormat() == "IcebergPositionDelete",
+      s"dataFormat should be IcebergPositionDelete, got ${meta.dataFormat()}")
+  }
+
+  test("MergeRows — NOT included in write operations") {
+    // MergeRows is an intermediate exec (OpType: Exec), NOT a write operation
+    val node = new SparkPlanGraphNode(
+      id = 10,
+      name = "MergeRows",
+      desc = "MergeRowsExec[_c0#523, _c1#524]",
+      Seq.empty
+    )
+
+    val physicalPlanDescription =
+      """(10) MergeRows
+        |Input [36]: [_c0#478, _c1#479]
+        |Arguments: isnotnull(__row_from_source#522), [keep(true, _c0#494)]
+        |""".stripMargin
+
+    val metadata = IcebergOps.extractOpMeta(
+      node, confProvider = None, physicalPlanDescription = Some(physicalPlanDescription))
+
+    // MergeRows should NOT be included in write operations
+    assert(metadata.isEmpty,
+      "MergeRows should NOT have write metadata")
   }
   // scalastyle:on line.size.limit
 }

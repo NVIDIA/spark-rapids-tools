@@ -24,7 +24,7 @@ import scala.util.matching.Regex
 import com.nvidia.spark.rapids.tool.planparser.config.SQLPlanParserConfig
 import com.nvidia.spark.rapids.tool.planparser.db.DBPlugin
 import com.nvidia.spark.rapids.tool.planparser.delta.{DeltaLakeOps, DeltaLakeOSSPlugin}
-import com.nvidia.spark.rapids.tool.planparser.iceberg.{IcebergPlugin, IcebergWriteOps}
+import com.nvidia.spark.rapids.tool.planparser.iceberg.{IcebergOps, IcebergPlugin}
 import com.nvidia.spark.rapids.tool.planparser.ops.{ExprOpRef, OpActions, OperatorRefTrait, OpRef, OpTypes, UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -1381,9 +1381,9 @@ object SQLPlanParser extends Logging {
           ).parse
         case "WindowGroupLimit" =>
           WindowGroupLimitParser(node, checker, sqlID, app = Option(app)).parse
-        case iwo if IcebergWriteOps.accepts(iwo, Some(app)) =>
-          // Iceberg write ops such as AppendDataExec
-          IcebergWriteOps.createExecParser(
+        case iwo if IcebergOps.accepts(iwo, Some(app)) =>
+          // Iceberg ops: AppendData, MergeRows, ReplaceData, WriteDelta
+          IcebergOps.createExecParser(
             node = node, checker = checker, sqlID = sqlID, app = Some(app)).parse
         case i if DataWritingCommandExecParser.isWritingCmdExec(i) =>
           DataWritingCommandExecParser.parseNode(node, checker, sqlID)
