@@ -70,7 +70,6 @@ class MergeRowsIcebergParser(
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     // Support is determined by the opStub.isSupported flag.
-    // Currently marked as unsupported (TNEW) in supportedExecs.csv until tested.
     opStub.isSupported
   }
 
