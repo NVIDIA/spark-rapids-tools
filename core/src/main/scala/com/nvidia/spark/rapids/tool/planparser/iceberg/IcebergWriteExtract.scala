@@ -223,25 +223,10 @@ case class IcebergWriteMetadata(
 ) extends WriteOperationMetadataTrait {
 
   override def execName(): String = execNameVal
-
   override def dataFormat(): String = dataFormatVal
-
   override def table(): String = tableNameVal
-
   override def dataBase(): String = databaseNameVal
 
-  override def outputPath(): String = StringUtils.UNKNOWN_EXTRACT
-
-  override def outputColumns(): String = StringUtils.UNKNOWN_EXTRACT
-
-  override def writeMode(): String = StringUtils.UNKNOWN_EXTRACT
-
-  override def partitions(): String = StringUtils.UNKNOWN_EXTRACT
-
-  override def compressOption(): String = StringUtils.UNKNOWN_EXTRACT
-
-  // Abstract methods that must be implemented
   override def execNameCSV: String = execNameVal
-
   override def formatCSV: String = dataFormatVal
 }

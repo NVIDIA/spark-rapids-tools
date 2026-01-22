@@ -438,10 +438,10 @@ class ToolUserArgModel(AbsToolUserArgModel):
                     f'\n  Error:{ve}\n') from ve
 
     def process_target_cluster_info(self, rapids_options: dict) -> None:
-        # only YAML files are accepted
+        # only YAML files are accepted (both .yaml and .yml extensions)
         if self.target_cluster_info is not None:
             if not CspPath.is_file_path(self.target_cluster_info,
-                                        extensions=['yaml'],
+                                        extensions=['yaml', 'yml'],
                                         raise_on_error=False):
                 raise PydanticCustomError(
                     'target_cluster_info',
@@ -454,7 +454,7 @@ class ToolUserArgModel(AbsToolUserArgModel):
     def process_tuning_configs(self, rapids_options: dict) -> None:
         if self.tuning_configs is not None:
             if not CspPath.is_file_path(self.tuning_configs,
-                                        extensions=['yaml'],
+                                        extensions=['yaml', 'yml'],
                                         raise_on_error=False):
                 raise PydanticCustomError(
                     'tuning_configs',
