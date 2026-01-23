@@ -123,7 +123,7 @@ class Utils:
         return current_val
 
     @classmethod
-    def env_str_to_bool(cls, value: Optional[str]) -> bool:
+    def str_to_bool(cls, value: Optional[str]) -> bool:
         if value is None or value == '':
             return False
         return value.lower() in ('true', '1', 'yes', 'on')
@@ -242,7 +242,7 @@ class ToolLogging:
 
     @classmethod
     def is_debug_mode_enabled(cls) -> bool:
-        return Utils.env_str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG'))
+        return Utils.str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG'))
 
     @classmethod
     def should_suppress_report_summary(cls) -> bool:
@@ -254,14 +254,14 @@ class ToolLogging:
         """
         suppress_env = Utils.get_or_set_rapids_tools_env('SUPPRESS_REPORTS')
         if suppress_env is not None:
-            return Utils.env_str_to_bool(suppress_env)
+            return Utils.str_to_bool(suppress_env)
 
         # Auto-detect: suppress if stdout is not interactive (not a terminal)
         return not sys.stdout.isatty()
 
     @classmethod
     def get_and_setup_logger(cls, type_label: str, debug_mode: bool = False):
-        debug_enabled = Utils.env_str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG', debug_mode))
+        debug_enabled = Utils.str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG', debug_mode))
 
         cls._ensure_configured(debug_enabled)
 
