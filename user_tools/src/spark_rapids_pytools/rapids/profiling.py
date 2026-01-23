@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ from typing import List, Tuple
 from tabulate import tabulate
 
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils
+from spark_rapids_pytools.common.utilities import Utils, ToolLogging
 from spark_rapids_pytools.rapids.profiling_core import ProfilingCore
 from spark_rapids_tools.utils.data_utils import TXTResult
 
@@ -115,8 +115,9 @@ class Profiling(ProfilingCore):
         return app_name, props_list, comments_list
 
     def _write_summary(self):
-        print(Utils.gen_multiline_str(self._report_tool_full_location(),
-                                      self.ctxt.get_ctxt('wrapperOutputContent')))
+        if not ToolLogging.should_suppress_report_summary():
+            print(Utils.gen_multiline_str(self._report_tool_full_location(),
+                                          self.ctxt.get_ctxt('wrapperOutputContent')))
 
     def __generate_report_with_recommendations(self):
         """

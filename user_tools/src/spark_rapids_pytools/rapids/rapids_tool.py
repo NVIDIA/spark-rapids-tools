@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -270,9 +270,10 @@ class RapidsTool(object):
     @phase_banner('Generating Report Summary',
                   enable_epilogue=False)
     def _finalize(self):
-        print(Utils.gen_str_header(f'{self.pretty_name().upper()} Report',
-                                   ruler='_',
-                                   line_width=100))
+        if not ToolLogging.should_suppress_report_summary():
+            print(Utils.gen_str_header(f'{self.pretty_name().upper()} Report',
+                                       ruler='_',
+                                       line_width=100))
         self._write_summary()
         self.cleanup_run()
 
