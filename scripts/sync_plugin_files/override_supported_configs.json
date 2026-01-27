@@ -315,7 +315,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -326,7 +326,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -337,7 +337,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -348,7 +348,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -359,7 +359,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -370,7 +370,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -381,7 +381,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     },
@@ -392,7 +392,7 @@
       "override": [
         {
           "key": "Supported",
-          "value": "TNEW"
+          "value": "NS"
         }
       ]
     }

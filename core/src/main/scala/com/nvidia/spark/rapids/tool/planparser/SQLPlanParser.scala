@@ -852,6 +852,47 @@ object SQLPlanParser extends Logging {
     parsedExpressions.toArray
   }
 
+  /**
+   * Parses MergeRows expressions from physicalPlanDescription.
+   *
+   * MergeRows is used in Iceberg MERGE INTO operations and contains special expressions:
+   * - keep(...): Keep matched/unmatched rows (copy-on-write mode)
+   * - discard(...): Discard rows (DELETE clause)
+   * - split(...): Split into data + position delete (merge-on-read mode)
+   *
+   * Example physicalPlanDescription:
+   * {{{
+   * (10) MergeRows
+   * Input [36]: [_c0#478, ...]
+   * Arguments: isnotnull(__row_from_source#522), isnotnull(__row_from_target#520),
+   *            [keep(true, _c0#494, ...)], [keep(true, _c0#478, ...)], ...
+   * }}}
+   *
+   * @param physicalPlanDesc the full physical plan description string
+   * @param nodeId the node ID to find
+   * @return array of unique expression names found in the Arguments (keep, discard, split)
+   */
+  def parseMergeRowsExpressions(physicalPlanDesc: String, nodeId: Long): Array[String] = {
+    val mergeRowsExprs = Set("keep", "discard", "split")
+
+    // Extract the Arguments section for the specific MergeRows node
+    val argsPattern =
+      s"""(?s)\\($nodeId\\)\\s+MergeRows\\n.*?\\nArguments:\\s*(.+?)(?=\\n\\(\\d+\\)|\\z)""".r
+
+    argsPattern.findFirstMatchIn(physicalPlanDesc).map { m =>
+      val argsStr = m.group(1).trim
+
+      // Extract all function names from the Arguments string
+      val allFunctions = getAllFunctionNames(functionPrefixPattern, argsStr)
+
+      // Filter to only include MergeRows-specific expressions and remove duplicates
+      allFunctions
+        .map(_.toLowerCase)
+        .filter(mergeRowsExprs.contains)
+        .distinct
+    }.getOrElse(Array.empty[String])
+  }
+
   def parseGenerateExpressions(exprStr: String): Array[String] = {
     // Get the function names from the GenerateExec. The GenerateExec has the following format:
     // 1. Generate explode(arrays#1306), [id#1304], true, [col#1426]
