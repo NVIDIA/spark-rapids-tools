@@ -1,4 +1,4 @@
-# Copyright (c) 2024-2025, NVIDIA CORPORATION.
+# Copyright (c) 2024-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -55,7 +55,9 @@ class E2ETestUtils:
         If verbose mode is enabled by the behave config, print the command and its output
         """
         # tox already activates its virtualenv; just run with current environment
-        cmd_result = subprocess.run(cmd, capture_output=True, text=True)
+        env = os.environ.copy()
+        env['RAPIDS_USER_TOOLS_SUPPRESS_REPORTS'] = 'False'
+        cmd_result = subprocess.run(cmd, capture_output=True, text=True, env=env)
         if cls.is_verbose_mode():
             print(cls.get_cmd_output_str(cmd_result))
         return cmd_result
