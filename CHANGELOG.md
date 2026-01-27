@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v25.12.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.4)
+Generated on 2026-01-27
+### User Tools
+
+- Suppress Console Report Output When Tools is Used as Package ([#2029](https://github.com/NVIDIA/spark-rapids-tools/pull/2029))
+- Support .yml extensions for configuration files ([#2027](https://github.com/NVIDIA/spark-rapids-tools/pull/2027))
+
+### Core
+
+- Add Iceberg MERGE INTO Operator Support ([#2024](https://github.com/NVIDIA/spark-rapids-tools/pull/2024))
+
+
+<br/>
+
 ## Release [v25.12.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.3)
 Generated on 2026-01-20
 - no changes
