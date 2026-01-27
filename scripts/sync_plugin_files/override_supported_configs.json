@@ -411,16 +411,6 @@
   ],
   "supportedExecs.csv": [
     {
-      "Exec": "MergeRowsExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
       "Exec": "OverwriteByExpressionExec",
       "Params": "Input/Output",
       "override": [
@@ -432,26 +422,6 @@
     },
     {
       "Exec": "OverwritePartitionsDynamicExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "ReplaceDataExec",
-      "Params": "Input/Output",
-      "override": [
-        {
-          "key": "Supported",
-          "value": "TNEW"
-        }
-      ]
-    },
-    {
-      "Exec": "WriteDeltaExec",
       "Params": "Input/Output",
       "override": [
         {

@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ from spark_rapids_pytools.cloud_api.sp_types import ClusterBase
 from spark_rapids_pytools.common.cluster_inference import ClusterInference, ClusterType
 from spark_rapids_pytools.common.prop_manager import JSONPropertiesContainer, convert_dict_to_camel_case
 from spark_rapids_pytools.common.sys_storage import FSUtil
-from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator
+from spark_rapids_pytools.common.utilities import Utils, TemplateGenerator, ToolLogging
 from spark_rapids_pytools.rapids.qualification_core import QualificationCore
 from spark_rapids_tools.enums import QualFilterApp, QualEstimationModel, SubmissionMode
 from spark_rapids_tools.tools.additional_heuristics import AdditionalHeuristics
@@ -476,7 +476,8 @@ class Qualification(QualificationCore):
     def _write_summary(self) -> None:
         wrapper_out_content = self.ctxt.get_ctxt('wrapperOutputContent')
         if wrapper_out_content is not None:
-            print(Utils.gen_multiline_str(wrapper_out_content))
+            if not ToolLogging.should_suppress_report_summary():
+                print(Utils.gen_multiline_str(wrapper_out_content))
 
     def _generate_section_lines(self, sec_conf: dict) -> List[str]:
         if sec_conf.get('sectionID') == 'gpuClusterCreationScript':

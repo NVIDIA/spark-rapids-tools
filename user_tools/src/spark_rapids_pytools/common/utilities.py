@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -123,6 +123,12 @@ class Utils:
         return current_val
 
     @classmethod
+    def str_to_bool(cls, value: Optional[str]) -> bool:
+        if value is None or value == '':
+            return False
+        return value.lower() in ('true', '1', 'yes', 'on')
+
+    @classmethod
     def gen_str_header(cls, title: str, ruler='-', line_width: int = 40) -> str:
         dash = ruler * line_width
         return cls.gen_multiline_str('', dash, f'{title:^{line_width}}', dash)
@@ -235,12 +241,27 @@ class ToolLogging:
         Utils.set_rapids_tools_env('LOG_DEBUG', 'True')
 
     @classmethod
-    def is_debug_mode_enabled(cls):
-        return Utils.get_or_set_rapids_tools_env('LOG_DEBUG')
+    def is_debug_mode_enabled(cls) -> bool:
+        return Utils.str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG'))
+
+    @classmethod
+    def should_suppress_report_summary(cls) -> bool:
+        """
+        Determine if report summaries should be suppressed.
+        Suppresses when:
+        1. Environment variable RAPIDS_USER_TOOLS_SUPPRESS_REPORTS is set to true, OR
+        2. stdout is not a TTY (typical when used as a library or piped)
+        """
+        suppress_env = Utils.get_or_set_rapids_tools_env('SUPPRESS_REPORTS')
+        if suppress_env is not None:
+            return Utils.str_to_bool(suppress_env)
+
+        # Auto-detect: suppress if stdout is not interactive (not a terminal)
+        return not sys.stdout.isatty()
 
     @classmethod
     def get_and_setup_logger(cls, type_label: str, debug_mode: bool = False):
-        debug_enabled = bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG', debug_mode))
+        debug_enabled = Utils.str_to_bool(Utils.get_or_set_rapids_tools_env('LOG_DEBUG', debug_mode))
 
         cls._ensure_configured(debug_enabled)
 
