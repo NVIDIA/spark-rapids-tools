@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -76,6 +76,29 @@ class MergeRowsIcebergParser(
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.
   override def reportedExecName: String = trimmedNodeName
 
+  /**
+   * Parse expressions from physicalPlanDescription for MergeRows operator.
+   * Extracts keep, discard, and split expressions from the Arguments line.
+   */
+  override protected def parseExpressions(): Array[String] = {
+    // Only MergeRows has merge-specific expressions (keep, discard, split)
+    if (node.name != IcebergHelper.EXEC_MERGE_ROWS) {
+      return Array.empty[String]
+    }
+
+    // Extract physicalPlanDescription from the SQL plan model
+    val physPlanOpt = for {
+      appInst <- app
+      physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
+      if physPlan.nonEmpty
+    } yield physPlan
+
+    // Parse merge expressions from the physical plan description
+    physPlanOpt.map { physPlan =>
+      SQLPlanParser.parseMergeRowsExpressions(physPlan, node.id)
+    }.getOrElse(Array.empty[String])
+  }
+
   override def createExecInfo(
       speedupFactor: Double,
       isSupported: Boolean,
@@ -83,6 +106,7 @@ class MergeRowsIcebergParser(
       notSupportedExprs: Seq[UnsupportedExprOpRef],
       expressions: Array[String]): ExecInfo = {
     // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF.
+    // We want to include the parsed expressions (keep, discard, split) for MergeRows.
     ExecInfo.createExecNoNode(
       sqlID,
       exec = reportedExecName,
@@ -92,7 +116,7 @@ class MergeRowsIcebergParser(
       isSupported = isSupported,
       children = None,
       unsupportedExecReason = unsupportedReason,
-      expressions = Seq.empty
+      expressions = expressions
     )
   }
 }

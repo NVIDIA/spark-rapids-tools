@@ -1894,4 +1894,93 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
       }
     }
   }
+
+  test("Parse MergeRows expressions from physicalPlanDescription") {
+    val testCases = Table(
+      ("description", "physPlan", "nodeId", "expectedExprs"),
+
+      // Basic: keep only (typical UPDATE/INSERT)
+      ("keep only",
+        """(10) MergeRows
+          |Input [2]: [_c0#478, _c1#479]
+          |Arguments: [keep(true, _c0#494)], [keep(true, _c0#478)]
+          |
+          |(11) Project""".stripMargin,
+        10L, Seq("keep")),
+
+      // All three expression types (merge-on-read with DELETE)
+      ("all expressions",
+        """(10) MergeRows
+          |Input [1]: [_c0#478]
+          |Arguments: [keep(true, _c0#494)], [discard(cond)], [split(cond, out)]
+          |
+          |(11) Project""".stripMargin,
+        10L, Seq("keep", "discard", "split")),
+
+      // Filters out non-merge functions (isnotnull, cast, concat, etc.)
+      ("filter other functions",
+        """(10) MergeRows
+          |Input [1]: [_c0#478]
+          |Arguments: isnotnull(src), [keep(true, _c0)], cast(id), [discard(c)]
+          |
+          |(11) Project""".stripMargin,
+        10L, Seq("keep", "discard")),
+
+      // Multi-line Arguments section (ensures regex captures all lines)
+      ("multi-line Arguments",
+        """(10) MergeRows
+          |Input [4]: [_c0#478, _c1#479]
+          |Arguments: isnotnull(__row_from_source#522),
+          |           isnotnull(__row_from_target#520),
+          |           [keep(true, _c0#494)],
+          |           [discard(condition)]
+          |
+          |(11) Project""".stripMargin,
+        10L, Seq("keep", "discard")),
+
+      // Node ID specificity (extracts only from correct node)
+      ("multiple nodes",
+        """(8) MergeRows
+          |Input [1]: [_c0#100]
+          |Arguments: [keep(true, _c0#100)]
+          |
+          |(10) MergeRows
+          |Input [2]: [_c0#478, _c1#479]
+          |Arguments: [split(cond, out)]
+          |
+          |(12) Project""".stripMargin,
+        10L, Seq("split")),
+
+      // Negative: No MergeRows node
+      ("no MergeRows",
+        """(10) Project
+          |Input [1]: [_c0#523]
+          |
+          |(11) Filter""".stripMargin,
+        10L, Seq.empty),
+
+      // Negative: Wrong node ID
+      ("wrong node ID",
+        """(10) MergeRows
+          |Input [1]: [_c0#494]
+          |Arguments: [keep(true, _c0#494)]
+          |
+          |(11) Project""".stripMargin,
+        99L, Seq.empty),
+
+      // Deduplication (multiple keep expressions return single "keep")
+      ("deduplication",
+        """(10) MergeRows
+          |Input [4]: [_c0#494, _c1#495]
+          |Arguments: [keep(true, _c0#494)], [keep(true, _c1#495)], [keep(false, _c0#494)]
+          |
+          |(11) Project""".stripMargin,
+        10L, Seq("keep"))
+    )
+
+    forAll(testCases) { (desc, physPlan, nodeId, expectedExprs) =>
+      val actualExprs = SQLPlanParser.parseMergeRowsExpressions(physPlan, nodeId)
+      assert(actualExprs.sorted === expectedExprs.sorted, s"Failed for: $desc")
+    }
+  }
 }
