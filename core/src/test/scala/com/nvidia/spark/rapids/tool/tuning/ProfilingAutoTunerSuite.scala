@@ -2927,7 +2927,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.cores=16
+          |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=13106m
           |--conf spark.locality.wait=0
@@ -2950,6 +2952,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.driver.extraJavaOptions' was not set.
+          |- 'spark.executor.extraJavaOptions' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.rapids.memory.pinnedPool.size' was not set.
           |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
@@ -2967,6 +2971,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- For EMR, Transparent Huge Pages (THP) has been disabled in driver JVM options.
+          |- For EMR, Transparent Huge Pages (THP) has been disabled in executor JVM options.
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
