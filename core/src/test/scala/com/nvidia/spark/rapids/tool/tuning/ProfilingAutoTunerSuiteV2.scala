@@ -1949,4 +1949,57 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val (_, _) = autoTuner.getRecommendedProperties()
   }
 
+  // Test that user-enforced spark.executor.cores in target cluster is respected
+  // when calculating recommended number of executors.
+  test("AutoTuner respects user-enforced executor cores in cluster sizing") {
+    // Source app with 11 cores, 148 executors (via maxExecutors)
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "11",
+      "spark.executor.memory" -> "21g",
+      "spark.executor.resource.gpu.amount" -> "1",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.minExecutors" -> "1",
+      "spark.dynamicAllocation.maxExecutors" -> "148",
+      "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+      "spark.rapids.sql.enabled" -> "true"
+    )
+
+    // Target cluster: 48 cores, 4 GPUs (default would be 12 cores/executor)
+    // But user enforces 11 cores per executor
+    val enforcedSparkProperties = Map(
+      "spark.executor.cores" -> "11"
+    )
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(48),  // 48 cores, 4 GPUs = default 12 cores per executor
+      memoryGB = Some(192L),
+      gpuCount = Some(4),
+      gpuDevice = Some("l4"),
+      enforcedSparkProperties = enforcedSparkProperties
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 11,
+      numWorkers = 148,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, Seq.empty)
+
+    // With user-enforced cores=11 and source total cores = 11 * 148 = 1628
+    // Recommended executors = 1628 / 11 = 148
+    // Without the fix (using default 12 cores), it would be 1628 / 12 = 135
+    // This is the key assertion - executor.instances=148 proves cores=11 was used
+    assert(autoTunerOutput.contains("spark.executor.instances=148"),
+      s"Expected spark.executor.instances=148 with enforced cores=11, but got:\n$autoTunerOutput")
+    // Note: spark.executor.cores may not appear in output if source already has same value
+  }
+
 }
