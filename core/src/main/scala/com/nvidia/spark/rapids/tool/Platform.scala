@@ -701,7 +701,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
               _recommendedWorkerNode.cores.toDouble / _recommendedWorkerNode.numGpus
             ).toInt
             val recommendedCoresPerExecutor = getUserEnforcedSparkProperty("spark.executor.cores")
-              .map(_.toInt)
+              .flatMap(v => scala.util.Try(v.toInt).toOption)
               .filter { enforcedCores =>
                 val maxCores = _recommendedWorkerNode.cores
                 val isValid = enforcedCores > 0 && enforcedCores <= maxCores
