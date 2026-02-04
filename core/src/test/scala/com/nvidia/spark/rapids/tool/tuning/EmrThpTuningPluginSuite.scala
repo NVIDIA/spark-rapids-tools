@@ -250,7 +250,8 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
 
     // Verify that THP settings are not recommended for Dataproc
     val driverJavaOptsDataproc = propertiesDataproc.find(_.name == "spark.driver.extraJavaOptions")
-    val executorJavaOptsDataproc = propertiesDataproc.find(_.name == "spark.executor.extraJavaOptions")
+    val executorJavaOptsDataproc =
+      propertiesDataproc.find(_.name == "spark.executor.extraJavaOptions")
 
     assert(driverJavaOptsDataproc.isEmpty ||
            !driverJavaOptsDataproc.get.getTuneValue().contains("-XX:-UseTransparentHugePages"),
