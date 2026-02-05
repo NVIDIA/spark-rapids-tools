@@ -1973,7 +1973,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       cpuCores = Some(48),  // 48 cores, 4 GPUs = default 12 cores per executor
       memoryGB = Some(192L),
       gpuCount = Some(4),
-      gpuDevice = Some("l4"),
+      gpuDevice = Some(GpuTypes.L4),
       enforcedSparkProperties = enforcedSparkProperties
     )
 
@@ -2001,5 +2001,4 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       s"Expected spark.executor.instances=148 with enforced cores=11, but got:\n$autoTunerOutput")
     // Note: spark.executor.cores may not appear in output if source already has same value
   }
-
 }

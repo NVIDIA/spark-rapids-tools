@@ -971,12 +971,11 @@ abstract class AutoTuner(
   /**
    * Recommend dynamic allocation configurations for GPU runs.
    * Adjusts initialExecutors, minExecutors, and maxExecutors based on the ratio
-   * of CPU cores to GPU cores.
+   * of source cores to target cores.
    *
-   * Formula: GPU_value = max(1, floor(CPU_value × CPU_cores / GPU_cores))
+   * Formula: adjusted_value = max(1, floor(original_value × source_cores / target_cores))
    *
-   * Note:
-   * - It also updates the executor instances to match the initial executors.
+   * Note: It also updates the executor instances to match the initial executors.
    *
    * @param gpuExecCores Number of cores per executor for GPU runs
    */
@@ -993,23 +992,22 @@ abstract class AutoTuner(
       return
     }
 
-    // Get the original CPU executor cores from the event log
-    val cpuExecCores = getPropertyValueFromSource("spark.executor.cores")
+    // Get the original executor cores from the event log
+    val sourceExecCores = getPropertyValueFromSource("spark.executor.cores")
       .map(_.toInt)
       .getOrElse(1)
 
-    if (cpuExecCores <= 0 || gpuExecCores <= 0) {
+    if (sourceExecCores <= 0 || gpuExecCores <= 0) {
       return
     }
 
-    // Scale factor to adjust executor counts from CPU to GPU based on core ratio.
-    // If GPU has fewer cores per executor than CPU, we need MORE executors to maintain capacity.
-    // Example: CPU=8 cores, GPU=16 cores → ratio=0.5 → need fewer GPU executors
-    // Example: CPU=16 cores, GPU=8 cores → ratio=2.0 → need more GPU executors
-    val adjustRatio = cpuExecCores.toDouble / gpuExecCores
+    // Scale factor to adjust executor counts based on core ratio.
+    // Example: source=8 cores, target=16 cores → ratio=0.5 → need fewer executors
+    // Example: source=16 cores, target=8 cores → ratio=2.0 → need more executors
+    val adjustRatio = sourceExecCores.toDouble / gpuExecCores
 
     // Helper function to get the adjusted value for a property
-    // Uses the formula: GPU_value = max(1, floor(CPU_value × CPU_cores / GPU_cores))
+    // Formula: adjusted_value = max(1, floor(original_value × source_cores / target_cores))
     def adjustedValue(property: String): Option[Int] = {
       if (ignoreRecommendation(property)) {
         None
@@ -1072,7 +1070,7 @@ abstract class AutoTuner(
 
     if (adjustedProperties.nonEmpty) {
       appendComment(commentForDynamicAllocationAdjustment(adjustedProperties.toList,
-        cpuExecCores, gpuExecCores))
+        sourceExecCores, gpuExecCores))
     }
   }
 
@@ -2387,10 +2385,10 @@ trait AutoTunerStaticComments {
   }
 
   def commentForDynamicAllocationAdjustment(properties: List[String],
-        cpuExecCores: Int, gpuExecCores: Int): String = {
+        sourceExecCores: Int, targetExecCores: Int): String = {
     s"""
        |Tuned dynamic allocation properties (${properties.mkString(", ")})
-       |based on cores ratio (CPU: $cpuExecCores cores, GPU: $gpuExecCores cores).
+       |based on cores ratio (source: $sourceExecCores cores, target: $targetExecCores cores).
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 }
