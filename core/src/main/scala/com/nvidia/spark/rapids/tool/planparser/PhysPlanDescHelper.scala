@@ -68,6 +68,9 @@ object PhysPlanDescHelper {
       physPlanDesc: String,
       nodeName: String,
       occurrence: Int = 0): Option[String] = {
+    if (occurrence < 0) {
+      return None
+    }
     // First extract the node's section (everything between this node header and the next),
     // then look for Arguments: within that bounded section.
     val sections = extractNodeSections(physPlanDesc, nodeName)
