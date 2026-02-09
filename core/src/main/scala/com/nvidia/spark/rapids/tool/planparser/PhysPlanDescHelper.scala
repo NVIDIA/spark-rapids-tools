@@ -87,7 +87,10 @@ object PhysPlanDescHelper {
     val quotedName = Pattern.quote(nodeName)
     // Match the node header: (<id>) <nodeName>
     val headerPattern = s"""(?m)^\\(\\d+\\)\\s+$quotedName\\s*$$""".r
-    val nodeHeaderPattern = """(?m)^\(\d+\)\s+\S+""".r
+    // Matches any node header line: "(<id>) <anything>".
+    // Operator names can contain spaces (e.g., "SortMergeJoin FullOuter"), so we match the
+    // entire line rather than a single token.
+    val nodeHeaderPattern = """(?m)^\(\d+\)\s+.*$""".r
 
     headerPattern.findAllMatchIn(physPlanDesc).map { m =>
       val startOfContent = m.end

@@ -111,6 +111,29 @@ class PhysPlanDescHelperSuite extends AnyFunSuite {
     assert(third.isEmpty, "occurrence=2 should return None (only 2 instances)")
   }
 
+  test("extractArgumentsForNode — section bounded correctly when next node has multi-word name") {
+    // Operator names can contain spaces (e.g., "SortMergeJoin FullOuter").
+    // The section boundary must detect these headers so that Arguments from
+    // a later node don't bleed into the current node's section.
+    val plan =
+      """(12) ReplaceData
+        |Input [2]: [a#1, b#2]
+        |
+        |(9) SortMergeJoin FullOuter
+        |Input [4]: [c#3, d#4]
+        |Arguments: should_not_be_found
+        |""".stripMargin
+
+    // ReplaceData has no Arguments in its section — the Arguments line belongs to SortMergeJoin
+    val result = PhysPlanDescHelper.extractArgumentsForNode(plan, "ReplaceData")
+    assert(result.isEmpty,
+      "Should not bleed into SortMergeJoin FullOuter's Arguments")
+
+    // SortMergeJoin FullOuter's own Arguments should be found
+    val smjResult = PhysPlanDescHelper.extractArgumentsForNode(plan, "SortMergeJoin FullOuter")
+    assert(smjResult.isDefined && smjResult.get == "should_not_be_found")
+  }
+
   test("extractArgumentsForNode — empty physPlanDesc returns None") {
     val result = PhysPlanDescHelper.extractArgumentsForNode("", "ReplaceData")
     assert(result.isEmpty)
