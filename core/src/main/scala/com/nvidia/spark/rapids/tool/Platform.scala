@@ -695,11 +695,25 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                 _recommendedWorkerNode.numGpus).toInt
             }
 
-            // Calculate cores per executor by dividing the total cores in the instance
-            // by the number of GPUs in the instance
-            val recommendedCoresPerExecutor = math.ceil(
+            // Calculate cores per executor: use user-enforced value if specified and valid,
+            // otherwise divide total cores in the instance by the number of GPUs
+            val defaultCoresPerExecutor = math.ceil(
               _recommendedWorkerNode.cores.toDouble / _recommendedWorkerNode.numGpus
             ).toInt
+            val recommendedCoresPerExecutor = getUserEnforcedSparkProperty("spark.executor.cores")
+              .flatMap(v => scala.util.Try(v.toInt).toOption)
+              .filter { enforcedCores =>
+                val maxCores = _recommendedWorkerNode.cores
+                val isValid = enforcedCores > 0 && enforcedCores <= maxCores
+                if (!isValid) {
+                  logWarning(s"User-enforced spark.executor.cores=$enforcedCores is invalid " +
+                    s"(must be > 0 and <= $maxCores cores on instance " +
+                    s"${_recommendedWorkerNode.name}). " +
+                    s"Using default value: $defaultCoresPerExecutor")
+                }
+                isValid
+              }
+              .getOrElse(defaultCoresPerExecutor)
 
             // Calculate the recommended number of executors by dividing the total number of
             // executors by the recommended cores per executor
