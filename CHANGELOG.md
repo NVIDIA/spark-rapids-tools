@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.12.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.6)
+Generated on 2026-02-10
+### Autotuner
+
+- Fix AutoTuner to respect user-enforced executor cores in cluster sizing ([#2036](https://github.com/NVIDIA/spark-rapids-tools/pull/2036))
+
+
+<br/>
+
 ## Release [v25.12.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.5)
 Generated on 2026-02-03
 ### Build and CI/CD
