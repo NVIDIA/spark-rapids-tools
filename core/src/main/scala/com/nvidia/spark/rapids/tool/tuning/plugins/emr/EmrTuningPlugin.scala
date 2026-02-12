@@ -22,15 +22,11 @@ import com.nvidia.spark.rapids.tool.tuning.AutoTuner
 import com.nvidia.spark.rapids.tool.tuning.plugins.BaseTuningPlugin
 
 /**
- * EMR tuning plugin for disabling EMR Transparent Huge Pages (THP).
- *
- * EMR has THP enabled by default for Spark applications.
- * Disabling THP can improve performance and reduce execution time variance.
- * Reference: https://docs.kernel.org/admin-guide/mm/transhuge.html
+ * EMR tuning plugin.
  *
  * @param tunerInst The AutoTuner instance to which this plugin is attached
  */
-class EmrThpTuningPlugin(tunerInst: AutoTuner) extends BaseTuningPlugin(tunerInst) {
+class EmrTuningPlugin(tunerInst: AutoTuner) extends BaseTuningPlugin(tunerInst) {
 
   /**
    * A ConditionTrait that evaluates to true when the platform is EMR.

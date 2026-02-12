@@ -390,9 +390,10 @@ default:
 
   - name: EMR_THP_RECOMMENDATION_COMMENT
     description: >-
-      Comment to indicate that THP has been disabled for improved performance on EMR.
-    default: |-
-      For EMR, Transparent Huge Pages (THP) has been disabled in [COMPONENT] JVM options.
+      Comment explaining THP recommendation behavior and how to preserve extra JVM options manually.
+    default: >-
+      Set 'spark.[COMPONENT].extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR.
+      This recommendation does not preserve existing [COMPONENT] JVM options; append any additional options manually.
     pluginRules: EmrThpDriverRule, EmrThpExecutorRule
   # end of EMR THP specific tuning configs
 
@@ -428,13 +429,11 @@ pluginConfigs:
       # priority: 50        # (default) Normal priority - can be uncommented to override
       enabled: true         # Plugin is active and will be used during tuning
 
-    # EMR THP Tuning Plugin
-    - name: emrThpTuningPlugin
+    # EMR Tuning Plugin
+    - name: emrTuningPlugin
       description: >-
         This plugin provides tuning capabilities for applications running on Amazon EMR.
-        It disables Transparent Huge Pages (THP) in JVM options to improve performance.
-        Reference: https://docs.kernel.org/admin-guide/mm/transhuge.html
-      className: com.nvidia.spark.rapids.tool.tuning.plugins.emr.EmrThpTuningPlugin
+      className: com.nvidia.spark.rapids.tool.tuning.plugins.emr.EmrTuningPlugin
       # priority: 50        # (default) Normal priority - can be uncommented to override
       enabled: true         # Plugin is active and will be used during tuning
 
@@ -466,20 +465,19 @@ pluginConfigs:
       pluginName: deltaLakeOSSTuningPlugin
 
     #-----------------------------------------------------------------------------
-    # EMR THP Plugin Rules
+    # EMR Plugin Rules
     #-----------------------------------------------------------------------------
-    # These rules are associated with the emrThpTuningPlugin and provide
-    # EMR-specific optimizations for Transparent Huge Pages (THP) settings.
+    # These rules are associated with the emrTuningPlugin and provide EMR-specific optimizations.
     - name: EmrThpDriverRule
       description: >-
-        Disables Transparent Huge Pages (THP) in the Spark driver JVM options on EMR.
-        Checks spark.driver.extraJavaOptions and ensures -XX:-UseTransparentHugePages is set.
+        Disables Transparent Huge Pages (THP) in Spark driver JVM options on EMR by setting
+        spark.driver.extraJavaOptions to -XX:-UseTransparentHugePages.
       className: com.nvidia.spark.rapids.tool.tuning.plugins.emr.EmrThpDriverRule
-      pluginName: emrThpTuningPlugin
+      pluginName: emrTuningPlugin
 
     - name: EmrThpExecutorRule
       description: >-
-        Disables Transparent Huge Pages (THP) in the Spark executor JVM options on EMR.
-        Checks spark.executor.extraJavaOptions and ensures -XX:-UseTransparentHugePages is set.
+        Disables Transparent Huge Pages (THP) in Spark executor JVM options on EMR by setting
+        spark.executor.extraJavaOptions to -XX:-UseTransparentHugePages.
       className: com.nvidia.spark.rapids.tool.tuning.plugins.emr.EmrThpExecutorRule
-      pluginName: emrThpTuningPlugin
+      pluginName: emrTuningPlugin
