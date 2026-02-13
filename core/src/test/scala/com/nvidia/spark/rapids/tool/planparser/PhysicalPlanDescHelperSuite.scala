@@ -19,7 +19,7 @@ package com.nvidia.spark.rapids.tool.planparser
 import org.scalatest.funsuite.AnyFunSuite
 
 
-class PhysPlanDescHelperSuite extends AnyFunSuite {
+class PhysicalPlanDescHelperSuite extends AnyFunSuite {
 
   // scalastyle:off line.size.limit
 
@@ -53,34 +53,34 @@ class PhysPlanDescHelperSuite extends AnyFunSuite {
       |""".stripMargin
 
   test("extractArgumentsForNode — single-line Arguments for ReplaceData") {
-    val result = PhysPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "ReplaceData")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "ReplaceData")
     assert(result.isDefined, "Should find ReplaceData Arguments")
     assert(result.get ==
       "IcebergWrite(table=spark_catalog.default.my_target_table, format=PARQUET)")
   }
 
   test("extractArgumentsForNode — single-line Arguments for WriteDelta") {
-    val result = PhysPlanDescHelper.extractArgumentsForNode(morPhysPlanDesc, "WriteDelta")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(morPhysPlanDesc, "WriteDelta")
     assert(result.isDefined, "Should find WriteDelta Arguments")
     assert(result.get ==
       "org.apache.iceberg.spark.source.SparkPositionDeltaWrite@5c5feaaa")
   }
 
   test("extractArgumentsForNode — single-line Arguments for MergeRows") {
-    val result = PhysPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "MergeRows")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "MergeRows")
     assert(result.isDefined, "Should find MergeRows Arguments")
     assert(result.get ==
       "isnotnull(__row_from_source#522), [keep(true, _c0#494), keep(true, _c1#495)]")
   }
 
   test("extractArgumentsForNode — node not found returns None") {
-    val result = PhysPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "NonExistentNode")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(cowPhysPlanDesc, "NonExistentNode")
     assert(result.isEmpty, "Should return None for non-existent node")
   }
 
   test("extractArgumentsForNode — node exists but no Arguments returns None") {
     // Exchange node has no Arguments section
-    val result = PhysPlanDescHelper.extractArgumentsForNode(morPhysPlanDesc, "Exchange")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(morPhysPlanDesc, "Exchange")
     assert(result.isEmpty, "Should return None when node has no Arguments")
   }
 
@@ -99,15 +99,15 @@ class PhysPlanDescHelperSuite extends AnyFunSuite {
         |Arguments: second_merge_args
         |""".stripMargin
 
-    val first = PhysPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 0)
+    val first = PhysicalPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 0)
     assert(first.isDefined && first.get == "first_merge_args",
       s"occurrence=0 should return first MergeRows, got $first")
 
-    val second = PhysPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 1)
+    val second = PhysicalPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 1)
     assert(second.isDefined && second.get == "second_merge_args",
       s"occurrence=1 should return second MergeRows, got $second")
 
-    val third = PhysPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 2)
+    val third = PhysicalPlanDescHelper.extractArgumentsForNode(twoMergeRowsPlan, "MergeRows", 2)
     assert(third.isEmpty, "occurrence=2 should return None (only 2 instances)")
   }
 
@@ -125,17 +125,17 @@ class PhysPlanDescHelperSuite extends AnyFunSuite {
         |""".stripMargin
 
     // ReplaceData has no Arguments in its section — the Arguments line belongs to SortMergeJoin
-    val result = PhysPlanDescHelper.extractArgumentsForNode(plan, "ReplaceData")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(plan, "ReplaceData")
     assert(result.isEmpty,
       "Should not bleed into SortMergeJoin FullOuter's Arguments")
 
     // SortMergeJoin FullOuter's own Arguments should be found
-    val smjResult = PhysPlanDescHelper.extractArgumentsForNode(plan, "SortMergeJoin FullOuter")
+    val smjResult = PhysicalPlanDescHelper.extractArgumentsForNode(plan, "SortMergeJoin FullOuter")
     assert(smjResult.isDefined && smjResult.get == "should_not_be_found")
   }
 
   test("extractArgumentsForNode — empty physPlanDesc returns None") {
-    val result = PhysPlanDescHelper.extractArgumentsForNode("", "ReplaceData")
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode("", "ReplaceData")
     assert(result.isEmpty)
   }
 

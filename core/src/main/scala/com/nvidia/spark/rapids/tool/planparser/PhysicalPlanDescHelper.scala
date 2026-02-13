@@ -50,7 +50,7 @@ import java.util.regex.Pattern
  *   Input [36]: [_c0#478, ...]
  * }}}
  */
-object PhysPlanDescHelper {
+object PhysicalPlanDescHelper {
 
   /**
    * Extracts the single-line Arguments value for a node matched by name.

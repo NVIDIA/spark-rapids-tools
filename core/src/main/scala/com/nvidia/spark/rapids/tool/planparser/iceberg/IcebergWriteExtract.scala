@@ -15,7 +15,7 @@
  */
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.PhysPlanDescHelper
+import com.nvidia.spark.rapids.tool.planparser.PhysicalPlanDescHelper
 
 import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
 import org.apache.spark.sql.rapids.tool.util.StringUtils
@@ -128,7 +128,7 @@ object IcebergWriteExtract {
    */
   private def extractReplaceDataMeta(
       physicalPlanDescription: String): Option[WriteOperationMetadataTrait] = {
-    PhysPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
+    PhysicalPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
         IcebergHelper.EXEC_REPLACE_DATA).flatMap { args =>
       if (args.contains("IcebergWrite(")) {
         val props = parseIcebergWriteProperties(args)
@@ -168,7 +168,7 @@ object IcebergWriteExtract {
    */
   private def extractWriteDeltaMeta(
       physicalPlanDescription: String): Option[WriteOperationMetadataTrait] = {
-    PhysPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
+    PhysicalPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
         IcebergHelper.EXEC_WRITE_DELTA).map { args =>
       // WriteDelta shows: org.apache.iceberg.spark.source.SparkPositionDeltaWrite@...
       // We can't extract table/format, but we know it's Iceberg position delete
