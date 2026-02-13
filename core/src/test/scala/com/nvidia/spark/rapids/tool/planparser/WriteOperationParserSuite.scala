@@ -752,15 +752,18 @@ class WriteOperationParserSuite extends AnyFunSuite {
   }
 
   test("ReplaceData — metadata extracted from physicalPlanDescription") {
-    // Test that ReplaceData metadata (table, format) can be extracted from physicalPlanDescription
+    // Test that ReplaceData metadata (table, format) can be extracted from physicalPlanDescription.
+    // Node graph id=0 deliberately differs from Spark's internal id=12 in physPlanDesc to test
+    // name-based matching works correctly.
     val node = new SparkPlanGraphNode(
-      id = 12,
+      id = 0,
       name = "ReplaceData",
       desc = "ReplaceData",  // simpleString has no metadata
       Seq.empty
     )
 
     // Real physicalPlanDescription format from Spark UI
+    // Note: Spark uses its own id (12), which differs from node graph id (0)
     val physicalPlanDescription =
       """(12) ReplaceData
         |Input [16]: [_c0#523, _c1#524, _c2#525, _c3#526L, _c4#527, _c5#528]
@@ -782,15 +785,18 @@ class WriteOperationParserSuite extends AnyFunSuite {
   }
 
   test("WriteDelta — metadata extracted from physicalPlanDescription") {
-    // Test that WriteDelta is recognized as Iceberg position delete format
+    // Test that WriteDelta is recognized as Iceberg position delete format.
+    // Node graph id=1 deliberately differs from Spark's internal id=16 in physPlanDesc to test
+    // name-based matching works correctly.
     val node = new SparkPlanGraphNode(
-      id = 16,
+      id = 1,
       name = "WriteDelta",
       desc = "WriteDelta",  // simpleString has no metadata
       Seq.empty
     )
 
     // Real physicalPlanDescription format from Spark UI
+    // Note: Spark uses its own id (16), which differs from node graph id (1)
     val physicalPlanDescription =
       """(16) WriteDelta
         |Input [21]: [__row_operation#10023, _c0#10024, _c1#10025]

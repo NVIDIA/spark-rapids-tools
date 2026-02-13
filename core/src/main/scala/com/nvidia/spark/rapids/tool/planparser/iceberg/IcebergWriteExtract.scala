@@ -15,6 +15,8 @@
  */
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
+import com.nvidia.spark.rapids.tool.planparser.PhysicalPlanDescHelper
+
 import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
@@ -71,14 +73,12 @@ object IcebergWriteExtract {
    * @param opName the operation name (AppendData, ReplaceData, or WriteDelta)
    * @param nodeDescr the node description (simpleString) - used for AppendData
    * @param physicalPlanDescription optional physical plan description - for ReplaceData/WriteDelta
-   * @param nodeId the node ID - used for ReplaceData/WriteDelta
    * @return Some(WriteOperationMetadataTrait) if extraction succeeds, None otherwise
    */
   def buildWriteOp(
       opName: String,
       nodeDescr: String,
-      physicalPlanDescription: Option[String] = None,
-      nodeId: Long = -1): Option[WriteOperationMetadataTrait] = {
+      physicalPlanDescription: Option[String] = None): Option[WriteOperationMetadataTrait] = {
     opName match {
       // AppendData: metadata is in simpleString (nodeDescr)
       // Delegate to AppendDataIcebergExtract which extends InsertIntoHadoopExtract
@@ -88,38 +88,18 @@ object IcebergWriteExtract {
       // ReplaceData: metadata is in physicalPlanDescription Arguments
       case IcebergHelper.EXEC_REPLACE_DATA =>
         physicalPlanDescription.flatMap { physPlan =>
-          extractReplaceDataMeta(physPlan, nodeId)
+          extractReplaceDataMeta(physPlan)
         }
 
       // WriteDelta: metadata is in physicalPlanDescription Arguments
       case IcebergHelper.EXEC_WRITE_DELTA =>
         physicalPlanDescription.flatMap { physPlan =>
-          extractWriteDeltaMeta(physPlan, nodeId)
+          extractWriteDeltaMeta(physPlan)
         }
 
       case _ =>
         None
     }
-  }
-
-  /**
-   * Extracts the Arguments string for a specific node from physicalPlanDescription.
-   *
-   * @param physicalPlanDescription the full physical plan description string
-   * @param nodeId the node ID to find (e.g., 12 for "(12) ReplaceData")
-   * @param nodeName the node name to match (e.g., "ReplaceData")
-   * @return the Arguments string if found, None otherwise
-   */
-  private def extractArgumentsForNode(
-      physicalPlanDescription: String,
-      nodeId: Long,
-      nodeName: String): Option[String] = {
-    // Multi-line search for the node section
-    // Using (?s) flag (DOTALL mode) to make . match newlines, since there may be
-    // multiple lines (e.g., Input [...]) between the node header and Arguments line.
-    // Using [^\n]+ for the capture group to only get the Arguments content on that line.
-    val nodePattern = s"""(?s)\\($nodeId\\)\\s+$nodeName\\s*\\n.*?Arguments:\\s*([^\\n]+)""".r
-    nodePattern.findFirstMatchIn(physicalPlanDescription).map(_.group(1).trim)
   }
 
   /**
@@ -144,13 +124,11 @@ object IcebergWriteExtract {
    * Extracts write metadata for ReplaceData from physicalPlanDescription.
    *
    * @param physicalPlanDescription the full physical plan description
-   * @param nodeId the node ID
    * @return Some(WriteOperationMetadataTrait) if metadata was extracted, None otherwise
    */
   private def extractReplaceDataMeta(
-      physicalPlanDescription: String,
-      nodeId: Long): Option[WriteOperationMetadataTrait] = {
-    extractArgumentsForNode(physicalPlanDescription, nodeId,
+      physicalPlanDescription: String): Option[WriteOperationMetadataTrait] = {
+    PhysicalPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
         IcebergHelper.EXEC_REPLACE_DATA).flatMap { args =>
       if (args.contains("IcebergWrite(")) {
         val props = parseIcebergWriteProperties(args)
@@ -186,13 +164,11 @@ object IcebergWriteExtract {
    * We can only indicate it's an Iceberg position delete operation.
    *
    * @param physicalPlanDescription the full physical plan description
-   * @param nodeId the node ID
    * @return Some(WriteOperationMetadataTrait) with minimal metadata
    */
   private def extractWriteDeltaMeta(
-      physicalPlanDescription: String,
-      nodeId: Long): Option[WriteOperationMetadataTrait] = {
-    extractArgumentsForNode(physicalPlanDescription, nodeId,
+      physicalPlanDescription: String): Option[WriteOperationMetadataTrait] = {
+    PhysicalPlanDescHelper.extractArgumentsForNode(physicalPlanDescription,
         IcebergHelper.EXEC_WRITE_DELTA).map { args =>
       // WriteDelta shows: org.apache.iceberg.spark.source.SparkPositionDeltaWrite@...
       // We can't extract table/format, but we know it's Iceberg position delete
