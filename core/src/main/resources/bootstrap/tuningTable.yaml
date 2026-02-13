@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -94,6 +94,26 @@
 #===============================================================================
 
 tuningDefinitions:
+  - label: spark.driver.extraJavaOptions
+    description: >-
+      Extra JVM options to pass to the driver.
+      On EMR, this is used to disable Transparent Huge Pages (THP) for improved performance.
+    enabled: true
+    level: cluster
+    category: tuning
+    modifiedBy: EmrThpDriverRule
+    confType:
+      name: string
+  - label: spark.executor.extraJavaOptions
+    description: >-
+      Extra JVM options to pass to executors.
+      On EMR, this is used to disable Transparent Huge Pages (THP) for improved performance.
+    enabled: true
+    level: cluster
+    category: tuning
+    modifiedBy: EmrThpExecutorRule
+    confType:
+      name: string
   - label: spark.databricks.adaptive.autoOptimizeShuffle.enabled
     description: >-
       Auto-Optimized shuffle. It is recommended to turn it off to set 'spark.sql.shuffle.partitions' manually.
