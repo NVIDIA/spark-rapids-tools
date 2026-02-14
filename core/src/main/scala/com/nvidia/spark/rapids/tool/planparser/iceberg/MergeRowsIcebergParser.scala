@@ -16,8 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.{GenericExecParser, SQLPlanParser, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -97,26 +96,5 @@ class MergeRowsIcebergParser(
     physPlanOpt.map { physPlan =>
       SQLPlanParser.parseMergeRowsExpressions(physPlan)
     }.getOrElse(Array.empty[String])
-  }
-
-  override def createExecInfo(
-      speedupFactor: Double,
-      isSupported: Boolean,
-      duration: Option[Long],
-      notSupportedExprs: Seq[UnsupportedExprOpRef],
-      expressions: Array[String]): ExecInfo = {
-    // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF.
-    // We want to include the parsed expressions (keep, discard, split) for MergeRows.
-    ExecInfo.createExecNoNode(
-      sqlID,
-      exec = reportedExecName,
-      expr = "",
-      speedupFactor, duration, node.id,
-      opType = opStub.pullOpType,
-      isSupported = isSupported,
-      children = None,
-      unsupportedExecReason = unsupportedReason,
-      expressions = expressions
-    )
   }
 }
