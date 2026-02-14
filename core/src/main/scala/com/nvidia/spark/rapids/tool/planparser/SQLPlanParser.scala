@@ -860,6 +860,9 @@ object SQLPlanParser extends Logging {
    * - discard(...): Discard rows (DELETE clause)
    * - split(...): Split into data + position delete (merge-on-read mode)
    *
+   * Uses name-based matching via [[PhysicalPlanDescHelper]] to locate the MergeRows node,
+   * avoiding mismatches between Spark's internal operator IDs and ToolsPlanGraph IDs.
+   *
    * Example physicalPlanDescription:
    * {{{
    * (10) MergeRows
@@ -869,19 +872,14 @@ object SQLPlanParser extends Logging {
    * }}}
    *
    * @param physicalPlanDesc the full physical plan description string
-   * @param nodeId the node ID to find
    * @return array of unique expression names found in the Arguments (keep, discard, split)
    */
-  def parseMergeRowsExpressions(physicalPlanDesc: String, nodeId: Long): Array[String] = {
+  def parseMergeRowsExpressions(physicalPlanDesc: String): Array[String] = {
     val mergeRowsExprs = Set("keep", "discard", "split")
 
-    // Extract the Arguments section for the specific MergeRows node
-    val argsPattern =
-      s"""(?s)\\($nodeId\\)\\s+MergeRows\\n.*?\\nArguments:\\s*(.+?)(?=\\n\\(\\d+\\)|\\z)""".r
-
-    argsPattern.findFirstMatchIn(physicalPlanDesc).map { m =>
-      val argsStr = m.group(1).trim
-
+    // Extract the Arguments section for the MergeRows node by name
+    PhysicalPlanDescHelper.extractArgumentsForNode(
+      physicalPlanDesc, "MergeRows").map { argsStr =>
       // Extract all function names from the Arguments string
       val allFunctions = getAllFunctionNames(functionPrefixPattern, argsStr)
 

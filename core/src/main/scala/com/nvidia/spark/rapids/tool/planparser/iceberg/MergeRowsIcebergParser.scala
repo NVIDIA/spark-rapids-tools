@@ -95,7 +95,7 @@ class MergeRowsIcebergParser(
 
     // Parse merge expressions from the physical plan description
     physPlanOpt.map { physPlan =>
-      SQLPlanParser.parseMergeRowsExpressions(physPlan, node.id)
+      SQLPlanParser.parseMergeRowsExpressions(physPlan)
     }.getOrElse(Array.empty[String])
   }
 
