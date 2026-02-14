@@ -16,8 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.{GenericExecParser, SQLPlanParser, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -76,23 +75,26 @@ class MergeRowsIcebergParser(
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.
   override def reportedExecName: String = trimmedNodeName
 
-  override def createExecInfo(
-      speedupFactor: Double,
-      isSupported: Boolean,
-      duration: Option[Long],
-      notSupportedExprs: Seq[UnsupportedExprOpRef],
-      expressions: Array[String]): ExecInfo = {
-    // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF.
-    ExecInfo.createExecNoNode(
-      sqlID,
-      exec = reportedExecName,
-      expr = "",
-      speedupFactor, duration, node.id,
-      opType = opStub.pullOpType,
-      isSupported = isSupported,
-      children = None,
-      unsupportedExecReason = unsupportedReason,
-      expressions = Seq.empty
-    )
+  /**
+   * Parse expressions from physicalPlanDescription for MergeRows operator.
+   * Extracts keep, discard, and split expressions from the Arguments line.
+   */
+  override protected def parseExpressions(): Array[String] = {
+    // Only MergeRows has merge-specific expressions (keep, discard, split)
+    if (node.name != IcebergHelper.EXEC_MERGE_ROWS) {
+      return Array.empty[String]
+    }
+
+    // Extract physicalPlanDescription from the SQL plan model
+    val physPlanOpt = for {
+      appInst <- app
+      physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
+      if physPlan.nonEmpty
+    } yield physPlan
+
+    // Parse merge expressions from the physical plan description
+    physPlanOpt.map { physPlan =>
+      SQLPlanParser.parseMergeRowsExpressions(physPlan)
+    }.getOrElse(Array.empty[String])
   }
 }

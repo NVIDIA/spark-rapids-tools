@@ -139,5 +139,24 @@ class PhysicalPlanDescHelperSuite extends AnyFunSuite {
     assert(result.isEmpty)
   }
 
+  test("extractArgumentsForNode — multi-line Arguments for MergeRows") {
+    val multiLinePlan =
+      """(10) MergeRows
+        |Input [4]: [_c0#478, _c1#479]
+        |Arguments: isnotnull(__row_from_source#522),
+        |           isnotnull(__row_from_target#520),
+        |           [keep(true, _c0#494)],
+        |           [discard(condition)]
+        |
+        |(11) Project""".stripMargin
+
+    val result = PhysicalPlanDescHelper.extractArgumentsForNode(multiLinePlan, "MergeRows")
+    assert(result.isDefined, "Should find multi-line MergeRows Arguments")
+    // Should contain all argument lines
+    assert(result.get.contains("isnotnull(__row_from_source#522)"))
+    assert(result.get.contains("keep(true, _c0#494)"))
+    assert(result.get.contains("discard(condition)"))
+  }
+
   // scalastyle:on line.size.limit
 }
