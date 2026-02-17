@@ -38,9 +38,9 @@ import org.apache.spark.sql.rapids.tool.util.FSUtils
  * Suite to test the Qualification Tool's AutoTuner
  */
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
-
   val qualLogDir: String = ToolTestUtils.getTestResourcePath("spark-events-qualification")
   val autoTunerHelper: AutoTunerHelper = QualificationAutoTunerHelper
+  private val emrThpSparkVersion = "3.5.6-amzn-1"
 
   /**
    * Default Spark properties to be used when building the Qualification AutoTuner
@@ -1586,7 +1586,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion))
+      logEventsProps, Some(emrThpSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.EMR)
     platform.configureClusterInfoFromEventLog(
       coresPerExecutor = 8,
@@ -1768,7 +1768,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       )
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion))
+      logEventsProps, Some(emrThpSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
     platform.configureClusterInfoFromEventLog(
       coresPerExecutor = 8,
@@ -1868,7 +1868,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       )
     )
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion))
+      logEventsProps, Some(emrThpSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
     platform.configureClusterInfoFromEventLog(
       coresPerExecutor = 8,
