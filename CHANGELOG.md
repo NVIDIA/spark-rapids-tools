@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v25.12.7](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.7)
+Generated on 2026-02-17
+### Core
+
+- Fix physicalPlanDescription node lookup to match by name instead of ID ([#2037](https://github.com/NVIDIA/spark-rapids-tools/pull/2037))
+
+
+<br/>
+
 ## Release [v25.12.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.6)
 Generated on 2026-02-10
 ### Autotuner
