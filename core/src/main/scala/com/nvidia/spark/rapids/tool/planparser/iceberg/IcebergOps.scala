@@ -182,8 +182,7 @@ object IcebergOps extends GroupParserTrait {
         IcebergWriteExtract.buildWriteOp(
           opName = name,
           nodeDescr = node.desc,
-          physicalPlanDescription = physicalPlanDescription,
-          nodeId = node.id
+          physicalPlanDescription = physicalPlanDescription
         )
 
       // MergeRows: NOT a write operation - intentionally excluded
