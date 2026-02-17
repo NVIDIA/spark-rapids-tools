@@ -20,6 +20,7 @@ import com.nvidia.spark.rapids.tool.PlatformNames
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
 import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPredicates}
+import org.apache.maven.artifact.versioning.ComparableVersion
 
 /**
  * EMR Tuning Rules Module
@@ -43,6 +44,7 @@ import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPr
  * ==Configuration Entries==
  * These rules reference the following tuning configuration entries:
  * - EMR_THP_DISABLE_FLAG: The JVM flag to disable THP
+ * - EMR_THP_MIN_SPARK_VERSION: Minimum Spark version to apply THP recommendation
  * - EMR_THP_RECOMMENDATION_COMMENT: Comment explaining the THP recommendation
  *
  * ==References==
@@ -59,12 +61,23 @@ abstract class BaseEmrThpRule extends BaseTuningRule {
   protected val javaOptionsProp: String
   protected val componentName: String
 
+  private def canApplyForSparkVersion(tunerInst: AutoTuner): Boolean = {
+    val minSparkVersionRaw = tunerInst.configProvider.getEntry("EMR_THP_MIN_SPARK_VERSION").min
+    val minSparkVersion = new ComparableVersion(minSparkVersionRaw)
+    tunerInst.appInfoProvider.getSparkVersion
+      .map(new ComparableVersion(_))
+      .exists(_.compareTo(minSparkVersion) >= 0)
+  }
+
   /**
    * Checks if THP flag needs to be updated.
    */
   override val condition: ConditionTrait[AutoTuner] = (tunerInst: AutoTuner) => {
     if (!tunerInst.platform.platformName.startsWith(PlatformNames.EMR)) {
       // Apply this rule only on EMR platforms.
+      false
+    } else if (!canApplyForSparkVersion(tunerInst)) {
+      // Apply only for EMR >= 7.12 (Spark versions >= 3.5.6-amzn-1).
       false
     } else if (TuningCondPredicates.rawPropertyEnforced(tunerInst, javaOptionsProp)) {
       // Respect target-cluster enforced JVM options and do not override them.

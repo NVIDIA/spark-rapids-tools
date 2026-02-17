@@ -45,7 +45,7 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
   private def runAutoTuner(
       logEventsProps: mutable.Map[String, String],
       platformName: String = PlatformNames.EMR,
-      sparkVersion: Option[String] = Some("3.4.1-amzn-1"),
+      sparkVersion: Option[String] = Some("3.5.6-amzn-1"),
       numCores: Int = 16,
       numWorkers: Int = 4):
       (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
@@ -128,6 +128,21 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
       "spark.driver.extraJavaOptions" -> "-Xmx2g -XX:-UseTransparentHugePages",
       "spark.executor.extraJavaOptions" -> "-XX:-UseTransparentHugePages -Xmx4g"
     ))
+    assertNoThpRecommendations(properties)
+  }
+
+  test("EMR THP plugin does not apply below minimum Spark version") {
+    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = Some("3.5.5-amzn-0"))
+    assertNoThpRecommendations(properties)
+  }
+
+  test("EMR THP plugin does not apply for 3.5.6-amzn-0 when minimum is 3.5.6-amzn-1") {
+    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = Some("3.5.6-amzn-0"))
+    assertNoThpRecommendations(properties)
+  }
+
+  test("EMR THP plugin does not apply when Spark version is unavailable") {
+    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = None)
     assertNoThpRecommendations(properties)
   }
 
