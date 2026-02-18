@@ -16,7 +16,8 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{GenericExecParser, SQLPlanParser, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -96,5 +97,36 @@ class MergeRowsIcebergParser(
     physPlanOpt.map { physPlan =>
       SQLPlanParser.parseMergeRowsExpressions(physPlan)
     }.getOrElse(Array.empty[String])
+  }
+
+  /**
+   * Overrides createExecInfo to set the correct opType from the opStub.
+   *
+   * This parser handles MergeRows (OpType: Exec), ReplaceData, and WriteDelta
+   * (both OpType: WriteExec). The default GenericExecParser always uses OpTypes.Exec,
+   * so we must set opType = opStub.pullOpType to preserve the write operator classification
+   * for ReplaceData and WriteDelta.
+   */
+  override protected def createExecInfo(
+      speedupFactor: Double,
+      isSupported: Boolean,
+      duration: Option[Long],
+      notSupportedExprs: Seq[UnsupportedExprOpRef],
+      expressions: Array[String]): ExecInfo = {
+    ExecInfo(
+      node,
+      sqlID,
+      reportedExecName,
+      reportedExpr,
+      speedupFactor,
+      duration,
+      node.id,
+      isSupported,
+      children = getChildren,
+      unsupportedExecReason = unsupportedReason,
+      unsupportedExprs = notSupportedExprs,
+      opType = opStub.pullOpType,
+      expressions = expressions
+    )
   }
 }
