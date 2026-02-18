@@ -425,6 +425,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
    * By default, excludes extraJavaOptions as they are only used by EMR platform.
+   * TODO: Refactor to add platform scoping to config level instead of plugin/rule level.
    */
   val recommendationsToExclude: Set[String] = Set(
     "spark.driver.extraJavaOptions",

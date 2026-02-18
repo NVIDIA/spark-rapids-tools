@@ -92,7 +92,9 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
         "Transparent Huge Pages (THP) for EMR.",
       "does not preserve existing driver JVM options",
       "does not preserve existing executor JVM options",
-      "append any additional options manually"
+      "append any additional options manually",
+      "To view the source extraJavaOptions, please refer to spark_properties.csv " +
+        "in the tool output."
     )
     expectedSnippets.foreach { snippet =>
       assert(commentsStr.contains(snippet), s"Comments should include: $snippet")

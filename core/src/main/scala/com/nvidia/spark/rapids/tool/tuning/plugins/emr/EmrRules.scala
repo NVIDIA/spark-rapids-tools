@@ -16,7 +16,6 @@
 
 package com.nvidia.spark.rapids.tool.tuning.plugins.emr
 
-import com.nvidia.spark.rapids.tool.PlatformNames
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
 import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPredicates}
@@ -73,10 +72,7 @@ abstract class BaseEmrThpRule extends BaseTuningRule {
    * Checks if THP flag needs to be updated.
    */
   override val condition: ConditionTrait[AutoTuner] = (tunerInst: AutoTuner) => {
-    if (!tunerInst.platform.platformName.startsWith(PlatformNames.EMR)) {
-      // Apply this rule only on EMR platforms.
-      false
-    } else if (!canApplyForSparkVersion(tunerInst)) {
+    if (!canApplyForSparkVersion(tunerInst)) {
       // Apply only for EMR >= 7.12 (Spark versions >= 3.5.6-amzn-1).
       false
     } else if (TuningCondPredicates.rawPropertyEnforced(tunerInst, javaOptionsProp)) {

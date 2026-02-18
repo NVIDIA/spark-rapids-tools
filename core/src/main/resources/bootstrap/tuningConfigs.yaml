@@ -400,6 +400,7 @@ default:
     default: >-
       Set 'spark.[COMPONENT].extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR.
       This recommendation does not preserve existing [COMPONENT] JVM options; append any additional options manually.
+      To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
     pluginRules: EmrThpDriverRule, EmrThpExecutorRule
   # end of EMR THP specific tuning configs
 

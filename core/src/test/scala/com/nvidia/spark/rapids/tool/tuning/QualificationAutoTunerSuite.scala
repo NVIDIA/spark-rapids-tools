@@ -1657,8 +1657,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually.
-          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |- ${commentForDynamicAllocationAdjustment(expectedAdjustedProperties, 8, 16)}
@@ -1842,8 +1842,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually.
-          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |""".stripMargin
@@ -1939,8 +1939,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
-          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually.
-          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |""".stripMargin
