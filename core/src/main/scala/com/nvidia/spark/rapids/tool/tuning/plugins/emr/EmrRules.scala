@@ -19,7 +19,6 @@ package com.nvidia.spark.rapids.tool.tuning.plugins.emr
 import com.nvidia.spark.rapids.tool.plugins.ConditionTrait
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
 import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPredicates}
-import org.apache.maven.artifact.versioning.ComparableVersion
 
 /**
  * EMR Tuning Rules Module
@@ -60,19 +59,12 @@ abstract class BaseEmrThpRule extends BaseTuningRule {
   protected val javaOptionsProp: String
   protected val componentName: String
 
-  private def canApplyForSparkVersion(tunerInst: AutoTuner): Boolean = {
-    val minSparkVersionRaw = tunerInst.configProvider.getEntry("EMR_THP_MIN_SPARK_VERSION").min
-    val minSparkVersion = new ComparableVersion(minSparkVersionRaw)
-    tunerInst.appInfoProvider.getSparkVersion
-      .map(new ComparableVersion(_))
-      .exists(_.compareTo(minSparkVersion) >= 0)
-  }
-
   /**
    * Checks if THP flag needs to be updated.
    */
   override val condition: ConditionTrait[AutoTuner] = (tunerInst: AutoTuner) => {
-    if (!canApplyForSparkVersion(tunerInst)) {
+    val minSparkVersion = tunerInst.configProvider.getEntry("EMR_THP_MIN_SPARK_VERSION").min
+    if (!TuningCondPredicates.sparkVersionAtLeast(tunerInst, minSparkVersion)) {
       // Apply only for EMR >= 7.12 (Spark versions >= 3.5.6-amzn-1).
       false
     } else if (TuningCondPredicates.rawPropertyEnforced(tunerInst, javaOptionsProp)) {

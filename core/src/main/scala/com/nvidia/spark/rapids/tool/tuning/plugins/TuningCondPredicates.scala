@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning.plugins
 
 import com.nvidia.spark.rapids.tool.plugins.{AlwaysTrueCondition, ConditionTrait, NotCondition}
 import com.nvidia.spark.rapids.tool.tuning.AutoTuner
+import org.apache.maven.artifact.versioning.ComparableVersion
 
 /**
  * Checks if a property matches a literal value.
@@ -108,6 +109,23 @@ object TuningCondPredicates {
    */
   def rawPropertyEnforced(tuner: AutoTuner, propKey: String): Boolean = {
     tuner.platform.userEnforcedRecommendations.contains(propKey)
+  }
+
+  /**
+   * Checks if the application Spark version is at least the given minimum version.
+   *
+   * Uses ComparableVersion to properly compare platform-specific version suffixes
+   * such as "-amzn-1".
+   *
+   * @param tuner The AutoTuner instance containing Spark version information
+   * @param minSparkVersion The minimum Spark version required
+   * @return True if app Spark version exists and is >= minSparkVersion, false otherwise
+   */
+  def sparkVersionAtLeast(tuner: AutoTuner, minSparkVersion: String): Boolean = {
+    val minVersion = new ComparableVersion(minSparkVersion)
+    tuner.appInfoProvider.getSparkVersion
+      .map(new ComparableVersion(_))
+      .exists(_.compareTo(minVersion) >= 0)
   }
 
   /**
