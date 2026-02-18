@@ -424,8 +424,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   /**
    * Recommendations to be excluded from the list of recommendations.
    * These have the highest priority.
+   * By default, excludes extraJavaOptions as they are only used by EMR platform.
+   * TODO: Refactor to add platform scoping to config level instead of plugin/rule level.
    */
-  val recommendationsToExclude: Set[String] = Set.empty
+  val recommendationsToExclude: Set[String] = Set(
+    "spark.driver.extraJavaOptions",
+    "spark.executor.extraJavaOptions"
+  )
 
   /**
    * Platform-specific recommendations that should be included in the final list of recommendations.
@@ -944,6 +949,9 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
     targetCluster: Option[TargetClusterProps])
   extends Platform(gpuDevice, targetCluster) {
   override def platformName: String = PlatformNames.EMR
+
+  // EMR needs to track extraJavaOptions to disable THP
+  override val recommendationsToExclude: Set[String] = Set.empty
 
   // scalastyle:off line.size.limit
   /**
