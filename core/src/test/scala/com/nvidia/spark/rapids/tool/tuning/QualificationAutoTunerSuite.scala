@@ -2177,4 +2177,39 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         classOf[MatchingInstanceTypeNotFoundException].getSimpleName))
     }
   }
+
+  // Regression test for https://github.com/NVIDIA/spark-rapids-tools/issues/2040
+  // GPU device type check should be case insensitive. Mixed-case names like "A10G"
+  // should resolve correctly through the full AutoTuner pipeline.
+  forAll(Table("gpuDevice", "A10G", "a10g", "T4", "t4")) { (gpuName: String) =>
+    test(s"GPU device lookup is case insensitive for $gpuName") {
+      val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "32g"
+      )
+      val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+        logEventsProps, Some(testSparkVersion))
+      val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+        cpuCores = Some(16),
+        memoryGB = Some(64L),
+        gpuCount = Some(1),
+        gpuDevice = Some(gpuName)
+      )
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+        Some(targetClusterInfo))
+      platform.configureClusterInfoFromEventLog(
+        coresPerExecutor = 16,
+        execsPerNode = 1,
+        numExecs = 2,
+        numExecutorNodes = 2,
+        sparkProperties = logEventsProps.toMap,
+        systemProperties = Map.empty
+      )
+      val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+      val (properties, _) = autoTuner.getRecommendedProperties()
+      assert(properties.nonEmpty,
+        s"AutoTuner should produce recommendations for GPU device '$gpuName'")
+    }
+  }
 }
