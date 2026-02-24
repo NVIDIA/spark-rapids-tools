@@ -29,7 +29,7 @@ object GpuTypes {
   val L4 = "l4"
   val L20 = "l20"
   val A10 = "a10"
-  val A10G = "a10G"
+  val A10G = "a10g"
 }
 
 /**
@@ -119,5 +119,6 @@ object GpuDevice extends Logging {
     GpuTypes.A10G -> A10GGpu
   )
 
-  def createInstance(gpuName: String): Option[GpuDevice] = deviceMap.get(gpuName)
+  def createInstance(gpuName: String): Option[GpuDevice] =
+    deviceMap.get(gpuName.toLowerCase)
 }
