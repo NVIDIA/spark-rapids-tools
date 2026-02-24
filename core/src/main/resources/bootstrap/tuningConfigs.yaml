@@ -388,12 +388,6 @@ default:
     usedBy: spark.driver.extraJavaOptions, spark.executor.extraJavaOptions
     pluginRules: EmrThpDriverRule, EmrThpExecutorRule
 
-  - name: EMR_THP_MIN_SPARK_VERSION
-    description: >-
-      Minimum Spark version required for adding EMR THP disable recommendations. EMR >= 7.12 (Spark versions >= 3.5.6-amzn-1) has THP enabled by default.
-    min: 3.5.6-amzn-1
-    pluginRules: EmrThpDriverRule, EmrThpExecutorRule
-
   - name: EMR_THP_RECOMMENDATION_COMMENT
     description: >-
       Comment explaining THP recommendation behavior and how to preserve extra JVM options manually.

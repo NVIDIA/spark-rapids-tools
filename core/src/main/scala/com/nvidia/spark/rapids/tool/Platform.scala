@@ -427,7 +427,7 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    * By default, excludes extraJavaOptions as they are only used by EMR platform.
    * TODO: Refactor to add platform scoping to config level instead of plugin/rule level.
    */
-  val recommendationsToExclude: Set[String] = Set(
+  def recommendationsToExclude: Set[String] = Set(
     "spark.driver.extraJavaOptions",
     "spark.executor.extraJavaOptions"
   )
@@ -806,7 +806,7 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
   // auto tuner heuristics generally sets it lower then Databricks so go ahead and
   // allow our auto tuner to take affect for this in anticipation that we will use more
   // off heap memory.
-  override val recommendationsToExclude: Set[String] = Set(
+  override def recommendationsToExclude: Set[String] = super.recommendationsToExclude ++ Set(
     "spark.executor.cores",
     "spark.executor.instances",
     "spark.executor.memoryOverhead"
@@ -951,7 +951,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   override def platformName: String = PlatformNames.EMR
 
   // EMR needs to track extraJavaOptions to disable THP
-  override val recommendationsToExclude: Set[String] = Set.empty
+  override def recommendationsToExclude: Set[String] = Set.empty
 
   // scalastyle:off line.size.limit
   /**

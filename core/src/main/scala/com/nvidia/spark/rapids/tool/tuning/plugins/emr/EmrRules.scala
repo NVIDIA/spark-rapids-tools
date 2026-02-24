@@ -32,7 +32,7 @@ import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPr
  * '''EmrThpDriverRule''': Manages THP settings for Spark driver
  * '''EmrThpExecutorRule''': Manages THP settings for Spark executors
  *
- * EMR >= 7.12 has THP enabled by default for Spark applications.
+ * EMR has THP enabled by default for Spark applications.
  * Disabling THP can improve performance and reduce execution time variance.
  *
  * The recommendation is to set both `spark.driver.extraJavaOptions` and
@@ -42,7 +42,6 @@ import com.nvidia.spark.rapids.tool.tuning.plugins.{BaseTuningRule, TuningCondPr
  * ==Configuration Entries==
  * These rules reference the following tuning configuration entries:
  * - EMR_THP_DISABLE_FLAG: The JVM flag to disable THP
- * - EMR_THP_MIN_SPARK_VERSION: Minimum Spark version to apply THP recommendation
  * - EMR_THP_RECOMMENDATION_COMMENT: Comment explaining the THP recommendation
  *
  * ==References==
@@ -63,11 +62,7 @@ abstract class BaseEmrThpRule extends BaseTuningRule {
    * Checks if THP flag needs to be updated.
    */
   override val condition: ConditionTrait[AutoTuner] = (tunerInst: AutoTuner) => {
-    val minSparkVersion = tunerInst.configProvider.getEntry("EMR_THP_MIN_SPARK_VERSION").min
-    if (!TuningCondPredicates.sparkVersionAtLeast(tunerInst, minSparkVersion)) {
-      // Apply only for EMR >= 7.12 (Spark versions >= 3.5.6-amzn-1).
-      false
-    } else if (TuningCondPredicates.rawPropertyEnforced(tunerInst, javaOptionsProp)) {
+    if (TuningCondPredicates.rawPropertyEnforced(tunerInst, javaOptionsProp)) {
       // Respect target-cluster enforced JVM options and do not override them.
       false
     } else {
