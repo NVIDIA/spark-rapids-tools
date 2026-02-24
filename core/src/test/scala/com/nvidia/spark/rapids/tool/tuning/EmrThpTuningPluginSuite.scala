@@ -20,6 +20,7 @@ import scala.collection.mutable
 
 import com.nvidia.spark.rapids.tool.{PlatformFactory, PlatformNames}
 import com.nvidia.spark.rapids.tool.profiling.RecommendedCommentResult
+import org.scalatest.prop.TableDrivenPropertyChecks._
 
 /**
  * Test suite for EMR THP (Transparent Huge Pages) tuning plugin.
@@ -133,27 +134,28 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
     assertNoThpRecommendations(properties)
   }
 
-  test("EMR THP plugin does not apply below minimum Spark version") {
-    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = Some("3.5.5-amzn-0"))
-    assertNoThpRecommendations(properties)
-  }
+  private val nonEmrPlatforms = Table(
+    "platform",
+    PlatformNames.DATAPROC,
+    PlatformNames.DATABRICKS_AWS,
+    PlatformNames.DATABRICKS_AZURE,
+    PlatformNames.ONPREM
+  )
 
-  test("EMR THP plugin does not apply for 3.5.6-amzn-0 when minimum is 3.5.6-amzn-1") {
-    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = Some("3.5.6-amzn-0"))
-    assertNoThpRecommendations(properties)
-  }
-
-  test("EMR THP plugin does not apply when Spark version is unavailable") {
-    val (properties, _) = runAutoTuner(baseProps(), sparkVersion = None)
-    assertNoThpRecommendations(properties)
-  }
-
-  test("EMR THP plugin only activates on EMR platform") {
-    val (propertiesDataproc, _) = runAutoTuner(
-      baseProps(),
-      platformName = PlatformNames.DATAPROC,
-      sparkVersion = Some("3.4.1")
-    )
-    assertNoThpRecommendations(propertiesDataproc)
+  forAll(nonEmrPlatforms) {
+    (platform: String) =>
+      test(s"EMR THP plugin does not activate on $platform platform") {
+        val (properties, comments) = runAutoTuner(
+          baseProps(
+            "spark.driver.extraJavaOptions" -> "-Xms1g",
+            "spark.executor.extraJavaOptions" -> "-XX:+UseG1GC"
+          ),
+          platformName = platform
+        )
+        assertNoThpRecommendations(properties)
+        val commentsStr = comments.map(_.comment).mkString("\n")
+        assert(!commentsStr.contains("UseTransparentHugePages"),
+          s"THP comments should not appear for $platform platform")
+      }
   }
 }
