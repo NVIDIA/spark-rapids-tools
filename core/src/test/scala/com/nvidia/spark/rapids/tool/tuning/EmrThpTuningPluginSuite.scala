@@ -142,19 +142,20 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
     PlatformNames.ONPREM
   )
 
-  forAll(nonEmrPlatforms) { platform =>
-    test(s"EMR THP plugin does not activate on $platform platform") {
-      val (properties, comments) = runAutoTuner(
-        baseProps(
-          "spark.driver.extraJavaOptions" -> "-Xms1g",
-          "spark.executor.extraJavaOptions" -> "-XX:+UseG1GC"
-        ),
-        platformName = platform,
-      )
-      assertNoThpRecommendations(properties)
-      val commentsStr = comments.map(_.comment).mkString("\n")
-      assert(!commentsStr.contains("UseTransparentHugePages"),
-        s"THP comments should not appear for $platform platform")
-    }
+  forAll(nonEmrPlatforms) {
+    (platform: String) =>
+      test(s"EMR THP plugin does not activate on $platform platform") {
+        val (properties, comments) = runAutoTuner(
+          baseProps(
+            "spark.driver.extraJavaOptions" -> "-Xms1g",
+            "spark.executor.extraJavaOptions" -> "-XX:+UseG1GC"
+          ),
+          platformName = platform
+        )
+        assertNoThpRecommendations(properties)
+        val commentsStr = comments.map(_.comment).mkString("\n")
+        assert(!commentsStr.contains("UseTransparentHugePages"),
+          s"THP comments should not appear for $platform platform")
+      }
   }
 }
