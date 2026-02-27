@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,18 +99,6 @@ class DBAWSPlatform(EMRPlatform):
 @dataclass
 class DBAWSCMDDriver(CMDDriverBase):
     """Represents the command interface that will be used by DATABRICKS_AWS"""
-
-    def _list_inconsistent_configurations(self) -> list:
-        incorrect_envs = super()._list_inconsistent_configurations()
-        required_props = self.get_required_props()
-        if required_props is not None:
-            for prop_entry in required_props:
-                prop_value = self.env_vars.get(prop_entry)
-                if prop_value is None and prop_entry.startswith('aws_'):
-                    incorrect_envs.append('AWS credentials are not set correctly ' +
-                                          '(this is required to access resources on S3)')
-                    return incorrect_envs
-        return incorrect_envs
 
     def _build_platform_list_cluster(self, cluster, query_args: dict = None) -> list:
         pass

@@ -16,6 +16,7 @@
 
 import configparser
 import json
+import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -560,12 +561,20 @@ class CMDDriverBase:
         """
         res = {
             'jvmArgs': {
-                # TODO: setting the AWS access keys from jvm arguments did not work
-                # 'Dspark.hadoop.fs.s3a.secret.key': aws_access_key,
-                # 'Dspark.hadoop.fs.s3a.access.key': aws_access_id
+                # Use the full AWS SDK default credential chain for S3A, which covers:
+                # env vars, ~/.aws/credentials (with AWS_PROFILE), EC2 instance profiles,
+                # and ECS container credentials — matching AWS CLI / boto3 behavior.
+                'Drapids.tools.hadoop.fs.s3a.aws.credentials.provider':
+                    'com.amazonaws.auth.DefaultAWSCredentialsProviderChain'
             },
             'envArgs': {}
         }
+        # Pass custom S3 endpoint to hadoop-aws if set, matching the Python-side
+        # S3Fs handler logic (AWS_ENDPOINT_URL_S3 takes precedence over AWS_ENDPOINT_URL).
+        s3_endpoint = os.environ.get('AWS_ENDPOINT_URL_S3') or os.environ.get('AWS_ENDPOINT_URL')
+        if s3_endpoint:
+            res['jvmArgs']['Drapids.tools.hadoop.fs.s3a.endpoint'] = s3_endpoint
+            res['jvmArgs']['Drapids.tools.hadoop.fs.s3a.path.style.access'] = 'true'
         jvm_gc_type = submit_args.get('jvmGC')
         if jvm_gc_type is not None:
             xgc_key = f'XX:{jvm_gc_type}'
@@ -582,9 +591,15 @@ class CMDDriverBase:
             return res
         env_args_table = {}
         for sys_var in global_sys_vars:
-            prop_value = self.get_env_var(sys_var['confProperty'])
-            if prop_value:
-                env_args_table.setdefault(sys_var['varKey'], prop_value)
+            var_key = sys_var['varKey']
+            # OS env vars take precedence over credentials file (matches AWS SDK behavior)
+            os_value = os.environ.get(var_key)
+            if os_value:
+                env_args_table.setdefault(var_key, os_value)
+            else:
+                prop_value = self.get_env_var(sys_var['confProperty'])
+                if prop_value:
+                    env_args_table.setdefault(var_key, prop_value)
         res.update({'envArgs': env_args_table})
         return res
 
