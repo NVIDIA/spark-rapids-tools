@@ -227,8 +227,16 @@ class TuningEntries(
 }
 
 object TuningEntryDefinition {
-  // A static Map between the propertyName and the TuningEntryDefinition
-  lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] = loadTable()
+  // All entries from the tuningTable.yaml
+  private lazy val allEntries: Map[String, TuningEntryDefinition] = loadTable()
+
+  // A static Map between the propertyName and the TuningEntryDefinition for enabled entries.
+  lazy val TUNING_TABLE: Map[String, TuningEntryDefinition] =
+    allEntries.filter(_._2.isEnabled())
+
+  /** Look up a tuning entry definition by label, including disabled entries. */
+  def getEntryDefinition(label: String): Option[TuningEntryDefinition] =
+    allEntries.get(label)
 
   /**
    * Creates a tuning definition with commonly used defaults.
@@ -284,9 +292,6 @@ object TuningEntryDefinition {
     val constructor = new Constructor(classOf[TuningEntries], new LoaderOptions())
     val yamlObjNested = new Yaml(constructor, representer)
     val entryTable: TuningEntries = yamlObjNested.load(yamlSource).asInstanceOf[TuningEntries]
-    // load the enabled entries.
-    entryTable.tuningDefinitions.asScala.iterator.collect {
-      case e if e.isEnabled() => (e.label, e)
-    }.toMap
+    entryTable.tuningDefinitions.asScala.iterator.map(e => (e.label, e)).toMap
   }
 }
