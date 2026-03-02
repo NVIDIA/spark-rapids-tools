@@ -86,7 +86,9 @@ class MergeRowsIcebergParser(
       return Array.empty[String]
     }
 
-    // Extract physicalPlanDescription from the SQL plan model
+    // Unwrap the optional app instance, then look up the physical plan description
+    // for this SQL ID. Both `app` and `applyToPlanModel` return Option, so the
+    // for-comprehension short-circuits to None if either is absent or empty.
     val physPlanOpt = for {
       appInst <- app
       physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
