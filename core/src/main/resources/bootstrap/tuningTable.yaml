@@ -98,7 +98,7 @@ tuningDefinitions:
     description: >-
       Extra JVM options to pass to the driver.
       On EMR, this is used to disable Transparent Huge Pages (THP) for improved performance.
-    enabled: true
+    enabled: false
     level: cluster
     category: tuning
     modifiedBy: EmrThpDriverRule
@@ -108,7 +108,7 @@ tuningDefinitions:
     description: >-
       Extra JVM options to pass to executors.
       On EMR, this is used to disable Transparent Huge Pages (THP) for improved performance.
-    enabled: true
+    enabled: false
     level: cluster
     category: tuning
     modifiedBy: EmrThpExecutorRule

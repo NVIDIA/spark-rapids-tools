@@ -376,6 +376,14 @@ abstract class AutoTuner(
         .map(_.getSparkProperties.tuningDefinitionsMap)
         .getOrElse(Map.empty[String, TuningEntryDefinition])
 
+    // Enable platform-specific tuning entries.
+    // Uses getEntryDefinition to preserve the full YAML metadata for disabled entries.
+    platform.platformEnabledTuningEntries.foreach { key =>
+      val tuningDefn = baseMap.getOrElseUpdate(key,
+        TuningEntryDefinition.getEntryDefinition(key).getOrElse(TuningEntryDefinition(key)))
+      tuningDefn.markAsEnable()
+    }
+
     // Exclude properties specified in the skip list (Tool specific or
     // user specified using `exclude` section in target cluster)
     skippedRecommendations.foreach(baseMap.remove)

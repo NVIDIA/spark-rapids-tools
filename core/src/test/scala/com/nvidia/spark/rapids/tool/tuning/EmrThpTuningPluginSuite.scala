@@ -158,4 +158,32 @@ class EmrThpTuningPluginSuite extends ProfilingAutoTunerSuite {
           s"THP comments should not appear for $platform platform")
       }
   }
+
+  test("platformEnabledTuningEntries enables disabled entries with YAML metadata for EMR") {
+    val (properties, _) = runAutoTuner(baseProps())
+    val enabledKeys = Set(
+      "spark.driver.extraJavaOptions",
+      "spark.executor.extraJavaOptions")
+    enabledKeys.foreach { key =>
+      val entry = properties.find(_.name == key)
+      assert(entry.isDefined, s"$key should be present in EMR recommendations")
+      assert(entry.get.isEnabled(), s"$key should be enabled")
+      assert(entry.get.isBootstrap(), s"$key should be a bootstrap entry")
+    }
+  }
+
+  forAll(nonEmrPlatforms) {
+    (platform: String) =>
+      test(s"platformEnabledTuningEntries does not enable entries on $platform") {
+        val (properties, _) = runAutoTuner(baseProps(), platformName = platform)
+        val disabledKeys = Set(
+          "spark.driver.extraJavaOptions",
+          "spark.executor.extraJavaOptions")
+        disabledKeys.foreach { key =>
+          val entry = properties.find(_.name == key)
+          assert(entry.isEmpty,
+            s"$key should not be in $platform recommendations")
+        }
+      }
+  }
 }
