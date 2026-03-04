@@ -970,7 +970,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
 
-  override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
+  override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID", "EMR_STEP_ID")
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,
