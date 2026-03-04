@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
-import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
+import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
 import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
@@ -76,23 +76,59 @@ class MergeRowsIcebergParser(
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.
   override def reportedExecName: String = trimmedNodeName
 
-  override def createExecInfo(
+  /**
+   * Parse expressions from physicalPlanDescription for MergeRows operator.
+   * Extracts keep, discard, and split expressions from the Arguments line.
+   */
+  override protected def parseExpressions(): Array[String] = {
+    // Only MergeRows has merge-specific expressions (keep, discard, split)
+    if (node.name != IcebergHelper.EXEC_MERGE_ROWS) {
+      return Array.empty[String]
+    }
+
+    // Unwrap the optional app instance, then look up the physical plan description
+    // for this SQL ID. Both `app` and `applyToPlanModel` return Option, so the
+    // for-comprehension short-circuits to None if either is absent or empty.
+    val physPlanOpt = for {
+      appInst <- app
+      physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
+      if physPlan.nonEmpty
+    } yield physPlan
+
+    // Parse merge expressions from the physical plan description
+    physPlanOpt.map { physPlan =>
+      SQLPlanParser.parseMergeRowsExpressions(physPlan)
+    }.getOrElse(Array.empty[String])
+  }
+
+  /**
+   * Overrides createExecInfo to set the correct opType from the opStub.
+   *
+   * This parser handles MergeRows (OpType: Exec), ReplaceData, and WriteDelta
+   * (both OpType: WriteExec). The default GenericExecParser always uses OpTypes.Exec,
+   * so we must set opType = opStub.pullOpType to preserve the write operator classification
+   * for ReplaceData and WriteDelta.
+   */
+  override protected def createExecInfo(
       speedupFactor: Double,
       isSupported: Boolean,
       duration: Option[Long],
       notSupportedExprs: Seq[UnsupportedExprOpRef],
       expressions: Array[String]): ExecInfo = {
-    // We do not want to parse the node description to avoid mistakenly marking the node as RDD/UDF.
-    ExecInfo.createExecNoNode(
+    ExecInfo(
+      node,
       sqlID,
-      exec = reportedExecName,
-      expr = "",
-      speedupFactor, duration, node.id,
-      opType = opStub.pullOpType,
-      isSupported = isSupported,
-      children = None,
+      reportedExecName,
+      reportedExpr,
+      speedupFactor,
+      duration,
+      node.id,
+      isSupported,
+      children = getChildren,
       unsupportedExecReason = unsupportedReason,
-      expressions = Seq.empty
+      unsupportedExprs = notSupportedExprs,
+      opType = opStub.pullOpType,
+      expressions = expressions
     )
   }
 }

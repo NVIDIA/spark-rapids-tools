@@ -17,6 +17,8 @@ package com.nvidia.spark.rapids.tool.planparser
 
 import java.util.regex.Pattern
 
+import org.apache.spark.internal.Logging
+
 /**
  * Utility for extracting information from Spark's physicalPlanDescription string.
  *
@@ -50,16 +52,16 @@ import java.util.regex.Pattern
  *   Input [36]: [_c0#478, ...]
  * }}}
  */
-object PhysicalPlanDescHelper {
+object PhysicalPlanDescHelper extends Logging {
 
   /**
-   * Extracts the single-line Arguments value for a node matched by name.
+   * Extracts the Arguments value for a node matched by name.
    *
    * Searches for `(\d+) <nodeName>` followed by an `Arguments:` line in the same node section,
-   * and returns the content on that Arguments line.
+   * and returns all content from `Arguments:` to the end of the node section.
    *
    * @param physPlanDesc the full physicalPlanDescription string
-   * @param nodeName     the node name to match (e.g., "ReplaceData", "WriteDelta").
+   * @param nodeName     the node name to match (e.g., "ReplaceData", "WriteDelta", "MergeRows").
    *                     Must be unique per plan, or use `occurrence` to disambiguate.
    * @param occurrence   0-based occurrence index when multiple same-named nodes exist (default: 0)
    * @return the Arguments string if found, None otherwise
@@ -75,12 +77,17 @@ object PhysicalPlanDescHelper {
     // then look for Arguments: within that bounded section.
     val sections = extractNodeSections(physPlanDesc, nodeName)
     sections.lift(occurrence).flatMap { section =>
-      argumentsLinePattern.findFirstMatchIn(section).map(_.group(1).trim)
+      val result = argumentsPattern.findFirstMatchIn(section).map(_.group(1).trim)
+      if (result.isEmpty) {
+        logWarning(s"Node '$nodeName' found in physicalPlanDescription " +
+          "but has no Arguments section")
+      }
+      result
     }
   }
 
-  // Regex to extract single-line Arguments content within a node section
-  private val argumentsLinePattern = """(?m)^Arguments:\s*([^\n]+)""".r
+  // Regex to extract Arguments content within a node section
+  private val argumentsPattern = """(?s)Arguments:\s*(.+)""".r
 
   /**
    * Extracts all sections for nodes matching the given name.

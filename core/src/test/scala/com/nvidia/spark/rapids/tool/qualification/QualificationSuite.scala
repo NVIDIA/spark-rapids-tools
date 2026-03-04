@@ -1615,7 +1615,8 @@ class QualificationSuite extends BaseWithSparkSuite {
 runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are marked unsupported",
     checkIcebergSupportForSpark) {
     // This test verifies that BOTH MergeRows AND ReplaceData from Iceberg MERGE INTO operations
-    // are correctly parsed and marked as unsupported.
+    // are correctly parsed and marked as unsupported (opStub.isSupported = false for both).
+    // ReplaceData must be classified as WriteExec (not Exec) in the unsupported operators list.
     //
     // DAG structure (copy-on-write mode):
     //   ReplaceData (12)       <- Write operator (OpType: WriteExec)
@@ -1675,7 +1676,7 @@ runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are ma
             .withContentVisitor(
               "Both MergeRows and ReplaceData should appear in the exec report",
               csvF => {
-                // Check MergeRows
+                // Check MergeRows (opStub.isSupported = false)
                 val mergeRowsExecs = csvF.csvRows.filter { r =>
                   r("Exec Name").contains(expectedMergeExec)
                 }
@@ -1684,7 +1685,7 @@ runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are ma
                   row("Exec Is Supported") shouldBe "false"
                 }
 
-                // Check ReplaceData (the write operator for CoW mode)
+                // Check ReplaceData (the write operator for CoW mode, opStub.isSupported = false)
                 val replaceDataExecs = csvF.csvRows.filter { r =>
                   r("Exec Name").contains(expectedWriteExec)
                 }
@@ -1710,12 +1711,12 @@ runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are ma
                 }
 
                 // Check ReplaceData is listed as unsupported with WriteExec type
+                // (opType = WriteExec is set via opStub.pullOpType in createExecInfo)
                 val replaceDataUnsupported = csvF.csvRows.filter { r =>
                   r("Unsupported Operator").contains(expectedWriteExec)
                 }
                 replaceDataUnsupported.size should be >= 1
                 replaceDataUnsupported.foreach { row =>
-                  // ReplaceData is a WriteExec
                   row("Unsupported Type") shouldBe "WriteExec"
                 }
               }))
