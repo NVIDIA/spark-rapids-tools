@@ -1,6 +1,27 @@
 
 <br/>
 
+## Release [v26.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.0)
+Generated on 2026-03-05
+### Autotuner
+
+- Exclude extraJavaOptions recommendations in Databricks, remove spark version rule for THP ([#2042](https://github.com/NVIDIA/spark-rapids-tools/pull/2042))
+
+### User Tools
+
+- Fix S3 credential resolution by delegating to AWS SDK DefaultAWSCrede… ([#2045](https://github.com/NVIDIA/spark-rapids-tools/pull/2045))
+
+### Core
+
+- Add Expression Support for Iceberg MERGE INTO Operations ([#2031](https://github.com/NVIDIA/spark-rapids-tools/pull/2031))
+- Add EMR_STEP_ID to retained system properties ([#2049](https://github.com/NVIDIA/spark-rapids-tools/pull/2049))
+- Add platformEnabledTuningEntries and disable extraJavaOptions by default ([#2048](https://github.com/NVIDIA/spark-rapids-tools/pull/2048))
+- Fix case-sensitive GPU device type check  ([#2041](https://github.com/NVIDIA/spark-rapids-tools/pull/2041))
+- Add EMR Transparent Huge Page (THP) disable settings ([#2035](https://github.com/NVIDIA/spark-rapids-tools/pull/2035))
+
+
+<br/>
+
 ## Release [v25.12.7](https://github.com/NVIDIA/spark-rapids-tools/tree/v25.12.7)
 Generated on 2026-02-17
 ### Core
