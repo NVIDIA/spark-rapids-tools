@@ -166,7 +166,7 @@
     "//description": "Define the metadata related to the system, prerequisites, and configurations",
     "envParams": ["profile", "awsProfile", "deployMode", "sshPort", "sshKeyFile"],
     "//initialConfigList": "represents the list of the configurations that need to be loaded first",
-    "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile", "awsCredentialFile"],
+    "initialConfigList": ["profile", "awsProfile", "cliConfigFile", "awsCliConfigFile"],
     "//loadedConfigProps": "list of properties read by the configParser",
     "loadedConfigProps": ["region", "output"],
     "cliConfig": {
@@ -185,11 +185,6 @@
           "//comment": "the token is not being used for now",
           "envVariableKey": "DATABRICKS_TOKEN",
           "confProperty": "databricksToken"
-        },
-        {
-          "envVariableKey": "AWS_SHARED_CREDENTIALS_FILE",
-          "confProperty": "awsCredentialFile",
-          "defaultValue": "~/.aws/credentials"
         },
         {
           "envVariableKey": "AWS_CONFIG_FILE",
@@ -238,26 +233,13 @@
             "configFileProp": "_awsCliConfigFile_"
           }
         ],
-        "credentialsMap": [
-          {
-            "confProperty": "aws_access_key_id",
-            "section": "_awsProfile_",
-            "propKey": "aws_access_key_id",
-            "configFileProp": "_awsCredentialFile_"
-          },
-          {
-            "confProperty": "aws_secret_access_key",
-            "section": "_awsProfile_",
-            "propKey": "aws_secret_access_key",
-            "configFileProp": "_awsCredentialFile_"
-          }
-        ]
+        "credentialsMap": []
       }
     },
     "cmdRunnerProperties": {
       "systemPrerequisites": ["databricks", "aws"],
       "//description": "define the properties passed to the CMD runner to be set as env-vars",
-      "inheritedProps": ["profile", "awsProfile", "region", "aws_access_key_id", "aws_secret_access_key"],
+      "inheritedProps": ["profile", "awsProfile", "region"],
       "cliPiggyBackEnvVars": {
         "//description": "Holds information about the variables that will be attached to the command runner",
         "definedVars": [
@@ -293,18 +275,7 @@
       },
       "rapidsJobs": {
         "LOCAL": {
-          "definedVars": [
-            {
-              "varLabel": "awsAccessKeyID",
-              "confProperty": "aws_access_key_id",
-              "varKey": "AWS_ACCESS_KEY_ID"
-            },
-            {
-              "varLabel": "awsSecretAccessKey",
-              "confProperty": "aws_secret_access_key",
-              "varKey": "AWS_SECRET_ACCESS_KEY"
-            }
-          ]
+          "definedVars": []
         }
       }
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ object GpuTypes {
   val L4 = "l4"
   val L20 = "l20"
   val A10 = "a10"
-  val A10G = "a10G"
+  val A10G = "a10g"
 }
 
 /**
@@ -119,5 +119,6 @@ object GpuDevice extends Logging {
     GpuTypes.A10G -> A10GGpu
   )
 
-  def createInstance(gpuName: String): Option[GpuDevice] = deviceMap.get(gpuName)
+  def createInstance(gpuName: String): Option[GpuDevice] =
+    deviceMap.get(gpuName.toLowerCase)
 }

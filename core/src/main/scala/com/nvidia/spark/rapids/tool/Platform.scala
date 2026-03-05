@@ -428,6 +428,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   val recommendationsToExclude: Set[String] = Set.empty
 
   /**
+   * Tuning table entries that are disabled by default but should be enabled for this platform.
+   * This provides platform-level scoping for tuning entries: entries can be defined in the
+   * tuning table with `enabled: false` and selectively enabled by the platforms that need them.
+   */
+  val platformEnabledTuningEntries: Set[String] = Set.empty
+
+  /**
    * Platform-specific recommendations that should be included in the final list of recommendations.
    * For example: we used to set "spark.databricks.optimizer.dynamicFilePruning" to false for the
    *              Databricks platform.
@@ -945,6 +952,12 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   extends Platform(gpuDevice, targetCluster) {
   override def platformName: String = PlatformNames.EMR
 
+  // EMR needs to track extraJavaOptions to disable THP
+  override val platformEnabledTuningEntries: Set[String] = Set(
+    "spark.driver.extraJavaOptions",
+    "spark.executor.extraJavaOptions"
+  )
+
   // scalastyle:off line.size.limit
   /**
    * For YARN on EMR, 30% of memory is reserved by the resource manager.
@@ -957,7 +970,7 @@ class EmrPlatform(gpuDevice: Option[GpuDevice],
   override def isPlatformCSP: Boolean = true
   override def requirePathRecommendations: Boolean = false
 
-  override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID")
+  override def getRetainedSystemProps: Set[String] = Set("EMR_CLUSTER_ID", "EMR_STEP_ID")
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,

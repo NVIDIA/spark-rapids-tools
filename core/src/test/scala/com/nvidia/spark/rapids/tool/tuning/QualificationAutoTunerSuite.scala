@@ -38,7 +38,6 @@ import org.apache.spark.sql.rapids.tool.util.FSUtils
  * Suite to test the Qualification Tool's AutoTuner
  */
 class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
-
   val qualLogDir: String = ToolTestUtils.getTestResourcePath("spark-events-qualification")
   val autoTunerHelper: AutoTunerHelper = QualificationAutoTunerHelper
 
@@ -1605,10 +1604,12 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.dynamicAllocation.initialExecutors=10
           |--conf spark.dynamicAllocation.maxExecutors=15
           |--conf spark.dynamicAllocation.minExecutors=6
           |--conf spark.executor.cores=16
+          |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=13106m
@@ -1633,6 +1634,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.driver.extraJavaOptions' was not set.
+          |- 'spark.executor.extraJavaOptions' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
           |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
@@ -1653,6 +1656,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |- ${commentForDynamicAllocationAdjustment(expectedAdjustedProperties, 8, 16)}
@@ -1781,10 +1786,12 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.dynamicAllocation.initialExecutors=10
           |--conf spark.dynamicAllocation.maxExecutors=30
           |--conf spark.dynamicAllocation.minExecutors=5
           |--conf spark.executor.cores=16
+          |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=13106m
@@ -1809,9 +1816,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.driver.extraJavaOptions' was not set.
           |- ${getEnforcedPropertyComment("spark.dynamicAllocation.initialExecutors")}
           |- ${getPreservedPropertyComment("spark.dynamicAllocation.maxExecutors")}
           |- ${getEnforcedPropertyComment("spark.dynamicAllocation.minExecutors")}
+          |- 'spark.executor.extraJavaOptions' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
           |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
@@ -1832,6 +1841,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |""".stripMargin
@@ -1875,9 +1886,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.dynamicAllocation.initialExecutors=14
           |--conf spark.dynamicAllocation.minExecutors=14
           |--conf spark.executor.cores=16
+          |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=14
           |--conf spark.executor.memory=32g
           |--conf spark.executor.memoryOverhead=13106m
@@ -1902,7 +1915,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
+          |- 'spark.driver.extraJavaOptions' was not set.
           |- ${getEnforcedPropertyComment("spark.dynamicAllocation.minExecutors")}
+          |- 'spark.executor.extraJavaOptions' was not set.
           |- 'spark.executor.memoryOverhead' was not set.
           |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
           |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
@@ -1923,6 +1938,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
+          |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
           |""".stripMargin
@@ -2157,6 +2174,41 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       assert(appStatus.status == "FAILURE")
       assert(appStatus.message.contains(
         classOf[MatchingInstanceTypeNotFoundException].getSimpleName))
+    }
+  }
+
+  // Regression test for https://github.com/NVIDIA/spark-rapids-tools/issues/2040
+  // GPU device type check should be case insensitive. Mixed-case names like "A10G"
+  // should resolve correctly through the full AutoTuner pipeline.
+  forAll(Table("gpuDevice", "A10G", "a10g", "T4", "t4")) { (gpuName: String) =>
+    test(s"GPU device lookup is case insensitive for $gpuName") {
+      val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "32g"
+      )
+      val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+        logEventsProps, Some(testSparkVersion))
+      val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+        cpuCores = Some(16),
+        memoryGB = Some(64L),
+        gpuCount = Some(1),
+        gpuDevice = Some(gpuName)
+      )
+      val platform = PlatformFactory.createInstance(PlatformNames.ONPREM,
+        Some(targetClusterInfo))
+      platform.configureClusterInfoFromEventLog(
+        coresPerExecutor = 16,
+        execsPerNode = 1,
+        numExecs = 2,
+        numExecutorNodes = 2,
+        sparkProperties = logEventsProps.toMap,
+        systemProperties = Map.empty
+      )
+      val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+      val (properties, _) = autoTuner.getRecommendedProperties()
+      assert(properties.nonEmpty,
+        s"AutoTuner should produce recommendations for GPU device '$gpuName'")
     }
   }
 }
