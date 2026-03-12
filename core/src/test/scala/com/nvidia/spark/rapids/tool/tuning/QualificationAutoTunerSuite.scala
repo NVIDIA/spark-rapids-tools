@@ -1956,21 +1956,23 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       "cpuInfo", "gpuInfoOpt"
     ),
     // Case 1: CPU cores > GPU cores: Increase number of executors
+    // Source: initial=10, min=2, max=20 -> adjustRatio=2.0 -> initial=20, min=4, max=40
     (
       16, 8,
-      DynamicAllocationInfo(enabled = true, "10", "2", "20"),
-      Some(DynamicAllocationInfo(enabled = true, "20", "4", "40"))
+      DynamicAllocationInfo(enabled = true, "20", "2", "10"),
+      Some(DynamicAllocationInfo(enabled = true, "40", "4", "20"))
     ),
     // Case 2: CPU cores < GPU cores: Decrease number of executors
+    // Source: initial=8, min=4, max=16 -> adjustRatio=0.25 -> initial=2, min=1, max=4
     (
       4, 16,
-      DynamicAllocationInfo(enabled = true, "8", "4", "16"),
-      Some(DynamicAllocationInfo(enabled = true, "2", "1", "4"))
+      DynamicAllocationInfo(enabled = true, "16", "4", "8"),
+      Some(DynamicAllocationInfo(enabled = true, "4", "1", "2"))
     ),
     // Case 3: CPU cores = GPU cores: No change in number of executors
     (
       8, 8,
-      DynamicAllocationInfo(enabled = true, "6", "3", "12"),
+      DynamicAllocationInfo(enabled = true, "12", "3", "6"),
       None
     )
   )
@@ -2120,6 +2122,67 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
          |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Test that dynamic allocation invariant (initialExecutors <= maxExecutors) is enforced
+  // when executor.instances from cluster sizing boosts initialExecutors above maxExecutors.
+  // Reproduces bug where source: 8 cores, 18 max executors, event log 18 executors,
+  // target: 16 cores → initialExecutors=18 > maxExecutors=9.
+  test("test dynamic allocation enforces initialExecutors <= maxExecutors invariant") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "18",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "8",
+      "spark.dynamicAllocation.minExecutors" -> "4",
+      "spark.dynamicAllocation.maxExecutors" -> "18"
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 2,
+      numExecs = 18,
+      numExecutorNodes = 9,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, _) = autoTuner.getRecommendedProperties()
+
+    // Extract the recommended dynamic allocation values
+    val propsMap = properties.map(p => p.name -> p.getTuneValue()).toMap
+    val initialExecs = propsMap.get("spark.dynamicAllocation.initialExecutors").map(_.toInt)
+    val maxExecs = propsMap.get("spark.dynamicAllocation.maxExecutors").map(_.toInt)
+    val minExecs = propsMap.get("spark.dynamicAllocation.minExecutors").map(_.toInt)
+    val execInstances = propsMap.get("spark.executor.instances").map(_.toInt)
+
+    // Verify the invariant: minExecutors <= initialExecutors <= maxExecutors
+    (initialExecs, maxExecs) match {
+      case (Some(initial), Some(max)) =>
+        assert(initial <= max,
+          s"initialExecutors ($initial) should be <= maxExecutors ($max)")
+      case _ => // If either is not set, the invariant is trivially satisfied
+    }
+
+    (minExecs, initialExecs) match {
+      case (Some(min), Some(initial)) =>
+        assert(min <= initial,
+          s"minExecutors ($min) should be <= initialExecutors ($initial)")
+      case _ =>
+    }
+
+    // executor.instances should match initialExecutors
+    (execInstances, initialExecs) match {
+      case (Some(instances), Some(initial)) =>
+        assert(instances == initial,
+          s"executor.instances ($instances) should equal initialExecutors ($initial)")
+      case _ =>
+    }
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
