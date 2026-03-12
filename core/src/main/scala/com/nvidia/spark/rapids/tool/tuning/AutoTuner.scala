@@ -1100,33 +1100,68 @@ abstract class AutoTuner(
       recommendations.get(prop).flatMap(_.tunedValue).map(_.toInt)
     }
 
-    val minOpt = getRecValue("spark.dynamicAllocation.minExecutors")
-    val initialOpt = getRecValue("spark.dynamicAllocation.initialExecutors")
-    val maxOpt = getRecValue("spark.dynamicAllocation.maxExecutors")
+    val adjusted = mutable.ListBuffer[String]()
+
+    def trackAdjustment(prop: String, from: Int, to: Int): Unit = {
+      adjusted += s"'$prop' adjusted from $from to $to"
+    }
+
+    val minOpt = getRecValue(
+      "spark.dynamicAllocation.minExecutors")
+    val initialOpt = getRecValue(
+      "spark.dynamicAllocation.initialExecutors")
+    val maxOpt = getRecValue(
+      "spark.dynamicAllocation.maxExecutors")
 
     // Cap initialExecutors and executor.instances to maxExecutors
     (initialOpt, maxOpt) match {
       case (Some(initial), Some(max)) if initial > max =>
-        appendRecommendation("spark.dynamicAllocation.initialExecutors", max.toLong)
-        appendRecommendation("spark.executor.instances", max.toLong)
+        appendRecommendation(
+          "spark.dynamicAllocation.initialExecutors", max.toLong)
+        appendRecommendation(
+          "spark.executor.instances", max.toLong)
+        trackAdjustment(
+          "spark.dynamicAllocation.initialExecutors",
+          initial, max)
       case _ =>
     }
 
     // Cap minExecutors to maxExecutors
     (minOpt, maxOpt) match {
       case (Some(min), Some(max)) if min > max =>
-        appendRecommendation("spark.dynamicAllocation.minExecutors", max.toLong)
+        appendRecommendation(
+          "spark.dynamicAllocation.minExecutors", max.toLong)
+        trackAdjustment(
+          "spark.dynamicAllocation.minExecutors", min, max)
       case _ =>
     }
 
-    // Ensure minExecutors <= initialExecutors (re-read after possible capping)
-    val adjustedInitialOpt = getRecValue("spark.dynamicAllocation.initialExecutors")
-    val adjustedMinOpt = getRecValue("spark.dynamicAllocation.minExecutors")
+    // Ensure minExecutors <= initialExecutors
+    val adjustedInitialOpt = getRecValue(
+      "spark.dynamicAllocation.initialExecutors")
+    val adjustedMinOpt = getRecValue(
+      "spark.dynamicAllocation.minExecutors")
     (adjustedMinOpt, adjustedInitialOpt) match {
       case (Some(min), Some(initial)) if min > initial =>
-        appendRecommendation("spark.dynamicAllocation.initialExecutors", min.toLong)
-        appendRecommendation("spark.executor.instances", min.toLong)
+        appendRecommendation(
+          "spark.dynamicAllocation.initialExecutors",
+          min.toLong)
+        appendRecommendation(
+          "spark.executor.instances", min.toLong)
+        trackAdjustment(
+          "spark.dynamicAllocation.initialExecutors",
+          initial, min)
       case _ =>
+    }
+
+    if (adjusted.nonEmpty) {
+      val comment =
+        s"""
+           |Adjusted dynamic allocation properties to ensure
+           |initialExecutors does not exceed maxExecutors:
+           |${adjusted.mkString("; ")}.
+           |""".stripMargin.trim.replaceAll("\n", "\n  ")
+      appendComment(comment)
     }
   }
 

@@ -2161,28 +2161,24 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val minExecs = propsMap.get("spark.dynamicAllocation.minExecutors").map(_.toInt)
     val execInstances = propsMap.get("spark.executor.instances").map(_.toInt)
 
-    // Verify the invariant: minExecutors <= initialExecutors <= maxExecutors
-    (initialExecs, maxExecs) match {
-      case (Some(initial), Some(max)) =>
-        assert(initial <= max,
-          s"initialExecutors ($initial) should be <= maxExecutors ($max)")
-      case _ => // If either is not set, the invariant is trivially satisfied
-    }
+    // Verify recommendations are present
+    assert(initialExecs.isDefined, "Expected initialExecutors recommendation to be present")
+    assert(maxExecs.isDefined, "Expected maxExecutors recommendation to be present")
+    assert(minExecs.isDefined, "Expected minExecutors recommendation to be present")
+    assert(execInstances.isDefined, "Expected executor.instances recommendation to be present")
 
-    (minExecs, initialExecs) match {
-      case (Some(min), Some(initial)) =>
-        assert(min <= initial,
-          s"minExecutors ($min) should be <= initialExecutors ($initial)")
-      case _ =>
-    }
+    // Verify: initialExecutors <= maxExecutors
+    assert(initialExecs.get <= maxExecs.get,
+      s"initialExecutors (${initialExecs.get}) should be <= maxExecutors (${maxExecs.get})")
+
+    // Verify: minExecutors <= initialExecutors
+    assert(minExecs.get <= initialExecs.get,
+      s"minExecutors (${minExecs.get}) should be <= initialExecutors (${initialExecs.get})")
 
     // executor.instances should match initialExecutors
-    (execInstances, initialExecs) match {
-      case (Some(instances), Some(initial)) =>
-        assert(instances == initial,
-          s"executor.instances ($instances) should equal initialExecutors ($initial)")
-      case _ =>
-    }
+    assert(execInstances.get == initialExecs.get,
+      s"executor.instances (${execInstances.get}) should equal " +
+        s"initialExecutors (${initialExecs.get})")
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
