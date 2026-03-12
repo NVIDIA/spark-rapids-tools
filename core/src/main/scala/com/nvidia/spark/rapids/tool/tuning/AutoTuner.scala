@@ -1158,7 +1158,7 @@ abstract class AutoTuner(
       val comment =
         s"""
            |Adjusted dynamic allocation properties to ensure
-           |initialExecutors does not exceed maxExecutors:
+           |executor counts are within bounds:
            |${adjusted.mkString("; ")}.
            |""".stripMargin.trim.replaceAll("\n", "\n  ")
       appendComment(comment)
