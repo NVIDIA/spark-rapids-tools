@@ -1102,8 +1102,11 @@ abstract class AutoTuner(
 
     val adjusted = mutable.ListBuffer[String]()
 
+    // Skip ignored properties, mirroring appendRecommendation
     def trackAdjustment(prop: String, from: Int, to: Int): Unit = {
-      adjusted += s"'$prop' adjusted from $from to $to"
+      if (!ignoreRecommendation(prop)) {
+        adjusted += s"'$prop' adjusted from $from to $to"
+      }
     }
 
     val minOpt = getRecValue(
