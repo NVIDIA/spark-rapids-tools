@@ -1956,21 +1956,23 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       "cpuInfo", "gpuInfoOpt"
     ),
     // Case 1: CPU cores > GPU cores: Increase number of executors
+    // Source: initial=10, min=2, max=20 -> adjustRatio=2.0 -> initial=20, min=4, max=40
     (
       16, 8,
-      DynamicAllocationInfo(enabled = true, "10", "2", "20"),
-      Some(DynamicAllocationInfo(enabled = true, "20", "4", "40"))
+      DynamicAllocationInfo(enabled = true, "20", "2", "10"),
+      Some(DynamicAllocationInfo(enabled = true, "40", "4", "20"))
     ),
     // Case 2: CPU cores < GPU cores: Decrease number of executors
+    // Source: initial=8, min=4, max=16 -> adjustRatio=0.25 -> initial=2, min=1, max=4
     (
       4, 16,
-      DynamicAllocationInfo(enabled = true, "8", "4", "16"),
-      Some(DynamicAllocationInfo(enabled = true, "2", "1", "4"))
+      DynamicAllocationInfo(enabled = true, "16", "4", "8"),
+      Some(DynamicAllocationInfo(enabled = true, "4", "1", "2"))
     ),
     // Case 3: CPU cores = GPU cores: No change in number of executors
     (
       8, 8,
-      DynamicAllocationInfo(enabled = true, "6", "3", "12"),
+      DynamicAllocationInfo(enabled = true, "12", "3", "6"),
       None
     )
   )
@@ -2120,6 +2122,50 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
          |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
+  }
+
+  // Source: 8 cores, 18 executors (from event log),
+  // target: 16 cores (ONPREM default).
+  // ConstantTotalCoresStrategy preserves total core count:
+  //   ceil(8*18/16) = 9 executor instances.
+  // initialExecutors is boosted to match executor.instances
+  //   max(floor(8*0.5),9)=9.
+  // maxExecutors is independently scaled by core ratio
+  //   floor(9*0.5)=4.
+  // Violation: initial(9) > max(4). Enforcement caps to 4.
+  test("dynamic allocation enforces invariant " +
+      "with ConstantTotalCoresStrategy") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> "18",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "8",
+      "spark.dynamicAllocation.minExecutors" -> "4",
+      "spark.dynamicAllocation.maxExecutors" -> "9"
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 2,
+      numExecs = 18,
+      numExecutorNodes = 9,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) =
+      autoTuner.getRecommendedProperties()
+    // After enforcement: initial capped from 9 to 4,
+    // max=floor(9*0.5)=4, min=max(1,floor(4*0.5))=2
+    assertDynamicAllocationRecommendations(properties, comments,
+      DynamicAllocationInfo(
+        enabled = true, max = "4", min = "2",
+        initial = "4"))
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
