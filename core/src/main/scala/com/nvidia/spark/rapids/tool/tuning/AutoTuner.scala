@@ -1123,6 +1123,8 @@ abstract class AutoTuner(
         trackAdjustment(
           "spark.dynamicAllocation.initialExecutors",
           initial, max)
+        trackAdjustment(
+          "spark.executor.instances", initial, max)
       case _ =>
     }
 
@@ -1151,14 +1153,16 @@ abstract class AutoTuner(
         trackAdjustment(
           "spark.dynamicAllocation.initialExecutors",
           initial, min)
+        trackAdjustment(
+          "spark.executor.instances", initial, min)
       case _ =>
     }
 
     if (adjusted.nonEmpty) {
       val comment =
         s"""
-           |Adjusted dynamic allocation properties to ensure
-           |executor counts are within bounds:
+           |Adjusted dynamic allocation properties to enforce
+           |minExecutors <= initialExecutors <= maxExecutors:
            |${adjusted.mkString("; ")}.
            |""".stripMargin.trim.replaceAll("\n", "\n  ")
       appendComment(comment)

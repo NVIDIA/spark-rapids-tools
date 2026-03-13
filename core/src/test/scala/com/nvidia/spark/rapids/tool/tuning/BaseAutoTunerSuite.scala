@@ -20,7 +20,7 @@ import java.io.File
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{Platform, PlatformFactory, PlatformNames, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{DynamicAllocationInfo, Platform, PlatformFactory, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling._
 import com.nvidia.spark.rapids.tool.tuning.config.TuningConfiguration
 import org.scalatest.BeforeAndAfterEach
@@ -245,5 +245,59 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
          |Actual: $recommendedClusterInfo
          |Expected: $expectedClusterInfo
          |""".stripMargin)
+  }
+
+  /**
+   * Verifies that dynamic allocation recommendations satisfy
+   * minExecutors <= initialExecutors <= maxExecutors, that
+   * executor instances matches initialExecutors, and that
+   * the enforcement comment is present in output.
+   */
+  protected def assertDynamicAllocationRecommendations(
+      properties: Seq[TuningEntryTrait],
+      comments: Seq[RecommendedCommentResult],
+      expected: DynamicAllocationInfo
+  ): Unit = {
+    val recommendedProps =
+      properties.map(p => p.name -> p.getTuneValue()).toMap
+
+    // Look up a recommended property, assert it exists
+    // and matches the expected value.
+    def fetchVerifiedRecommendation(
+        name: String, expectedValue: Int): Int = {
+      val actual = recommendedProps
+        .getOrElse(name, fail(
+          s"$name not found in recommendations"))
+        .toInt
+      assert(actual == expectedValue,
+        s"$name: expected $expectedValue," +
+          s" got $actual")
+      actual
+    }
+
+    val minExecutors = fetchVerifiedRecommendation(
+      "spark.dynamicAllocation.minExecutors",
+      expected.min.toInt)
+    val initialExecutors = fetchVerifiedRecommendation(
+      "spark.dynamicAllocation.initialExecutors",
+      expected.initial.toInt)
+    val maxExecutors = fetchVerifiedRecommendation(
+      "spark.dynamicAllocation.maxExecutors",
+      expected.max.toInt)
+    fetchVerifiedRecommendation(
+      "spark.executor.instances",
+      expected.initial.toInt)
+
+    // Verify invariant holds
+    assert(minExecutors <= initialExecutors
+      && initialExecutors <= maxExecutors,
+      s"Expected min($minExecutors)" +
+        s" <= initial($initialExecutors)" +
+        s" <= max($maxExecutors)")
+
+    assert(comments.map(_.comment).exists(_.contains(
+      "minExecutors <= initialExecutors" +
+        " <= maxExecutors")),
+      "Expected enforcement comment in output")
   }
 }

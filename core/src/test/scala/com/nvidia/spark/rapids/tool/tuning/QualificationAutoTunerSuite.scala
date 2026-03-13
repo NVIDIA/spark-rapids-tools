@@ -2124,11 +2124,17 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Test that dynamic allocation invariant (initialExecutors <= maxExecutors) is enforced
-  // when executor.instances from cluster sizing boosts initialExecutors above maxExecutors.
-  // Reproduces bug where source: 8 cores, 18 max executors, event log 18 executors,
-  // target: 16 cores → initialExecutors=18 > maxExecutors=9.
-  test("test dynamic allocation enforces initialExecutors <= maxExecutors invariant") {
+  // Source: 8 cores, 18 executors (from event log),
+  // target: 16 cores (ONPREM default).
+  // ConstantTotalCoresStrategy preserves total core count:
+  //   ceil(8*18/16) = 9 executor instances.
+  // initialExecutors is boosted to match executor.instances
+  //   max(floor(8*0.5),9)=9.
+  // maxExecutors is independently scaled by core ratio
+  //   floor(9*0.5)=4.
+  // Violation: initial(9) > max(4). Enforcement caps to 4.
+  test("dynamic allocation enforces invariant " +
+      "with ConstantTotalCoresStrategy") {
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
       "spark.executor.instances" -> "18",
@@ -2136,7 +2142,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       "spark.dynamicAllocation.enabled" -> "true",
       "spark.dynamicAllocation.initialExecutors" -> "8",
       "spark.dynamicAllocation.minExecutors" -> "4",
-      "spark.dynamicAllocation.maxExecutors" -> "18"
+      "spark.dynamicAllocation.maxExecutors" -> "9"
     )
 
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -2152,33 +2158,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     val autoTuner = buildAutoTunerForTests(infoProvider, platform)
-    val (properties, _) = autoTuner.getRecommendedProperties()
-
-    // Extract the recommended dynamic allocation values
-    val propsMap = properties.map(p => p.name -> p.getTuneValue()).toMap
-    val initialExecs = propsMap.get("spark.dynamicAllocation.initialExecutors").map(_.toInt)
-    val maxExecs = propsMap.get("spark.dynamicAllocation.maxExecutors").map(_.toInt)
-    val minExecs = propsMap.get("spark.dynamicAllocation.minExecutors").map(_.toInt)
-    val execInstances = propsMap.get("spark.executor.instances").map(_.toInt)
-
-    // Verify recommendations are present
-    assert(initialExecs.isDefined, "Expected initialExecutors recommendation to be present")
-    assert(maxExecs.isDefined, "Expected maxExecutors recommendation to be present")
-    assert(minExecs.isDefined, "Expected minExecutors recommendation to be present")
-    assert(execInstances.isDefined, "Expected executor.instances recommendation to be present")
-
-    // Verify: initialExecutors <= maxExecutors
-    assert(initialExecs.get <= maxExecs.get,
-      s"initialExecutors (${initialExecs.get}) should be <= maxExecutors (${maxExecs.get})")
-
-    // Verify: minExecutors <= initialExecutors
-    assert(minExecs.get <= initialExecs.get,
-      s"minExecutors (${minExecs.get}) should be <= initialExecutors (${initialExecs.get})")
-
-    // executor.instances should match initialExecutors
-    assert(execInstances.get == initialExecs.get,
-      s"executor.instances (${execInstances.get}) should equal " +
-        s"initialExecutors (${initialExecs.get})")
+    val (properties, comments) =
+      autoTuner.getRecommendedProperties()
+    // After enforcement: initial capped from 9 to 4,
+    // max=floor(9*0.5)=4, min=max(1,floor(4*0.5))=2
+    assertDynamicAllocationRecommendations(properties, comments,
+      DynamicAllocationInfo(
+        enabled = true, max = "4", min = "2",
+        initial = "4"))
   }
 
   test("test CSP platform with OnPrem-style target cluster specs") {
