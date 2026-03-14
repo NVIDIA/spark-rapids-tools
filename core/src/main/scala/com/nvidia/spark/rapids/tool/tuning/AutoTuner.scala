@@ -256,7 +256,7 @@ abstract class AutoTuner(
   // When enabled, the profiler recommendations should only include updated settings.
   private var filterByUpdatedPropertiesEnabled: Boolean = true
   // Non-executor memory (reserved for OS, resource manager, etc), configurable via tuning configs
-  private lazy val nonExecutorMemory = configProvider.getEntry("NON_EXECUTOR_MEM")
+  protected lazy val nonExecutorMemory = configProvider.getEntry("NON_EXECUTOR_MEM")
     .getDefaultAsMemory(ByteUnit.MiB)
 
   // Non-executor memory fraction -> fraction of node memory not available for executors.
@@ -286,7 +286,7 @@ abstract class AutoTuner(
   private lazy val executorAvailableMemFraction: Double = 1.0 - nonExecutorMemFraction
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
-  private lazy val isOffHeapLimitUserEnabled: Boolean = {
+  protected lazy val isOffHeapLimitUserEnabled: Boolean = {
     platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
       .exists(_.trim.equalsIgnoreCase("true"))
   }
@@ -355,7 +355,7 @@ abstract class AutoTuner(
   /**
    * Get combined properties from the app info and cluster properties.
    */
-  private lazy val getAllSourceProperties: Map[String, String] = {
+  protected lazy val getAllSourceProperties: Map[String, String] = {
     // the cluster properties override the app properties as
     // it is provided by the user.
     appInfoProvider.getAllProperties
@@ -442,7 +442,8 @@ abstract class AutoTuner(
    * in the AutoTuner output. However, if the property is excluded (i.e. not in the final tuning
    * table), this does nothing.
    */
-  private def markAsUnresolved(sparkProperty: String, fillInValue: Option[String] = None): Unit = {
+   protected def markAsUnresolved(sparkProperty: String,
+                                  fillInValue: Option[String] = None): Unit = {
     finalTuningTable.get(sparkProperty).foreach { tuningDef =>
       val recomRecord = recommendations.getOrElseUpdate(sparkProperty,
         TuningEntry.build(sparkProperty, getPropertyValueFromSource(sparkProperty),
@@ -584,7 +585,7 @@ abstract class AutoTuner(
    * the executor cores and instances based on that instance type.
    * Returns None if the platform doesn't support specific instance types.
    */
-  private def configureGPURecommendedInstanceType(): Unit = {
+  protected def configureGPURecommendedInstanceType(): Unit = {
     platform.createRecommendedGpuClusterInfo(recommendations, getAllSourceProperties,
       autoTunerHelper.recommendedClusterSizingStrategy)
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
@@ -653,7 +654,7 @@ abstract class AutoTuner(
   /**
    * Note: All memory values are in MB.
    */
-  private case class MemorySettings(
+  protected case class MemorySettings(
     executorHeap: Option[Long],
     executorMemOverhead: Option[Long],
     pinnedMem: Option[Long],
@@ -758,7 +759,7 @@ abstract class AutoTuner(
    *           - boolean indicating if "maxBytesInFlight" should be set
    */
    // scalastyle:on line.size.limit
-  private def calcOverallMemory(
+  protected def calcOverallMemory(
       execHeapCalculator: () => Long,
       numExecutorCores: Int,
       totalMemForExecExpr: () => Double): Either[String, (MemorySettings, Boolean)] = {
@@ -891,7 +892,7 @@ abstract class AutoTuner(
     }
   }
 
-  private def configureShuffleReaderWriterNumThreads(numExecutorCores: Int): Unit = {
+  protected def configureShuffleReaderWriterNumThreads(numExecutorCores: Int): Unit = {
     // if on a CSP using blob store recommend more threads for certain sizes. This is based on
     // testing on customer jobs on Databricks
     // didn't test with > 16 thread so leave those as numExecutorCores
@@ -912,7 +913,7 @@ abstract class AutoTuner(
 
   // Currently only applies many configs for CSPs where we have an idea what network/disk
   // configuration is like. On prem we don't know so don't set these for now.
-  private def configureMultiThreadedReaders(numExecutorCores: Int,
+  protected def configureMultiThreadedReaders(numExecutorCores: Int,
       setMaxBytesInFlight: Boolean): Unit = {
 
     // Helper function to get the bounded number of threads
@@ -987,7 +988,7 @@ abstract class AutoTuner(
    *
    * @param gpuExecCores Number of cores per executor for GPU runs
    */
-  private def recommendDynamicAllocationConfigs(gpuExecCores: Int): Unit = {
+  protected def recommendDynamicAllocationConfigs(gpuExecCores: Int): Unit = {
     val isDynamicAllocationEnabled = getPropertyValue("spark.dynamicAllocation.enabled")
       .exists(_.trim.equalsIgnoreCase("true"))
 
@@ -1172,90 +1173,122 @@ abstract class AutoTuner(
     }
   }
 
+  /**
+   * Recommends GPU compute-level settings: executor GPU resource amount,
+   * task GPU resource amount, and concurrent GPU tasks.
+   */
+  protected def recommendGpuComputeSettings(execCores: Int): Unit = {
+    recommendExecutorResourceGpuProps()
+    appendRecommendation("spark.task.resource.gpu.amount",
+      configProvider.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
+    appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
+      calcGpuConcTasks().toInt)
+  }
+
+  /**
+   * Recommends all memory settings: GPU memory (pinnedPool, off-heap) and
+   * node container sizing (executor.memory, executor.memoryOverhead).
+   * Returns true if maxBytesInFlight should be set downstream.
+   */
+  protected def recommendMemorySettings(execCores: Int,
+      availableMemPerExec: Double): Boolean = {
+    if (availableMemPerExec > 0.0) {
+      val availableMemPerExecExpr = () => availableMemPerExec
+      val executorHeapInMB = calcInitialExecutorHeapInMB(availableMemPerExecExpr, execCores)
+      val executorHeapExpr = () => executorHeapInMB
+      calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
+        case Right((recomMemorySettings: MemorySettings, setMaxBytesInFlight)) =>
+          // Sufficient memory available, proceed with recommendations
+          appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size",
+            s"${recomMemorySettings.pinnedMem.get}")
+          // scalastyle:off line.size.limit
+          // For YARN and Kubernetes, we need to set the executor memory overhead
+          // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
+          // scalastyle:on line.size.limit
+          if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+            appendRecommendationForMemoryMB("spark.executor.memoryOverhead",
+              s"${recomMemorySettings.executorMemOverhead.get}")
+          }
+          appendRecommendationForMemoryMB("spark.executor.memory",
+            s"${recomMemorySettings.executorHeap.get}")
+
+          // Add off-heap memory recommendation based on hybrid scan detection
+          val offHeapSizeMB = recomMemorySettings.sparkOffHeapMem.getOrElse(0L)
+          if (offHeapSizeMB > 0) {
+            appendRecommendationForMemoryMB("spark.memory.offHeap.size", s"$offHeapSizeMB")
+            // Enable off-heap memory if we're recommending a size
+            appendRecommendation("spark.memory.offHeap.enabled", "true")
+
+            // Calculate host off-heap limit size for onPrem platform only when
+            // offHeapLimit is enabled
+            if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+              val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
+                offHeapSizeMB - nonExecutorMemory
+              if (hostOffHeapLimitSizeMB > 0) {
+                appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size",
+                  s"$hostOffHeapLimitSizeMB")
+              }
+            }
+          }
+          setMaxBytesInFlight
+        case Left(notEnoughMemComment) =>
+          // Not enough memory available, add warning comments
+          appendComment(notEnoughMemComment)
+          // Helper function to append not enough memory comment for a specific key
+          def appendCommentForNotEnoughMem(key: String): Unit = {
+            appendComment(key, notEnoughMemCommentForKey(key), prependKey = false)
+            // Mark the recommendation as unresolved since AutoTuner could not recommend a value
+            markAsUnresolved(key)
+          }
+          appendCommentForNotEnoughMem("spark.rapids.memory.pinnedPool.size")
+          if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
+            appendCommentForNotEnoughMem("spark.executor.memoryOverhead")
+          }
+          appendCommentForNotEnoughMem("spark.executor.memory")
+          // Skip off-heap related comments when offHeapLimit is enabled
+          if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+            appendCommentForNotEnoughMem("spark.memory.offHeap.size")
+            appendCommentForNotEnoughMem("spark.rapids.memory.host.offHeapLimit.size")
+          }
+          false
+      }
+    } else {
+      logInfo("Available memory per exec is not specified")
+      addMissingMemoryComments()
+      false
+    }
+  }
+
+  /**
+   * Recommends shuffle thread and multi-threaded reader settings that depend
+   * on executor core count.
+   */
+  protected def recommendShuffleAndReaderSettings(execCores: Int,
+      shouldSetMaxBytesInFlight: Boolean): Unit = {
+    configureShuffleReaderWriterNumThreads(execCores)
+    configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
+  }
+
+  /**
+   * Recommends cluster-scaling settings: dynamic allocation parameters and AQE.
+   */
+  protected def recommendClusterScalingSettings(execCores: Int): Unit = {
+    recommendDynamicAllocationConfigs(execCores)
+    // TODO: Should we recommend AQE even if cluster properties are not enabled?
+    recommendAQEProperties()
+  }
+
   def calculateClusterLevelRecommendations(): Unit = {
     // only if we were able to figure out a node type to recommend do we make
     // specific recommendations
     if (platform.recommendedClusterInfo.isDefined) {
-      // Set to low value for Spark RAPIDS usage as task parallelism will be honoured
-      // by `spark.executor.cores`.
-      recommendExecutorResourceGpuProps()
-      appendRecommendation("spark.task.resource.gpu.amount",
-        configProvider.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
-      appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
-        calcGpuConcTasks().toInt)
       val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
       val availableMemPerExec =
         platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
-      val shouldSetMaxBytesInFlight = if (availableMemPerExec > 0.0) {
-        val availableMemPerExecExpr = () => availableMemPerExec
-        val executorHeapInMB = calcInitialExecutorHeapInMB(availableMemPerExecExpr, execCores)
-        val executorHeapExpr = () => executorHeapInMB
-        calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
-          case Right((recomMemorySettings: MemorySettings, setMaxBytesInFlight)) =>
-            // Sufficient memory available, proceed with recommendations
-            appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size",
-              s"${recomMemorySettings.pinnedMem.get}")
-            // scalastyle:off line.size.limit
-            // For YARN and Kubernetes, we need to set the executor memory overhead
-            // Ref: https://spark.apache.org/docs/latest/configuration.html#:~:text=This%20option%20is%20currently%20supported%20on%20YARN%20and%20Kubernetes.
-            // scalastyle:on line.size.limit
-            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
-              appendRecommendationForMemoryMB("spark.executor.memoryOverhead",
-                s"${recomMemorySettings.executorMemOverhead.get}")
-            }
-            appendRecommendationForMemoryMB("spark.executor.memory",
-              s"${recomMemorySettings.executorHeap.get}")
-
-            // Add off-heap memory recommendation based on hybrid scan detection
-            val offHeapSizeMB = recomMemorySettings.sparkOffHeapMem.getOrElse(0L)
-            if (offHeapSizeMB > 0) {
-              appendRecommendationForMemoryMB("spark.memory.offHeap.size", s"$offHeapSizeMB")
-              // Enable off-heap memory if we're recommending a size
-              appendRecommendation("spark.memory.offHeap.enabled", "true")
-
-              // Calculate host off-heap limit size for onPrem platform only when
-              // offHeapLimit is enabled
-              if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
-                val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
-                  offHeapSizeMB - nonExecutorMemory
-                if (hostOffHeapLimitSizeMB > 0) {
-                  appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size",
-                    s"$hostOffHeapLimitSizeMB")
-                }
-              }
-            }
-            setMaxBytesInFlight
-          case Left(notEnoughMemComment) =>
-            // Not enough memory available, add warning comments
-            appendComment(notEnoughMemComment)
-            // Helper function to append not enough memory comment for a specific key
-            def appendCommentForNotEnoughMem(key: String): Unit = {
-              appendComment(key, notEnoughMemCommentForKey(key), prependKey = false)
-              // Mark the recommendation as unresolved since AutoTuner could not recommend a value
-              markAsUnresolved(key)
-            }
-            appendCommentForNotEnoughMem("spark.rapids.memory.pinnedPool.size")
-            if (sparkMaster.contains(Yarn) || sparkMaster.contains(Kubernetes)) {
-              appendCommentForNotEnoughMem("spark.executor.memoryOverhead")
-            }
-            appendCommentForNotEnoughMem("spark.executor.memory")
-            // Skip off-heap related comments when offHeapLimit is enabled
-            if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
-              appendCommentForNotEnoughMem("spark.memory.offHeap.size")
-              appendCommentForNotEnoughMem("spark.rapids.memory.host.offHeapLimit.size")
-            }
-            false
-        }
-      } else {
-        logInfo("Available memory per exec is not specified")
-        addMissingMemoryComments()
-        false
-      }
-      configureShuffleReaderWriterNumThreads(execCores)
-      configureMultiThreadedReaders(execCores, shouldSetMaxBytesInFlight)
-      recommendDynamicAllocationConfigs(execCores)
-      // TODO: Should we recommend AQE even if cluster properties are not enabled?
-      recommendAQEProperties()
+      recommendGpuComputeSettings(execCores)
+      val shouldSetMaxBytesInFlight = recommendMemorySettings(execCores, availableMemPerExec)
+      recommendShuffleAndReaderSettings(execCores, shouldSetMaxBytesInFlight)
+      recommendClusterScalingSettings(execCores)
     } else {
       addDefaultComments()
     }
@@ -1713,7 +1746,7 @@ abstract class AutoTuner(
    * - spark.executor.resource.gpu.discoveryScript: comment if YARN, k8s or Standalone (On-Prem)
    * - spark.executor.resource.gpu.vendor: recommended if k8s (On-Prem)
    */
-  private def recommendExecutorResourceGpuProps(): Unit = {
+  protected def recommendExecutorResourceGpuProps(): Unit = {
     val gpuAmountKey = "spark.executor.resource.gpu.amount"
     val gpuAmountValueOpt = getPropertyValue(gpuAmountKey)
     val isUnsetOrZero = gpuAmountValueOpt.forall { v =>
@@ -1838,7 +1871,7 @@ abstract class AutoTuner(
    * Add default comments for missing properties except the ones
    * which should be skipped.
    */
-  private def addDefaultComments(): Unit = {
+  protected def addDefaultComments(): Unit = {
     appendComment("Could not infer the cluster configuration, recommendations " +
       "are generated using default values!")
     commentsForMissingProps.foreach {
@@ -1849,7 +1882,7 @@ abstract class AutoTuner(
     }
   }
 
-  private def addMissingMemoryComments(): Unit = {
+  protected def addMissingMemoryComments(): Unit = {
     commentsForMissingMemoryProps.foreach {
       case (key, value) =>
         if (!skippedRecommendations.contains(key)) {
@@ -2217,6 +2250,117 @@ class ProfilingAutoTuner(
    */
   override def recommendPluginPropsInternal(): Unit = {
     recommendClassNameProperty("spark.plugins", autoTunerHelper.rapidsPluginClassName)
+  }
+
+  /**
+   * In on-prem profiling mode without a target cluster, skip emitting executor cores and
+   * instances recommendations. The hardware is already purchased and these are not
+   * actionable. For CSP platforms or when a target cluster is provided, delegate to
+   * the full behavior.
+   */
+  override protected def configureGPURecommendedInstanceType(): Unit = {
+    if (platform.isPlatformCSP || platform.targetCluster.isDefined) {
+      super.configureGPURecommendedInstanceType()
+    } else {
+      // On-prem without target cluster: still compute cluster info (needed for GPU
+      // device info and downstream memory calculations) but don't emit cores/instances
+      platform.createRecommendedGpuClusterInfo(recommendations, getAllSourceProperties,
+        autoTunerHelper.recommendedClusterSizingStrategy)
+    }
+  }
+
+  /**
+   * In on-prem profiling mode without a target cluster, emit only GPU tuning settings
+   * (pinnedPool, off-heap, concurrentGpuTasks, shuffle threads) and skip
+   * node/container sizing (executor.memory, memoryOverhead) and cluster scaling
+   * (dynamic allocation). For CSP platforms or when a target cluster is provided,
+   * use full behavior.
+   */
+  override def calculateClusterLevelRecommendations(): Unit = {
+    if (platform.isPlatformCSP || platform.targetCluster.isDefined) {
+      super.calculateClusterLevelRecommendations()
+    } else if (platform.recommendedClusterInfo.isDefined) {
+      val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
+      val availableMemPerExec =
+        platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
+      // GPU compute settings — always recommended
+      recommendGpuComputeSettings(execCores)
+      // GPU memory settings (pinnedPool, off-heap) — recommended even without target cluster
+      val shouldSetMaxBytesInFlight =
+        recommendGpuMemorySettingsOnly(execCores, availableMemPerExec)
+      // Shuffle/reader thread settings — recommended (GPU tuning, not node sizing)
+      recommendShuffleAndReaderSettings(execCores, shouldSetMaxBytesInFlight)
+      // AQE settings are software-tunable query optimizer knobs, not cluster sizing
+      recommendAQEProperties()
+      // Skip: dynamic allocation (depends on cluster shape which is not being changed)
+      appendRecommendation("spark.rapids.sql.batchSizeBytes",
+        configProvider.getEntry("BATCH_SIZE_BYTES").getDefault)
+      appendRecommendation("spark.locality.wait",
+        configProvider.getEntry("LOCALITY_WAIT").getDefault)
+    } else {
+      addDefaultComments()
+      appendRecommendation("spark.rapids.sql.batchSizeBytes",
+        configProvider.getEntry("BATCH_SIZE_BYTES").getDefault)
+      appendRecommendation("spark.locality.wait",
+        configProvider.getEntry("LOCALITY_WAIT").getDefault)
+    }
+  }
+
+  /**
+   * Recommends only GPU memory settings (pinnedPool, off-heap) without emitting
+   * node container sizing (executor.memory, executor.memoryOverhead).
+   * Used in profiling mode without a target cluster.
+   */
+  private def recommendGpuMemorySettingsOnly(execCores: Int,
+      availableMemPerExec: Double): Boolean = {
+    if (availableMemPerExec > 0.0) {
+      val availableMemPerExecExpr = () => availableMemPerExec
+      val executorHeapInMB = calcInitialExecutorHeapInMB(availableMemPerExecExpr, execCores)
+      val executorHeapExpr = () => executorHeapInMB
+      calcOverallMemory(executorHeapExpr, execCores, availableMemPerExecExpr) match {
+        case Right((recomMemorySettings: MemorySettings, setMaxBytesInFlight)) =>
+          // GPU memory — always recommended
+          appendRecommendationForMemoryMB("spark.rapids.memory.pinnedPool.size",
+            s"${recomMemorySettings.pinnedMem.get}")
+          val offHeapSizeMB = recomMemorySettings.sparkOffHeapMem.getOrElse(0L)
+          if (offHeapSizeMB > 0) {
+            appendRecommendationForMemoryMB("spark.memory.offHeap.size", s"$offHeapSizeMB")
+            appendRecommendation("spark.memory.offHeap.enabled", "true")
+            if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+              val hostOffHeapLimitSizeMB = recomMemorySettings.executorMemOverhead.get +
+                offHeapSizeMB - nonExecutorMemory
+              if (hostOffHeapLimitSizeMB > 0) {
+                appendRecommendationForMemoryMB("spark.rapids.memory.host.offHeapLimit.size",
+                  s"$hostOffHeapLimitSizeMB")
+              }
+            }
+          }
+          // Skip: executor.memory, executor.memoryOverhead (node sizing)
+          setMaxBytesInFlight
+        case Left(notEnoughMemComment) =>
+          // Warn about GPU memory properties we care about in profiling mode.
+          // Skip node-sizing properties (executor.memory, memoryOverhead) since
+          // we intentionally don't recommend those without a target cluster.
+          appendComment(notEnoughMemComment)
+          appendComment("spark.rapids.memory.pinnedPool.size",
+            notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size"),
+            prependKey = false)
+          markAsUnresolved("spark.rapids.memory.pinnedPool.size")
+          if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+            appendComment("spark.memory.offHeap.size",
+              notEnoughMemCommentForKey("spark.memory.offHeap.size"),
+              prependKey = false)
+            markAsUnresolved("spark.memory.offHeap.size")
+            appendComment("spark.rapids.memory.host.offHeapLimit.size",
+              notEnoughMemCommentForKey("spark.rapids.memory.host.offHeapLimit.size"),
+              prependKey = false)
+            markAsUnresolved("spark.rapids.memory.host.offHeapLimit.size")
+          }
+          false
+      }
+    } else {
+      false
+    }
   }
 
 }

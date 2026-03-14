@@ -1857,12 +1857,14 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     assert(comments.map(_.comment).forall(autoTuner.platform.isValidComment))
   }
 
-  // Test cases for memory overhead configuration based on Spark Master
+  // Test cases for memory overhead configuration based on Spark Master.
+  // On-prem profiling without target cluster skips node sizing (including memoryOverhead),
+  // so the comment is not generated for any spark master.
   private val MEMORY_OVERHEAD_TEST_CASES = Table(
     ("sparkMaster", "shouldIncludeMemoryOverhead"),
-    // memoryOverhead should be included for yarn and k8s
-    (Some(Yarn), true),
-    (Some(Kubernetes), true),
+    // memoryOverhead is skipped for on-prem profiling without target cluster
+    (Some(Yarn), false),
+    (Some(Kubernetes), false),
     // memoryOverhead should be excluded for standalone and local
     (Some(Standalone), false),
     (Some(Local), false),
@@ -1995,12 +1997,12 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val (properties, comments) = autoTuner.getRecommendedProperties()
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
+    // On-prem profiling without target cluster skips node sizing (executor.cores,
+    // executor.instances, executor.memory) but still recommends AQE settings
+    // since those are software-tunable query optimizer knobs.
     val expectedResults =
       s"""|
           |Spark Properties:
-          |--conf spark.executor.cores=16
-          |--conf spark.executor.instances=8
-          |--conf spark.executor.memory=32g
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
@@ -2020,7 +2022,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
           |Comments:
-          |- 'spark.executor.instances' was not set.
           |- 'spark.executor.resource.gpu.amount' should be set to allow Spark to schedule GPU resources.
           |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
           |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
@@ -3227,11 +3228,12 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
 
       val testAppJarVer = "25.02.0"
       // scalastyle:off line.size.limit
+      // On-prem profiling without target cluster skips node sizing
+      // (executor.instances, executor.memory) but still recommends AQE and
+      // GPU memory warnings when memory is insufficient.
       val expectedResults =
         s"""|
             |Spark Properties:
-            |--conf spark.executor.instances=2
-            |--conf spark.executor.memory=[FILL_IN_VALUE]
             |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
@@ -3246,7 +3248,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
             |--conf spark.task.resource.gpu.amount=0.001
             |
             |Comments:
-            |- 'spark.executor.instances' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
             |- 'spark.rapids.sql.batchSizeBytes' was not set.
@@ -3256,7 +3257,6 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
             |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
             |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
-            |- ${notEnoughMemCommentForKey("spark.executor.memory")}
             |- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
             |- $shufflePartitionsCommentForSpilling
             |- ${classPathComments("rapids.shuffle.jars")}

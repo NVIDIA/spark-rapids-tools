@@ -18,7 +18,7 @@ package com.nvidia.spark.rapids.tool.tuning
 
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.{DynamicAllocationInfo, GpuTypes, NodeInstanceMapKey, PlatformFactory, PlatformInstanceTypes, PlatformNames, ToolTestUtils}
+import com.nvidia.spark.rapids.tool.{GpuTypes, NodeInstanceMapKey, PlatformFactory, PlatformInstanceTypes, PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 import com.nvidia.spark.rapids.tool.tuning.config.{ConfTypeEnum, TuningConfigEntry, TuningEntryDefinition}
 
@@ -2042,13 +2042,197 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val autoTuner = buildAutoTunerForTests(
       infoProvider, platform, Some(Yarn))
-    val (properties, comments) =
+    val (properties, _) =
       autoTuner.getRecommendedProperties()
-    // After enforcement: initial capped from 18 to 9,
-    // max=floor(18*0.5)=9, min=max(1,floor(4*0.5))=2
-    assertDynamicAllocationRecommendations(properties, comments,
-      DynamicAllocationInfo(
-        enabled = true, max = "9", min = "2",
-        initial = "9"))
+    val propNames = properties.map(_.name).toSet
+
+    // On-prem profiling without target cluster now skips dynamic allocation
+    val dynAllocProps = Seq(
+      "spark.dynamicAllocation.minExecutors",
+      "spark.dynamicAllocation.initialExecutors",
+      "spark.dynamicAllocation.maxExecutors"
+    )
+    dynAllocProps.foreach { p =>
+      assert(!propNames.contains(p),
+        s"On-prem profiling should skip dynamic allocation prop '$p' without target cluster")
+    }
+  }
+
+  // Verifies that when no target cluster is provided in profiling mode,
+  // cluster sizing properties (executor.cores, executor.memory, executor.memoryOverhead,
+  // executor.instances, dynamicAllocation.*) are NOT recommended, while GPU tuning
+  // properties (pinnedPool, concurrentGpuTasks, batchSizeBytes) ARE recommended.
+  test("On-prem profiling without target cluster skips sizing but recommends GPU tuning") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "16",
+        "spark.executor.instances" -> "4",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.dynamicAllocation.enabled" -> "true",
+        "spark.dynamicAllocation.minExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "20",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004),
+      logEventsProps, Some(testSparkVersion))
+
+    // No targetCluster — the key condition under test
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+    val sparkPropsWithMemory = logEventsProps +
+      ("spark.executor.memory" -> "81920MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 16,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+
+    val propNames = properties.map(_.name).toSet
+
+    // Sizing props must be absent
+    val sizingProps = Seq(
+      "spark.executor.cores",
+      "spark.executor.memory",
+      "spark.executor.memoryOverhead",
+      "spark.executor.instances",
+      "spark.dynamicAllocation.minExecutors",
+      "spark.dynamicAllocation.initialExecutors",
+      "spark.dynamicAllocation.maxExecutors"
+    )
+    sizingProps.foreach { p =>
+      assert(!propNames.contains(p),
+        s"Expected sizing prop '$p' to be absent when no target cluster is set")
+    }
+
+    // GPU tuning props must be present
+    val gpuTuningProps = Seq(
+      "spark.rapids.memory.pinnedPool.size",
+      "spark.rapids.sql.concurrentGpuTasks",
+      "spark.rapids.sql.batchSizeBytes"
+    )
+    gpuTuningProps.foreach { p =>
+      assert(propNames.contains(p),
+        s"Expected GPU tuning prop '$p' to be present when no target cluster is set")
+    }
+  }
+
+  // Verifies that when a target cluster IS provided, the full set of sizing
+  // recommendations is generated — i.e., the existing behavior is preserved.
+  test("On-prem profiling with target cluster produces full sizing and GPU recommendations") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16),
+      memoryGB = Some(64),
+      gpuCount = Some(1),
+      gpuDevice = Some(GpuTypes.L4.toString)
+    )
+
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004),
+      logEventsProps, Some(testSparkVersion))
+
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps +
+      ("spark.executor.memory" -> "81920MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+
+    val propNames = properties.map(_.name).toSet
+
+    // Key sizing props must be present with a target cluster
+    val sizingProps = Seq(
+      "spark.executor.cores",
+      "spark.executor.memory"
+    )
+    sizingProps.foreach { p =>
+      assert(propNames.contains(p),
+        s"Expected sizing prop '$p' to be present when target cluster is set")
+    }
+
+    // GPU tuning props also present
+    val gpuTuningProps = Seq(
+      "spark.rapids.memory.pinnedPool.size",
+      "spark.rapids.sql.concurrentGpuTasks",
+      "spark.rapids.sql.batchSizeBytes"
+    )
+    gpuTuningProps.foreach { p =>
+      assert(propNames.contains(p),
+        s"Expected GPU tuning prop '$p' to be present when target cluster is set")
+    }
+  }
+
+  // Verifies that dynamic allocation properties are also skipped without a target cluster
+  test("On-prem profiling without target cluster skips dynamic allocation props") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.memory" -> "16g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.dynamicAllocation.enabled" -> "true",
+        "spark.dynamicAllocation.initialExecutors" -> "8",
+        "spark.dynamicAllocation.minExecutors" -> "4",
+        "spark.dynamicAllocation.maxExecutors" -> "18",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.enabled" -> "true"
+      )
+
+    val infoProvider = getMockInfoProvider(0.0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+
+    // No targetCluster
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 8,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+    val propNames = properties.map(_.name).toSet
+
+    // Dynamic allocation props must be absent
+    val dynAllocProps = Seq(
+      "spark.dynamicAllocation.minExecutors",
+      "spark.dynamicAllocation.initialExecutors",
+      "spark.dynamicAllocation.maxExecutors",
+      "spark.executor.instances"
+    )
+    dynAllocProps.foreach { p =>
+      assert(!propNames.contains(p),
+        s"Dynamic allocation prop '$p' must be absent without a target cluster")
+    }
+
+    // GPU props still present
+    assert(propNames.contains("spark.rapids.sql.batchSizeBytes"),
+      "batchSizeBytes must be present even without a target cluster")
   }
 }
