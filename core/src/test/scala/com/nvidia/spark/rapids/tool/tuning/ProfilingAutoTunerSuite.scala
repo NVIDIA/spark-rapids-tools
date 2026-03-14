@@ -1998,7 +1998,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
     // scalastyle:off line.size.limit
     // On-prem profiling without target cluster skips node sizing (executor.cores,
-    // executor.instances, executor.memory) and AQE advisory/coalescing settings
+    // executor.instances, executor.memory) but still recommends AQE settings
+    // since those are software-tunable query optimizer knobs.
     val expectedResults =
       s"""|
           |Spark Properties:
@@ -2014,6 +2015,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.incompatibleDateFormats.enabled=true
           |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.files.maxPartitionBytes=512m
           |
           |Comments:
@@ -2028,6 +2033,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.incompatibleDateFormats.enabled' was not set.
           |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
           |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- ${classPathComments("rapids.jars.missing")}
           |- ${classPathComments("rapids.shuffle.jars")}
@@ -3221,16 +3229,20 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       val testAppJarVer = "25.02.0"
       // scalastyle:off line.size.limit
       // On-prem profiling without target cluster skips node sizing
-      // (executor.instances, executor.memory) and AQE settings
+      // (executor.instances, executor.memory) but still recommends AQE and
+      // GPU memory warnings when memory is insufficient.
       val expectedResults =
         s"""|
             |Spark Properties:
+            |--conf spark.rapids.memory.pinnedPool.size=[FILL_IN_VALUE]
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
             |--conf spark.rapids.sql.batchSizeBytes=2147483647b
             |--conf spark.rapids.sql.concurrentGpuTasks=3
             |--conf spark.rapids.sql.enabled=true
             |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+            |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+            |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=400
             |--conf spark.sql.files.maxPartitionBytes=1851m
             |--conf spark.sql.shuffle.partitions=400
             |--conf spark.task.resource.gpu.amount=0.001
@@ -3242,9 +3254,13 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
             |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
             |- 'spark.rapids.sql.enabled' was not set.
             |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+            |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+            |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
             |- ${latestPluginJarComment(latestPluginJarUrl, testAppJarVer)}
+            |- ${notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size")}
             |- $shufflePartitionsCommentForSpilling
             |- ${classPathComments("rapids.shuffle.jars")}
+            |- ${notEnoughMemComment(40140)}
             |- $missingGpuDiscoveryScriptComment
             |""".stripMargin.trim
       // scalastyle:on line.size.limit

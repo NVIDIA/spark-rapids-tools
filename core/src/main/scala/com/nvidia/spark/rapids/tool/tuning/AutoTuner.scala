@@ -442,7 +442,8 @@ abstract class AutoTuner(
    * in the AutoTuner output. However, if the property is excluded (i.e. not in the final tuning
    * table), this does nothing.
    */
-  private def markAsUnresolved(sparkProperty: String, fillInValue: Option[String] = None): Unit = {
+   protected def markAsUnresolved(sparkProperty: String,
+                                  fillInValue: Option[String] = None): Unit = {
     finalTuningTable.get(sparkProperty).foreach { tuningDef =>
       val recomRecord = recommendations.getOrElseUpdate(sparkProperty,
         TuningEntry.build(sparkProperty, getPropertyValueFromSource(sparkProperty),
@@ -2336,8 +2337,25 @@ class ProfilingAutoTuner(
           }
           // Skip: executor.memory, executor.memoryOverhead (node sizing)
           setMaxBytesInFlight
-        case Left(_) =>
-          // Memory insufficient — skip sizing warnings in profiling mode
+        case Left(notEnoughMemComment) =>
+          // Warn about GPU memory properties we care about in profiling mode.
+          // Skip node-sizing properties (executor.memory, memoryOverhead) since
+          // we intentionally don't recommend those without a target cluster.
+          appendComment(notEnoughMemComment)
+          appendComment("spark.rapids.memory.pinnedPool.size",
+            notEnoughMemCommentForKey("spark.rapids.memory.pinnedPool.size"),
+            prependKey = false)
+          markAsUnresolved("spark.rapids.memory.pinnedPool.size")
+          if (!platform.isPlatformCSP && isOffHeapLimitUserEnabled) {
+            appendComment("spark.memory.offHeap.size",
+              notEnoughMemCommentForKey("spark.memory.offHeap.size"),
+              prependKey = false)
+            markAsUnresolved("spark.memory.offHeap.size")
+            appendComment("spark.rapids.memory.host.offHeapLimit.size",
+              notEnoughMemCommentForKey("spark.rapids.memory.host.offHeapLimit.size"),
+              prependKey = false)
+            markAsUnresolved("spark.rapids.memory.host.offHeapLimit.size")
+          }
           false
       }
     } else {

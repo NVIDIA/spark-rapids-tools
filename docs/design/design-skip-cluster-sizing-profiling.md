@@ -84,8 +84,8 @@ configureGPURecommendedInstanceType():
 calculateClusterLevelRecommendations():
   if CSP or targetCluster is provided → delegate to super (full behavior)
   else (on-prem, no target) → call recommendGpuComputeSettings() + recommendGpuMemorySettingsOnly()
-         + recommendShuffleAndReaderSettings()
-         skip recommendClusterScalingSettings()
+         + recommendShuffleAndReaderSettings() + recommendAQEProperties()
+         skip recommendClusterScalingSettings() (dynamic allocation)
 ```
 
 ### Why this approach
