@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.1)
+Generated on 2026-03-17
+### Core
+
+- Fix AutoTuner to enforce dynamic allocation constraint ([#2052](https://github.com/NVIDIA/spark-rapids-tools/pull/2052))
+
+
+<br/>
+
 ## Release [v26.02.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.0)
 Generated on 2026-03-05
 ### Autotuner
