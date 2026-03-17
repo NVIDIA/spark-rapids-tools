@@ -1432,11 +1432,12 @@ abstract class AutoTuner(
             }
             // Calculate ratio
             val ratio = (maxDataSize.toDouble / gpuBatchSize).ceil.toInt
-            // Take the smaller value as the recommended value
-            val columnarExchangeAdjustedValue = math.min(shufflePartitionValue, ratio)
+            // Take the larger value to ensure we don't go below the existing partition count,
+            // since ColumnarExchange is a GPU-only metric and doesn't capture CPU shuffle data.
+            val columnarExchangeAdjustedValue = math.max(shufflePartitionValue, ratio)
             // Use the ColumnarExchange-adjusted value if it's different
             if (columnarExchangeAdjustedValue != shufflePartitionValue) {
-              finalPartitionValue = Math.min(shufflePartitionValue, columnarExchangeAdjustedValue)
+              finalPartitionValue = columnarExchangeAdjustedValue
               appendComment(s"'$initialPartitionNumKey' adjusted from " +
                 s"$shufflePartitionValue to $columnarExchangeAdjustedValue based on " +
                 s"ColumnarExchange data size (${maxDataSize} bytes) and " +
