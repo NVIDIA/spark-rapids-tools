@@ -1322,10 +1322,11 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("AutoTuner adjusts initialPartitionNum based on ColumnarExchange data size") {
+  test("AutoTuner does not reduce initialPartitionNum when ColumnarExchange ratio is smaller") {
     // Test case: max columnar exchange data size = 1000GB, batch size is default value 2gb
     // original initialPartitionNum = 2560
-    // Expected: recommended initialPartitionNum = min(2560, 500) = 500
+    // ratio = ceil(1000GB / 2GB) = 501, which is < 2560
+    // Expected: no adjustment since ColumnarExchange ratio should only increase partitions
 
     val maxColumnarExchangeDataSizeBytes = Some(1000L * 1024 * 1024 * 1024) // 1000GB in bytes
     val originalInitialPartitionNum = "2560"
@@ -1393,10 +1394,9 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
-          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=501
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=137m
-          |--conf spark.sql.shuffle.partitions=501
+          |--conf spark.sql.shuffle.partitions=2560
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1415,7 +1415,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' adjusted from 2560 to 501 based on ColumnarExchange data size (1073741824000 bytes) and GPU batch size (2147483647 bytes)
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
@@ -1431,12 +1430,12 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  test("AutoTuner handles case when ColumnarExchange data size ratio is larger than " +
-    "original initialPartitionNum") {
+  test("AutoTuner increases initialPartitionNum when ColumnarExchange data size ratio " +
+    "is larger") {
     // Test case: max columnar exchange data size = 6000GB,
     // original initialPartitionNum = 2560
-    // Expected: ratio = ceil(6000GB / 2GB) = 3000, which is > 2560
-    // So recommended initialPartitionNum = min(2560, 3000) = 2560 (no change)
+    // Expected: ratio = ceil(6000GB / ~2GB) = 3001, which is > 2560
+    // So recommended initialPartitionNum = max(2560, 3001) = 3001 (increased)
 
     val maxColumnarExchangeDataSizeBytes = Some(6000L * 1024 * 1024 * 1024) // 6000GB in bytes
     val originalInitialPartitionNum = "2560"
@@ -1503,9 +1502,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.rapids.sql.reader.multithreaded.combine.sizeBytes=10m
           |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=3001
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
           |--conf spark.sql.files.maxPartitionBytes=137m
-          |--conf spark.sql.shuffle.partitions=2560
+          |--conf spark.sql.shuffle.partitions=3001
           |--conf spark.task.resource.gpu.amount=0.001
           |
           |Comments:
@@ -1524,6 +1524,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.rapids.sql.reader.multithreaded.combine.sizeBytes' was not set.
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' adjusted from 2560 to 3001 based on ColumnarExchange data size (6442450944000 bytes) and GPU batch size (2147483647 bytes)
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing
           |  from the classpath entries.
@@ -1734,9 +1735,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
           |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
           |--conf spark.sql.adaptive.coalescePartitions.parallelismFirst=false
-          |--conf spark.sql.adaptive.maxNumPostShufflePartitions=501
           |--conf spark.sql.files.maxPartitionBytes=4g
-          |--conf spark.sql.shuffle.partitions=501
+          |--conf spark.sql.shuffle.partitions=2000
           |--conf spark.task.resource.gpu.amount=0.25
           |
           |Comments:
@@ -1757,7 +1757,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.shuffle.manager' was not set.
           |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
           |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
-          |- 'spark.sql.adaptive.maxNumPostShufflePartitions' adjusted from 2000 to 501 based on ColumnarExchange data size (1073741824000 bytes) and GPU batch size (2147483647 bytes)
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was user-enforced in the target cluster properties.
           |- RAPIDS Accelerator for Apache Spark plugin jar is missing

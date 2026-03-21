@@ -1430,17 +1430,16 @@ abstract class AutoTuner(
                 // Use default batch size from tuning configs
                 configProvider.getEntry("BATCH_SIZE_BYTES").getDefaultAsMemory(ByteUnit.BYTE)
             }
-            // Calculate ratio
-            val ratio = (maxDataSize.toDouble / gpuBatchSize).ceil.toInt
-            // Take the smaller value as the recommended value
-            val columnarExchangeAdjustedValue = math.min(shufflePartitionValue, ratio)
-            // Use the ColumnarExchange-adjusted value if it's different
-            if (columnarExchangeAdjustedValue != shufflePartitionValue) {
-              finalPartitionValue = Math.min(shufflePartitionValue, columnarExchangeAdjustedValue)
+            // Calculate ratio of ColumnarExchange data to GPU batch size.
+            // Only increase finalPartitionValue since ColumnarExchange is GPU-only
+            // and doesn't capture CPU shuffle data.
+            val columnarExchangeRatio = (maxDataSize.toDouble / gpuBatchSize).ceil.toInt
+            if (columnarExchangeRatio > finalPartitionValue) {
               appendComment(s"'$initialPartitionNumKey' adjusted from " +
-                s"$shufflePartitionValue to $columnarExchangeAdjustedValue based on " +
+                s"$finalPartitionValue to $columnarExchangeRatio based on " +
                 s"ColumnarExchange data size (${maxDataSize} bytes) and " +
                 s"GPU batch size (${gpuBatchSize} bytes)")
+              finalPartitionValue = columnarExchangeRatio
             }
           case None =>
             // No ColumnarExchange data size metrics found, use original logic
