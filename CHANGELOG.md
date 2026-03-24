@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.2)
+Generated on 2026-03-24
+### Autotuner
+
+- Change columnarExchange adjustment of shuffle partitions to max ([#2056](https://github.com/NVIDIA/spark-rapids-tools/pull/2056))
+
+
+<br/>
+
 ## Release [v26.02.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.1)
 Generated on 2026-03-17
 ### Core
