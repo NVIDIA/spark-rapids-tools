@@ -2008,7 +2008,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
         "spark.executor.instances" -> "4",
-        "spark.executor.memory" -> "80g",
+        "spark.executor.memory" -> "16g",
         "spark.executor.resource.gpu.amount" -> "1",
         "spark.dynamicAllocation.enabled" -> "true",
         "spark.dynamicAllocation.minExecutors" -> "1",
@@ -2021,14 +2021,12 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       logEventsProps, Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
 
-    val sparkPropsWithMemory = logEventsProps +
-      ("spark.executor.memory" -> "81920MiB")
     configureEventLogClusterInfoForTest(
       platform,
       numCores = 8,
       numWorkers = 4,
       gpuCount = 1,
-      sparkProperties = sparkPropsWithMemory.toMap
+      sparkProperties = logEventsProps.toMap
     )
 
     val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
