@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -123,6 +123,27 @@ object ConstantGpuCountStrategy extends ClusterSizingStrategy {
     val recommendNumExecutors = computeRecommendedInstances(platform,
       () => initialNumExecutors)
     RecommendedClusterConfig(recommendNumExecutors, recommendedCoresPerExec,
+      getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
+  }
+}
+
+/**
+ * Strategy that preserves the source cluster's cores-per-executor and executor count.
+ * Used in profiling mode on fixed (on-prem) hardware where node slicing is not
+ * changeable. User-enforced overrides are still honored.
+ */
+object SourceCoresPreservingStrategy extends ClusterSizingStrategy {
+  def computeRecommendedConfig(
+      platform: Platform,
+      initialNumExecutors: Int,
+      initialCoresPerExec: Int,
+      getMemoryPerNodeMb: => Long,
+      getRecommendedGpuDevice: => GpuDevice,
+      getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
+    val coresPerExec = platform.getUserEnforcedSparkProperty("spark.executor.cores")
+      .map(_.toInt).getOrElse(initialCoresPerExec)
+    val numExecutors = computeRecommendedInstances(platform, () => initialNumExecutors)
+    RecommendedClusterConfig(numExecutors, coresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
 }

@@ -2001,17 +2001,105 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // Note: spark.executor.cores may not appear in output if source already has same value
   }
 
-  // Source: 8 cores, 18 executors (from event log),
-  // target: 16 cores (ONPREM default).
-  // ConstantGpuCountStrategy preserves GPU count:
-  //   executor.instances stays at 18.
-  // initialExecutors is boosted to match executor.instances
-  //   max(floor(8*0.5),18)=18.
-  // maxExecutors is independently scaled by core ratio
-  //   floor(18*0.5)=9.
-  // Violation: initial(18) > max(9). Enforcement caps to 9.
-  test("dynamic allocation enforces invariant " +
-      "with ConstantGpuCountStrategy") {
+  // On-prem profiling without target cluster uses SourceCoresPreservingStrategy,
+  // which keeps source cores. Dynamic allocation runs with 1:1 ratio so values are unchanged.
+  test("On-prem profiling without target cluster uses source cores for all recommendations") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "4",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.dynamicAllocation.enabled" -> "true",
+        "spark.dynamicAllocation.minExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "20",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+
+    val sparkPropsWithMemory = logEventsProps +
+      ("spark.executor.memory" -> "81920MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+    val propNames = properties.map(_.name).toSet
+
+    // Memory and GPU tuning properties are present
+    Seq(
+      "spark.executor.memory",
+      "spark.executor.memoryOverhead",
+      "spark.rapids.memory.pinnedPool.size",
+      "spark.rapids.sql.concurrentGpuTasks",
+      "spark.rapids.sql.batchSizeBytes"
+    ).foreach { p =>
+      assert(propNames.contains(p), s"Expected '$p' to be present")
+    }
+  }
+
+  // With a target cluster that has workerInfo, full sizing recommendations apply.
+  test("On-prem profiling with target cluster produces full recommendations") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.instances" -> "2",
+        "spark.executor.memory" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
+      )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16),
+      memoryGB = Some(64),
+      gpuCount = Some(1),
+      gpuDevice = Some(GpuTypes.L4.toString)
+    )
+
+    val infoProvider = getMockInfoProvider(8126464.0, Seq(0), Seq(0.004),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    val sparkPropsWithMemory = logEventsProps +
+      ("spark.executor.memory" -> "81920MiB")
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 2,
+      gpuCount = 1,
+      sparkProperties = sparkPropsWithMemory.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    val (properties, _) = autoTuner.getRecommendedProperties()
+    val propNames = properties.map(_.name).toSet
+
+    Seq(
+      "spark.executor.cores",
+      "spark.executor.memory",
+      "spark.rapids.memory.pinnedPool.size",
+      "spark.rapids.sql.concurrentGpuTasks",
+      "spark.rapids.sql.batchSizeBytes"
+    ).foreach { p =>
+      assert(propNames.contains(p), s"Expected '$p' to be present with target cluster")
+    }
+  }
+
+  // With a target cluster, ConstantGpuCountStrategy re-slices cores (8 -> 16).
+  // Core ratio = 8/16 = 0.5, so DA values are halved.
+  // initialExecutors is boosted to max(floor(8*0.5), executor.instances=18) = 18.
+  // maxExecutors = floor(18*0.5) = 9. Violation: initial(18) > max(9), capped to 9.
+  test("dynamic allocation enforces invariant with target cluster") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
@@ -2021,15 +2109,21 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         "spark.dynamicAllocation.initialExecutors" -> "8",
         "spark.dynamicAllocation.minExecutors" -> "4",
         "spark.dynamicAllocation.maxExecutors" -> "18",
-        "spark.plugins" ->
-          "com.nvidia.spark.SQLPlugin",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.enabled" -> "true"
       )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16),
+      memoryGB = Some(64),
+      gpuCount = Some(1),
+      gpuDevice = Some(GpuTypes.L4.toString)
+    )
 
     val infoProvider = getMockInfoProvider(0, Seq(0),
       Seq(0.0), logEventsProps, Some(testSparkVersion))
     val platform =
-      PlatformFactory.createInstance(PlatformNames.ONPREM)
+      PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
     configureEventLogClusterInfoForTest(
       platform,
@@ -2043,8 +2137,6 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       infoProvider, platform, Some(Yarn))
     val (properties, comments) =
       autoTuner.getRecommendedProperties()
-    // After enforcement: initial capped from 18 to 9,
-    // max=floor(18*0.5)=9, min=max(1,floor(4*0.5))=2
     assertDynamicAllocationRecommendations(properties, comments,
       DynamicAllocationInfo(
         enabled = true, max = "9", min = "2",
