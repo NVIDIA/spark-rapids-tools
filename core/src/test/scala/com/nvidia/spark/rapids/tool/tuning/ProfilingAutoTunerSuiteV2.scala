@@ -2008,11 +2008,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
         "spark.executor.instances" -> "4",
-        "spark.executor.memory" -> "16g",
+        "spark.executor.memory" -> "47222m",
         "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "spark.dynamicAllocation.enabled" -> "true",
+        "spark.dynamicAllocation.initialExecutors" -> "4",
         "spark.dynamicAllocation.minExecutors" -> "1",
-        "spark.dynamicAllocation.maxExecutors" -> "20",
+        "spark.dynamicAllocation.maxExecutors" -> "10",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
@@ -2030,29 +2033,60 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     )
 
     val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
-    val (properties, _) = autoTuner.getRecommendedProperties()
-    val propNames = properties.map(_.name).toSet
-
-    // Memory and GPU tuning properties are present
-    Seq(
-      "spark.executor.memory",
-      "spark.executor.memoryOverhead",
-      "spark.rapids.memory.pinnedPool.size",
-      "spark.rapids.sql.concurrentGpuTasks",
-      "spark.rapids.sql.batchSizeBytes"
-    ).foreach { p =>
-      assert(propNames.contains(p), s"Expected '$p' to be present")
-    }
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.memory=16g
+          |--conf spark.executor.memoryOverhead=9830m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=20
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=4g
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.jars.missing")}
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // With a target cluster that has workerInfo, full sizing recommendations apply.
+  // With a target cluster that has workerInfo, ConstantGpuCountStrategy re-slices cores.
   test("On-prem profiling with target cluster produces full recommendations") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
         "spark.executor.instances" -> "2",
-        "spark.executor.memory" -> "80g",
+        "spark.executor.memory" -> "47222m",
         "spark.executor.resource.gpu.amount" -> "1",
+        "spark.executor.resource.gpu.discoveryScript" ->
+          "${SPARK_HOME}/examples/src/main/scripts/getGpusResources.sh",
         "spark.rapids.sql.enabled" -> "true",
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin"
       )
@@ -2068,29 +2102,58 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       logEventsProps, Some(testSparkVersion))
     val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
 
-    val sparkPropsWithMemory = logEventsProps +
-      ("spark.executor.memory" -> "81920MiB")
     configureEventLogClusterInfoForTest(
       platform,
       numCores = 8,
       numWorkers = 2,
       gpuCount = 1,
-      sparkProperties = sparkPropsWithMemory.toMap
+      sparkProperties = logEventsProps.toMap
     )
 
     val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
-    val (properties, _) = autoTuner.getRecommendedProperties()
-    val propNames = properties.map(_.name).toSet
-
-    Seq(
-      "spark.executor.cores",
-      "spark.executor.memory",
-      "spark.rapids.memory.pinnedPool.size",
-      "spark.rapids.sql.concurrentGpuTasks",
-      "spark.rapids.sql.batchSizeBytes"
-    ).foreach { p =>
-      assert(propNames.contains(p), s"Expected '$p' to be present with target cluster")
-    }
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+    // scalastyle:off line.size.limit
+    val expectedResults =
+      s"""|
+          |Spark Properties:
+          |--conf spark.executor.cores=16
+          |--conf spark.executor.memory=32g
+          |--conf spark.executor.memoryOverhead=11468m
+          |--conf spark.locality.wait=0
+          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
+          |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
+          |--conf spark.rapids.sql.batchSizeBytes=2147483647b
+          |--conf spark.rapids.sql.concurrentGpuTasks=3
+          |--conf spark.rapids.sql.multiThreadedRead.numThreads=32
+          |--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager
+          |--conf spark.sql.adaptive.advisoryPartitionSizeInBytes=128m
+          |--conf spark.sql.adaptive.autoBroadcastJoinThreshold=[FILL_IN_VALUE]
+          |--conf spark.sql.adaptive.coalescePartitions.initialPartitionNum=200
+          |--conf spark.sql.adaptive.coalescePartitions.minPartitionSize=4m
+          |--conf spark.sql.files.maxPartitionBytes=4g
+          |--conf spark.task.resource.gpu.amount=0.001
+          |
+          |Comments:
+          |- 'spark.executor.memoryOverhead' was not set.
+          |- 'spark.rapids.memory.pinnedPool.size' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
+          |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
+          |- 'spark.rapids.sql.batchSizeBytes' was not set.
+          |- 'spark.rapids.sql.concurrentGpuTasks' was not set.
+          |- 'spark.rapids.sql.multiThreadedRead.numThreads' was not set.
+          |- 'spark.shuffle.manager' was not set.
+          |- 'spark.sql.adaptive.advisoryPartitionSizeInBytes' was not set.
+          |- 'spark.sql.adaptive.autoBroadcastJoinThreshold' was not set.
+          |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
+          |- 'spark.sql.files.maxPartitionBytes' was not set.
+          |- 'spark.task.resource.gpu.amount' was not set.
+          |- ${classPathComments("rapids.jars.missing")}
+          |- ${classPathComments("rapids.shuffle.jars")}
+          |""".stripMargin
+    // scalastyle:on line.size.limit
+    compareOutput(expectedResults, autoTunerOutput)
   }
 
   // With a target cluster, ConstantGpuCountStrategy re-slices cores (8 -> 16).
