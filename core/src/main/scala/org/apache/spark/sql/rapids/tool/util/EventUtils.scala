@@ -201,6 +201,18 @@ object EventUtils extends Logging {
     Try(rootExecutionIdField.get(event).asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
+  // Reads the modifiedConfigs from a SparkListenerSQLExecutionStart event using
+  // reflection. Reflection is used here to maintain compatibility with Spark 3.2.x,
+  // as the modifiedConfigs field was introduced in Spark 3.3.0 (SPARK-34735).
+  // This field contains per-SQL-execution config overrides set via spark.conf.set().
+  // Returns an empty map for Spark versions that don't have this field.
+  def readModifiedConfigsFromSQLStartEvent(
+      event: SparkListenerSQLExecutionStart): Map[String, String] = {
+    modifiedConfigsField.flatMap { field =>
+      Try(field.get(event).asInstanceOf[Map[String, String]]).toOption
+    }.getOrElse(Map.empty)
+  }
+
   @throws[com.fasterxml.jackson.core.JsonParseException]
   private def handleEventJsonParseEx(ex: com.fasterxml.jackson.core.JsonParseException): Unit = {
     // Spark 3.4- will throw a JsonParseException if the eventlog is incomplete (lines are broken)
@@ -224,6 +236,17 @@ object EventUtils extends Logging {
     val field = classOf[SparkListenerSQLExecutionStart].getDeclaredField("rootExecutionId")
     field.setAccessible(true)
     field
+  }
+
+  // Reflection field for modifiedConfigs, introduced in Spark 3.3.0 (SPARK-34735).
+  // Returns None if the field does not exist (Spark 3.2.x).
+  private lazy val modifiedConfigsField: Option[java.lang.reflect.Field] = {
+    Try {
+      val field = classOf[SparkListenerSQLExecutionStart]
+        .getDeclaredField("modifiedConfigs")
+      field.setAccessible(true)
+      field
+    }.toOption
   }
 
   private lazy val runtimeEventFromJsonMethod = {
