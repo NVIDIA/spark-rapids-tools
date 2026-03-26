@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -160,18 +160,8 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     app.sqlManager.addNewExecution(event.executionId, event.sparkPlanInfo,
       event.physicalPlanDescription)
 
-    // Merge modifiedConfigs into the app-level sparkProperties so the auto-tuner
-    // and all downstream consumers see the effective config state, not just the
-    // baseline from SparkListenerEnvironmentUpdate.
-    //
-    // Design decisions:
-    // - Last-write-wins: if multiple SQL executions have different modifiedConfigs
-    //   (e.g., multi-session Connect server), later values overwrite earlier ones.
-    //   Per-session tracking is deferred to Spark Connect support (Part 2).
-    // - Only non-empty maps trigger the merge to avoid unnecessary map operations
-    //   for the common case (spark-submit with no runtime config changes).
-    // - The ++= operator ensures override semantics: modifiedConfigs values replace
-    //   existing baseline values for the same keys while preserving all others.
+    // Merge runtime config overrides into app-level sparkProperties.
+    // Last-write-wins if multiple SQL executions have different modifiedConfigs.
     if (modifiedConfigs.nonEmpty) {
       app.sparkProperties ++= modifiedConfigs
     }

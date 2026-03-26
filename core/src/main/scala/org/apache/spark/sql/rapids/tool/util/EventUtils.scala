@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2023-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -201,11 +201,8 @@ object EventUtils extends Logging {
     Try(rootExecutionIdField.get(event).asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
-  // Reads the modifiedConfigs from a SparkListenerSQLExecutionStart event using
-  // reflection. Reflection is used here to maintain compatibility with Spark 3.2.x,
-  // as the modifiedConfigs field was introduced in Spark 3.3.0 (SPARK-34735).
-  // This field contains per-SQL-execution config overrides set via spark.conf.set().
-  // Returns an empty map for Spark versions that don't have this field.
+  // Reads modifiedConfigs via reflection (field added in Spark 3.3, SPARK-34735).
+  // Contains per-execution config overrides from spark.conf.set(). Empty on Spark 3.2.x.
   def readModifiedConfigsFromSQLStartEvent(
       event: SparkListenerSQLExecutionStart): Map[String, String] = {
     modifiedConfigsField.flatMap { field =>

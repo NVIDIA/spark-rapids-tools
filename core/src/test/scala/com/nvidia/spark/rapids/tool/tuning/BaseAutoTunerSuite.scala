@@ -300,4 +300,38 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
         " <= maxExecutors")),
       "Expected enforcement comment in output")
   }
+
+  test("auto-tuner sees modifiedConfigs values merged into sparkProperties") {
+    // Simulate the state after EventProcessorBase merges modifiedConfigs:
+    // baseline had autoBroadcastJoinThreshold=10485760, but spark.conf.set()
+    // changed it to -1. After merge, sparkProperties contains -1.
+    val propsWithOverride = mutable.Map[String, String](
+      "spark.sql.autoBroadcastJoinThreshold" -> "-1",
+      "spark.master" -> "yarn",
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "16g",
+      "spark.rapids.sql.enabled" -> "true"
+    )
+    val mockAppInfoProvider = new AppInfoProviderMockTest(
+      maxInput = 1000.0,
+      spilledMetrics = Seq.empty,
+      jvmGCFractions = Seq.empty,
+      propsFromLog = propsWithOverride,
+      sparkVersion = Some("3.5.0"),
+      rapidsJars = Seq.empty,
+      distinctLocationPct = 0.0,
+      redundantReadSize = 0L,
+      meanInput = 500.0,
+      meanShuffleRead = 200.0,
+      shuffleStagesWithPosSpilling = Set.empty,
+      shuffleSkewStages = Set.empty,
+      scanStagesWithGpuOom = false,
+      shuffleStagesWithOom = false
+    )
+    // The auto-tuner should see the overridden value, not the baseline
+    assert(mockAppInfoProvider.getSparkProperty(
+      "spark.sql.autoBroadcastJoinThreshold") == Some("-1"))
+    assert(mockAppInfoProvider.getAllProperties(
+      "spark.sql.autoBroadcastJoinThreshold") == "-1")
+  }
 }
