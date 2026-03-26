@@ -306,7 +306,12 @@ class SQLExecutionInfoClass(
     var endTime: Option[Long],
     var duration: Option[Long],
     var hasDatasetOrRDD: Boolean,
-    var sqlCpuTimePercent: Double = -1) {
+    var sqlCpuTimePercent: Double = -1,
+    // Per-SQL-execution config overrides from spark.conf.set() calls.
+    // Captured from SparkListenerSQLExecutionStart.modifiedConfigs (Spark 3.3+).
+    // Empty for Spark 3.2.x event logs or when no runtime config changes were made.
+    // This stores only the overrides, not the full config set.
+    val modifiedConfigs: Map[String, String] = Map.empty) {
   def setDsOrRdd(value: Boolean): Unit = {
     hasDatasetOrRDD = value
   }
