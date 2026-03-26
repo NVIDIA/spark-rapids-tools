@@ -1261,4 +1261,67 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
       assert(result.isEmpty)
     }
   }
+
+  test("test modifiedConfigs parsed from SQLExecutionStart and merged into sparkProperties") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
+      // scalastyle:off line.size.limit
+      val eventLogContent =
+        """{"Event":"SparkListenerLogStart","Spark Version":"3.5.0"}
+          |{"Event":"SparkListenerApplicationStart","App Name":"ModifiedConfigs_Test","App ID":"local-modconftest","Timestamp":123456,"User":"testUser"}
+          |{"Event":"SparkListenerEnvironmentUpdate","JVM Information":{},"Spark Properties":{"spark.sql.autoBroadcastJoinThreshold":"10485760","spark.app.name":"OriginalAppName","spark.master":"local[*]"},"Hadoop Properties":{},"System Properties":{"file.encoding":"UTF-8"},"Classpath Entries":{}}
+          |{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart","executionId":0,"rootExecutionId":0,"description":"test query","details":"SELECT * FROM t1","physicalPlanDescription":"== Physical Plan ==\nRange (1)\n\n(1) Range\nOutput [1]: [id#0L]\nArguments: Range (0, 10, step=1, splits=Some(4))\n","sparkPlanInfo":{"nodeName":"Range","simpleString":"Range (0, 10, step=1, splits=Some(4))","children":[],"metadata":{},"metrics":[]},"time":123457,"modifiedConfigs":{"spark.sql.autoBroadcastJoinThreshold":"-1","spark.app.name":"saralihalli-test"}}
+          |{"Event":"SparkListenerApplicationEnd","Timestamp":123460}""".stripMargin
+      // scalastyle:on line.size.limit
+      Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+      val app = new ApplicationInfo(hadoopConf,
+        EventLogPathProcessor.getEventLogInfo(
+          eventLogFilePath.toString, hadoopConf).head._1)
+
+      // Verify modifiedConfigs is stored on the SQL execution
+      val sqlInfo = app.sqlIdToInfo.get(0L)
+      assert(sqlInfo.isDefined)
+      assert(sqlInfo.get.modifiedConfigs.nonEmpty)
+      assert(sqlInfo.get.modifiedConfigs("spark.sql.autoBroadcastJoinThreshold") == "-1")
+      assert(sqlInfo.get.modifiedConfigs("spark.app.name") == "saralihalli-test")
+
+      // Verify modifiedConfigs was merged into app-level sparkProperties,
+      // overriding the baseline from SparkListenerEnvironmentUpdate.
+      assert(app.sparkProperties.getOrElse(
+        "spark.sql.autoBroadcastJoinThreshold", "") == "-1")
+      assert(app.sparkProperties.getOrElse(
+        "spark.app.name", "") == "saralihalli-test")
+      // Verify baseline properties that were NOT overridden are still present
+      assert(app.sparkProperties.getOrElse(
+        "spark.master", "") == "local[*]")
+    }
+  }
+
+  test("test empty modifiedConfigs does not affect sparkProperties") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
+      // scalastyle:off line.size.limit
+      val eventLogContent =
+        """{"Event":"SparkListenerLogStart","Spark Version":"3.5.0"}
+          |{"Event":"SparkListenerApplicationStart","App Name":"EmptyModConf_Test","App ID":"local-emptymodconf","Timestamp":123456,"User":"testUser"}
+          |{"Event":"SparkListenerEnvironmentUpdate","JVM Information":{},"Spark Properties":{"spark.sql.autoBroadcastJoinThreshold":"10485760","spark.master":"local[*]"},"Hadoop Properties":{},"System Properties":{"file.encoding":"UTF-8"},"Classpath Entries":{}}
+          |{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart","executionId":0,"rootExecutionId":0,"description":"test query","details":"SELECT 1","physicalPlanDescription":"== Physical Plan ==\nRange (1)\n","sparkPlanInfo":{"nodeName":"Range","simpleString":"Range","children":[],"metadata":{},"metrics":[]},"time":123457,"modifiedConfigs":{}}
+          |{"Event":"SparkListenerApplicationEnd","Timestamp":123460}""".stripMargin
+      // scalastyle:on line.size.limit
+      Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+      val app = new ApplicationInfo(hadoopConf,
+        EventLogPathProcessor.getEventLogInfo(
+          eventLogFilePath.toString, hadoopConf).head._1)
+
+      val sqlInfo = app.sqlIdToInfo.get(0L)
+      assert(sqlInfo.isDefined)
+      assert(sqlInfo.get.modifiedConfigs.isEmpty)
+
+      // Verify baseline sparkProperties are unchanged
+      assert(app.sparkProperties.getOrElse(
+        "spark.sql.autoBroadcastJoinThreshold", "") == "10485760")
+    }
+  }
 }
