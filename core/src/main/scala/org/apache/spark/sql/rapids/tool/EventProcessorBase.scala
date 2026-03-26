@@ -141,6 +141,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event: SparkListenerSQLExecutionStart): Unit = {
     logDebug("Processing event: " + event.getClass)
     val rootExecutionIdOpt = EventUtils.readRootIDFromSQLStartEvent(event)
+    // Extract modifiedConfigs: per-SQL-execution config overrides set via
+    // spark.conf.set(). Available in Spark 3.3+ (SPARK-34735).
+    // Returns empty map for older Spark versions.
+    val modifiedConfigs = EventUtils.readModifiedConfigsFromSQLStartEvent(event)
     val sqlExecution = new SQLExecutionInfoClass(
       event.executionId,
       rootExecutionIdOpt,
@@ -149,11 +153,28 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event.time,
       None,
       None,
-      hasDatasetOrRDD = false
+      hasDatasetOrRDD = false,
+      modifiedConfigs = modifiedConfigs
     )
     app.sqlIdToInfo.put(event.executionId, sqlExecution)
     app.sqlManager.addNewExecution(event.executionId, event.sparkPlanInfo,
       event.physicalPlanDescription)
+
+    // Merge modifiedConfigs into the app-level sparkProperties so the auto-tuner
+    // and all downstream consumers see the effective config state, not just the
+    // baseline from SparkListenerEnvironmentUpdate.
+    //
+    // Design decisions:
+    // - Last-write-wins: if multiple SQL executions have different modifiedConfigs
+    //   (e.g., multi-session Connect server), later values overwrite earlier ones.
+    //   Per-session tracking is deferred to Spark Connect support (Part 2).
+    // - Only non-empty maps trigger the merge to avoid unnecessary map operations
+    //   for the common case (spark-submit with no runtime config changes).
+    // - The ++= operator ensures override semantics: modifiedConfigs values replace
+    //   existing baseline values for the same keys while preserving all others.
+    if (modifiedConfigs.nonEmpty) {
+      app.sparkProperties ++= modifiedConfigs
+    }
   }
 
   def doSparkListenerSQLExecutionEnd(
