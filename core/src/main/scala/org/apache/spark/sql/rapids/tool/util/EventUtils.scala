@@ -206,7 +206,8 @@ object EventUtils extends Logging {
   def readModifiedConfigsFromSQLStartEvent(
       event: SparkListenerSQLExecutionStart): Map[String, String] = {
     modifiedConfigsField.flatMap { field =>
-      Try(field.get(event).asInstanceOf[Map[String, String]]).toOption
+      Try(Option(field.get(event)).map(_.asInstanceOf[Map[String, String]]))
+        .toOption.flatten
     }.getOrElse(Map.empty)
   }
 

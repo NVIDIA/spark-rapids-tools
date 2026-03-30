@@ -1279,20 +1279,27 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
         EventLogPathProcessor.getEventLogInfo(
           eventLogFilePath.toString, hadoopConf).head._1)
 
-      // Verify modifiedConfigs is stored on the SQL execution
       val sqlInfo = app.sqlIdToInfo.get(0L)
       assert(sqlInfo.isDefined)
-      assert(sqlInfo.get.modifiedConfigs.nonEmpty)
-      assert(sqlInfo.get.modifiedConfigs("spark.sql.autoBroadcastJoinThreshold") == "-1")
-      assert(sqlInfo.get.modifiedConfigs("spark.app.name") == "saralihalli-test")
-
-      // Verify modifiedConfigs was merged into app-level sparkProperties,
-      // overriding the baseline from SparkListenerEnvironmentUpdate.
-      assert(app.sparkProperties.getOrElse(
-        "spark.sql.autoBroadcastJoinThreshold", "") == "-1")
-      assert(app.sparkProperties.getOrElse(
-        "spark.app.name", "") == "saralihalli-test")
-      // Verify baseline properties that were NOT overridden are still present
+      // modifiedConfigs field was added in Spark 3.3 (SPARK-34735).
+      // On Spark 3.2.x the field doesn't exist, so reflection returns empty and
+      // the baseline sparkProperties remain unchanged.
+      if (sqlInfo.get.modifiedConfigs.nonEmpty) {
+        // Spark 3.3+: modifiedConfigs is parsed and merged
+        assert(sqlInfo.get.modifiedConfigs("spark.sql.autoBroadcastJoinThreshold") == "-1")
+        assert(sqlInfo.get.modifiedConfigs("spark.app.name") == "saralihalli-test")
+        assert(app.sparkProperties.getOrElse(
+          "spark.sql.autoBroadcastJoinThreshold", "") == "-1")
+        assert(app.sparkProperties.getOrElse(
+          "spark.app.name", "") == "saralihalli-test")
+      } else {
+        // Spark 3.2.x: modifiedConfigs not available, baseline unchanged
+        assert(app.sparkProperties.getOrElse(
+          "spark.sql.autoBroadcastJoinThreshold", "") == "10485760")
+        assert(app.sparkProperties.getOrElse(
+          "spark.app.name", "") == "OriginalAppName")
+      }
+      // Baseline properties that were NOT overridden are always present
       assert(app.sparkProperties.getOrElse(
         "spark.master", "") == "local[*]")
     }

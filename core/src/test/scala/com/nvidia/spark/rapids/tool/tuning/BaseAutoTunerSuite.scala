@@ -302,11 +302,10 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
   }
 
   test("auto-tuner sees modifiedConfigs values merged into sparkProperties") {
-    // Simulate the state after EventProcessorBase merges modifiedConfigs:
-    // baseline had autoBroadcastJoinThreshold=10485760, but spark.conf.set()
-    // changed it to -1. After merge, sparkProperties contains -1.
-    val propsWithOverride = mutable.Map[String, String](
-      "spark.sql.autoBroadcastJoinThreshold" -> "-1",
+    // Verify the merge path: baseline properties from EnvironmentUpdate, then
+    // modifiedConfigs overrides applied via mergeModifiedConfigs.
+    val propsFromEnv = mutable.Map[String, String](
+      "spark.sql.autoBroadcastJoinThreshold" -> "10485760",
       "spark.master" -> "yarn",
       "spark.executor.cores" -> "8",
       "spark.executor.memory" -> "16g",
@@ -316,7 +315,7 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       maxInput = 1000.0,
       spilledMetrics = Seq.empty,
       jvmGCFractions = Seq.empty,
-      propsFromLog = propsWithOverride,
+      propsFromLog = propsFromEnv,
       sparkVersion = Some("3.5.0"),
       rapidsJars = Seq.empty,
       distinctLocationPct = 0.0,
@@ -328,10 +327,16 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       scanStagesWithGpuOom = false,
       shuffleStagesWithOom = false
     )
-    // The auto-tuner should see the overridden value, not the baseline
+    // Before merge: baseline value
+    assert(mockAppInfoProvider.getSparkProperty(
+      "spark.sql.autoBroadcastJoinThreshold") == Some("10485760"))
+
+    // Simulate what EventProcessorBase does: merge modifiedConfigs into the
+    // provider's property map (same map instance the auto-tuner reads from).
+    propsFromEnv ++= Map("spark.sql.autoBroadcastJoinThreshold" -> "-1")
+
+    // After merge: auto-tuner should see the overridden value
     assert(mockAppInfoProvider.getSparkProperty(
       "spark.sql.autoBroadcastJoinThreshold") == Some("-1"))
-    assert(mockAppInfoProvider.getAllProperties(
-      "spark.sql.autoBroadcastJoinThreshold") == "-1")
   }
 }

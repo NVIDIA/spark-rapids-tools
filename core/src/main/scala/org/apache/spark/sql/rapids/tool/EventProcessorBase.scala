@@ -160,11 +160,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     app.sqlManager.addNewExecution(event.executionId, event.sparkPlanInfo,
       event.physicalPlanDescription)
 
-    // Merge runtime config overrides into app-level sparkProperties.
+    // Merge runtime config overrides into app-level sparkProperties with
+    // redaction and predicate updates (gpuMode, etc.).
     // Last-write-wins if multiple SQL executions have different modifiedConfigs.
-    if (modifiedConfigs.nonEmpty) {
-      app.sparkProperties ++= modifiedConfigs
-    }
+    app.mergeModifiedConfigs(modifiedConfigs)
   }
 
   def doSparkListenerSQLExecutionEnd(
