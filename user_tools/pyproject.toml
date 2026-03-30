@@ -60,7 +60,7 @@ dependencies = [
     # supports python[3.9, 3.13]
     "urllib3==2.6.3",
     # Used as a syntax highlighter for the CLI STDOUT. Python [3.9, 3.12]
-    "pygments==2.19.2",
+    "pygments==2.20.0",
     # used to apply validator on objects and models.
     # "2.9.2" contains from_json method.
     # Python [3.9, 3.13]
