@@ -1,6 +1,16 @@
 
 <br/>
 
+## Release [v26.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.3)
+Generated on 2026-03-31
+### Build and CI/CD
+
+- Bump pygments from 2.19.2 to 2.20.0 in /user_tools ([#2062](https://github.com/NVIDIA/spark-rapids-tools/pull/2062))
+- Bump requests from 2.32.4 to 2.33.0 in /user_tools ([#2061](https://github.com/NVIDIA/spark-rapids-tools/pull/2061))
+
+
+<br/>
+
 ## Release [v26.02.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.2)
 Generated on 2026-03-24
 ### Autotuner
