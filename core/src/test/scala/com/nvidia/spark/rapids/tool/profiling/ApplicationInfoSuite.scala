@@ -1305,6 +1305,37 @@ class ApplicationInfoSuite extends AnyFunSuite with Logging {
     }
   }
 
+  test("test modifiedConfigs redacts sensitive properties") {
+    TrampolineUtil.withTempDir { tempDir =>
+      val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")
+      // scalastyle:off line.size.limit
+      // modifiedConfigs includes a sensitive S3 secret key that should be redacted
+      val eventLogContent =
+        """{"Event":"SparkListenerLogStart","Spark Version":"3.5.0"}
+          |{"Event":"SparkListenerApplicationStart","App Name":"Redaction_Test","App ID":"local-redacttest","Timestamp":123456,"User":"testUser"}
+          |{"Event":"SparkListenerEnvironmentUpdate","JVM Information":{},"Spark Properties":{"spark.master":"local[*]"},"Hadoop Properties":{},"System Properties":{"file.encoding":"UTF-8"},"Classpath Entries":{}}
+          |{"Event":"org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart","executionId":0,"rootExecutionId":0,"description":"test","details":"SELECT 1","physicalPlanDescription":"== Physical Plan ==\nRange (1)\n","sparkPlanInfo":{"nodeName":"Range","simpleString":"Range","children":[],"metadata":{},"metrics":[]},"time":123457,"modifiedConfigs":{"spark.hadoop.fs.s3a.secret.key":"my-secret-key","spark.app.name":"safe-value"}}
+          |{"Event":"SparkListenerApplicationEnd","Timestamp":123460}""".stripMargin
+      // scalastyle:on line.size.limit
+      Files.write(eventLogFilePath, eventLogContent.getBytes(StandardCharsets.UTF_8))
+
+      val app = new ApplicationInfo(hadoopConf,
+        EventLogPathProcessor.getEventLogInfo(
+          eventLogFilePath.toString, hadoopConf).head._1)
+
+      val sqlInfo = app.sqlIdToInfo.get(0L)
+      assert(sqlInfo.isDefined)
+      // On Spark 3.3+, verify sensitive key is redacted in sparkProperties
+      if (sqlInfo.get.modifiedConfigs.nonEmpty) {
+        // The secret key should be redacted after merge
+        assert(app.sparkProperties.get("spark.hadoop.fs.s3a.secret.key")
+          .forall(_.contains("redacted")))
+        // Non-sensitive key should pass through unchanged
+        assert(app.sparkProperties.getOrElse("spark.app.name", "") == "safe-value")
+      }
+    }
+  }
+
   test("test empty modifiedConfigs does not affect sparkProperties") {
     TrampolineUtil.withTempDir { tempDir =>
       val eventLogFilePath = Paths.get(tempDir.getAbsolutePath, "test_eventlog")

@@ -29,6 +29,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
@@ -302,41 +303,26 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
   }
 
   test("auto-tuner sees modifiedConfigs values merged into sparkProperties") {
-    // Verify the merge path: baseline properties from EnvironmentUpdate, then
-    // modifiedConfigs overrides applied via mergeModifiedConfigs.
-    val propsFromEnv = mutable.Map[String, String](
+    // Test mergeModifiedConfigs directly on a CacheablePropsHandler instance.
+    // This is the same path EventProcessorBase calls during event processing.
+    val handler = new CacheablePropsHandler {}
+    handler.sparkProperties = Map(
       "spark.sql.autoBroadcastJoinThreshold" -> "10485760",
-      "spark.master" -> "yarn",
-      "spark.executor.cores" -> "8",
-      "spark.executor.memory" -> "16g",
-      "spark.rapids.sql.enabled" -> "true"
+      "spark.master" -> "yarn"
     )
-    val mockAppInfoProvider = new AppInfoProviderMockTest(
-      maxInput = 1000.0,
-      spilledMetrics = Seq.empty,
-      jvmGCFractions = Seq.empty,
-      propsFromLog = propsFromEnv,
-      sparkVersion = Some("3.5.0"),
-      rapidsJars = Seq.empty,
-      distinctLocationPct = 0.0,
-      redundantReadSize = 0L,
-      meanInput = 500.0,
-      meanShuffleRead = 200.0,
-      shuffleStagesWithPosSpilling = Set.empty,
-      shuffleSkewStages = Set.empty,
-      scanStagesWithGpuOom = false,
-      shuffleStagesWithOom = false
-    )
+
     // Before merge: baseline value
-    assert(mockAppInfoProvider.getSparkProperty(
-      "spark.sql.autoBroadcastJoinThreshold") == Some("10485760"))
+    assert(handler.sparkProperties("spark.sql.autoBroadcastJoinThreshold") == "10485760")
 
-    // Simulate what EventProcessorBase does: merge modifiedConfigs into the
-    // provider's property map (same map instance the auto-tuner reads from).
-    propsFromEnv ++= Map("spark.sql.autoBroadcastJoinThreshold" -> "-1")
+    // Merge overrides (same call EventProcessorBase makes)
+    handler.mergeModifiedConfigs(Map(
+      "spark.sql.autoBroadcastJoinThreshold" -> "-1",
+      "spark.app.name" -> "test-app"
+    ))
 
-    // After merge: auto-tuner should see the overridden value
-    assert(mockAppInfoProvider.getSparkProperty(
-      "spark.sql.autoBroadcastJoinThreshold") == Some("-1"))
+    // After merge: overridden value wins, baseline preserved, new key added
+    assert(handler.sparkProperties("spark.sql.autoBroadcastJoinThreshold") == "-1")
+    assert(handler.sparkProperties("spark.master") == "yarn")
+    assert(handler.sparkProperties("spark.app.name") == "test-app")
   }
 }
