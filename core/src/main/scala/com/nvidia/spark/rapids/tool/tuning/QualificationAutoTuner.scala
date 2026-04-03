@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ object QualificationAutoTunerHelper extends AutoTunerHelper {
    * For the Qualification Tool's recommendation for cluster sizing, we want to keep
    * the total number of CPU cores between the source and target clusters constant.
    */
-  override lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy =
+  def recommendedClusterSizingStrategy(platform: Platform): ClusterSizingStrategy =
     ConstantTotalCoresStrategy
 
   override def createAutoTunerInstance(
