@@ -24,7 +24,7 @@ import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import com.nvidia.spark.rapids.BaseWithSparkSuite
 import com.nvidia.spark.rapids.tool.{EventlogProviderImpl, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.planparser.db.DatabricksParseHelper
-import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
+import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolOutJsonFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
 import org.scalatest.AppendedClues.convertToClueful
 import org.scalatest.matchers.should.Matchers._
 
@@ -170,6 +170,20 @@ class QualificationSuite extends BaseWithSparkSuite {
             csvF => {
               csvF.getColumn("Unsupported Operator") should contain allOf ("Project", "UDF")
             }))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report JSON should be generated")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val source = scala.io.Source.fromFile(jsonFile)
+            val content = try source.mkString finally source.close()
+            val json = org.json4s.jackson.JsonMethods.parse(content)
+            implicit val formats: org.json4s.DefaultFormats.type = org.json4s.DefaultFormats
+            (json \ "has_udfs").extract[Boolean] shouldBe true
+            val udfs = (json \ "udfs").extract[Seq[Map[String, Any]]]
+            udfs should not be empty
+            udfs.exists(_("exec") == "Project") shouldBe true
+            (json \ "metrics" \ "app_task_duration_ms").extract[Long] should be > 0L
+          }))
       .build()
   }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,6 +110,25 @@ class AppQualClusterInfoTable(
   override def appendDataToWriter(fWriter: ToolTextFileWriter,
     rec: QualificationSummaryInfo): Unit = {
     fWriter.writeLn(Serialization.writePretty(rec.clusterSummary))
+  }
+}
+
+// UDF detection report (JSON). Reports all detected UDFs with metadata.
+class AppQualUdfReportTable(
+    tableMeta: QualOutputTableDefinition,
+    override val rootDirectory: String,
+    hadoopConf: Configuration) extends AppQualTable(tableMeta, rootDirectory, hadoopConf) {
+
+  implicit val formats: DefaultFormats.type = DefaultFormats
+
+  override def writeCSVHeader(fWriter: ToolTextFileWriter): Unit = {
+    // No headers for JSON file format
+  }
+
+  override def appendDataToWriter(fWriter: ToolTextFileWriter,
+    rec: QualificationSummaryInfo): Unit = {
+    val udfReport = UdfReportGenerator.generateReport(rec)
+    fWriter.writeLn(Serialization.writePretty(udfReport))
   }
 }
 
@@ -425,6 +444,8 @@ object QualPerAppReportGenerator extends QualReportGeneratorTrait[QualificationS
         new AppQualMLFunctionsTable(tableMeta, rootDirectory, hadoopConf)
       case "mlFunctionsDurationsCSVReport" =>
         new AppQualMLFunctionsDurationsTable(tableMeta, rootDirectory, hadoopConf)
+      case "udfReportJSON" =>
+        new AppQualUdfReportTable(tableMeta, rootDirectory, hadoopConf)
       case _ =>
         throw new IllegalArgumentException(
           s"Unknown table label ${tableMeta.label} for table ${tableMeta.description}")

@@ -19,6 +19,8 @@ package com.nvidia.spark.rapids.tool.qualification
 import com.nvidia.spark.rapids.BaseNoSparkSuite
 import com.nvidia.spark.rapids.tool.{PlatformNames, StatusReportCounts, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.qualification.checkers.{QToolOutFileCheckerImpl, QToolOutJsonFileCheckerImpl, QToolResultCoreChecker, QToolStatusChecker, QToolTestCtxtBuilder}
+import org.json4s.DefaultFormats
+import org.json4s.jackson.JsonMethods
 import org.scalatest.matchers.should.Matchers._
 
 import org.apache.spark.sql.rapids.tool.{SourceClusterInfo, ToolUtils}
@@ -36,6 +38,19 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
   def qualEventLog(fileName: String): String = s"$qualLogDir/$fileName"
   def expectedQualLoc(dirName: String): String = s"$expRoot/$dirName"
   def profEventLog(fileName: String): String = s"$profLogDir/$fileName"
+
+  /** Parse udf_report.json and return (has_udfs, udfs list, metrics option). */
+  private def readUdfReport(jsonFile: java.io.File)
+      : (Boolean, Seq[Map[String, Any]], Option[Map[String, Any]]) = {
+    implicit val formats: DefaultFormats.type = DefaultFormats
+    val source = scala.io.Source.fromFile(jsonFile)
+    val content = try source.mkString finally source.close()
+    val json = JsonMethods.parse(content)
+    val hasUdfs = (json \ "has_udfs").extract[Boolean]
+    val udfs = (json \ "udfs").extract[Seq[Map[String, Any]]]
+    val metrics = (json \ "metrics").extractOpt[Map[String, Any]]
+    (hasUdfs, udfs, metrics)
+  }
 
   test("test order desc") {
     // Apps are sorted in descending order based on GPU opportunity and EndTime
@@ -838,6 +853,149 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
                 ToolTestUtils.loadClusterSummaryFromJson(f).sourceClusterInfo
               actualClusterInfo shouldBe expectedClusterInfo
           })
+      .build()
+  }
+
+  test("UDF report - Scala UDF via DataFrame API") {
+    val logFiles = Array(qualEventLog("udf_func_eventlog"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report detects Scala UDFs")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe true
+            udfs.size shouldBe 3
+            // All UDFs are inside Project execs, across SQL IDs 2, 5, 8
+            udfs.foreach(_("exec") shouldBe "Project")
+            udfs.map(u => u("sql_id").asInstanceOf[BigInt].toInt).sorted shouldBe Seq(2, 5, 8)
+            udfs.map(u => u("stage_id").asInstanceOf[BigInt].toInt).sorted shouldBe Seq(2, 5, 8)
+            metrics shouldBe defined
+            metrics.get("unsupported_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 982
+            metrics.get("app_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 4666
+            metrics.get("unsupported_task_duration_pct").asInstanceOf[Double] shouldBe 21.0
+          }))
+      .build()
+  }
+
+  test("UDF report - Scala UDF with Dataset") {
+    val logFiles = Array(qualEventLog("udf_dataset_eventlog"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report detects Dataset UDF")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe true
+            udfs.size shouldBe 1
+            udfs.head("exec") shouldBe "Project"
+            udfs.head("sql_id").asInstanceOf[BigInt].toInt shouldBe 0
+            udfs.head("stage_id").asInstanceOf[BigInt].toInt shouldBe 1
+            metrics shouldBe defined
+            metrics.get("unsupported_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 170
+            metrics.get("app_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 283
+            metrics.get("unsupported_task_duration_pct").asInstanceOf[Double] shouldBe 60.1
+          }))
+      .build()
+  }
+
+  test("UDF report - Pandas UDF (ArrowEvalPython)") {
+    val logFiles = Array(qualEventLog("pandas_execs_eventlog.zstd"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report detects Pandas UDF")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe true
+            udfs.size shouldBe 1
+            udfs.head("name") shouldBe "ArrowEvalPython"
+            udfs.head("exec") shouldBe "ArrowEvalPython"
+            udfs.head("sql_id").asInstanceOf[BigInt].toInt shouldBe 0
+            udfs.head("stage_id").asInstanceOf[BigInt].toInt shouldBe 0
+            metrics shouldBe defined
+            metrics.get("unsupported_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 28449
+            metrics.get("app_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 142402
+            metrics.get("unsupported_task_duration_pct").asInstanceOf[Double] shouldBe 20.0
+          }))
+      .build()
+  }
+
+  test("UDF report - Java/Hive UDF") {
+    val logFiles = Array(qualEventLog("java_udf_eventlog"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report detects Java/Hive UDF")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe true
+            udfs.size shouldBe 1
+            udfs.head("name") shouldBe "IntegerMultiplyBy2UDF"
+            udfs.head("exec") shouldBe "Project"
+            udfs.head("sql_id").asInstanceOf[BigInt].toInt shouldBe 2
+            udfs.head("stage_id").asInstanceOf[BigInt].toInt shouldBe 1
+            metrics shouldBe defined
+            metrics.get("unsupported_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 44
+            metrics.get("app_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 176
+            metrics.get("unsupported_task_duration_pct").asInstanceOf[Double] shouldBe 25.0
+          }))
+      .build()
+  }
+
+  test("UDF report - Python UDF (BatchEvalPython)") {
+    val logFiles = Array(qualEventLog("python_udf_eventlog"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report detects Python UDF")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe true
+            udfs.size shouldBe 1
+            udfs.head("name") shouldBe "BatchEvalPython"
+            udfs.head("exec") shouldBe "BatchEvalPython"
+            udfs.head("sql_id").asInstanceOf[BigInt].toInt shouldBe 0
+            udfs.head("stage_id").asInstanceOf[BigInt].toInt shouldBe 1
+            metrics shouldBe defined
+            metrics.get("unsupported_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 186
+            metrics.get("app_task_duration_ms").asInstanceOf[BigInt].toLong shouldBe 467
+          }))
+      .build()
+  }
+
+  test("UDF report - no UDFs") {
+    val logFiles = Array(qualEventLog("nds_q86_test"))
+    QToolTestCtxtBuilder(eventlogs = logFiles)
+      .withChecker(
+        QToolStatusChecker("app should succeed")
+          .withExpectedCounts(StatusReportCounts(1, 0, 0, 0)))
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report shows no UDFs")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
+            hasUdfs shouldBe false
+            udfs shouldBe empty
+            // metrics is None in the report (serialized as null in JSON);
+            // extractOpt returns Some(Map()) for null, so check emptiness
+            metrics.forall(_.isEmpty) shouldBe true
+          }))
       .build()
   }
 }
