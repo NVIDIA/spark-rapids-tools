@@ -174,7 +174,7 @@ class QualificationSuite extends BaseWithSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report JSON should be generated")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val source = scala.io.Source.fromFile(jsonFile)
+            val source = UTF8Source.fromFile(jsonFile)
             val content = try source.mkString finally source.close()
             val json = org.json4s.jackson.JsonMethods.parse(content)
             implicit val formats: org.json4s.DefaultFormats.type = org.json4s.DefaultFormats

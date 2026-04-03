@@ -24,6 +24,7 @@ import org.json4s.jackson.JsonMethods
 import org.scalatest.matchers.should.Matchers._
 
 import org.apache.spark.sql.rapids.tool.{SourceClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 
 /**
@@ -43,7 +44,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
   private def readUdfReport(jsonFile: java.io.File)
       : (Boolean, Seq[Map[String, Any]], Option[Map[String, Any]]) = {
     implicit val formats: DefaultFormats.type = DefaultFormats
-    val source = scala.io.Source.fromFile(jsonFile)
+    val source = UTF8Source.fromFile(jsonFile)
     val content = try source.mkString finally source.close()
     val json = JsonMethods.parse(content)
     val hasUdfs = (json \ "has_udfs").extract[Boolean]
