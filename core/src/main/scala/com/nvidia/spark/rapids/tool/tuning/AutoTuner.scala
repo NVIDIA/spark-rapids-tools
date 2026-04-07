@@ -586,7 +586,7 @@ abstract class AutoTuner(
    */
   private def configureGPURecommendedInstanceType(): Unit = {
     platform.createRecommendedGpuClusterInfo(recommendations, getAllSourceProperties,
-      autoTunerHelper.recommendedClusterSizingStrategy)
+      autoTunerHelper.recommendedClusterSizingStrategy(platform))
     platform.recommendedClusterInfo.foreach { gpuClusterRec =>
       // TODO: Should we skip recommendation if cores per executor is lower than a min value?
       appendRecommendation("spark.executor.cores", gpuClusterRec.coresPerExecutor)
@@ -2225,10 +2225,10 @@ class ProfilingAutoTuner(
  */
 trait AutoTunerHelper extends Logging {
   /**
-   * Default strategy for cluster shape recommendation.
+   * Strategy for cluster shape recommendation.
    * See [[com.nvidia.spark.rapids.tool.ClusterSizingStrategy]] for different strategies.
    */
-  lazy val recommendedClusterSizingStrategy: ClusterSizingStrategy = ConstantGpuCountStrategy
+  def recommendedClusterSizingStrategy(platform: Platform): ClusterSizingStrategy
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   lazy val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
   lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
@@ -2326,6 +2326,21 @@ trait AutoTunerHelper extends Logging {
  * implementation of the `AutoTunerHelper` interface.
  */
 object ProfilingAutoTunerHelper extends AutoTunerHelper {
+  /**
+   * On-prem profiling without a target cluster: use SourceCoresPreservingStrategy
+   * to preserve the source cluster's cores and executor count (the hardware is fixed).
+   * For CSP platforms or when a target cluster is provided, use ConstantGpuCountStrategy.
+   */
+  def recommendedClusterSizingStrategy(platform: Platform): ClusterSizingStrategy = {
+    // true when user provided target hardware (workerInfo with cores/memory/GPU)
+    val hasTargetWorkerInfo = platform.targetCluster.exists(!_.getWorkerInfo.isEmpty)
+    if (!platform.isPlatformCSP && !hasTargetWorkerInfo) {
+      SourceCoresPreservingStrategy
+    } else {
+      ConstantGpuCountStrategy
+    }
+  }
+
   def createAutoTunerInstance(
       appInfoProvider: AppSummaryInfoBaseProvider,
       platform: Platform,

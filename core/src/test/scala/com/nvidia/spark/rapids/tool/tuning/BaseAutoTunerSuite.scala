@@ -29,6 +29,7 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{RecommendedClusterInfo, ToolUtils}
+import org.apache.spark.sql.rapids.tool.util.CacheablePropsHandler
 
 
 case class DriverInfoProviderMockTest(unsupportedOps: Seq[DriverLogUnsupportedOperators])
@@ -299,5 +300,29 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       "minExecutors <= initialExecutors" +
         " <= maxExecutors")),
       "Expected enforcement comment in output")
+  }
+
+  test("auto-tuner sees modifiedConfigs values merged into sparkProperties") {
+    // Test mergeModifiedConfigs directly on a CacheablePropsHandler instance.
+    // This is the same path EventProcessorBase calls during event processing.
+    val handler = new CacheablePropsHandler {}
+    handler.sparkProperties = Map(
+      "spark.sql.autoBroadcastJoinThreshold" -> "10485760",
+      "spark.master" -> "yarn"
+    )
+
+    // Before merge: baseline value
+    assert(handler.sparkProperties("spark.sql.autoBroadcastJoinThreshold") == "10485760")
+
+    // Merge overrides (same call EventProcessorBase makes)
+    handler.mergeModifiedConfigs(Map(
+      "spark.sql.autoBroadcastJoinThreshold" -> "-1",
+      "spark.app.name" -> "test-app"
+    ))
+
+    // After merge: overridden value wins, baseline preserved, new key added
+    assert(handler.sparkProperties("spark.sql.autoBroadcastJoinThreshold") == "-1")
+    assert(handler.sparkProperties("spark.master") == "yarn")
+    assert(handler.sparkProperties("spark.app.name") == "test-app")
   }
 }

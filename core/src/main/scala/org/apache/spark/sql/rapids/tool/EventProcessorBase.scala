@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -141,6 +141,10 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event: SparkListenerSQLExecutionStart): Unit = {
     logDebug("Processing event: " + event.getClass)
     val rootExecutionIdOpt = EventUtils.readRootIDFromSQLStartEvent(event)
+    // Extract modifiedConfigs: per-SQL-execution config overrides set via
+    // spark.conf.set(). Available in Spark 3.3+ (SPARK-34735).
+    // Returns empty map for older Spark versions.
+    val modifiedConfigs = EventUtils.readModifiedConfigsFromSQLStartEvent(event)
     val sqlExecution = new SQLExecutionInfoClass(
       event.executionId,
       rootExecutionIdOpt,
@@ -149,11 +153,17 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       event.time,
       None,
       None,
-      hasDatasetOrRDD = false
+      hasDatasetOrRDD = false,
+      modifiedConfigs = modifiedConfigs
     )
     app.sqlIdToInfo.put(event.executionId, sqlExecution)
     app.sqlManager.addNewExecution(event.executionId, event.sparkPlanInfo,
       event.physicalPlanDescription)
+
+    // Merge runtime config overrides into app-level sparkProperties with
+    // redaction and predicate updates (gpuMode, etc.).
+    // Last-write-wins if multiple SQL executions have different modifiedConfigs.
+    app.mergeModifiedConfigs(modifiedConfigs)
   }
 
   def doSparkListenerSQLExecutionEnd(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -176,6 +176,17 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
 
     // After setting the properties, validate the properties.
     validateAppEventlogProperties()
+  }
+
+  /**
+   * Merges modifiedConfigs from SparkListenerSQLExecutionStart into sparkProperties.
+   * Applies redaction (processPropKeys) and updates derived predicates (gpuMode, etc.).
+   */
+  def mergeModifiedConfigs(modifiedConfigs: Map[String, String]): Unit = {
+    if (modifiedConfigs.nonEmpty) {
+      sparkProperties ++= processPropKeys(modifiedConfigs)
+      updatePredicatesFromSparkProperties()
+    }
   }
 
   def handleJobStartForCachedProps(event: SparkListenerJobStart): Unit = {
