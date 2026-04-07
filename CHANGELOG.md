@@ -1,6 +1,16 @@
 
 <br/>
 
+## Release [v26.02.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.4)
+Generated on 2026-04-07
+### Core
+
+- Fix AutoTuner to skip cluster sizing configs for on-prem in Profiling ([#2055](https://github.com/NVIDIA/spark-rapids-tools/pull/2055))
+- Parse modifiedConfigs from SQLExecutionStart for accurate AutoTuner input ([#2059](https://github.com/NVIDIA/spark-rapids-tools/pull/2059))
+
+
+<br/>
+
 ## Release [v26.02.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.3)
 Generated on 2026-03-31
 ### Build and CI/CD
