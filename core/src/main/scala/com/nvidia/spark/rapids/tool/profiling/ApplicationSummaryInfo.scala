@@ -230,36 +230,28 @@ class SingleAppSummaryInfoProvider(
   }
 
   /**
-   * Returns stage IDs of scan stages with failed tasks due to GPU OOM errors
-   * (GpuRetryOOM and GpuSplitAndRetryOOM).
+   * Returns stage IDs of scan stages with failed tasks due to GPU OOM errors.
+   * Reads from the pre-computed values in AppInfoProfileResults to avoid
+   * duplicate computation (Profiler.processApp already computes these).
    */
   override def scanStagesWithGpuOom: Set[Long] = {
-    SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
-      app.appInfo.exists(_.pluginEnabled),
-      app.failedTasks, app.stageMetrics, appInfo)
+    app.appInfo.headOption.map(_.scanStagesWithGpuOom).getOrElse(Set.empty)
   }
 
   /**
    * Returns stage IDs of failed shuffle stages with OOM errors in the task's end reason.
-   * Note: This check is enabled only if the plugin is enabled (i.e. GPU app) and running on YARN.
+   * Reads from the pre-computed values in AppInfoProfileResults.
    */
   override def shuffleStagesWithOom: Set[Long] = {
-    SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
-      app.appInfo.exists(_.pluginEnabled),
-      getSparkProperty("spark.master"),
-      app.failedStages, app.failedTasks)
+    app.appInfo.headOption.map(_.shuffleStagesWithOom).getOrElse(Set.empty)
   }
 
   /**
-   * Get the maximum data size from ColumnarExchange metrics.
-   * This method searches through SQLPlan metrics to find all ColumnarExchange nodes
-   * with "data size" metrics and returns the maximum total value.
-   *
-   * @return Option[Long] containing the maximum data size in bytes, or None if no
-   *         ColumnarExchange "data size" metrics are found
+   * Returns the maximum data size from ColumnarExchange metrics.
+   * Reads from the pre-computed value in AppInfoProfileResults.
    */
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = {
-    SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(app.sqlMetrics)
+    app.appInfo.headOption.flatMap(_.maxColumnarExchangeDataSizeBytes)
   }
 
   override def getClassPathEntries: Map[String, String] = {

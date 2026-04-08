@@ -1532,9 +1532,10 @@ case class RecommendedCommentResult(comment: String) {
 object SparkRapidsOomExceptions {
   // Current JNI: GpuOOM -> GpuRetryOOM, GpuSplitAndRetryOOM
   // Pre-24.02 JNI: jni.SplitAndRetryOOM, jni.RetryOOM (no Gpu prefix)
-  // Using "jni." prefix to avoid matching CpuSplitAndRetryOOM
+  // Using "jni." prefix to avoid matching CpuSplitAndRetryOOM / CpuRetryOOM
+  // Using "jni.GpuOOM" (anchored) for the base class to avoid partial matches
   val gpuExceptionClassNames: Set[String] =
-    Set("GpuSplitAndRetryOOM", "GpuRetryOOM", "GpuOOM",
+    Set("GpuSplitAndRetryOOM", "GpuRetryOOM", "jni.GpuOOM",
         "jni.SplitAndRetryOOM", "jni.RetryOOM")
 
   val gpuShuffleClassName: String = "GpuShuffleExchangeExec"

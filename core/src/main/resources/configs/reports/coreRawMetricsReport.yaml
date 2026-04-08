@@ -107,7 +107,7 @@ reportDefinitions:
             description: >-
               TBD
           - name: maxTaskInputBytesRead
-            dataType: Double
+            dataType: Long
             description: >-
               Maximum per-task input bytes read across all SQLs
           - name: maxColumnarExchangeDataSizeBytes
