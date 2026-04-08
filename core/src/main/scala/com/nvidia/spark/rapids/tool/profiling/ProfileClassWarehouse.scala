@@ -463,7 +463,11 @@ case class AppInfoProfileResults(
     sparkRuntime: SparkRuntime.SparkRuntime,
     sparkVersion: String,
     pluginEnabled: Boolean,
-    totalCoreSeconds: Long)  extends ProfileResult {
+    totalCoreSeconds: Long,
+    maxTaskInputBytesRead: Double = 0.0,
+    maxColumnarExchangeDataSizeBytes: Option[Long] = None,
+    scanStagesWithGpuOom: Set[Long] = Set.empty,
+    shuffleStagesWithOom: Set[Long] = Set.empty)  extends ProfileResult {
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("AppInfoProfileResults")
   }
@@ -496,11 +500,23 @@ case class AppInfoProfileResults(
     }
   }
 
+  private def maxColumnarExchangeToStr: String = {
+    maxColumnarExchangeDataSizeBytes.map(_.toString).getOrElse("")
+  }
+
+  private def stageIdsToStr(stageIds: Set[Long]): String = {
+    if (stageIds.isEmpty) "" else stageIds.toSeq.sorted.mkString(",")
+  }
+
   override def convertToSeq(): Array[String] = {
     Array(appName, appIdToStr, attemptIdToStr,
       sparkUser, startTime.toString, endTimeToStr, durToStr,
       durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString,
-      totalCoreSeconds.toString)
+      totalCoreSeconds.toString,
+      f"$maxTaskInputBytesRead%.0f",
+      maxColumnarExchangeToStr,
+      stageIdsToStr(scanStagesWithGpuOom),
+      stageIdsToStr(shuffleStagesWithOom))
   }
 
   override def convertToCSVSeq(): Array[String] = {
@@ -512,7 +528,11 @@ case class AppInfoProfileResults(
       StringUtils.reformatCSVString(sparkRuntime.toString),
       StringUtils.reformatCSVString(sparkVersion),
       pluginEnabled.toString,
-      totalCoreSeconds.toString)
+      totalCoreSeconds.toString,
+      f"$maxTaskInputBytesRead%.0f",
+      maxColumnarExchangeToStr,
+      StringUtils.reformatCSVString(stageIdsToStr(scanStagesWithGpuOom)),
+      StringUtils.reformatCSVString(stageIdsToStr(shuffleStagesWithOom)))
   }
 }
 
@@ -1499,15 +1519,32 @@ case class RecommendedCommentResult(comment: String) {
   override def toString: String = "- %s".format(comment)
 }
 
+// scalastyle:off line.size.limit
 /**
- * Helper object to store the list of SparkRapids OOM exceptions.
+ * Helper object to detect OOM exceptions from SparkRapids event logs.
+ *
+ * GPU OOM class names from spark-rapids-jni:
+ * - GpuOOM -> GpuRetryOOM, GpuSplitAndRetryOOM
+ * See: https://github.com/NVIDIA/spark-rapids-jni/blob/725cd64be2115cd072bf51d7d6c5281d6d08bf4f/src/main/cpp/src/SparkResourceAdaptorJni.cpp#L1313
+ * See: https://github.com/NVIDIA/spark-rapids/blob/79922d62a1c5759963e969018322ad8e544629ff/sql-plugin/src/main/scala/com/nvidia/spark/rapids/RmmRapidsRetryIterator.scala
  */
+// scalastyle:on line.size.limit
 object SparkRapidsOomExceptions {
-  val gpuExceptionClassNames: Set[String] = {
-    Set("GpuSplitAndRetryOOM", "GpuRetryOOM")
-  }
+  // Current JNI: GpuOOM -> GpuRetryOOM, GpuSplitAndRetryOOM
+  // Pre-24.02 JNI: jni.SplitAndRetryOOM, jni.RetryOOM (no Gpu prefix)
+  // Using "jni." prefix to avoid matching CpuSplitAndRetryOOM
+  val gpuExceptionClassNames: Set[String] =
+    Set("GpuSplitAndRetryOOM", "GpuRetryOOM", "GpuOOM",
+        "jni.SplitAndRetryOOM", "jni.RetryOOM")
 
   val gpuShuffleClassName: String = "GpuShuffleExchangeExec"
+
+  /**
+   * Check if a failure reason indicates a GPU OOM error.
+   */
+  def isGpuOom(failureReason: String): Boolean = {
+    gpuExceptionClassNames.exists(failureReason.contains)
+  }
 }
 
 /**

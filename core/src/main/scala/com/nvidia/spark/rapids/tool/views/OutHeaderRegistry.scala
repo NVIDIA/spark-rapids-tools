@@ -69,7 +69,9 @@ object OutHeaderRegistry {
       Array("sqlID", "nodeID", "nodeName", "nodeDescription", "reason"),
     "AppInfoProfileResults" ->
       Array("appName", "appId", "attemptId", "sparkUser", "startTime", "endTime", "duration",
-        "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds"),
+        "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds",
+        "maxTaskInputBytesRead", "maxColumnarExchangeDataSizeBytes",
+        "scanStagesWithGpuOom", "shuffleStagesWithOom"),
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->

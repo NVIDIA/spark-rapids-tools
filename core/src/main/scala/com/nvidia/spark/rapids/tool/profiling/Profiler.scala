@@ -293,19 +293,33 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
-    val maxTaskInputInfo = if (useAutoTuner) {
-      analysis.maxTaskInputSizes
-    } else {
-      Seq.empty
-    }
+    val maxTaskInputInfo = analysis.maxTaskInputSizes
     val sqlIdAlign = if (outputAlignedSQLIds) {
       collect.getSQLCleanAndAligned
     } else {
       Seq.empty
     }
     val endTime = System.currentTimeMillis()
-    val appInfo = collect.getAppInfo
     val sqlMetrics = collect.getSQLPlanMetrics
+    val stageMetrics = collect.getStageLevelMetrics
+    val failedTasks = healthCheck.getFailedTasks
+    val failedStages = healthCheck.getFailedStages
+
+    // Compute AutoTuner inputs to enrich application_information.csv
+    val singleApp = analyzedApps.head
+    val pluginEnabled = singleApp.gpuMode
+    val maxTaskInput = analysis.maxTaskInputSizes.headOption
+      .map(_.maxTaskInputBytesRead).getOrElse(0.0)
+    val maxColumnarExchange =
+      SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(sqlMetrics)
+    val scanOomStages = SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
+      pluginEnabled, failedTasks, stageMetrics, singleApp)
+    val shuffleOomStages = SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
+      pluginEnabled, singleApp.sparkProperties.get("spark.master"),
+      failedStages, failedTasks)
+
+    val appInfo = collect.getExtendedAppInfo(
+      maxTaskInput, maxColumnarExchange, scanOomStages, shuffleOomStages)
     logDebug(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
       appInfo = appInfo,
@@ -315,14 +329,14 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsProps = collect.getRapidsProperties,
       rapidsJar = collect.getRapidsJARInfo,
       sqlMetrics = sqlMetrics,
-      stageMetrics = collect.getStageLevelMetrics,
+      stageMetrics = stageMetrics,
       jobAggMetrics = analysis.jobAggs,
       stageAggMetrics = analysis.stageAggs,
       sqlTaskAggMetrics = analysis.sqlAggs,
       durAndCpuMet = analysis.sqlDurAggs,
       skewInfo = analysis.taskShuffleSkew,
-      failedTasks = healthCheck.getFailedTasks,
-      failedStages = healthCheck.getFailedStages,
+      failedTasks = failedTasks,
+      failedStages = failedStages,
       failedJobs = healthCheck.getFailedJobs,
       removedBMs = healthCheck.getRemovedBlockManager,
       removedExecutors = healthCheck.getRemovedExecutors,

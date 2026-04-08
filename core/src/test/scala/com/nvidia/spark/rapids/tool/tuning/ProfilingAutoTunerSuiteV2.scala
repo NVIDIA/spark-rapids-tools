@@ -1692,8 +1692,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       redundantReadSize = 0L,
       shuffleStagesWithPosSpilling = Set.empty,
       shuffleSkewStages = Set.empty,
-      scanStagesWithGpuOom = false,
-      shuffleStagesWithOom = false,
+      scanStagesWithGpuOom = Set.empty,
+      shuffleStagesWithOom = Set.empty,
       maxColumnarExchangeDataSizeBytes = Some(1000L * 1024 * 1024 * 1024) // 1000GB
     )
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))

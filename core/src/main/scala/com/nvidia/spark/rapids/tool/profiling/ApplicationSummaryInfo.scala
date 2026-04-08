@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,8 @@ trait AppInfoReadMetrics {
 }
 
 trait AppInfoGpuOomCheck {
-  def hasScanStagesWithGpuOom: Boolean = false
-  def hasShuffleStagesWithOom: Boolean = false
+  def scanStagesWithGpuOom: Set[Long] = Set.empty
+  def shuffleStagesWithOom: Set[Long] = Set.empty
 }
 
 trait AppInfoColumnarExchangeMetrics {
@@ -230,85 +230,24 @@ class SingleAppSummaryInfoProvider(
   }
 
   /**
-   * Check if there are any scan stages with failed tasks due to GPU OOM errors
+   * Returns stage IDs of scan stages with failed tasks due to GPU OOM errors
    * (GpuRetryOOM and GpuSplitAndRetryOOM).
    */
-  override def hasScanStagesWithGpuOom: Boolean = {
-    // If the plugin is not enabled (i.e. non-GPU app), return false
-    if (!app.appInfo.exists(_.pluginEnabled)) {
-      return false
-    }
-
-    // Find stages with failed tasks due to GPU OOM errors
-    val failedStagesWithGpuOom = app.failedTasks.collect {
-      case task if SparkRapidsOomExceptions.gpuExceptionClassNames
-        .exists(task.endReason.contains) => task.stageId
-    }
-
-    if (failedStagesWithGpuOom.isEmpty) {
-      return false
-    }
-
-    // Calculate stageIds of scan stages (i.e. stages with 'scan time' metrics)
-    val scanStages = app.stageMetrics.collect {
-      case metric if IoMetrics.getIoMetricsHelper(appInfo).isScanTimeMetric(metric) =>
-        metric.stageId
-    }.toSet
-
-    if (scanStages.isEmpty) {
-      return false
-    }
-
-    // Check if any failed GPU OOM stage is also a scan stage
-    failedStagesWithGpuOom.exists(scanStages.contains)
+  override def scanStagesWithGpuOom: Set[Long] = {
+    SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
+      app.appInfo.exists(_.pluginEnabled),
+      app.failedTasks, app.stageMetrics, appInfo)
   }
 
   /**
-   * This method checks for failed shuffle stages with OOM errors in the task's end reason.
+   * Returns stage IDs of failed shuffle stages with OOM errors in the task's end reason.
    * Note: This check is enabled only if the plugin is enabled (i.e. GPU app) and running on YARN.
-   * """
    */
-  override def hasShuffleStagesWithOom: Boolean = {
-    // If the plugin is not enabled (i.e. non-GPU app) or not running on YARN, return false
-    val sparkMaster = SparkMaster(getSparkProperty("spark.master"))
-    if (!app.appInfo.exists(_.pluginEnabled) || !sparkMaster.contains(Yarn)) {
-      return false
-    }
-
-    // Get stage IDs of failed shuffle stages
-    // Sample stage name: "submitShuffleJob$ at GpuShuffleExchangeExec.scala:53"
-    val failedStagesWithShuffle = app.failedStages.collect {
-      case stage if stage.name.contains(SparkRapidsOomExceptions.gpuShuffleClassName) =>
-        stage.stageId
-    }.toSet
-
-    if (failedStagesWithShuffle.isEmpty) {
-      return false
-    }
-
-    // scalastyle:off line.size.limit
-    // Check if the failed task's end reason contains OOM errors
-    // Sample end reason for failed tasks on YARN: "ExecutorLostFailure (executor 2 exited caused by one of the running tasks) Reason: Container from a bad node: container_e02_17xxx on host: test-cluster-w-0. Exit status: 137"
-    // Reference: https://github.com/apache/spark/blob/master/resource-managers/yarn/src/main/scala/org/apache/spark/deploy/yarn/YarnAllocator.scala
-    // scalastyle:on line.size.limit
-    // Regular expressions to identify OOM failures in task's end reason
-    // - ExecutorLostFailure
-    // - Exit status: 137 (i.e. process was terminated with SIGKILL)
-    val oomFailurePatterns = Seq(
-      classOf[ExecutorLostFailure].getSimpleName,
-      s"Exit status: ${UnixExitCode.FORCE_KILLED}"
-    ).map(_.r)
-
-    // Check if any failed task in shuffle stages have OOM failures
-    app.failedTasks.exists { task =>
-      if (failedStagesWithShuffle.contains(task.stageId)) {
-        // Check if the task failed due to OOM
-        oomFailurePatterns.forall(p => p.findFirstIn(task.endReason).isDefined)
-      } else {
-        // Ignore if the failed task is not in a shuffle stage
-        false
-      }
-    }
+  override def shuffleStagesWithOom: Set[Long] = {
+    SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
+      app.appInfo.exists(_.pluginEnabled),
+      getSparkProperty("spark.master"),
+      app.failedStages, app.failedTasks)
   }
 
   /**
@@ -320,9 +259,110 @@ class SingleAppSummaryInfoProvider(
    *         ColumnarExchange "data size" metrics are found
    */
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = {
-    val columnarExchangeDataSizesBytes = app.sqlMetrics.collect {
+    SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(app.sqlMetrics)
+  }
+
+  override def getClassPathEntries: Map[String, String] = {
+    appInfo.classpathEntries
+  }
+}
+
+object SingleAppSummaryInfoProvider {
+  /**
+   * Computes the set of scan stage IDs that had GPU OOM failures.
+   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
+   */
+  def computeScanStagesWithGpuOom(
+      pluginEnabled: Boolean,
+      failedTasks: Seq[FailedTaskProfileResults],
+      stageMetrics: Seq[AccumProfileResults],
+      appInfo: ApplicationInfo): Set[Long] = {
+    if (!pluginEnabled) {
+      return Set.empty
+    }
+
+    // Find stages with failed tasks due to GPU OOM errors
+    val failedStagesWithGpuOom = failedTasks.collect {
+      case task if SparkRapidsOomExceptions.isGpuOom(task.endReason) => task.stageId.toLong
+    }
+
+    if (failedStagesWithGpuOom.isEmpty) {
+      return Set.empty
+    }
+
+    // Calculate stageIds of scan stages (i.e. stages with 'scan time' metrics)
+    val scanStages = stageMetrics.collect {
+      case metric if IoMetrics.getIoMetricsHelper(appInfo).isScanTimeMetric(metric) =>
+        metric.stageId.toLong
+    }.toSet
+
+    if (scanStages.isEmpty) {
+      return Set.empty
+    }
+
+    // Return scan stages that also had GPU OOM failures
+    failedStagesWithGpuOom.filter(scanStages.contains).toSet
+  }
+
+  /**
+   * Computes the set of shuffle stage IDs that had container OOM failures (YARN only).
+   * Detects ExecutorLostFailure with exit code 137 (SIGKILL from container memory enforcement).
+   * See: https://github.com/NVIDIA/spark-rapids-tools/issues/1566
+   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
+   */
+  def computeShuffleStagesWithOom(
+      pluginEnabled: Boolean,
+      sparkMasterStr: Option[String],
+      failedStages: Seq[FailedStagesProfileResults],
+      failedTasks: Seq[FailedTaskProfileResults]): Set[Long] = {
+    if (!pluginEnabled || !SparkMaster(sparkMasterStr).contains(Yarn)) {
+      return Set.empty
+    }
+
+    // Get stage IDs of failed shuffle stages
+    // Sample stage name: "submitShuffleJob$ at GpuShuffleExchangeExec.scala:53"
+    val failedStagesWithShuffle = failedStages.collect {
+      case stage if stage.name.contains(SparkRapidsOomExceptions.gpuShuffleClassName) =>
+        stage.stageId.toLong
+    }.toSet
+
+    if (failedStagesWithShuffle.isEmpty) {
+      return Set.empty
+    }
+
+    // scalastyle:off line.size.limit
+    // Check if the failed task's end reason contains OOM errors
+    // Sample end reason for failed tasks on YARN:
+    // "ExecutorLostFailure (executor 2 exited caused by one of the running tasks)
+    //  Reason: Container from a bad node: container_e02_17xxx on host: test-cluster-w-0.
+    //  Exit status: 137"
+    // Reference: https://github.com/apache/spark/blob/master/resource-managers/yarn/src/main/scala/org/apache/spark/deploy/yarn/YarnAllocator.scala
+    // scalastyle:on line.size.limit
+    // Regular expressions to identify OOM failures in task's end reason
+    // - ExecutorLostFailure
+    // - Exit status: 137 (i.e. process was terminated with SIGKILL)
+    val oomFailurePatterns = Seq(
+      classOf[ExecutorLostFailure].getSimpleName,
+      s"Exit status: ${UnixExitCode.FORCE_KILLED}"
+    ).map(_.r)
+
+    // Return shuffle stages that had tasks with OOM failures
+    failedTasks.collect {
+      case task if failedStagesWithShuffle.contains(task.stageId.toLong) &&
+        oomFailurePatterns.forall(p => p.findFirstIn(task.endReason).isDefined) =>
+        task.stageId.toLong
+    }.toSet
+  }
+
+  /**
+   * Computes the maximum data size from ColumnarExchange metrics.
+   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
+   */
+  def computeMaxColumnarExchangeDataSizeBytes(
+      sqlMetrics: Seq[SQLAccumProfileResults]): Option[Long] = {
+    val columnarExchangeDataSizesBytes = sqlMetrics.collect {
       case metric if metric.nodeName.contains("ColumnarExchange") &&
-                      metric.name == "data size" =>
+        metric.name == "data size" =>
         metric.total
     }
     if (columnarExchangeDataSizesBytes.nonEmpty) {
@@ -330,9 +370,5 @@ class SingleAppSummaryInfoProvider(
     } else {
       None
     }
-  }
-
-  override def getClassPathEntries: Map[String, String] = {
-    appInfo.classpathEntries
   }
 }

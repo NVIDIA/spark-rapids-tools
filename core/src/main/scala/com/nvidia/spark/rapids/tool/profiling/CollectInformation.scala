@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,21 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
 
   def getAppInfo: Seq[AppInfoProfileResults] = {
     ProfInformationView.getRawView(apps)
+  }
+
+  // Extends AppInfoProfileResults with fields that require aggregate metrics or
+  // cross-referencing (e.g., failed tasks with stage metrics). Fields like
+  // totalCoreSeconds are already populated at the view layer in InformationView.
+  def getExtendedAppInfo(
+      maxTaskInputBytesRead: Double,
+      maxColumnarExchangeDataSizeBytes: Option[Long],
+      scanStagesWithGpuOom: Set[Long],
+      shuffleStagesWithOom: Set[Long]): Seq[AppInfoProfileResults] = {
+    getAppInfo.map(_.copy(
+      maxTaskInputBytesRead = maxTaskInputBytesRead,
+      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes,
+      scanStagesWithGpuOom = scanStagesWithGpuOom,
+      shuffleStagesWithOom = shuffleStagesWithOom))
   }
 
   def getAppLogPath: Seq[AppLogPathProfileResults] = {

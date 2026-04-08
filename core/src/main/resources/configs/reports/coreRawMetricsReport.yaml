@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -106,6 +106,22 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
+          - name: maxTaskInputBytesRead
+            dataType: Double
+            description: >-
+              Maximum per-task input bytes read across all SQLs
+          - name: maxColumnarExchangeDataSizeBytes
+            dataType: Long
+            description: >-
+              Maximum data size from ColumnarExchange metrics (profiling only)
+          - name: scanStagesWithGpuOom
+            dataType: String
+            description: >-
+              Comma-separated stage IDs of scan stages with GPU OOM (profiling only)
+          - name: shuffleStagesWithOom
+            dataType: String
+            description: >-
+              Comma-separated stage IDs of shuffle stages with OOM (profiling only)
       # AppLogPathProfileResults
       - label: coreRawApplicationLogPathMappingCSV
         description: >-
