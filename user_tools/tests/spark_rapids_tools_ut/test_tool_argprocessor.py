@@ -17,6 +17,7 @@
 import dataclasses
 import warnings
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Callable, List
 
 import pytest
@@ -96,6 +97,26 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                  tools_jar=kwargs.get('tools_jar'),
                                                  tools_config_path=kwargs.get('tools_config_path'),
                                                  submission_mode=kwargs.get('submission_mode'))
+        assert pytest_wrapped_e.type == SystemExit
+
+    @staticmethod
+    def create_estimation_model_args_should_pass(custom_model_file: str = None):
+        return AbsToolUserArgModel.create_tool_args(
+            {'toolName': 'qualification', 'validatorName': 'estimation_model_args'},
+            estimation_model=None,
+            custom_model_file=custom_model_file,
+            qualx_config=None,
+        )
+
+    @staticmethod
+    def create_estimation_model_args_should_fail(custom_model_file: str):
+        with pytest.raises(SystemExit) as pytest_wrapped_e:
+            AbsToolUserArgModel.create_tool_args(
+                {'toolName': 'qualification', 'validatorName': 'estimation_model_args'},
+                estimation_model=None,
+                custom_model_file=custom_model_file,
+                qualx_config=None,
+            )
         assert pytest_wrapped_e.type == SystemExit
 
     @staticmethod
@@ -305,6 +326,22 @@ class TestToolArgProcessor(SparkRapidsToolsUT):  # pylint: disable=too-few-publi
                                                       tools_config_path=tools_conf_path,
                                                       submission_mode=submission_mode)
         assert tool_args['toolsConfig'] is not None
+
+    def test_custom_model_file_requires_existing_json_for_plain_path_and_file_uri(self, tmp_path):
+        missing_plain = '/invalid/path/to/model.json'
+        missing_uri = Path(missing_plain).as_uri()
+
+        self.create_estimation_model_args_should_fail(custom_model_file=missing_plain)
+        self.create_estimation_model_args_should_fail(custom_model_file=missing_uri)
+
+        existing_model = tmp_path / 'custom_model.json'
+        existing_model.write_text('{"model": "ok"}', encoding='utf-8')
+
+        plain_args = self.create_estimation_model_args_should_pass(custom_model_file=str(existing_model))
+        assert plain_args['customModelFile'] == str(existing_model)
+
+        uri_args = self.create_estimation_model_args_should_pass(custom_model_file=existing_model.as_uri())
+        assert uri_args['customModelFile'] == existing_model.as_uri()
 
     def test_arg_cases_coverage(self):
         """

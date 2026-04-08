@@ -98,8 +98,10 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
     def __init__(self, *args: Any, **kwargs: Any):
         self.fs = self.create_fs_handler(*args, **kwargs)
 
-    def create_as_path(self, entry_path: Union[str, BoundedCspPath]) -> BoundedCspPath:
-        return self._path_meta.path_class(entry_path=entry_path, fs_obj=self)
+    def create_as_path(self,
+                       entry_path: Union[str, BoundedCspPath],
+                       file_info: Optional[arrow_fs.FileInfo] = None) -> BoundedCspPath:
+        return self._path_meta.path_class(entry_path=entry_path, fs_obj=self, file_info=file_info)
 
     @classmethod
     def copy_file(cls, src: BoundedCspPath, dest: BoundedCspPath):
@@ -179,7 +181,7 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
         dir_info_list = path.fs_obj.get_file_info(
             arrow_fs.FileSelector(base_dir=path.no_scheme))
         return [
-            path.create_sub_path(dir_info.base_name)
+            path.create_sub_path(dir_info.base_name, file_info=dir_info)
             for dir_info in dir_info_list
             if item_type is None or dir_info.type == item_type
         ]
@@ -213,11 +215,11 @@ class CspFs(abc.ABC, Generic[BoundedCspPath]):
         res = []
         for i_entry in dir_list:
             item_name = i_entry.base_name
-            item = csp_path.create_sub_path(item_name)
+            item = csp_path.create_sub_path(item_name, file_info=i_entry)
             if i_entry.type == FileType.Directory and recursive:
                 res.extend(
                     self.glob_inner(
-                        csp_path.create_sub_path(item_name),
+                        item,
                         pattern,
                         item_type,
                         recursive=recursive))

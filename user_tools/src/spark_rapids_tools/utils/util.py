@@ -101,6 +101,29 @@ def stringify_path(fpath) -> str:
     return os.path.abspath(expanded_path)
 
 
+def _strip_path_wrappers(fpath: str) -> str:
+    return fpath.strip().strip("'\"")
+
+
+def _normalize_file_uri(fpath: str) -> str:
+    if not fpath.lower().startswith('file:'):
+        return fpath
+
+    path_part = fpath[5:]
+    normalized_path = f'/{path_part.lstrip("/")}' if path_part else '/'
+    absolute_path = os.path.abspath(normalized_path)
+    return PurePath(absolute_path).as_uri()
+
+
+def _normalize_s3_uri(fpath: str) -> str:
+    lower_path = fpath.lower()
+    if lower_path.startswith('s3a://'):
+        return f's3://{fpath[6:]}'
+    if lower_path.startswith('s3n://'):
+        return f's3://{fpath[6:]}'
+    return fpath
+
+
 def resolve_and_prepare_log_file(tools_home_dir: str):
     run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
     log_dir = f'{tools_home_dir}/logs'
@@ -120,11 +143,12 @@ def is_http_file(value: Any) -> bool:
 
 
 def get_path_as_uri(fpath: str) -> str:
-    if re.match(r'\w+://', fpath):
+    normalized_path = _normalize_s3_uri(_normalize_file_uri(_strip_path_wrappers(fpath)))
+    if re.match(r'\w+://', normalized_path):
         # that's already a valid url
-        return fpath
+        return normalized_path
     # stringify the path to apply the common methods which is expanding the file.
-    local_path = stringify_path(fpath)
+    local_path = stringify_path(normalized_path)
     return PurePath(local_path).as_uri()
 
 
