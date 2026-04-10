@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pyarrow.fs as arrow_fs
 import pytest
+from pydantic_core import PydanticCustomError
 
 from spark_rapids_tools.storagelib import CspFs, CspPath
 from spark_rapids_tools.storagelib.local.localpath import LocalPath
@@ -54,6 +55,20 @@ class TestCspPathNormalization:
 class TestCspPathFileInfoCaching:
     """Verify metadata reuse and invalidation behaviour."""
 
+    def test_is_file_path_returns_false_when_local_file_lookup_raises(self, monkeypatch, tmp_path):
+        local_file = tmp_path / "guarded.txt"
+        local_file.write_text("data", encoding="utf-8")
+
+        def raising_is_file(path_obj):
+            del path_obj
+            raise OSError("permission denied")
+
+        monkeypatch.setattr(CspPath, "is_file", raising_is_file)
+
+        assert CspPath.is_file_path(local_file.as_uri(), raise_on_error=False) is False
+        with pytest.raises(PydanticCustomError, match="could not be validated as a local file"):
+            CspPath.is_file_path(local_file.as_uri())
+
     def test_list_all_reuses_file_info_from_directory_listing(self, monkeypatch, tmp_path):
         child = tmp_path / "child.txt"
         child.write_text("data", encoding="utf-8")
@@ -75,7 +90,7 @@ class TestCspPathFileInfoCaching:
         direct_lookup_calls.clear()
         assert child_path.exists() is True
         assert child_path.base_name() == "child.txt"
-        assert direct_lookup_calls == []
+        assert not direct_lookup_calls
 
     def test_open_output_stream_invalidates_stale_file_info(self, tmp_path):
         created_path = CspPath(str(tmp_path / "created.txt"))

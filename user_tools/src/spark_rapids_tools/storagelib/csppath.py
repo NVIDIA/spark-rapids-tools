@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -229,7 +229,15 @@ class CspPath(metaclass=CspPathMeta):
             # both must refer to an existing file, not just have a valid URI shape.
             normalized_value = str(file_path).strip().strip("'\"")
             if normalized_value.lower().startswith('file:'):
-                return CspPath(normalized_value).is_file()
+                try:
+                    return CspPath(normalized_value).is_file()
+                except Exception as err:  # pylint: disable=broad-except
+                    if raise_on_error:
+                        raise PydanticCustomError(
+                            'file_path',
+                            f'File path {file_path} could not be validated as a local file.\n  Error:{err}'
+                        ) from err
+                    return False
             return True
         except ValidationError as err:
             if raise_on_error:
