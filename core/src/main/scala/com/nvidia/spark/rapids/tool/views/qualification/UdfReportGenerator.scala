@@ -33,7 +33,7 @@ object UdfReportGenerator {
     name: String,
     exec: String,
     sql_id: Long,
-    stage_id: Int)
+    stage_id: Option[Int])
 
   case class UdfMetrics(
     unsupported_task_duration_ms: Long,
@@ -65,7 +65,7 @@ object UdfReportGenerator {
         }
 
         execs.filter(_.udf).flatMap { e =>
-          val stageId = e.stages.headOption.getOrElse(-1)
+          val stageId = e.stages.headOption
           val sqlId = e.sqlID
 
           if (e.unsupportedExprs.nonEmpty) {
@@ -111,7 +111,7 @@ object UdfReportGenerator {
     val appTaskDuration = stageInfo.map(_.stageTaskTime).sum
     if (appTaskDuration == 0) return None
 
-    val udfStageIds = udfs.map(_.stage_id).filter(_ >= 0).toSet
+    val udfStageIds = udfs.flatMap(_.stage_id).toSet
     val unsupportedTaskDuration = stageInfo
       .filter(s => udfStageIds.contains(s.stageId))
       .map(_.unsupportedTaskDur).sum
