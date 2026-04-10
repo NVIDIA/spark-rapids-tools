@@ -313,7 +313,6 @@ object ExecInfo {
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
     val nodeName = node.name.trim
-    // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
     val containsUDF = udf || ExecHelper.isUDF(node)
     // check is the node has a dataset operations and if so change to not supported
     val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)

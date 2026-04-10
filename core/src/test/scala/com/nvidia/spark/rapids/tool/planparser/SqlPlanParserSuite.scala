@@ -808,7 +808,10 @@ class SQLPlanParserSuite extends BasePlanParserSuite with Matchers {
     assertSizeAndSupported(1, aggregateInPandas)
     // this event log had UDF for ArrowEvalPath so shows up as not supported
     val arrowEvalPython = allExecInfo.filter(_.exec == "ArrowEvalPython")
-    assertSizeAndSupported(1, arrowEvalPython)
+    // Note that we do not assert speedupFactor == 1, since some speedup is
+    // observed for Pandas execs due to accelerated data transfer
+    assert(arrowEvalPython.size == 1)
+    assert(arrowEvalPython.forall(!_.isSupported))
     val mapInPandas = allExecInfo.filter(_.exec == "MapInPandas")
     assertSizeAndSupported(1, mapInPandas)
     // WindowInPandas configured off by default

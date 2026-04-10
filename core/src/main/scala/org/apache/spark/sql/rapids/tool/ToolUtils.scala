@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -326,10 +326,6 @@ object ExecHelper {
     ".*UDF.*".r
   )
 
-  // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
-  private val skipUDFCheckExecs = Seq("ArrowEvalPython", "AggregateInPandas",
-    "FlatMapGroupsInPandas", "MapInPandas", "WindowInPandas", "PythonMapInArrow", "MapInArrow")
-
   // Set containing execs that should be labeled as "shouldRemove"
   private val execsToBeRemoved = Set(
     "GenerateBloomFilter",      // Exclusive on AWS. Ignore it as metrics cannot be evaluated.
@@ -350,11 +346,7 @@ object ExecHelper {
   )
 
   def isUDF(node: SparkPlanGraphNode): Boolean = {
-    if (skipUDFCheckExecs.exists(node.name.contains(_))) {
-      false
-    } else {
-      UDFRegExLookup.exists(regEx => node.desc.matches(regEx.regex))
-    }
+    UDFRegExLookup.exists(regEx => node.desc.matches(regEx.regex))
   }
 
   def shouldBeRemoved(nodeName: String): Boolean = {
