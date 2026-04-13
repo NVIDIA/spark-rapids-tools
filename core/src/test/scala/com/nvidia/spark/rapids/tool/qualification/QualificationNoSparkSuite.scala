@@ -40,17 +40,16 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
   def expectedQualLoc(dirName: String): String = s"$expRoot/$dirName"
   def profEventLog(fileName: String): String = s"$profLogDir/$fileName"
 
-  /** Parse udf_report.json and return (has_udfs, udfs list, metrics option). */
+  /** Parse udf_report.json and return (udfs list, metrics option). */
   private def readUdfReport(jsonFile: java.io.File)
-      : (Boolean, Seq[Map[String, Any]], Option[Map[String, Any]]) = {
+      : (Seq[Map[String, Any]], Option[Map[String, Any]]) = {
     implicit val formats: DefaultFormats.type = DefaultFormats
     val source = UTF8Source.fromFile(jsonFile)
     val content = try source.mkString finally source.close()
     val json = JsonMethods.parse(content)
-    val hasUdfs = (json \ "has_udfs").extract[Boolean]
     val udfs = (json \ "udfs").extract[Seq[Map[String, Any]]]
     val metrics = (json \ "metrics").extractOpt[Map[String, Any]]
-    (hasUdfs, udfs, metrics)
+    (udfs, metrics)
   }
 
   test("test order desc") {
@@ -867,8 +866,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report detects Scala UDFs")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe true
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs.size shouldBe 3
             // All UDFs are inside Project execs, across SQL IDs 2, 5, 8
             udfs.foreach(_("exec") shouldBe "Project")
@@ -892,8 +890,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report detects Dataset UDF")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe true
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs.size shouldBe 1
             udfs.head("exec") shouldBe "Project"
             udfs.head("sql_id").asInstanceOf[BigInt].toInt shouldBe 0
@@ -916,8 +913,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report detects Pandas UDF")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe true
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs.size shouldBe 1
             udfs.head("name") shouldBe "ArrowEvalPython"
             udfs.head("exec") shouldBe "ArrowEvalPython"
@@ -941,8 +937,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report detects Java/Hive UDF")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe true
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs.size shouldBe 1
             udfs.head("name") shouldBe "IntegerMultiplyBy2UDF"
             udfs.head("exec") shouldBe "Project"
@@ -966,8 +961,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report detects Python UDF")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe true
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs.size shouldBe 1
             udfs.head("name") shouldBe "BatchEvalPython"
             udfs.head("exec") shouldBe "BatchEvalPython"
@@ -990,8 +984,7 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
         QToolOutJsonFileCheckerImpl("UDF report shows no UDFs")
           .withTableLabel("udfReportJSON")
           .withContentVisitor((_, jsonFile) => {
-            val (hasUdfs, udfs, metrics) = readUdfReport(jsonFile)
-            hasUdfs shouldBe false
+            val (udfs, metrics) = readUdfReport(jsonFile)
             udfs shouldBe empty
             // metrics is None in the report (serialized as null in JSON);
             // extractOpt returns Some(Map()) for null, so check emptiness

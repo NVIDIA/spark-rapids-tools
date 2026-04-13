@@ -178,7 +178,6 @@ class QualificationSuite extends BaseWithSparkSuite {
             val content = try source.mkString finally source.close()
             val json = org.json4s.jackson.JsonMethods.parse(content)
             implicit val formats: org.json4s.DefaultFormats.type = org.json4s.DefaultFormats
-            (json \ "has_udfs").extract[Boolean] shouldBe true
             val udfs = (json \ "udfs").extract[Seq[Map[String, Any]]]
             udfs should not be empty
             udfs.exists(_("exec") == "Project") shouldBe true

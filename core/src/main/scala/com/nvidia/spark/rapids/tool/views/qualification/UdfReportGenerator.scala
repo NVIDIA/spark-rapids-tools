@@ -41,7 +41,6 @@ object UdfReportGenerator {
     unsupported_task_duration_pct: Double)
 
   case class UdfReport(
-    has_udfs: Boolean,
     udfs: Seq[UdfEntry],
     metrics: Option[UdfMetrics])
 
@@ -49,7 +48,6 @@ object UdfReportGenerator {
     val udfs = collectUdfs(rec)
     val metrics = if (udfs.nonEmpty) computeMetrics(rec, udfs) else None
     UdfReport(
-      has_udfs = udfs.nonEmpty,
       udfs = udfs,
       metrics = metrics)
   }
@@ -65,6 +63,8 @@ object UdfReportGenerator {
         }
 
         execs.filter(_.udf).flatMap { e =>
+          // Take the first stage ID. Scalar UDFs execute within a single stage.
+          // TODO: handle UDAFs, which may span multiple stages.
           val stageId = e.stages.headOption
           val sqlId = e.sqlID
 
@@ -112,6 +112,8 @@ object UdfReportGenerator {
     if (appTaskDuration == 0) return None
 
     val udfStageIds = udfs.flatMap(_.stage_id).toSet
+    if (udfStageIds.isEmpty) return None
+
     val unsupportedTaskDuration = stageInfo
       .filter(s => udfStageIds.contains(s.stageId))
       .map(_.unsupportedTaskDur).sum

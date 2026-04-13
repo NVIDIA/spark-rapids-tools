@@ -415,25 +415,25 @@ qualTableDefinitions:
           Calculated as (submissionTime - completionTime) of the given stage
   - label: udfReportJSON
     description: >-
-      UDF detection report containing detected UDFs and metadata
+      UDF detection report containing detected UDFs and estimated timing metrics
     fileName: udf_report.json
     fileFormat: JSON
     scope: per-app
     columns:
-      - name: has_udfs
-        dataType: Boolean
-        description: >-
-          Whether any UDFs were detected in the application
       - name: udfs
         dataType: List
         description: >-
-          List of detected UDFs with name, type, sql_id, and stage_id
+          List of detected UDFs. Each entry contains name (UDF or expression name),
+          exec (the exec node name, e.g. Project, ArrowEvalPython), sql_id, and
+          stage_id (nullable). Empty list when no UDFs are detected.
       - name: metrics
         dataType: Dict
         description: >-
           Estimated task times spent in unsupported operations for stages
-          containing UDFs. This is a rough estimate, and may include other
-          unsupported ops in the stage, not just UDFs.
+          containing UDFs. Null when no UDFs are detected or stage information
+          is unavailable. Contains unsupported_task_duration_ms,
+          app_task_duration_ms, and unsupported_task_duration_pct. This is a
+          rough estimate and may include other unsupported ops in the stage.
   # the following table is enabled only when ml-functions argument is added to the arguments.
   - label: mlFunctionsDurationsCSVReport
     description: >-
