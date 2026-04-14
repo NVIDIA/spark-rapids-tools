@@ -186,6 +186,43 @@ class QualificationSuite extends BaseWithSparkSuite {
       .build()
   }
 
+  test("UDF report filters non-UDF unsupported expressions") {
+    QToolTestCtxtBuilder()
+      .withEvLogProvider(
+        EventlogProviderImpl("Project with both UDF and non-UDF unsupported expression")
+          .withAppName("udfMixedExprs")
+          .withFunc { (provider, spark) =>
+            import org.apache.spark.sql.functions.{ascii, udf}
+            val rootDir = provider.rootDir.get
+            val tmpParquet = s"$rootDir/mixedparquet"
+            createDecimalFile(spark, tmpParquet)
+            val plusOne = udf((x: Int) => x + 1)
+            import spark.implicits._
+            spark.udf.register("plusOne", plusOne)
+            val df = spark.read.parquet(tmpParquet)
+            // Both plusOne (UDF) and ascii (NS built-in) in the same Project
+            val df2 = df.withColumn("udfcol", plusOne($"value"))
+              .withColumn("asciicol", ascii($"value".cast("string")))
+            df2
+          })
+      .withChecker(
+        QToolOutJsonFileCheckerImpl("UDF report only contains UDF expressions")
+          .withTableLabel("udfReportJSON")
+          .withContentVisitor((_, jsonFile) => {
+            val source = UTF8Source.fromFile(jsonFile)
+            val content = try source.mkString finally source.close()
+            val json = org.json4s.jackson.JsonMethods.parse(content)
+            implicit val formats: org.json4s.DefaultFormats.type = org.json4s.DefaultFormats
+            val udfs = (json \ "udfs").extract[Seq[Map[String, Any]]]
+            // Should contain the UDF but not ascii (non-UDF unsupported).
+            // The UDF name appears as "UDF" (generic) when used via DataFrame API.
+            val udfNames = udfs.map(_("name").toString)
+            udfNames should contain ("UDF")
+            udfNames should not contain ("ascii")
+          }))
+      .build()
+  }
+
   runConditionalTest("generate udf different sql ops",
     checkUDFDetectionSupportForSpark) {
     QToolTestCtxtBuilder()

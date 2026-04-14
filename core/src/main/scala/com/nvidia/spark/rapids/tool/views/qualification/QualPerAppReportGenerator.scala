@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ class AppQualUdfReportTable(
 
   override def appendDataToWriter(fWriter: ToolTextFileWriter,
     rec: QualificationSummaryInfo): Unit = {
-    val udfReport = UdfReportGenerator.generateReport(rec)
+    val udfReport = UdfReportBuilder.generateReport(rec)
     fWriter.writeLn(Serialization.writePretty(udfReport))
   }
 }

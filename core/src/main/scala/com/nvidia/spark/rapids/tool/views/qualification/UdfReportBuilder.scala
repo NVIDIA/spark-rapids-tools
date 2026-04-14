@@ -27,7 +27,7 @@ import org.apache.spark.sql.rapids.tool.qualification.QualificationSummaryInfo
  * Metrics are derived from stage-level unsupported task duration which the UDFs
  * are part of, to give a general idea of impact, and are included in the report.
  */
-object UdfReportGenerator {
+object UdfReportBuilder {
 
   case class UdfEntry(
     name: String,
@@ -68,10 +68,10 @@ object UdfReportGenerator {
           val stageId = e.stages.headOption
           val sqlId = e.sqlID
 
-          if (e.unsupportedExprs.nonEmpty) {
+          if (e.udfExprs.nonEmpty) {
             // Container exec (e.g., Project) with named UDF expressions.
             // Report each named expression as a separate UDF entry.
-            e.unsupportedExprs.map { expr =>
+            e.udfExprs.map { expr =>
               UdfEntry(
                 name = expr.getOpName,
                 exec = e.exec,
@@ -79,7 +79,7 @@ object UdfReportGenerator {
                 stage_id = stageId)
             }
           } else if (e.exec != "Project") {
-            // Actual UDF executor (e.g., ArrowEvalPython, BatchEvalPython).
+            // Actual UDF exec (e.g., ArrowEvalPython, BatchEvalPython).
             // Skip Project nodes with no unsupported expressions since they
             // are just containers for child UDF execs running in Python.
             Seq(UdfEntry(
