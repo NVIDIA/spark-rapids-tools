@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -46,6 +47,7 @@ from spark_rapids_tools.enums import DependencyType
 from spark_rapids_tools.storagelib import LocalPath, CspFs
 from spark_rapids_tools.storagelib.tools.fs_utils import untar_file
 from spark_rapids_tools.utils import Utilities, AbstractPropContainer
+from spark_rapids_tools.utils.util import get_path_as_uri_for_hadoop
 from spark_rapids_tools.utils.net_utils import DownloadTask
 
 
@@ -452,6 +454,93 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
     """
     A wrapper class to represent wrapper commands that require RAPIDS jar file.
     """
+    _HADOOP_PATH_ARG_KEYS = frozenset({
+        'driverlog',
+        'target_cluster_info',
+        'tuning_configs',
+    })
+    # Keep this aligned with EventLogPathProcessor.expandTextFile in Scala. The rewritten
+    # local .txt file is passed back into the JAR, so both sides must agree on how entries
+    # inside an eventlog list file are tokenized.
+    _EVENTLOG_LIST_TOKEN_SPLIT_PATTERN = re.compile(r'[\s,;]+')
+
+    @staticmethod
+    def _prepare_hadoop_arg_path(path_value: str) -> str:
+        """Normalize a single Hadoop/JVM-bound path string."""
+        return get_path_as_uri_for_hadoop(path_value)
+
+    @classmethod
+    def _prepare_hadoop_arg_value(cls, option_key: str, option_value: Any) -> Any:
+        """
+        Normalize supported JAR-bound wrapper options before they are serialized as CLI args.
+
+        `driverlog`, `target_cluster_info`, and `tuning_configs` are the `rapidOptions`
+        entries that cross the Hadoop/JVM boundary, and all three are scalar string paths
+        produced by the argprocessor.
+        """
+        if option_key not in cls._HADOOP_PATH_ARG_KEYS:
+            return option_value
+        return cls._prepare_hadoop_arg_path(option_value)
+
+    @classmethod
+    def _rewrite_local_eventlog_list_file(cls, list_file: str, work_dir: str) -> str:
+        """
+        Rewrite a local eventlog list file so every contained path is explicit for Hadoop.
+
+        Eventlog list files are treated as token lists rather than free-form text. The
+        current contract accepts paths separated by newlines, whitespace, commas, or
+        semicolons, then rewrites the file as one normalized path per line.
+        The rewritten file is created under the wrapper work directory so it remains available
+        for the JAR invocation.
+        """
+        list_path = LocalPath(list_file)
+        if not list_path.is_file():
+            return list_file
+
+        with open(list_path.no_scheme, mode='r', encoding='utf-8') as src_file:
+            list_contents = src_file.read()
+
+        prepared_tokens = [
+            cls._prepare_hadoop_arg_path(token)
+            for token in cls._EVENTLOG_LIST_TOKEN_SPLIT_PATTERN.split(list_contents)
+            if token
+        ]
+        if not prepared_tokens:
+            return list_file
+        with tempfile.NamedTemporaryFile(mode='w',
+                                         encoding='utf-8',
+                                         delete=False,
+                                         dir=work_dir,
+                                         prefix='eventlogs-',
+                                         suffix='.txt') as tmp_file:
+            tmp_file.write('\n'.join(prepared_tokens))
+            tmp_file.write('\n')
+            return f'file://{tmp_file.name}'
+
+    @classmethod
+    def _prepare_eventlog_arg_for_hadoop(cls, eventlog: str, work_dir: str) -> str:
+        """
+        Normalize one eventlog entry before it is handed to the JAR.
+
+        An eventlog entry may itself be a local `.txt` file that expands to multiple eventlog
+        paths. Those files require a second pass over their contents before the JAR consumes them.
+        """
+        prepared_eventlog = cls._prepare_hadoop_arg_path(eventlog)
+        if not prepared_eventlog.lower().endswith('.txt'):
+            return prepared_eventlog
+        if not prepared_eventlog.lower().startswith('file:'):
+            return prepared_eventlog
+        return cls._rewrite_local_eventlog_list_file(prepared_eventlog, work_dir)
+
+    @classmethod
+    def _prepare_eventlog_args_for_hadoop(cls, eventlogs: List[str], work_dir: str) -> List[str]:
+        """
+        Normalize the final eventlog list stored in wrapper context before JAR handoff.
+
+        `_process_eventlogs_args` resolves the top-level wrapper input into `List[str]`; this
+        method applies per-entry normalization and local `.txt` list-file rewriting.
+        """
+        return [cls._prepare_eventlog_arg_for_hadoop(entry, work_dir) for entry in eventlogs]
 
     @cached_property
     def core_handler(self) -> APIResHandler[ToolResultHandlerT]:
@@ -522,6 +611,7 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
         self.logger.debug('Processing Rapids plugin Arguments %s', self.rapids_options)
         raw_tool_opts: Dict[str, Any] = {}
         for key, value in self.rapids_options.items():
+            value = self._prepare_hadoop_arg_value(key, value)
             if not isinstance(value, bool):
                 # a boolean flag, does not need to have its value added to the list
                 if isinstance(value, str):
@@ -767,7 +857,10 @@ class RapidsJarTool(RapidsTool, Generic[ToolResultHandlerT]):
                               'The cluster Spark properties may be missing "spark.eventLog.dir". '
                               'Re-run the command passing "--eventlogs" flag to the wrapper.')
             raise RuntimeError('Invalid arguments. The list of Apache Spark event logs is empty.')
-        self.ctxt.set_ctxt('eventLogs', spark_event_logs)
+        self.ctxt.set_ctxt(
+            'eventLogs',
+            self._prepare_eventlog_args_for_hadoop(spark_event_logs, self.ctxt.get_local_work_dir())
+        )
 
     def _create_migration_cluster(self, cluster_type: str, cluster_arg: str) -> ClusterBase:
         if cluster_arg is None:
