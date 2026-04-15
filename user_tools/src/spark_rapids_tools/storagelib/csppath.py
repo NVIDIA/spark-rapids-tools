@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -222,7 +222,22 @@ class CspPath(metaclass=CspPathMeta):
                      extensions: List[str] = None,
                      raise_on_error: bool = True):
         try:
-            TypeAdapter(AcceptedFilePath).validate_python({'file_path': file_path, 'extensions': extensions})
+            TypeAdapter(AcceptedFilePath).validate_python(
+                {'file_path': file_path, 'extensions': extensions}
+            )
+            # Keep local file URIs semantically aligned with plain local paths:
+            # both must refer to an existing file, not just have a valid URI shape.
+            normalized_value = str(file_path).strip().strip("'\"")
+            if normalized_value.lower().startswith('file:'):
+                try:
+                    return CspPath(normalized_value).is_file()
+                except Exception as err:  # pylint: disable=broad-except
+                    if raise_on_error:
+                        raise PydanticCustomError(
+                            'file_path',
+                            f'File path {file_path} could not be validated as a local file.\n  Error:{err}'
+                        ) from err
+                    return False
             return True
         except ValidationError as err:
             if raise_on_error:
@@ -253,7 +268,8 @@ class CspPath(metaclass=CspPathMeta):
     def __init__(
             self,
             entry_path: Union[str, Self],
-            fs_obj: Optional['CspFs'] = None
+            fs_obj: Optional['CspFs'] = None,
+            file_info: Optional[FileInfo] = None
     ) -> None:
         self.is_valid_csppath(entry_path, raise_on_error=True)
         self._fpath = str(entry_path)
@@ -270,6 +286,8 @@ class CspPath(metaclass=CspPathMeta):
             )
         self.fs_obj = fs_obj
         self._file_info = None
+        if file_info is not None:
+            self._cache_file_info(file_info)
 
     def __str__(self) -> str:
         return self._fpath
@@ -288,6 +306,14 @@ class CspPath(metaclass=CspPathMeta):
 
     def _pull_file_info(self) -> FileInfo:
         return self.fs_obj.get_file_info(self.no_scheme)
+
+    def _cache_file_info(self, file_info: FileInfo) -> None:
+        self._file_info = file_info
+        self.__dict__['file_info'] = file_info
+
+    def invalidate_file_info(self) -> None:
+        self._file_info = None
+        self.__dict__.pop('file_info', None)
 
     @cached_property
     def file_info(self) -> FileInfo:
@@ -313,20 +339,20 @@ class CspPath(metaclass=CspPathMeta):
             if self.exists():
                 raise CspFileExistsError(f'Path already Exists: {self}')
         self.fs_obj.create_dir(self.no_scheme)
-        # force the file information object to be retrieved again by invalidating the cached property
-        if 'file_info' in self.__dict__:
-            del self.__dict__['file_info']
+        self.invalidate_file_info()
 
     def open_input_stream(self):
         return self.fs_obj.open_input_stream(self.no_scheme)
 
     def open_output_stream(self):
+        self.invalidate_file_info()
         return self.fs_obj.open_output_stream(self.no_scheme)
 
     def open_append_stream(self):
+        self.invalidate_file_info()
         return self.fs_obj.open_append_stream(self.no_scheme)
 
-    def create_sub_path(self, relative: str) -> 'CspPath':
+    def create_sub_path(self, relative: str, file_info: Optional[FileInfo] = None) -> 'CspPath':
         """
         Given a relative path, it will return a new CspPath object with the relative path appended to
         the current path. This is just for building a path, and it does not call mkdirs.
@@ -347,7 +373,7 @@ class CspPath(metaclass=CspPathMeta):
         if self._fpath.endswith('/'):
             postfix = ''
         new_path = f'{self._fpath}{postfix}{sub_path}'
-        return CspPath(new_path)
+        return CspPath(new_path, fs_obj=self.fs_obj, file_info=file_info)
 
     def to_str_format(self) -> str:
         """

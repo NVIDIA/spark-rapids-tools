@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -413,6 +413,27 @@ qualTableDefinitions:
         dataType: Long
         description: >-
           Calculated as (submissionTime - completionTime) of the given stage
+  - label: udfReportJSON
+    description: >-
+      UDF detection report containing detected UDFs and estimated timing metrics
+    fileName: udf_report.json
+    fileFormat: JSON
+    scope: per-app
+    columns:
+      - name: udfs
+        dataType: List
+        description: >-
+          List of detected UDFs. Each entry contains name (UDF or expression name),
+          exec (the exec node name, e.g. Project, ArrowEvalPython), sql_id, and
+          stage_id (nullable). Empty list when no UDFs are detected.
+      - name: metrics
+        dataType: Dict
+        description: >-
+          Estimated task times spent in unsupported operations for stages
+          containing UDFs. Null when no UDFs are detected or stage information
+          is unavailable. Contains unsupported_task_duration_ms,
+          app_task_duration_ms, and unsupported_task_duration_pct. This is a
+          rough estimate and may include other unsupported ops in the stage.
   # the following table is enabled only when ml-functions argument is added to the arguments.
   - label: mlFunctionsDurationsCSVReport
     description: >-
