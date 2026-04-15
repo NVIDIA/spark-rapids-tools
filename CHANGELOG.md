@@ -1,6 +1,20 @@
 
 <br/>
 
+## Release [v26.02.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.5)
+Generated on 2026-04-15
+### User Tools
+
+- Improve user-tools path normalization and Hadoop boundary handling ([#2073](https://github.com/NVIDIA/spark-rapids-tools/pull/2073))
+
+### Core
+
+- Add a UDF-specific JSON report with metadata ([#2070](https://github.com/NVIDIA/spark-rapids-tools/pull/2070))
+- Mark Pandas execs as unsupported ([#2069](https://github.com/NVIDIA/spark-rapids-tools/pull/2069))
+
+
+<br/>
+
 ## Release [v26.02.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.4)
 Generated on 2026-04-07
 ### Core
