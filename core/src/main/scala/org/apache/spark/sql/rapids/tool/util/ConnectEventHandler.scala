@@ -80,7 +80,7 @@ object ConnectEventHandler extends Logging {
   // --- Session event handlers ---
 
   private def handleSessionStarted(app: AppBase, event: SparkListenerEvent): Unit = {
-    val info = ConnectSessionInfo(
+    val info = new ConnectSessionInfo(
       sessionId = getString(event, "sessionId"),
       userId = getString(event, "userId"),
       startTime = getLong(event, "eventTime"))
@@ -154,8 +154,8 @@ object ConnectEventHandler extends Logging {
 
   /**
    * Looks up the ConnectOperationInfo for the event's operationId and applies
-   * the update function. Logs a warning if the operation wasn't found (e.g.,
-   * OperationStarted was missing or events arrived out of order).
+   * the update function. Logs at debug level if the operation is missing
+   * (e.g., OperationStarted was not observed or events arrived out of order).
    */
   private def updateOperation(app: AppBase, event: SparkListenerEvent)(
       f: ConnectOperationInfo => Unit): Unit = {

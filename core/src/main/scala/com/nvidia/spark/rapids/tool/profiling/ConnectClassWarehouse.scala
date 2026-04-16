@@ -30,10 +30,10 @@ package com.nvidia.spark.rapids.tool.profiling
  * @param endTime   Epoch millis when the session was closed (None if still open or
  *                  server was killed before the close event).
  */
-case class ConnectSessionInfo(
-    sessionId: String,
-    userId: String,
-    startTime: Long,
+class ConnectSessionInfo(
+    val sessionId: String,
+    val userId: String,
+    val startTime: Long,
     var endTime: Option[Long] = None)
 
 /**

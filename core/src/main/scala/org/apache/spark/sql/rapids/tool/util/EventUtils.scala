@@ -324,7 +324,8 @@ object EventUtils extends Logging {
 
   // Cache of reflective method accessors, keyed by (className, methodName).
   private val methodCache =
-    new mutable.HashMap[(String, String), Option[java.lang.reflect.Method]]()
+    new java.util.concurrent.ConcurrentHashMap[
+      (String, String), Option[java.lang.reflect.Method]]()
 
   /** Get a String value from an object via reflective method invocation. */
   def getStringFromEvent(event: AnyRef, methodName: String): String = {
@@ -360,15 +361,8 @@ object EventUtils extends Logging {
   def invokeMethodOnEvent(event: AnyRef, methodName: String): Any = {
     val clazz = event.getClass
     val key = (clazz.getName, methodName)
-    val method = methodCache.synchronized {
-      methodCache.getOrElseUpdate(key, {
-        Try {
-          val m = clazz.getMethod(methodName)
-          m.setAccessible(true)
-          m
-        }.toOption
-      })
-    }
+    val method = methodCache.computeIfAbsent(key,
+      _ => Try(clazz.getMethod(methodName)).toOption)
     method match {
       case Some(m) => m.invoke(event)
       case None =>
