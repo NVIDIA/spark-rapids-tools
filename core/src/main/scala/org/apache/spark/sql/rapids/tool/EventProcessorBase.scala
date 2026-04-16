@@ -25,7 +25,7 @@ import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAc
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.execution.ui._
-import org.apache.spark.sql.rapids.tool.util.{EventUtils, StringUtils}
+import org.apache.spark.sql.rapids.tool.util.{ConnectEventHandler, EventUtils, StringUtils}
 import org.apache.spark.sql.streaming.StreamingQueryListener
 
 abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener with Logging {
@@ -102,7 +102,14 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
           event.asInstanceOf[SparkRapidsBuildInfoEvent])
       case _ =>
         val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
-        if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
+        if (!wasResourceProfileAddedEvent) {
+          // Try to handle as a Spark Connect event (3.5+). Connect event classes
+          // are not on the classpath for older Spark versions, so they arrive here
+          // via the default case after successful JsonProtocol deserialization.
+          if (!ConnectEventHandler.processConnectEvent(app, event)) {
+            doOtherEvent(app, event)
+          }
+        }
     }
   }
 
@@ -232,7 +239,11 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       doSparkListenerLogStart(app, e)
     case _ =>
       val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
-      if (!wasResourceProfileAddedEvent) doOtherEvent(app, event)
+      if (!wasResourceProfileAddedEvent) {
+        if (!ConnectEventHandler.processConnectEvent(app, event)) {
+          doOtherEvent(app, event)
+        }
+      }
   }
 
   def doSparkListenerResourceProfileAdded(

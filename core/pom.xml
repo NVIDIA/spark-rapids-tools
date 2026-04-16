@@ -488,6 +488,18 @@
                 <hadoop.version>3.3.6</hadoop.version>
                 <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
             </properties>
+            <dependencies>
+                <!-- Spark Connect event classes for test verification (Spark 3.5+).
+                     At runtime, the Spark distribution provides this jar.
+                     The tools code uses reflection (no compile-time imports) so this
+                     is only needed to test Connect event parsing. -->
+                <dependency>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>spark-connect_${scala.binary.version}</artifactId>
+                    <version>${spark.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <!-- Profile for Spark 3.5.7 - activates when buildver is set -->
         <profile>
@@ -506,6 +518,14 @@
                 <hadoop.version>3.3.6</hadoop.version>
                 <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
             </properties>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.spark</groupId>
+                    <artifactId>spark-connect_${scala.binary.version}</artifactId>
+                    <version>${spark.version}</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
         </profile>
         <profile>
             <!--

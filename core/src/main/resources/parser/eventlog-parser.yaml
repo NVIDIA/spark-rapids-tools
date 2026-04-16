@@ -50,6 +50,18 @@ eventsTable:
   streamingQueryEnd: org.apache.spark.sql.streaming.StreamingQueryListener$QueryTerminatedEvent
   # List of RAPIDS events
   rapidsBuildInfo: com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
+  # List of Spark Connect events (Spark 3.5+).
+  # These events are deserialized by JsonProtocol when the spark-connect jar is on the
+  # classpath. Otherwise they are silently skipped (ClassNotFoundException -> None).
+  connectSessionStarted: org.apache.spark.sql.connect.service.SparkListenerConnectSessionStarted
+  connectSessionClosed: org.apache.spark.sql.connect.service.SparkListenerConnectSessionClosed
+  connectOpStarted: org.apache.spark.sql.connect.service.SparkListenerConnectOperationStarted
+  connectOpAnalyzed: org.apache.spark.sql.connect.service.SparkListenerConnectOperationAnalyzed
+  connectOpReady: org.apache.spark.sql.connect.service.SparkListenerConnectOperationReadyForExecution
+  connectOpFinished: org.apache.spark.sql.connect.service.SparkListenerConnectOperationFinished
+  connectOpClosed: org.apache.spark.sql.connect.service.SparkListenerConnectOperationClosed
+  connectOpFailed: org.apache.spark.sql.connect.service.SparkListenerConnectOperationFailed
+  connectOpCanceled: org.apache.spark.sql.connect.service.SparkListenerConnectOperationCanceled
 # List of events that can be supported by each tool
 toolsConfig:
   - className: FilterAppInfo
@@ -88,6 +100,16 @@ toolsConfig:
       - logStart
       - streamingQueryStart
       - streamingQueryEnd
+      # Spark Connect events (Spark 3.5+)
+      - connectSessionStarted
+      - connectSessionClosed
+      - connectOpStarted
+      - connectOpAnalyzed
+      - connectOpReady
+      - connectOpFinished
+      - connectOpClosed
+      - connectOpFailed
+      - connectOpCanceled
   - className: ApplicationInfo
     supportedEvents:
       - taskEnd
@@ -120,3 +142,13 @@ toolsConfig:
       - streamingQueryStart
       - streamingQueryEnd
       - rapidsBuildInfo
+      # Spark Connect events (Spark 3.5+)
+      - connectSessionStarted
+      - connectSessionClosed
+      - connectOpStarted
+      - connectOpAnalyzed
+      - connectOpReady
+      - connectOpFinished
+      - connectOpClosed
+      - connectOpFailed
+      - connectOpCanceled

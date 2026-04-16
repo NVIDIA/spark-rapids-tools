@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, ConnectOperationInfo, ConnectSessionInfo, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -137,6 +137,15 @@ abstract class AppBase(
 
   var sparkRapidsBuildInfo: SparkRapidsBuildInfoEvent = SparkRapidsBuildInfoEvent(immutable.Map(),
     immutable.Map(), immutable.Map(), immutable.Map())
+
+  // Spark Connect metadata (Spark 3.5+). Populated by ConnectEventHandler when
+  // processing event logs from Connect servers. Empty for non-Connect event logs.
+  val connectSessions: HashMap[String, ConnectSessionInfo] = HashMap.empty
+  val connectOperations: HashMap[String, ConnectOperationInfo] = HashMap.empty
+  // Maps jobTag -> operationId for correlation with SQLExecutionStart.jobTags
+  // and JobStart.Properties["spark.job.tags"].
+  val jobTagToConnectOpId: HashMap[String, String] = HashMap.empty
+  def isConnectMode: Boolean = connectOperations.nonEmpty
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
 
