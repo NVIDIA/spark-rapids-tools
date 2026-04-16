@@ -17,19 +17,12 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 /**
- * Tool-owned storage classes for Spark Connect event data.
- *
- * These classes hold data extracted reflectively from Spark Connect listener events
- * (Spark 3.5+). They intentionally do NOT import or reference any Spark Connect
- * classes, so they compile for all supported Spark profiles (3.2–3.5+).
- *
- * This follows the same pattern as [[SQLExecutionInfoClass]], which stores data
- * extracted from SparkListenerSQLExecutionStart without being a Spark type itself.
+ * Storage classes for Spark Connect event data (Spark 3.5+).
+ * Populated reflectively by [[org.apache.spark.sql.rapids.tool.util.ConnectEventHandler]].
  */
 
 /**
- * Holds session lifecycle data extracted from SparkListenerConnectSessionStarted
- * and SparkListenerConnectSessionClosed events.
+ * Session lifecycle data from Connect session events.
  *
  * @param sessionId UUID assigned by Connect to identify the client session.
  * @param userId    User who owns the session.
@@ -44,8 +37,8 @@ case class ConnectSessionInfo(
     var endTime: Option[Long] = None)
 
 /**
- * Aggregates the full lifecycle of a single Spark Connect operation, populated
- * incrementally as events arrive. The lifecycle is:
+ * Full lifecycle of a single Connect operation. Populated incrementally
+ * as events arrive. The lifecycle is:
  *
  * Started → Analyzed → ReadyForExecution → Finished → Closed
  *                                        └→ Failed

@@ -193,19 +193,15 @@ object EventUtils extends Logging {
   }
 
 
-  // Reads the root execution ID from a SparkListenerSQLExecutionStart event using
-  // reflection. The rootExecutionId field was introduced in Spark 3.4. On older
-  // versions the accessor method doesn't exist, so invokeMethodOnEvent throws
-  // NoSuchMethodException which is caught by Try → returns None.
+  // Reads rootExecutionId via reflection (Spark 3.4+). Returns None on older versions.
   def readRootIDFromSQLStartEvent(
       event: SparkListenerSQLExecutionStart): Option[Long] = {
     Try(invokeMethodOnEvent(event, "rootExecutionId")
       .asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
-  // Reads modifiedConfigs via reflection (field added in Spark 3.3, SPARK-34735).
-  // Contains per-execution config overrides from spark.conf.set().
-  // Empty on Spark 3.2.x where the accessor method doesn't exist.
+  // Reads modifiedConfigs via reflection (Spark 3.3+, SPARK-34735).
+  // Returns empty map on older versions.
   def readModifiedConfigsFromSQLStartEvent(
       event: SparkListenerSQLExecutionStart): Map[String, String] = {
     Try {
@@ -324,11 +320,7 @@ object EventUtils extends Logging {
   }
 
   // --- Generic reflective method accessors ---
-  //
-  // Used to extract values from event objects whose classes may not be on the
-  // compile-time classpath (e.g., Spark Connect events in spark-connect jar).
-  // Method references are cached by (className, methodName) to avoid repeated
-  // lookups. Case class accessor methods are no-arg methods named after fields.
+  // Cached by (className, methodName) for repeated use.
 
   // Cache of reflective method accessors, keyed by (className, methodName).
   private val methodCache =

@@ -138,12 +138,10 @@ abstract class AppBase(
   var sparkRapidsBuildInfo: SparkRapidsBuildInfoEvent = SparkRapidsBuildInfoEvent(immutable.Map(),
     immutable.Map(), immutable.Map(), immutable.Map())
 
-  // Spark Connect metadata (Spark 3.5+). Populated by ConnectEventHandler when
-  // processing event logs from Connect servers. Empty for non-Connect event logs.
+  // Spark Connect metadata (Spark 3.5+). Empty for non-Connect event logs.
   val connectSessions: HashMap[String, ConnectSessionInfo] = HashMap.empty
   val connectOperations: HashMap[String, ConnectOperationInfo] = HashMap.empty
-  // Maps jobTag -> operationId for correlation with SQLExecutionStart.jobTags
-  // and JobStart.Properties["spark.job.tags"].
+  // jobTag -> operationId index for correlation with SQL executions and jobs.
   val jobTagToConnectOpId: HashMap[String, String] = HashMap.empty
   def isConnectMode: Boolean = connectOperations.nonEmpty
 

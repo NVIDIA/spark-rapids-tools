@@ -23,30 +23,20 @@ import org.apache.spark.scheduler.SparkListenerEvent
 import org.apache.spark.sql.rapids.tool.AppBase
 
 /**
- * Handles Spark Connect listener events using reflection.
+ * Reflective handler for Spark Connect listener events (Spark 3.5+).
  *
- * Connect event classes live in the spark-connect jar (org.apache.spark.sql.connect.service)
- * which is only available for Spark 3.5+. Since the tools compile against a single shared
- * source tree for Spark 3.2–3.5+, we cannot import Connect classes directly.
- *
- * Instead, this handler:
- * 1. Checks the event class name to identify Connect events (cheap string prefix check)
- * 2. Uses cached reflective method accessors to extract field values
- * 3. Stores the extracted data in tool-owned types (ConnectSessionInfo, ConnectOperationInfo)
- *
- * This follows the established patterns in EventUtils (modifiedConfigsField,
- * rootExecutionIdField) and EventProcessorBase (doSparkListenerResourceProfileAddedReflect).
- * Reflection is preferred over version checks because vendors may backport features.
+ * Connect event classes reside in the spark-connect jar and are not
+ * directly imported to preserve compatibility with older Spark profiles.
+ * Events are identified by class-name prefix, fields are extracted via
+ * cached reflective accessors in [[EventUtils]], and results are stored
+ * in [[ConnectSessionInfo]] and [[ConnectOperationInfo]].
  */
 object ConnectEventHandler extends Logging {
 
   private val CONNECT_EVENT_PREFIX =
     "org.apache.spark.sql.connect.service.SparkListenerConnect"
 
-  /**
-   * Quick class-name check to avoid reflection overhead for non-Connect events.
-   * Called from the default case in EventProcessorBase.processAnyEvent.
-   */
+  /** Quick class-name check to avoid reflection for non-Connect events. */
   def isConnectEvent(event: SparkListenerEvent): Boolean = {
     event.getClass.getName.startsWith(CONNECT_EVENT_PREFIX)
   }
@@ -173,10 +163,6 @@ object ConnectEventHandler extends Logging {
           s"${event.getClass.getSimpleName} event (OperationStarted may be missing)")
     }
   }
-
-  // Reflective field accessors are delegated to EventUtils which provides
-  // generic cached method invocation (getString, getLong, getOptLong).
-  // This avoids duplicating the reflection/caching logic.
 
   private def getString(event: SparkListenerEvent, methodName: String): String =
     EventUtils.getStringFromEvent(event, methodName)

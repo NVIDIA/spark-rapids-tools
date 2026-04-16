@@ -27,23 +27,14 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
- * Tests for Spark Connect event parsing via ConnectEventHandler.
- *
- * Connect event classes (org.apache.spark.sql.connect.service.*) are only on the
- * test classpath when spark-connect is a dependency (Spark 3.5.7 default profile).
- * On other profiles, these tests are skipped via runConditionalTest, following the
- * same pattern as Delta Lake and Iceberg tests.
+ * Tests for Spark Connect event parsing.
+ * Requires spark-connect on the test classpath (Spark 3.5+ profiles).
  */
 class ConnectEventSuite extends BaseNoSparkSuite {
 
   private val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
 
-  /**
-   * Condition checker for Connect event tests. Returns (true, _) when the
-   * spark-connect jar is on the classpath, allowing JsonProtocol to deserialize
-   * Connect events. Follows the same pattern as checkIcebergSupportForSpark()
-   * and checkDeltaLakeSparkRelease() in BaseNoSparkSuite.
-   */
+  /** Checks whether Connect event classes are available on the classpath. */
   private def checkConnectClassesAvailable(): (Boolean, String) = {
     val available = try {
       Class.forName(

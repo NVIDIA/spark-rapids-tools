@@ -103,9 +103,6 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       case _ =>
         val wasResourceProfileAddedEvent = doSparkListenerResourceProfileAddedReflect(app, event)
         if (!wasResourceProfileAddedEvent) {
-          // Try to handle as a Spark Connect event (3.5+). Connect event classes
-          // are not on the classpath for older Spark versions, so they arrive here
-          // via the default case after successful JsonProtocol deserialization.
           if (!ConnectEventHandler.processConnectEvent(app, event)) {
             doOtherEvent(app, event)
           }
