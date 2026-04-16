@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
+import com.nvidia.spark.rapids.tool.profiling.{AppTuningMetricsProfileResult, DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
@@ -72,18 +72,15 @@ object QualRawReportGenerator extends Logging {
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       // Compute aggregate metrics early so maxTaskInputBytesRead is available for
-      // application_information.csv enrichment
+      // app_tuning_metrics.csv
       val aggRawMetrics = QualSparkMetricsAggregator
         .getAggRawMetrics(app, sqlAnalyzer = Some(sqlPlanAnalyzer))
       val maxTaskInput = aggRawMetrics.maxTaskInputSizes.headOption
         .map(_.maxTaskInputBytesRead).getOrElse(0.0)
 
       pWriter.writeText("### A. Information Collected ###")
-      // Extend application info with maxTaskInputBytesRead from aggregate metrics.
-      // OOM and ColumnarExchange columns are empty for qualification (CPU event logs).
-      val extendedAppInfo = QualInformationView.getRawView(Seq(app)).map(
-        _.copy(maxTaskInputBytesRead = maxTaskInput))
-      pWriter.writeTable(QualInformationView.getLabel, extendedAppInfo)
+      pWriter.writeTable(
+        QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
       pWriter.writeTable(QualLogPathView.getLabel, QualLogPathView.getRawView(Seq(app)))
       val sqlPlanMetricsResults = generateSQLProcessingView(pWriter, sqlPlanAnalyzer)
       pWriter.writeJsonL(
@@ -110,6 +107,10 @@ object QualRawReportGenerator extends Logging {
       constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
+      // Write tuning metrics (GPU-only fields are empty for qualification)
+      val tuningMetrics = Seq(AppTuningMetricsProfileResult(
+        app.appId, maxTaskInput, Option.empty[Long], Set.empty[Long], Set.empty[Long]))
+      pWriter.writeCSVTable(APP_TUNING_METRICS, tuningMetrics)
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeCSVTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
       pWriter.writeTable(

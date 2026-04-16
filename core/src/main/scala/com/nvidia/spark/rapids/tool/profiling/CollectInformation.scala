@@ -37,21 +37,6 @@ class CollectInformation(apps: Seq[ApplicationInfo]) extends Logging {
     ProfInformationView.getRawView(apps)
   }
 
-  // Extends AppInfoProfileResults with fields that require aggregate metrics or
-  // cross-referencing (e.g., failed tasks with stage metrics). Fields like
-  // totalCoreSeconds are already populated at the view layer in InformationView.
-  def getExtendedAppInfo(
-      maxTaskInputBytesRead: Double,
-      maxColumnarExchangeDataSizeBytes: Option[Long],
-      scanStagesWithGpuOom: Set[Long],
-      shuffleStagesWithOom: Set[Long]): Seq[AppInfoProfileResults] = {
-    getAppInfo.map(_.copy(
-      maxTaskInputBytesRead = maxTaskInputBytesRead,
-      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes,
-      scanStagesWithGpuOom = scanStagesWithGpuOom,
-      shuffleStagesWithOom = shuffleStagesWithOom))
-  }
-
   def getAppLogPath: Seq[AppLogPathProfileResults] = {
     ProfLogPathView.getRawView(apps)
   }

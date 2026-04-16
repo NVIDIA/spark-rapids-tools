@@ -54,7 +54,8 @@ case class ApplicationSummaryInfo(
     sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult],
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
     writeOpsInfo: Seq[WriteOpProfileResult],
-    sqlPlanInfo: Seq[SQLPlanInfoProfileResult])
+    sqlPlanInfo: Seq[SQLPlanInfoProfileResult],
+    appTuningMetrics: Seq[AppTuningMetricsProfileResult] = Seq.empty)
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)
@@ -229,29 +230,21 @@ class SingleAppSummaryInfoProvider(
     }
   }
 
-  /**
-   * Returns stage IDs of scan stages with failed tasks due to GPU OOM errors.
-   * Reads from the pre-computed values in AppInfoProfileResults to avoid
-   * duplicate computation (Profiler.processApp already computes these).
-   */
   override def scanStagesWithGpuOom: Set[Long] = {
-    app.appInfo.headOption.map(_.scanStagesWithGpuOom).getOrElse(Set.empty)
+    SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
+      app.appInfo.exists(_.pluginEnabled),
+      app.failedTasks, app.stageMetrics, appInfo)
   }
 
-  /**
-   * Returns stage IDs of failed shuffle stages with OOM errors in the task's end reason.
-   * Reads from the pre-computed values in AppInfoProfileResults.
-   */
   override def shuffleStagesWithOom: Set[Long] = {
-    app.appInfo.headOption.map(_.shuffleStagesWithOom).getOrElse(Set.empty)
+    SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
+      app.appInfo.exists(_.pluginEnabled),
+      getSparkProperty("spark.master"),
+      app.failedStages, app.failedTasks)
   }
 
-  /**
-   * Returns the maximum data size from ColumnarExchange metrics.
-   * Reads from the pre-computed value in AppInfoProfileResults.
-   */
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = {
-    app.appInfo.headOption.flatMap(_.maxColumnarExchangeDataSizeBytes)
+    SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(app.sqlMetrics)
   }
 
   override def getClassPathEntries: Map[String, String] = {

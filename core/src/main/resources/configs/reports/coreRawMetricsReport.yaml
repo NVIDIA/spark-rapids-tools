@@ -106,22 +106,6 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
-          - name: maxTaskInputBytesRead
-            dataType: Long
-            description: >-
-              Maximum per-task input bytes read across all SQLs
-          - name: maxColumnarExchangeDataSizeBytes
-            dataType: Long
-            description: >-
-              Maximum data size from ColumnarExchange metrics (profiling only)
-          - name: scanStagesWithGpuOom
-            dataType: String
-            description: >-
-              Comma-separated stage IDs of scan stages with GPU OOM (profiling only)
-          - name: shuffleStagesWithOom
-            dataType: String
-            description: >-
-              Comma-separated stage IDs of shuffle stages with OOM (profiling only)
       # AppLogPathProfileResults
       - label: coreRawApplicationLogPathMappingCSV
         description: >-
@@ -1442,3 +1426,30 @@ reportDefinitions:
         fileName: profile.log
         fileFormat: TXT
         scope: per-app
+      # AppTuningMetricsProfileResult
+      - label: coreRawAppTuningMetricsCSV
+        description: >-
+          Per-app metrics used by the AutoTuner for partition sizing and cluster sizing.
+        fileName: app_tuning_metrics.csv
+        scope: per-app
+        columns:
+          - name: appId
+            dataType: String
+            description: >-
+              Application ID
+          - name: maxTaskInputBytesRead
+            dataType: Long
+            description: >-
+              Maximum per-task input bytes read across all SQLs
+          - name: maxColumnarExchangeDataSizeBytes
+            dataType: Long
+            description: >-
+              Maximum data size from ColumnarExchange metrics (profiling only)
+          - name: scanStagesWithGpuOom
+            dataType: String
+            description: >-
+              Comma-separated stage IDs of scan stages with GPU OOM (profiling only)
+          - name: shuffleStagesWithOom
+            dataType: String
+            description: >-
+              Comma-separated stage IDs of shuffle stages with OOM (profiling only)

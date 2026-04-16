@@ -305,7 +305,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val failedTasks = healthCheck.getFailedTasks
     val failedStages = healthCheck.getFailedStages
 
-    // Compute AutoTuner inputs to enrich application_information.csv
+    // Compute AutoTuner inputs for app_tuning_metrics.csv
     val singleApp = analyzedApps.head
     val pluginEnabled = singleApp.gpuMode
     val maxTaskInput = analysis.maxTaskInputSizes.headOption
@@ -318,9 +318,12 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       pluginEnabled, singleApp.sparkProperties.get("spark.master"),
       failedStages, failedTasks)
 
-    val appInfo = collect.getExtendedAppInfo(
-      maxTaskInput, maxColumnarExchange, scanOomStages, shuffleOomStages)
-    logDebug(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
+    val appInfo = collect.getAppInfo
+    val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
+    val tuningMetrics = Seq(AppTuningMetricsProfileResult(
+      appId, maxTaskInput, maxColumnarExchange, scanOomStages, shuffleOomStages))
+
+    logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
       appInfo = appInfo,
       dsInfo = collect.getDataSourceInfo(sqlMetrics),
@@ -351,7 +354,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sqlCleanedAlignedIds = sqlIdAlign,
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
-      sqlPlanInfo = collect.getSQLPlanInfoTruncated)
+      sqlPlanInfo = collect.getSQLPlanInfoTruncated,
+      appTuningMetrics = tuningMetrics)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -424,6 +428,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
+    profileOutputWriter.writeCSVTable(APP_TUNING_METRICS, app.appTuningMetrics)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
     profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)

@@ -463,11 +463,7 @@ case class AppInfoProfileResults(
     sparkRuntime: SparkRuntime.SparkRuntime,
     sparkVersion: String,
     pluginEnabled: Boolean,
-    totalCoreSeconds: Long,
-    maxTaskInputBytesRead: Double = 0.0,
-    maxColumnarExchangeDataSizeBytes: Option[Long] = None,
-    scanStagesWithGpuOom: Set[Long] = Set.empty,
-    shuffleStagesWithOom: Set[Long] = Set.empty)  extends ProfileResult {
+    totalCoreSeconds: Long)  extends ProfileResult {
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("AppInfoProfileResults")
   }
@@ -500,23 +496,11 @@ case class AppInfoProfileResults(
     }
   }
 
-  private def maxColumnarExchangeToStr: String = {
-    maxColumnarExchangeDataSizeBytes.map(_.toString).getOrElse("")
-  }
-
-  private def stageIdsToStr(stageIds: Set[Long]): String = {
-    if (stageIds.isEmpty) "" else stageIds.toSeq.sorted.mkString(",")
-  }
-
   override def convertToSeq(): Array[String] = {
     Array(appName, appIdToStr, attemptIdToStr,
       sparkUser, startTime.toString, endTimeToStr, durToStr,
       durationStr, sparkRuntime.toString, sparkVersion, pluginEnabled.toString,
-      totalCoreSeconds.toString,
-      f"$maxTaskInputBytesRead%.0f",
-      maxColumnarExchangeToStr,
-      stageIdsToStr(scanStagesWithGpuOom),
-      stageIdsToStr(shuffleStagesWithOom))
+      totalCoreSeconds.toString)
   }
 
   override def convertToCSVSeq(): Array[String] = {
@@ -528,11 +512,52 @@ case class AppInfoProfileResults(
       StringUtils.reformatCSVString(sparkRuntime.toString),
       StringUtils.reformatCSVString(sparkVersion),
       pluginEnabled.toString,
-      totalCoreSeconds.toString,
-      f"$maxTaskInputBytesRead%.0f",
-      maxColumnarExchangeToStr,
-      StringUtils.reformatCSVString(stageIdsToStr(scanStagesWithGpuOom)),
-      StringUtils.reformatCSVString(stageIdsToStr(shuffleStagesWithOom)))
+      totalCoreSeconds.toString)
+  }
+}
+
+case class AppTuningMetricsProfileResult(
+    appId: String,
+    maxTaskInputBytesRead: String,
+    maxColumnarExchangeDataSizeBytes: String,
+    scanStagesWithGpuOom: String,
+    shuffleStagesWithOom: String) extends ProfileResult {
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("AppTuningMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(appId, maxTaskInputBytesRead, maxColumnarExchangeDataSizeBytes,
+      scanStagesWithGpuOom, shuffleStagesWithOom)
+  }
+
+  override def convertToCSVSeq(): Array[String] = {
+    Array(StringUtils.reformatCSVString(appId),
+      maxTaskInputBytesRead,
+      maxColumnarExchangeDataSizeBytes,
+      StringUtils.reformatCSVString(scanStagesWithGpuOom),
+      StringUtils.reformatCSVString(shuffleStagesWithOom))
+  }
+}
+
+object AppTuningMetricsProfileResult {
+  private def stageIdsToStr(stageIds: Set[Long]): String = {
+    if (stageIds.isEmpty) "" else stageIds.toSeq.sorted.mkString(",")
+  }
+
+  def apply(
+      appId: String,
+      maxTaskInputBytesRead: Double,
+      maxColumnarExchangeDataSizeBytes: Option[Long],
+      scanStagesWithGpuOom: Set[Long],
+      shuffleStagesWithOom: Set[Long]): AppTuningMetricsProfileResult = {
+    AppTuningMetricsProfileResult(
+      appId = appId,
+      maxTaskInputBytesRead = f"$maxTaskInputBytesRead%.0f",
+      maxColumnarExchangeDataSizeBytes =
+        maxColumnarExchangeDataSizeBytes.map(_.toString).getOrElse(""),
+      scanStagesWithGpuOom = stageIdsToStr(scanStagesWithGpuOom),
+      shuffleStagesWithOom = stageIdsToStr(shuffleStagesWithOom))
   }
 }
 
