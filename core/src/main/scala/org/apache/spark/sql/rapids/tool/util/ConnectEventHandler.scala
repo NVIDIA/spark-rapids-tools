@@ -16,6 +16,8 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import scala.util.control.NonFatal
+
 import com.nvidia.spark.rapids.tool.profiling.{ConnectOperationInfo, ConnectSessionInfo}
 
 import org.apache.spark.internal.Logging
@@ -69,7 +71,7 @@ object ConnectEventHandler extends Logging {
       }
       true
     } catch {
-      case e @ (_: NoSuchMethodException | _: SecurityException) =>
+      case NonFatal(e) =>
         logWarning(s"Connect event reflection failed for $suffix: ${e.getMessage}")
         false
     }
@@ -138,12 +140,14 @@ object ConnectEventHandler extends Logging {
 
   private def handleOperationFailed(app: AppBase, event: SparkListenerEvent): Unit = {
     updateOperation(app, event) { op =>
+      op.failTime = Some(getLong(event, "eventTime"))
       op.errorMessage = Some(getString(event, "errorMessage"))
     }
   }
 
   private def handleOperationCanceled(app: AppBase, event: SparkListenerEvent): Unit = {
     updateOperation(app, event) { op =>
+      op.cancelTime = Some(getLong(event, "eventTime"))
       op.isCanceled = true
     }
   }

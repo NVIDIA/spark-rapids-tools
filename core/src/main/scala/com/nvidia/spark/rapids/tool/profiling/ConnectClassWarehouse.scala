@@ -58,7 +58,9 @@ case class ConnectSessionInfo(
  * @param closeTime       Epoch millis when results were sent and operation cleaned up.
  * @param producedRowCount Number of result rows (from OperationFinished).
  * @param errorMessage    Error message if the operation failed.
- * @param isCanceled      True if the operation was explicitly canceled by the client.
+ * @param failTime        Epoch millis when the operation failed.
+ * @param isCanceled      True if the operation was explicitly canceled.
+ * @param cancelTime      Epoch millis when the operation was canceled.
  */
 class ConnectOperationInfo(
     val operationId: String,
@@ -73,4 +75,6 @@ class ConnectOperationInfo(
     var closeTime: Option[Long] = None,
     var producedRowCount: Option[Long] = None,
     var errorMessage: Option[String] = None,
-    var isCanceled: Boolean = false)
+    var failTime: Option[Long] = None,
+    var isCanceled: Boolean = false,
+    var cancelTime: Option[Long] = None)
