@@ -172,9 +172,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -469,9 +469,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -606,9 +606,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=4
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -675,9 +675,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -783,9 +783,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -879,9 +879,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -962,10 +962,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1056,10 +1056,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.WrongPlugin0,com.nvidia.spark.WrongPlugin1,com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1149,9 +1149,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1243,9 +1243,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1333,9 +1333,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1421,9 +1421,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1504,9 +1504,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1558,9 +1559,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1614,9 +1616,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1704,10 +1707,10 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.filecache.enabled=false
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1793,9 +1796,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2005,7 +2008,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=8g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=2147483647b
@@ -2160,9 +2163,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2328,7 +2331,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.databricks.adaptive.autoOptimizeShuffle.enabled=false
           |--conf spark.executor.memory=64g
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=4505m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=48
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=48
@@ -2530,9 +2533,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2620,9 +2623,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.cores=16
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2687,11 +2690,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2765,11 +2768,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.kryo.registrator=org.apache.SomeRegistrator,org.apache.SomeOtherRegistrator,com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2842,11 +2845,11 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.kryo.registrator=com.nvidia.spark.rapids.GpuKryoRegistrator
           |--conf spark.kryoserializer.buffer.max=512m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -2932,7 +2935,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.executor.cores=16
           |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.memoryOverhead=13107m
           |--conf spark.locality.wait=0
           |--conf spark.rapids.memory.pinnedPool.size=2867m
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
@@ -3002,9 +3005,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.execution.enabled=false
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -3073,9 +3076,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |Spark Properties:
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -3159,9 +3162,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
             |--conf spark.dataproc.enhanced.execution.enabled=false
             |--conf spark.dataproc.enhanced.optimizer.enabled=false
             |--conf spark.executor.memory=32g
-            |--conf spark.executor.memoryOverhead=15564m
+            |--conf spark.executor.memoryOverhead=19660m
             |--conf spark.locality.wait=0
-            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.memory.pinnedPool.size=6g
             |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -3312,9 +3315,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -3401,9 +3404,9 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           |--conf spark.dataproc.enhanced.optimizer.enabled=false
           |--conf spark.executor.instances=8
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=15564m
+          |--conf spark.executor.memoryOverhead=19660m
           |--conf spark.locality.wait=0
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6g
           |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -3549,20 +3552,20 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
   // Test cases for memory overhead configuration
   testMemoryOverhead(
     testName = "Test memory overhead with unit should be skipped when appropriate",
-    initialValue = "15564m",
+    initialValue = "19660m",
     expectedValue = None
   )
 
   testMemoryOverhead(
     testName = "Test memory overhead without unit should be skipped when appropriate",
-    initialValue = "15564",
+    initialValue = "19660",
     expectedValue = None
   )
 
   testMemoryOverhead(
     testName = "Test memory overhead without unit should be updated and set",
     initialValue = "8712",
-    expectedValue = Some("15564m")
+    expectedValue = Some("19660m")
   )
 
   // Test cases for Kryo buffer configuration
