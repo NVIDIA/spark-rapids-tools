@@ -141,8 +141,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       "44g",
       Seq(
         "--conf spark.executor.memory=32g",
-        "--conf spark.executor.memoryOverhead=11468m",
-        "--conf spark.rapids.memory.pinnedPool.size=4g"
+        "--conf spark.executor.memoryOverhead=14g",
+        "--conf spark.rapids.memory.pinnedPool.size=5530m"
       ))
   )
   // scalastyle:on line.size.limit
@@ -372,11 +372,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.cores=16
           |--conf spark.executor.instances=2
           |--conf spark.executor.memory=19648m
-          |--conf spark.executor.memoryOverhead=10156m
+          |--conf spark.executor.memoryOverhead=15168m
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=6602m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -516,12 +516,12 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.executor.memory=16g
-          |--conf spark.executor.memoryOverhead=9830m
+          |--conf spark.executor.memoryOverhead=109772m
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.executor.resource.gpu.discoveryScript=/opt/sparkPlugin/gpuDiscoveryScript.sh
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=8g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -806,7 +806,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=8g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -877,7 +877,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=7373m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -956,7 +956,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.existing.plugin1,com.existing.plugin2
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=7373m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -1302,7 +1302,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=8g
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=24
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=24
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -1423,11 +1423,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.executor.cores=16
             |--conf spark.executor.instances=8
             |--conf spark.executor.memory=40g
-            |--conf spark.executor.memoryOverhead=15564m
+            |--conf spark.executor.memoryOverhead=19660m
             |--conf spark.executor.resource.gpu.amount=1
             |--conf spark.locality.wait=0
             |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.memory.pinnedPool.size=6g
             |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
@@ -1524,7 +1524,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.existing.plugin1,com.existing.plugin2
-          |--conf spark.rapids.memory.pinnedPool.size=4g
+          |--conf spark.rapids.memory.pinnedPool.size=7373m
           |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
           |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
           |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -1612,7 +1612,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.memoryOverhead=13107m
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
@@ -1794,7 +1794,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=10
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.memoryOverhead=13107m
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
@@ -1893,7 +1893,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |--conf spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages
           |--conf spark.executor.instances=14
           |--conf spark.executor.memory=32g
-          |--conf spark.executor.memoryOverhead=13106m
+          |--conf spark.executor.memoryOverhead=13107m
           |--conf spark.executor.resource.gpu.amount=1
           |--conf spark.locality.wait=0
           |--conf spark.plugins=com.nvidia.spark.SQLPlugin
