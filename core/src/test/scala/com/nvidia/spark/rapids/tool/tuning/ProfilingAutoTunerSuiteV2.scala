@@ -2204,7 +2204,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         initial = "9"))
   }
 
-  // Regression test for https://github.com/NVIDIA/spark-rapids-tools/issues/2074
+  // Test for https://github.com/NVIDIA/spark-rapids-tools/issues/2074
   // When HEAP_PER_CORE caps executor heap (48g -> 16g with 8 cores), the freed memory
   // should be redistributed into overhead to preserve the total memory budget (~66g).
   test("On-prem K8s with large heap reduced by HEAP_PER_CORE redistributes freed memory") {
