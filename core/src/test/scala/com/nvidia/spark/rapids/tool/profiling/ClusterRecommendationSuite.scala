@@ -337,7 +337,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |--conf spark.executor.memory=12g
             |--conf spark.memory.offHeap.enabled=true
             |--conf spark.memory.offHeap.size=2g
-            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.memory.pinnedPool.size=5325m
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
             |--conf spark.rapids.sql.batchSizeBytes=2147483647b
@@ -460,7 +460,7 @@ class ClusterRecommendationSuite extends ProfilingAutoTunerSuiteBase
             |--conf spark.executor.cores=8
             |--conf spark.executor.instances=4
             |--conf spark.executor.memory=12g
-            |--conf spark.rapids.memory.pinnedPool.size=4g
+            |--conf spark.rapids.memory.pinnedPool.size=6349m
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=20
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=20
             |--conf spark.rapids.sql.batchSizeBytes=2147483647b
