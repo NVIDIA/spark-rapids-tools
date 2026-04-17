@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.02.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.6)
+Generated on 2026-04-17
+### Autotuner
+
+- Fix AutoTuner to redistribute freed memory into overhead when executor heap is reduced ([#2076](https://github.com/NVIDIA/spark-rapids-tools/pull/2076))
+
+
+<br/>
+
 ## Release [v26.02.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.5)
 Generated on 2026-04-15
 ### User Tools
