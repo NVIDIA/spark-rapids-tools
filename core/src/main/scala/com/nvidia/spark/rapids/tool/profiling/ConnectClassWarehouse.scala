@@ -59,8 +59,8 @@ class ConnectSessionInfo(
  * @param producedRowCount Number of result rows (from OperationFinished).
  * @param errorMessage    Error message if the operation failed.
  * @param failTime        Epoch millis when the operation failed.
- * @param isCanceled      True if the operation was explicitly canceled.
- * @param cancelTime      Epoch millis when the operation was canceled.
+ * @param cancelTime      Epoch millis when the operation was canceled
+ *                        (isDefined implies canceled).
  */
 class ConnectOperationInfo(
     val operationId: String,
@@ -76,5 +76,7 @@ class ConnectOperationInfo(
     var producedRowCount: Option[Long] = None,
     var errorMessage: Option[String] = None,
     var failTime: Option[Long] = None,
-    var isCanceled: Boolean = false,
-    var cancelTime: Option[Long] = None)
+    var cancelTime: Option[Long] = None) {
+
+  def isCanceled: Boolean = cancelTime.isDefined
+}

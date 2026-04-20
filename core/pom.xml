@@ -489,15 +489,10 @@
                 <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
             </properties>
             <dependencies>
-                <!-- Spark Connect event classes for test verification (Spark 3.5+).
-                     At runtime, the Spark distribution provides this jar.
-                     The tools code uses reflection (no compile-time imports) so this
-                     is only needed to test Connect event parsing. -->
+                <!-- Version/scope come from dependencyManagement. -->
                 <dependency>
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-connect_${scala.binary.version}</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>test</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -519,11 +514,10 @@
                 <iceberg.spark.artifact>${iceberg.spark35x.artifact}</iceberg.spark.artifact>
             </properties>
             <dependencies>
+                <!-- Version/scope come from dependencyManagement. -->
                 <dependency>
                     <groupId>org.apache.spark</groupId>
                     <artifactId>spark-connect_${scala.binary.version}</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>test</scope>
                 </dependency>
             </dependencies>
         </profile>
@@ -735,6 +729,17 @@
                 <groupId>org.scala-lang</groupId>
                 <artifactId>scala-compiler</artifactId>
                 <version>${scala.version}</version>
+            </dependency>
+            <!-- Spark Connect event classes for test verification (Spark 3.5+).
+                 At runtime, the Spark distribution provides this jar. The tools code
+                 uses reflection (no compile-time imports), so this is only needed to
+                 test Connect event parsing. Declared here so 3.5+ profiles can opt
+                 in with just groupId/artifactId. -->
+            <dependency>
+                <groupId>org.apache.spark</groupId>
+                <artifactId>spark-connect_${scala.binary.version}</artifactId>
+                <version>${spark.version}</version>
+                <scope>test</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

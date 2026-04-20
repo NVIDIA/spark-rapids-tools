@@ -16,6 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool.util
 
+import scala.collection.mutable
 import scala.util.control.NonFatal
 
 import com.nvidia.spark.rapids.tool.profiling.{ConnectOperationInfo, ConnectSessionInfo}
@@ -37,6 +38,10 @@ object ConnectEventHandler extends Logging {
 
   private val CONNECT_EVENT_PREFIX =
     "org.apache.spark.sql.connect.service.SparkListenerConnect"
+
+  // Tracks event suffixes that have already produced a reflection-failure warning,
+  // so a recurring failure (e.g. a renamed field) logs once instead of per event.
+  private val warnedFailures = mutable.HashSet[String]()
 
   /** Quick class-name check to avoid reflection for non-Connect events. */
   def isConnectEvent(event: SparkListenerEvent): Boolean = {
@@ -72,7 +77,11 @@ object ConnectEventHandler extends Logging {
       true
     } catch {
       case NonFatal(e) =>
-        logWarning(s"Connect event reflection failed for $suffix: ${e.getMessage}")
+        if (warnedFailures.add(suffix)) {
+          logWarning(s"Connect event reflection failed for $suffix: ${e.getMessage}")
+        } else {
+          logDebug(s"Connect event reflection failed for $suffix: ${e.getMessage}")
+        }
         false
     }
   }
@@ -148,7 +157,6 @@ object ConnectEventHandler extends Logging {
   private def handleOperationCanceled(app: AppBase, event: SparkListenerEvent): Unit = {
     updateOperation(app, event) { op =>
       op.cancelTime = Some(getLong(event, "eventTime"))
-      op.isCanceled = true
     }
   }
 
