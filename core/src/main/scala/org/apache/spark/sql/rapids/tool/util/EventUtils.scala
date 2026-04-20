@@ -193,26 +193,26 @@ object EventUtils extends Logging {
   }
 
 
-  // Reads the root execution ID from a SparkListenerSQLExecutionStart event using reflection.
-  // Reflection is used here to maintain compatibility with different versions of Spark,
-  // as the rootExecutionId field is introduced in Spark 3.4. This allows the
-  // code to access the field dynamically at runtime, and maintaining backward compatibility.
-  def readRootIDFromSQLStartEvent(event: SparkListenerSQLExecutionStart): Option[Long] = {
-    Try(rootExecutionIdField.get(event).asInstanceOf[Option[Long]]).getOrElse(None)
+  // Reads rootExecutionId via reflection (Spark 3.4+). Returns None on older versions.
+  def readRootIDFromSQLStartEvent(
+      event: SparkListenerSQLExecutionStart): Option[Long] = {
+    Try(invokeMethodOnEvent(event, "rootExecutionId")
+      .asInstanceOf[Option[Long]]).getOrElse(None)
   }
 
-  // Reads modifiedConfigs via reflection (field added in Spark 3.3, SPARK-34735).
-  // Contains per-execution config overrides from spark.conf.set(). Empty on Spark 3.2.x.
+  // Reads modifiedConfigs via reflection (Spark 3.3+, SPARK-34735).
+  // Returns empty map on older versions.
   def readModifiedConfigsFromSQLStartEvent(
       event: SparkListenerSQLExecutionStart): Map[String, String] = {
-    modifiedConfigsField.flatMap { field =>
-      Try(Option(field.get(event)).map(_.asInstanceOf[Map[String, String]]))
-        .toOption.flatten
-    }.getOrElse(Map.empty)
+    Try {
+      Option(invokeMethodOnEvent(event, "modifiedConfigs"))
+        .map(_.asInstanceOf[Map[String, String]])
+    }.toOption.flatten.getOrElse(Map.empty)
   }
 
   @throws[com.fasterxml.jackson.core.JsonParseException]
-  private def handleEventJsonParseEx(ex: com.fasterxml.jackson.core.JsonParseException): Unit = {
+  private def handleEventJsonParseEx(
+      ex: com.fasterxml.jackson.core.JsonParseException): Unit = {
     // Spark 3.4- will throw a JsonParseException if the eventlog is incomplete (lines are broken)
     val exMsg = ex.getMessage
     if (exMsg != null && exMsg.contains("Unexpected end-of-input within/between Object entries")) {
@@ -228,23 +228,6 @@ object EventUtils extends Logging {
       }
       throw ex
     }
-  }
-
-  private lazy val rootExecutionIdField = {
-    val field = classOf[SparkListenerSQLExecutionStart].getDeclaredField("rootExecutionId")
-    field.setAccessible(true)
-    field
-  }
-
-  // Reflection field for modifiedConfigs, introduced in Spark 3.3.0 (SPARK-34735).
-  // Returns None if the field does not exist (Spark 3.2.x).
-  private lazy val modifiedConfigsField: Option[java.lang.reflect.Field] = {
-    Try {
-      val field = classOf[SparkListenerSQLExecutionStart]
-        .getDeclaredField("modifiedConfigs")
-      field.setAccessible(true)
-      field
-    }.toOption
   }
 
   private lazy val runtimeEventFromJsonMethod = {
@@ -333,6 +316,57 @@ object EventUtils extends Logging {
       case None =>
         throw new IllegalArgumentException(s"Unknown tool name $toolName. " +
           s"Accepted tool names: ${acceptedLinesToolMap.keys.mkString(", ")}")
+    }
+  }
+
+  // --- Generic reflective method accessors ---
+  // Cached by (className, methodName) for repeated use.
+
+  // Cache of reflective method accessors, keyed by (className, methodName).
+  private val methodCache =
+    new java.util.concurrent.ConcurrentHashMap[
+      (String, String), Option[java.lang.reflect.Method]]()
+
+  /** Get a String value from an object via reflective method invocation. */
+  def getStringFromEvent(event: AnyRef, methodName: String): String = {
+    invokeMethodOnEvent(event, methodName).asInstanceOf[String]
+  }
+
+  /** Get a Long value from an object via reflective method invocation. */
+  def getLongFromEvent(event: AnyRef, methodName: String): Long = {
+    invokeMethodOnEvent(event, methodName).asInstanceOf[Long]
+  }
+
+  /** Get an Option[Long] value from an object via reflective method invocation.
+   *  Handles Option[Long], plain Long, and numeric types (Integer, etc.) from
+   *  Jackson deserialization where JSON numbers may arrive as different types. */
+  def getOptLongFromEvent(event: AnyRef, methodName: String): Option[Long] = {
+    Try {
+      invokeMethodOnEvent(event, methodName) match {
+        case opt: Option[_] => opt.map {
+          case n: Number => n.longValue()
+          case other => other.asInstanceOf[java.lang.Long].toLong
+        }
+        case n: Number => Some(n.longValue())
+        case _ => None
+      }
+    }.getOrElse(None)
+  }
+
+  /**
+   * Invoke a no-arg method on an object, caching the Method reference.
+   * @throws NoSuchMethodException if the method does not exist on the object's class.
+   */
+  @throws[NoSuchMethodException]
+  def invokeMethodOnEvent(event: AnyRef, methodName: String): Any = {
+    val clazz = event.getClass
+    val key = (clazz.getName, methodName)
+    val method = methodCache.computeIfAbsent(key,
+      _ => Try(clazz.getMethod(methodName)).toOption)
+    method match {
+      case Some(m) => m.invoke(event)
+      case None =>
+        throw new NoSuchMethodException(s"${clazz.getName}.$methodName not found")
     }
   }
 }
