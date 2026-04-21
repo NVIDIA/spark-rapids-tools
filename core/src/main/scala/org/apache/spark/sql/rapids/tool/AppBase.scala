@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent
 import com.nvidia.spark.rapids.tool.{DatabricksEventLog, DatabricksRollingEventLogFilesFileReader, EventLogInfo, Identifiable, Platform}
 import com.nvidia.spark.rapids.tool.planparser.{BatchScanExecParser, ReadParser}
 import com.nvidia.spark.rapids.tool.planparser.hive.HiveParseHelper
-import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
+import com.nvidia.spark.rapids.tool.profiling.{BlockManagerRemovedCase, ConnectOperationInfo, ConnectSessionInfo, DriverAccumCase, JobInfoClass, ResourceProfileInfoCase, SQLExecutionInfoClass, SQLPlanMetricsCase}
 import com.nvidia.spark.rapids.tool.qualification.AppSubscriber
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -137,6 +137,13 @@ abstract class AppBase(
 
   var sparkRapidsBuildInfo: SparkRapidsBuildInfoEvent = SparkRapidsBuildInfoEvent(immutable.Map(),
     immutable.Map(), immutable.Map(), immutable.Map())
+
+  // Spark Connect metadata (Spark 3.5+). Empty for non-Connect event logs.
+  val connectSessions: HashMap[String, ConnectSessionInfo] = HashMap.empty
+  val connectOperations: HashMap[String, ConnectOperationInfo] = HashMap.empty
+  // jobTag -> operationId index for correlation with SQL executions and jobs.
+  val jobTagToConnectOpId: HashMap[String, String] = HashMap.empty
+  def isConnectMode: Boolean = connectOperations.nonEmpty
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
 
