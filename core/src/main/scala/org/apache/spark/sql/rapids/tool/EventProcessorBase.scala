@@ -16,6 +16,7 @@
 
 package org.apache.spark.sql.rapids.tool
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.control.NonFatal
 
@@ -168,6 +169,17 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     // redaction and predicate updates (gpuMode, etc.).
     // Last-write-wins if multiple SQL executions have different modifiedConfigs.
     app.mergeModifiedConfigs(modifiedConfigs)
+
+    // Correlate Connect operations to this sqlID via jobTags (Spark 3.5+).
+    if (app.isConnectMode) {
+      EventUtils.readJobTagsFromSQLStartEvent(event).foreach { tag =>
+        app.jobTagToConnectOpId.get(tag).foreach { opId =>
+          app.operationIdToSqlIds
+            .getOrElseUpdate(opId, mutable.HashSet.empty[Long])
+            .add(event.executionId)
+        }
+      }
+    }
   }
 
   def doSparkListenerSQLExecutionEnd(

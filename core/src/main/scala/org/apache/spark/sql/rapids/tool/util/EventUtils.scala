@@ -210,6 +210,16 @@ object EventUtils extends Logging {
     }.toOption.flatten.getOrElse(Map.empty)
   }
 
+  // Reads jobTags via reflection (Spark 3.5+, introduced for Connect support).
+  // Returns empty set on older versions.
+  def readJobTagsFromSQLStartEvent(
+      event: SparkListenerSQLExecutionStart): Set[String] = {
+    Try {
+      Option(invokeMethodOnEvent(event, "jobTags"))
+        .map(_.asInstanceOf[Set[String]])
+    }.toOption.flatten.getOrElse(Set.empty)
+  }
+
   @throws[com.fasterxml.jackson.core.JsonParseException]
   private def handleEventJsonParseEx(
       ex: com.fasterxml.jackson.core.JsonParseException): Unit = {
