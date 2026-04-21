@@ -417,6 +417,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
     profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
     profileOutputWriter.writeCSVTable("Unsupported SQL Plan", app.unsupportedOps)
+    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app)
     if (outputAlignedSQLIds) {
       profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
@@ -480,6 +481,43 @@ object Profiler {
   private val DRIVER_LOG_NAME = "driver"
   val PROFILE_LOG_NAME = "profile"
   val SUBDIR = "rapids_4_spark_profile"
+
+  /**
+   * Writes `Connect Sessions` and `Connect Operations` per-app CSV tables when
+   * the application is in Spark Connect mode. No-op otherwise: the underlying
+   * `writeCSVTable` returns early on empty input, so non-Connect apps produce
+   * no file at all (matches the behavior of every other per-app table).
+   *
+   * `statementFile` is intentionally `None` here; Task 6 of #2065 will wire the
+   * sidecar `statements/<operationId>.txt` artifact.
+   */
+  def writeConnectTables(
+      writer: ProfileOutputWriter,
+      app: ApplicationInfo): Unit = {
+    if (!app.isConnectMode) return
+    val appId = app.appId
+    val sessionRows = app.connectSessions.values.toSeq.sortBy(_.sessionId).map { s =>
+      ConnectSessionProfileResult(
+        appId = appId,
+        sessionId = s.sessionId,
+        userId = s.userId,
+        startTime = s.startTime,
+        endTime = s.endTime,
+        operationCount = app.connectOperations.values.count(_.sessionId == s.sessionId).toLong)
+    }
+    writer.writeCSVTable("Connect Sessions", sessionRows)
+    val opRows = app.connectOperations.values.toSeq.sortBy(_.operationId).map { op =>
+      ConnectOperationProfileResult.from(
+        appId = appId,
+        op = op,
+        sqlIds = app.operationIdToSqlIds.get(op.operationId)
+          .map(_.toSeq.sorted).getOrElse(Seq.empty),
+        jobIds = app.operationIdToJobIds.get(op.operationId)
+          .map(_.toSeq.sorted).getOrElse(Seq.empty),
+        statementFile = None)
+    }
+    writer.writeCSVTable("Connect Operations", opRows)
+  }
 
   def getAutoTunerResultsAsString(props: Seq[TuningEntryTrait],
       comments: Seq[RecommendedCommentResult]): String = {
