@@ -430,6 +430,20 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
       app.sqlIdToStages.getOrElseUpdate(sqlID.get, ArrayBuffer.empty) ++= event.stageIds
     }
     sqlID.foreach(app.jobIdToSqlID(event.jobId) = _)
+
+    // Correlate Connect operations to this jobID via spark.job.tags.
+    if (app.isConnectMode) {
+      val tagStr = event.properties.getProperty("spark.job.tags")
+      if (tagStr != null && tagStr.nonEmpty) {
+        tagStr.split(",").iterator.map(_.trim).foreach { tag =>
+          app.jobTagToConnectOpId.get(tag).foreach { opId =>
+            app.operationIdToJobIds
+              .getOrElseUpdate(opId, mutable.HashSet.empty[Int])
+              .add(event.jobId)
+          }
+        }
+      }
+    }
   }
 
   override def onJobStart(jobStart: SparkListenerJobStart): Unit = {

@@ -24,6 +24,7 @@ import scala.collection.mutable
 import com.nvidia.spark.rapids.BaseNoSparkSuite
 import com.nvidia.spark.rapids.tool.EventLogPathProcessor
 
+import org.apache.spark.scheduler.SparkListenerJobStart
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.execution.SparkPlanInfo
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart
@@ -140,6 +141,52 @@ class ConnectCorrelationSuite extends BaseNoSparkSuite {
       app.processEvent(untagged)
       assert(app.operationIdToSqlIds("op-1") == mutable.HashSet(42L),
         "Untagged execution should not be attributed to op-1")
+    }
+  }
+
+  test("operationIdToJobIds populated from SparkListenerJobStart spark.job.tags") {
+    withEventLog(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      // Seed Connect state as if a ConnectOperationStarted event had fired.
+      val jobTag =
+        "SparkConnect_OperationTag_User_u_Session_s_Operation_op-2"
+      app.connectOperations.put("op-2", new ConnectOperationInfo(
+        operationId = "op-2",
+        sessionId = "s",
+        userId = "u",
+        jobTag = jobTag,
+        statementText = "range(0, 10)",
+        startTime = 110000L))
+      app.jobTagToConnectOpId.put(jobTag, "op-2")
+      assert(app.isConnectMode, "Should detect Connect mode after seeding")
+
+      // Simulate a JobStart whose spark.job.tags mixes the Connect tag with a
+      // user-supplied tag (e.g., from spark.addTag).
+      val props = new java.util.Properties()
+      props.setProperty("spark.job.tags", s"$jobTag,custom-user-tag")
+      val evt = SparkListenerJobStart(
+        jobId = 7, time = 2000L, stageInfos = Nil, properties = props)
+      app.processEvent(evt)
+
+      assert(app.operationIdToJobIds("op-2") == mutable.HashSet(7),
+        "op-2 should map to exactly jobId 7")
+      assert(app.operationIdToJobIds.size == 1,
+        "No spurious opIds should be created from user tags")
+    }
+  }
+
+  test("operationIdToJobIds stays empty when app is not in Connect mode") {
+    withEventLog(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      assert(!app.isConnectMode, "Fresh app should not be in Connect mode")
+
+      val props = new java.util.Properties()
+      props.setProperty("spark.job.tags",
+        "SparkConnect_OperationTag_User_u_Session_s_Operation_op-x")
+      val evt = SparkListenerJobStart(
+        jobId = 8, time = 3000L, stageInfos = Nil, properties = props)
+      app.processEvent(evt)
+
+      assert(app.operationIdToJobIds.isEmpty,
+        "Non-Connect app should not populate operationIdToJobIds")
     }
   }
 }
