@@ -488,8 +488,9 @@ object Profiler {
    * `writeCSVTable` returns early on empty input, so non-Connect apps produce
    * no file at all (matches the behavior of every other per-app table).
    *
-   * `statementFile` is intentionally `None` here; Task 6 of #2065 will wire the
-   * sidecar `statements/<operationId>.txt` artifact.
+   * Each operation's `statementText` is written to a sidecar file under
+   * `<perAppDir>/connect_statements/<operationId>.txt` and the basename is
+   * recorded in the `statementFile` column of `connect_operations.csv`.
    */
   def writeConnectTables(
       writer: ProfileOutputWriter,
@@ -506,6 +507,9 @@ object Profiler {
         operationCount = app.connectOperations.values.count(_.sessionId == s.sessionId).toLong)
     }
     writer.writeCSVTable("Connect Sessions", sessionRows)
+    val statementFiles: Map[String, String] =
+      ConnectStatementWriter.writeStatementFiles(
+        writer.outputDir, app.connectOperations.values)
     val opRows = app.connectOperations.values.toSeq.sortBy(_.operationId).map { op =>
       ConnectOperationProfileResult.from(
         appId = appId,
@@ -514,7 +518,7 @@ object Profiler {
           .map(_.toSeq.sorted).getOrElse(Seq.empty),
         jobIds = app.operationIdToJobIds.get(op.operationId)
           .map(_.toSeq.sorted).getOrElse(Seq.empty),
-        statementFile = None)
+        statementFile = statementFiles.get(op.operationId))
     }
     writer.writeCSVTable("Connect Operations", opRows)
   }

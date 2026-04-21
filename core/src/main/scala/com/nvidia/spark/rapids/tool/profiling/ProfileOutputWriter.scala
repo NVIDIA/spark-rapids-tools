@@ -26,7 +26,7 @@ import org.json4s.jackson.Serialization
  * In case the outputCSV is set to true, it will write each table to a
  * separate CSV file.
  */
-class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
+class ProfileOutputWriter(val outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
 
   implicit val formats: DefaultFormats.type = DefaultFormats
