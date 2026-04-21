@@ -309,6 +309,16 @@ object OutHeaderRegistry {
     "WriteOpProfileResult" ->
       Array("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
           "location", "tableName", "dataBase", "outputColumns", "writeMode",
-          "partitionColumns", "compressionOption", "fullDescription")
+          "partitionColumns", "compressionOption", "fullDescription"),
+    "ConnectSessionProfileResult" ->
+      Array("appID", "sessionId", "userId", "startTime", "endTime", "durationMs",
+        "operationCount"),
+    "ConnectOperationProfileResult" ->
+      Array("appID", "operationId", "sessionId", "userId", "jobTag",
+        "startTime", "analyzeTime", "readyForExecTime", "finishTime", "closeTime",
+        "failTime", "cancelTime", "durationMs",
+        "analyzePhaseMs", "planPhaseMs", "execPhaseMs", "resultDeliveryPhaseMs",
+        "status", "producedRowCount", "errorMessage",
+        "sqlIds", "jobIds", "statementFile", "statementBytes", "statementTruncated")
   ) // End of outputHeaders map initialization
 }
