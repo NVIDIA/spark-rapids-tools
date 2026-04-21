@@ -124,3 +124,41 @@ class TestPathBoundaryQualification:
         remote_txt = 's3a://bucket/eventlogs.txt'
 
         assert RapidsJarToolTestShim.prepare_eventlog_arg_for_hadoop(remote_txt, '/tmp') == remote_txt
+
+    def test_prepare_hadoop_arg_path_preserves_glob_metacharacters(self):
+        # Hadoop expands globs on the JAR side, so `*`, `?`, and `[...]` ranges must survive
+        # URI construction verbatim. Percent-encoding them silently disables glob expansion.
+        assert RapidsJarToolTestShim.prepare_hadoop_arg_path(
+            '/data/eventlogs/cpu/*'
+        ) == 'file:///data/eventlogs/cpu/*'
+        assert RapidsJarToolTestShim.prepare_hadoop_arg_path(
+            'file:///data/eventlogs/gpu/*'
+        ) == 'file:///data/eventlogs/gpu/*'
+        assert RapidsJarToolTestShim.prepare_hadoop_arg_path(
+            '/data/eventlogs/app-?'
+        ) == 'file:///data/eventlogs/app-?'
+        assert RapidsJarToolTestShim.prepare_hadoop_arg_path(
+            '/data/eventlogs/app-[0-9]'
+        ) == 'file:///data/eventlogs/app-[0-9]'
+        # Remote globs must not be touched either.
+        assert RapidsJarToolTestShim.prepare_hadoop_arg_path(
+            's3://bucket/eventlogs/*'
+        ) == 's3a://bucket/eventlogs/*'
+
+    def test_rewrite_local_eventlog_list_preserves_glob_metacharacters(self, tmp_path):
+        eventlogs_txt = tmp_path / 'eventlogs.txt'
+        eventlogs_txt.write_text(
+            '/data/eventlogs/cpu/*\n'
+            '/data/eventlogs/gpu/*\n',
+            encoding='utf-8'
+        )
+
+        rewritten_arg = RapidsJarToolTestShim.prepare_eventlog_arg_for_hadoop(
+            str(eventlogs_txt), str(tmp_path)
+        )
+
+        rewritten_path = Path(rewritten_arg.removeprefix('file://'))
+        assert rewritten_path.read_text(encoding='utf-8') == (
+            'file:///data/eventlogs/cpu/*\n'
+            'file:///data/eventlogs/gpu/*\n'
+        )
