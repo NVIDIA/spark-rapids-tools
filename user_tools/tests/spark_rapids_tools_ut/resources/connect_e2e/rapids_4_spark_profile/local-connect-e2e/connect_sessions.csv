@@ -1,0 +1,2 @@
+appID,sessionId,userId,startTime,endTime,durationMs,operationCount
+local-connect-e2e,sess-aaa-111,userA,110000,190000,80000,2

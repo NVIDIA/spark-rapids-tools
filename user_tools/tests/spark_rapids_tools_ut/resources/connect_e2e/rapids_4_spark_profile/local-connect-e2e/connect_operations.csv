@@ -1,0 +1,3 @@
+appID,operationId,sessionId,userId,jobTag,startTime,analyzeTime,readyForExecTime,finishTime,closeTime,failTime,cancelTime,durationMs,analyzePhaseMs,planPhaseMs,execPhaseMs,resultDeliveryPhaseMs,status,producedRowCount,errorMessage,sqlIds,jobIds,statementFile,statementBytes,statementTruncated
+local-connect-e2e,op-bbb-222,sess-aaa-111,userA,SparkConnect_OperationTag_User_userA_Session_sess-aaa-111_Operation_op-bbb-222,120000,121000,121500,125000,125500,,,5500,1000,500,3500,500,SUCCEEDED,10,,42,7,op-bbb-222.txt,57,false
+local-connect-e2e,op-ccc-333,sess-aaa-111,userA,SparkConnect_OperationTag_User_userA_Session_sess-aaa-111_Operation_op-ccc-333,130000,,,,,131000,,1000,-1,-1,-1,-1,FAILED,,boom,,,,0,false
