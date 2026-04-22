@@ -17,7 +17,6 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import com.nvidia.spark.rapids.tool.views.OutHeaderRegistry
-
 import org.scalatest.funsuite.AnyFunSuite
 
 class ConnectProfileResultsSuite extends AnyFunSuite {

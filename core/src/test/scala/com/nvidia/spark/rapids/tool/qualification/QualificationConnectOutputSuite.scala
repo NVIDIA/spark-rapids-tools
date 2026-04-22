@@ -21,7 +21,6 @@ import java.nio.file.{Files, Path, Paths}
 import java.util.Comparator
 
 import scala.collection.mutable
-import scala.io.Source
 
 import com.nvidia.spark.rapids.BaseNoSparkSuite
 import com.nvidia.spark.rapids.tool.profiling.{ConnectOperationInfo, ConnectSessionInfo}
@@ -29,6 +28,7 @@ import com.nvidia.spark.rapids.tool.views.QualRawReportGenerator
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
+import org.apache.spark.sql.rapids.tool.util.UTF8Source
 
 /**
  * Verifies that the qualification raw-metrics writer emits the same Spark
@@ -73,7 +73,7 @@ class QualificationConnectOutputSuite extends BaseNoSparkSuite {
   }
 
   private def readAllLines(path: Path): Seq[String] = {
-    val src = Source.fromFile(path.toFile, StandardCharsets.UTF_8.name())
+    val src = UTF8Source.fromFile(path.toFile)
     try {
       src.getLines().toList
     } finally {
