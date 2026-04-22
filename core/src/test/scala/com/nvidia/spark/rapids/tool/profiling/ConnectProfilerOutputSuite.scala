@@ -237,4 +237,40 @@ class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
       }
     }
   }
+
+  test("writeConnectTables emits connect_sessions.csv for session-only Connect logs") {
+    withEventLog(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      app.connectSessions.put("sess-1", new ConnectSessionInfo(
+        sessionId = "sess-1",
+        userId = "alice",
+        startTime = 100L,
+        endTime = Some(500L)))
+
+      assert(app.isConnectMode, "Session-only app should report Connect mode")
+
+      val tmpDir = Files.createTempDirectory("prof-connect-out-").toFile
+      try {
+        val writer = new ProfileOutputWriter(tmpDir.getAbsolutePath, "profile",
+          numOutputRows = 1000, outputCSV = true)
+        try {
+          Profiler.writeConnectTables(writer, app)
+        } finally {
+          writer.close()
+        }
+
+        val sessionsCsv = Paths.get(tmpDir.getAbsolutePath, "connect_sessions.csv")
+        val operationsCsv = Paths.get(tmpDir.getAbsolutePath, "connect_operations.csv")
+        assert(Files.exists(sessionsCsv), s"expected $sessionsCsv to exist")
+        assert(!Files.exists(operationsCsv),
+          s"expected no $operationsCsv for session-only Connect app")
+
+        val sessionLines = readAllLines(sessionsCsv)
+        assert(sessionLines.size == 2, s"unexpected session rows: $sessionLines")
+        assert(sessionLines(1).contains("sess-1"),
+          s"expected sess-1 row in session output: ${sessionLines(1)}")
+      } finally {
+        deleteRecursively(tmpDir.toPath)
+      }
+    }
+  }
 }

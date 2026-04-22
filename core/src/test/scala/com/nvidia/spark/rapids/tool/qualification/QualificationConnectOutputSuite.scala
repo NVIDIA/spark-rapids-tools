@@ -152,4 +152,35 @@ class QualificationConnectOutputSuite extends BaseNoSparkSuite {
       }
     }
   }
+
+  test("qualification raw metrics emit connect_sessions.csv for session-only Connect logs") {
+    withQualificationApp(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      app.connectSessions.put("sess-1", new ConnectSessionInfo(
+        sessionId = "sess-1",
+        userId = "alice",
+        startTime = 100L,
+        endTime = Some(500L)))
+
+      assert(app.isConnectMode, "Session-only qualification app should report Connect mode")
+
+      val tmpDir = Files.createTempDirectory("qual-connect-out-")
+      try {
+        QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(tmpDir.toString, app)
+
+        val appDir = tmpDir.resolve("raw_metrics").resolve(app.appId)
+        val sessionsCsv = appDir.resolve("connect_sessions.csv")
+        val operationsCsv = appDir.resolve("connect_operations.csv")
+        assert(Files.exists(sessionsCsv), s"expected $sessionsCsv to exist")
+        assert(!Files.exists(operationsCsv),
+          s"expected no $operationsCsv for session-only Connect app")
+
+        val sessionLines = readAllLines(sessionsCsv)
+        assert(sessionLines.size == 2, s"unexpected session rows: $sessionLines")
+        assert(sessionLines(1).contains("sess-1"),
+          s"expected sess-1 row in session output: ${sessionLines(1)}")
+      } finally {
+        deleteRecursively(tmpDir)
+      }
+    }
+  }
 }

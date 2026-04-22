@@ -147,7 +147,7 @@ abstract class AppBase(
   val operationIdToSqlIds: HashMap[String, HashSet[Long]] = HashMap.empty
   // operationId -> jobIDs discovered via SparkListenerJobStart.properties["spark.job.tags"].
   val operationIdToJobIds: HashMap[String, HashSet[Int]] = HashMap.empty
-  def isConnectMode: Boolean = connectOperations.nonEmpty
+  def isConnectMode: Boolean = connectSessions.nonEmpty || connectOperations.nonEmpty
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
 

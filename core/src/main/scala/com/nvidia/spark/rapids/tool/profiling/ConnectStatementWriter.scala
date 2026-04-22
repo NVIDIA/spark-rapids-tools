@@ -38,6 +38,11 @@ object ConnectStatementWriter extends Logging {
 
   val SUB_DIR: String = "connect_statements"
   val FILE_EXTENSION: String = ".txt"
+  private val UnsafePathChars = "[^A-Za-z0-9._-]".r
+
+  private def sanitizeOperationId(operationId: String): String = {
+    UnsafePathChars.replaceAllIn(operationId, "_")
+  }
 
   /**
    * Writes each operation's `statementText` to
@@ -51,7 +56,7 @@ object ConnectStatementWriter extends Logging {
   def writeStatementFiles(
       rootDir: String,
       ops: Iterable[ConnectOperationInfo]): Map[String, String] = {
-    val subDirPath = Paths.get(rootDir, SUB_DIR)
+    val subDirPath = Paths.get(rootDir, SUB_DIR).toAbsolutePath.normalize()
     var subDirCreated = false
     val builder = Map.newBuilder[String, String]
     ops.foreach { op =>
@@ -62,8 +67,11 @@ object ConnectStatementWriter extends Logging {
             Files.createDirectories(subDirPath)
             subDirCreated = true
           }
-          val basename = s"${op.operationId}$FILE_EXTENSION"
-          val target = subDirPath.resolve(basename)
+          val safeId = sanitizeOperationId(op.operationId)
+          val basename = s"$safeId$FILE_EXTENSION"
+          val target = subDirPath.resolve(basename).normalize()
+          require(target.startsWith(subDirPath),
+            s"Refusing to write Connect statement sidecar outside $subDirPath: $target")
           Files.write(target, text.getBytes(StandardCharsets.UTF_8))
           builder += (op.operationId -> basename)
         } catch {

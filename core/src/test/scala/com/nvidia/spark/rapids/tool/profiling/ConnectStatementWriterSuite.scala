@@ -121,4 +121,21 @@ class ConnectStatementWriterSuite extends AnyFunSuite {
       deleteRecursively(tmpDir)
     }
   }
+
+  test("sanitizes operationId before resolving sidecar path") {
+    val tmpDir = Files.createTempDirectory("connect-stmt-writer-")
+    try {
+      val op = makeOp("../../etc/foo", "range(0, 10)")
+      val result = ConnectStatementWriter.writeStatementFiles(tmpDir.toString, Seq(op))
+      val expectedBasename = ".._.._etc_foo.txt"
+      assert(result == Map("../../etc/foo" -> expectedBasename),
+        s"expected sanitized basename map, got $result")
+      val expectedPath = tmpDir.resolve(ConnectStatementWriter.SUB_DIR).resolve(expectedBasename)
+      assert(Files.exists(expectedPath), s"expected sidecar at $expectedPath")
+      assert(expectedPath.normalize().startsWith(tmpDir.resolve(ConnectStatementWriter.SUB_DIR)),
+        s"sidecar should remain under ${ConnectStatementWriter.SUB_DIR}: $expectedPath")
+    } finally {
+      deleteRecursively(tmpDir)
+    }
+  }
 }
