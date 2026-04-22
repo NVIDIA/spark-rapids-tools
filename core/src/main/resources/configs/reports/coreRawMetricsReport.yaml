@@ -1437,7 +1437,7 @@ reportDefinitions:
         fileName: tuning_signals.csv
         scope: per-app
         columns:
-          - name: metricName
+          - name: name
             dataType: String
             description: >-
               Name of the tuning signal

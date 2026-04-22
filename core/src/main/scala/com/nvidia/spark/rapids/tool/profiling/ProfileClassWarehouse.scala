@@ -517,16 +517,16 @@ case class AppInfoProfileResults(
 }
 
 case class TuningSignalProfileResult(
-    metricName: String,
+    name: String,
     value: String) extends ProfileResult {
   override def outputHeaders: Array[String] = {
     OutHeaderRegistry.outputHeaders("TuningSignalProfileResult")
   }
 
-  override def convertToSeq(): Array[String] = Array(metricName, value)
+  override def convertToSeq(): Array[String] = Array(name, value)
 
   override def convertToCSVSeq(): Array[String] = Array(
-    StringUtils.reformatCSVString(metricName),
+    StringUtils.reformatCSVString(name),
     StringUtils.reformatCSVString(value))
 }
 

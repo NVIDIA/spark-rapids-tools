@@ -71,7 +71,7 @@ object OutHeaderRegistry {
       Array("appName", "appId", "attemptId", "sparkUser", "startTime", "endTime", "duration",
         "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds"),
     "TuningSignalProfileResult" ->
-      Array("metricName", "value"),
+      Array("name", "value"),
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->
