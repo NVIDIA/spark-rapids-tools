@@ -106,7 +106,11 @@ reportDefinitions:
             description: Sidecar filename under connect_statements/ for this operation, if written.
           - name: statementTruncated
             dataType: Boolean
-            description: True when statementText includes Spark's truncation marker.
+            description: >-
+              True when statementText includes Spark's textual truncation
+              marker. This does not detect Spark 4.x depth-based subtree
+              elision, which collapses nested structures to {} without a
+              marker.
       - label: connectStatements
         description: >-
           Directory of per-operation statementText sidecars. Each

@@ -154,6 +154,22 @@ class ConnectProfileResultsSuite extends AnyFunSuite {
     assert(operationCol(row, "statementTruncated") == "true")
   }
 
+  test("ConnectOperationProfileResult does not infer truncation from structural elision") {
+    val op = new ConnectOperationInfo(
+      operationId = "op-struct", sessionId = "s", userId = "u",
+      jobTag = "tag",
+      statementText =
+        """filter {
+          |  input {
+          |    common {}
+          |    join {}
+          |  }
+          |}""".stripMargin,
+      startTime = 100L)
+    val row = ConnectOperationProfileResult.from("app", op, Seq.empty, Seq.empty, None)
+    assert(operationCol(row, "statementTruncated") == "false")
+  }
+
   test("ConnectOperationProfileResult.convertToCSVSeq wraps string fields in quotes") {
     val op = new ConnectOperationInfo(
       operationId = "op,x", sessionId = "s\"q", userId = "u1",

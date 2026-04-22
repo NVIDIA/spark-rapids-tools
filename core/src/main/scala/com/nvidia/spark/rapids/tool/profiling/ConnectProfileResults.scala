@@ -146,6 +146,11 @@ object ConnectOperationProfileResult {
    * a statement/plan text exceeds its configured limit. Presence of this marker
    * in `statementText` indicates the artifact we persist is a truncated
    * representation of the original plan.
+   *
+   * Note: Spark 4.x also performs depth-based structural elision by collapsing
+   * subtrees to `{}` once the protobuf text formatter exceeds its nesting cap.
+   * Those cases do not emit a textual marker, so `statementTruncated` is
+   * intentionally limited to marker-based truncation only.
    */
   private[profiling] val TruncationMarker: String = "[truncated(size="
 
