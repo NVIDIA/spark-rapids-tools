@@ -32,6 +32,7 @@ reportDefinitions:
     scope: global
     nestedReports:
       - reportId: coreRawMetrics
+      - reportId: connectReport
     tableDefinitions:
       # AppStatusResult
       - label: coreCSVStatus

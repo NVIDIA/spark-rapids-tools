@@ -64,6 +64,8 @@ reportDefinitions:
         relativePath: qual_metrics
       - reportId: coreRawMetrics
         relativePath: raw_metrics
+      - reportId: connectReport
+        relativePath: raw_metrics
       - reportId: qualTuningApps
         relativePath: tuning_apps
     tableDefinitions:

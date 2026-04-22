@@ -134,7 +134,8 @@ class ReportLoader(object):
         return [
             f'{self.core_report_dir}/qualCoreReport.yaml',
             f'{self.core_report_dir}/profCoreReport.yaml',
-            f'{self.core_report_dir}/coreRawMetricsReport.yaml'
+            f'{self.core_report_dir}/coreRawMetricsReport.yaml',
+            f'{self.core_report_dir}/connectReport.yaml'
         ]
 
     @property

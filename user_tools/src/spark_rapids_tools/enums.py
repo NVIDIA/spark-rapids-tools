@@ -257,6 +257,7 @@ class ReportTableFormat(EnumeratedType):
     """Values used to define the format of the report tables"""
     CSV = 'csv'
     CONF = 'conf'
+    DIRECTORY = 'directory'
     JSON = 'json'
     LOG = 'log'
     PROPERTIES = 'properties'
@@ -286,6 +287,7 @@ class ReportTableFormat(EnumeratedType):
             self.CSV: [self.TXT],
             self.JSON: [self.TXT, self.CSV],  # It is possible to convert JSON to CSV (pandas normalizes JSON)
             self.CONF: [self.PROPERTIES],
+            self.DIRECTORY: [],
             self.PROPERTIES: [self.TXT],
             self.TXT: []
         }
