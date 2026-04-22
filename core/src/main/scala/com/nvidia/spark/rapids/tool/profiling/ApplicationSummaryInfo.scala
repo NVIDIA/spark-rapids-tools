@@ -55,7 +55,7 @@ case class ApplicationSummaryInfo(
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
     writeOpsInfo: Seq[WriteOpProfileResult],
     sqlPlanInfo: Seq[SQLPlanInfoProfileResult],
-    appTuningMetrics: Seq[AppTuningMetricsProfileResult] = Seq.empty)
+    tuningSignals: Seq[TuningSignalProfileResult] = Seq.empty)
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)
@@ -92,7 +92,7 @@ trait AppInfoReadMetrics {
 
 trait AppInfoGpuOomCheck {
   def scanStagesWithGpuOom: Set[Long] = Set.empty
-  def shuffleStagesWithOom: Set[Long] = Set.empty
+  def gpuShuffleStagesWithContainerOom: Set[Long] = Set.empty
 }
 
 trait AppInfoColumnarExchangeMetrics {
@@ -236,8 +236,8 @@ class SingleAppSummaryInfoProvider(
       app.failedTasks, app.stageMetrics, appInfo)
   }
 
-  override def shuffleStagesWithOom: Set[Long] = {
-    SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
+  override def gpuShuffleStagesWithContainerOom: Set[Long] = {
+    SingleAppSummaryInfoProvider.computeShuffleStagesWithContainerOom(
       app.appInfo.exists(_.pluginEnabled),
       getSparkProperty("spark.master"),
       app.failedStages, app.failedTasks)
@@ -293,7 +293,7 @@ object SingleAppSummaryInfoProvider {
    * Detects ExecutorLostFailure with exit code 137 (SIGKILL from container memory enforcement).
    * See: https://github.com/NVIDIA/spark-rapids-tools/issues/1566
    */
-  def computeShuffleStagesWithOom(
+  def computeShuffleStagesWithContainerOom(
       pluginEnabled: Boolean,
       sparkMasterStr: Option[String],
       failedStages: Seq[FailedStagesProfileResults],

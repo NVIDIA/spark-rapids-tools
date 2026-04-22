@@ -18,7 +18,6 @@
 # <application-id>/
 #    ├── application_information.csv
 #    ├── application_log_path_mapping.csv
-#    ├── application_tuning_metrics.csv
 #    ├── cluster_information.json
 #    ├── data_source_information.csv
 #    ├── executor_information.csv
@@ -41,6 +40,7 @@
 #    ├── stage_level_aggregated_task_metrics.csv
 #    ├── stage_level_all_metrics.csv
 #    ├── system_properties.csv
+#    ├── tuning_signals.csv
 #    ├── unsupported_sql_plan.csv
 #    ├── wholestagecodegen_mapping.csv
 #    ├── write_operations.csv
@@ -1427,30 +1427,22 @@ reportDefinitions:
         fileName: profile.log
         fileFormat: TXT
         scope: per-app
-      # AppTuningMetricsProfileResult
-      - label: coreRawAppTuningMetricsCSV
+      # TuningSignalProfileResult
+      - label: coreRawTuningSignalsCSV
         description: >-
-          Per-app metrics used by the AutoTuner for partition sizing and cluster sizing.
-        fileName: application_tuning_metrics.csv
+          Per-app diagnostic signals used as AutoTuner inputs (partition sizing, cluster
+          sizing). Vertical key-value layout; each emitted metric is one row. Current
+          rows: maxTaskInputBytesRead, maxColumnarExchangeDataSizeBytes (profiling only),
+          scanStagesWithGpuOom (profiling only), gpuShuffleStagesWithContainerOom (profiling only).
+        fileName: tuning_signals.csv
         scope: per-app
         columns:
-          - name: appId
+          - name: metricName
             dataType: String
             description: >-
-              Application ID
-          - name: maxTaskInputBytesRead
-            dataType: Long
-            description: >-
-              Maximum per-task input bytes read across all SQLs
-          - name: maxColumnarExchangeDataSizeBytes
-            dataType: Long
-            description: >-
-              Maximum data size from ColumnarExchange metrics (profiling only)
-          - name: scanStagesWithGpuOom
+              Name of the tuning signal
+          - name: value
             dataType: String
             description: >-
-              Comma-separated stage IDs of scan stages with GPU OOM (profiling only)
-          - name: shuffleStagesWithOom
-            dataType: String
-            description: >-
-              Comma-separated stage IDs of shuffle stages with OOM (profiling only)
+              Signal value. Numeric signals are stored as their integer string form;
+              stage-ID signals are comma-separated lists (empty string when none).

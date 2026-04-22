@@ -314,15 +314,16 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(sqlMetrics)
     val scanOomStages = SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
       pluginEnabled, failedTasks, stageMetrics, singleApp)
-    val shuffleOomStages = SingleAppSummaryInfoProvider.computeShuffleStagesWithOom(
-      pluginEnabled, singleApp.sparkProperties.get("spark.master"),
-      failedStages, failedTasks)
+    val gpuShuffleContainerOomStages =
+      SingleAppSummaryInfoProvider.computeShuffleStagesWithContainerOom(
+        pluginEnabled, singleApp.sparkProperties.get("spark.master"),
+        failedStages, failedTasks)
 
     val appInfo = collect.getAppInfo
     val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
-    val tuningMetrics = Seq(AppTuningMetricsProfileResult(
-      appId, maxTaskInput, maxColumnarExchange.getOrElse(0L),
-      scanOomStages, shuffleOomStages))
+    val tuningSignals = TuningSignalProfileResult.build(
+      maxTaskInput, maxColumnarExchange.getOrElse(0L),
+      scanOomStages, gpuShuffleContainerOomStages)
 
     logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
@@ -356,7 +357,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
       sqlPlanInfo = collect.getSQLPlanInfoTruncated,
-      appTuningMetrics = tuningMetrics)
+      tuningSignals = tuningSignals)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -429,7 +430,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
-    profileOutputWriter.writeCSVTable(APPLICATION_TUNING_METRICS, app.appTuningMetrics)
+    profileOutputWriter.writeCSVTable(TUNING_SIGNALS, app.tuningSignals)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
     profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)

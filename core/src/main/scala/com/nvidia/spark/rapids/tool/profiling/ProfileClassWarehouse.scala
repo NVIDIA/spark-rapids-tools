@@ -516,48 +516,38 @@ case class AppInfoProfileResults(
   }
 }
 
-case class AppTuningMetricsProfileResult(
-    appId: String,
-    maxTaskInputBytesRead: String,
-    maxColumnarExchangeDataSizeBytes: String,
-    scanStagesWithGpuOom: String,
-    shuffleStagesWithOom: String) extends ProfileResult {
+case class TuningSignalProfileResult(
+    metricName: String,
+    value: String) extends ProfileResult {
   override def outputHeaders: Array[String] = {
-    OutHeaderRegistry.outputHeaders("AppTuningMetricsProfileResult")
+    OutHeaderRegistry.outputHeaders("TuningSignalProfileResult")
   }
 
-  override def convertToSeq(): Array[String] = {
-    Array(appId, maxTaskInputBytesRead, maxColumnarExchangeDataSizeBytes,
-      scanStagesWithGpuOom, shuffleStagesWithOom)
-  }
+  override def convertToSeq(): Array[String] = Array(metricName, value)
 
-  override def convertToCSVSeq(): Array[String] = {
-    Array(StringUtils.reformatCSVString(appId),
-      maxTaskInputBytesRead,
-      maxColumnarExchangeDataSizeBytes,
-      StringUtils.reformatCSVString(scanStagesWithGpuOom),
-      StringUtils.reformatCSVString(shuffleStagesWithOom))
-  }
+  override def convertToCSVSeq(): Array[String] = Array(
+    StringUtils.reformatCSVString(metricName),
+    StringUtils.reformatCSVString(value))
 }
 
-object AppTuningMetricsProfileResult {
+object TuningSignalProfileResult {
   private def stageIdsToStr(stageIds: Set[Long]): String = {
     if (stageIds.isEmpty) "" else stageIds.toSeq.sorted.mkString(",")
   }
 
-  def apply(
-      appId: String,
+  def build(
       maxTaskInputBytesRead: Long,
       maxColumnarExchangeDataSizeBytes: Long,
       scanStagesWithGpuOom: Set[Long],
-      shuffleStagesWithOom: Set[Long]): AppTuningMetricsProfileResult = {
-    AppTuningMetricsProfileResult(
-      appId = appId,
-      maxTaskInputBytesRead = maxTaskInputBytesRead.toString,
-      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes.toString,
-      scanStagesWithGpuOom = stageIdsToStr(scanStagesWithGpuOom),
-      shuffleStagesWithOom = stageIdsToStr(shuffleStagesWithOom))
-  }
+      gpuShuffleStagesWithContainerOom: Set[Long]): Seq[TuningSignalProfileResult] = Seq(
+    TuningSignalProfileResult("maxTaskInputBytesRead",
+      maxTaskInputBytesRead.toString),
+    TuningSignalProfileResult("maxColumnarExchangeDataSizeBytes",
+      maxColumnarExchangeDataSizeBytes.toString),
+    TuningSignalProfileResult("scanStagesWithGpuOom",
+      stageIdsToStr(scanStagesWithGpuOom)),
+    TuningSignalProfileResult("gpuShuffleStagesWithContainerOom",
+      stageIdsToStr(gpuShuffleStagesWithContainerOom)))
 }
 
 case class AppLogPathProfileResults(

@@ -2203,7 +2203,7 @@ class ProfilingAutoTuner(
    */
   override def recommendShufflePartitionsInternal(): Int = {
     val calculatedValue = super.recommendShufflePartitionsInternal()
-    if (appInfoProvider.shuffleStagesWithOom.nonEmpty) {
+    if (appInfoProvider.gpuShuffleStagesWithContainerOom.nonEmpty) {
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
       val recShufflePartitions = shufflePartitionValue *
         configProvider.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt
