@@ -29,6 +29,13 @@ class TestConnectE2E(unittest.TestCase):
 
     sample_app_id = 'local-connect-e2e'
     expected_statement = 'common { plan_id: 0 } range { start: 0 end: 100 step: 1 }\n'
+    expected_operation_columns = [
+        'appID', 'operationId', 'sessionId', 'userId', 'jobTag', 'startTime',
+        'analyzeTime', 'readyForExecTime', 'finishTime', 'closeTime', 'failTime',
+        'cancelTime', 'durationMs', 'analyzePhaseMs', 'planPhaseMs', 'execPhaseMs',
+        'resultDeliveryPhaseMs', 'status', 'producedRowCount', 'errorMessage',
+        'sqlIds', 'jobIds', 'statementFile', 'statementBytes', 'statementTruncated'
+    ]
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
@@ -48,6 +55,8 @@ class TestConnectE2E(unittest.TestCase):
         raw_df = pd.read_csv(csv_path)
         api_df = api_res.data
 
+        self.assertEqual(list(raw_df.columns), self.expected_operation_columns)
+        self.assertEqual(list(api_df.columns), self.expected_operation_columns)
         self.assertEqual(list(raw_df['operationId']), ['op-bbb-222', 'op-ccc-333'])
         self.assertEqual(list(api_df['operationId'].astype(str)), list(raw_df['operationId']))
         self.assertEqual(api_df.loc[api_df['operationId'] == 'op-bbb-222', 'sqlIds'].iat[0], '42')
