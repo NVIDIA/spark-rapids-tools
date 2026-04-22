@@ -72,11 +72,11 @@ object QualRawReportGenerator extends Logging {
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
       // Compute aggregate metrics early so maxTaskInputBytesRead is available for
-      // app_tuning_metrics.csv
+      // application_tuning_metrics.csv
       val aggRawMetrics = QualSparkMetricsAggregator
         .getAggRawMetrics(app, sqlAnalyzer = Some(sqlPlanAnalyzer))
       val maxTaskInput = aggRawMetrics.maxTaskInputSizes.headOption
-        .map(_.maxTaskInputBytesRead).getOrElse(0.0)
+        .map(_.maxTaskInputBytesRead.toLong).getOrElse(0L)
 
       pWriter.writeText("### A. Information Collected ###")
       pWriter.writeTable(
@@ -107,10 +107,10 @@ object QualRawReportGenerator extends Logging {
       constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
-      // Write tuning metrics (GPU-only fields are empty for qualification)
+      // Write tuning metrics (GPU-only fields default to 0/empty for qualification)
       val tuningMetrics = Seq(AppTuningMetricsProfileResult(
-        app.appId, maxTaskInput, Option.empty[Long], Set.empty[Long], Set.empty[Long]))
-      pWriter.writeCSVTable(APP_TUNING_METRICS, tuningMetrics)
+        app.appId, maxTaskInput, 0L, Set.empty[Long], Set.empty[Long]))
+      pWriter.writeCSVTable(APPLICATION_TUNING_METRICS, tuningMetrics)
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeCSVTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
       pWriter.writeTable(

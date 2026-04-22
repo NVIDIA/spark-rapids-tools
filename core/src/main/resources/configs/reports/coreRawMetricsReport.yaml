@@ -18,6 +18,7 @@
 # <application-id>/
 #    ├── application_information.csv
 #    ├── application_log_path_mapping.csv
+#    ├── application_tuning_metrics.csv
 #    ├── cluster_information.json
 #    ├── data_source_information.csv
 #    ├── executor_information.csv
@@ -1430,7 +1431,7 @@ reportDefinitions:
       - label: coreRawAppTuningMetricsCSV
         description: >-
           Per-app metrics used by the AutoTuner for partition sizing and cluster sizing.
-        fileName: app_tuning_metrics.csv
+        fileName: application_tuning_metrics.csv
         scope: per-app
         columns:
           - name: appId

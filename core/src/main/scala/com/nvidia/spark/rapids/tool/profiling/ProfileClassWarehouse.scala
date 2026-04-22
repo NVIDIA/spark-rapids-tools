@@ -547,15 +547,14 @@ object AppTuningMetricsProfileResult {
 
   def apply(
       appId: String,
-      maxTaskInputBytesRead: Double,
-      maxColumnarExchangeDataSizeBytes: Option[Long],
+      maxTaskInputBytesRead: Long,
+      maxColumnarExchangeDataSizeBytes: Long,
       scanStagesWithGpuOom: Set[Long],
       shuffleStagesWithOom: Set[Long]): AppTuningMetricsProfileResult = {
     AppTuningMetricsProfileResult(
       appId = appId,
-      maxTaskInputBytesRead = f"$maxTaskInputBytesRead%.0f",
-      maxColumnarExchangeDataSizeBytes =
-        maxColumnarExchangeDataSizeBytes.map(_.toString).getOrElse(""),
+      maxTaskInputBytesRead = maxTaskInputBytesRead.toString,
+      maxColumnarExchangeDataSizeBytes = maxColumnarExchangeDataSizeBytes.toString,
       scanStagesWithGpuOom = stageIdsToStr(scanStagesWithGpuOom),
       shuffleStagesWithOom = stageIdsToStr(shuffleStagesWithOom))
   }
