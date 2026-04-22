@@ -23,7 +23,7 @@ import org.apache.spark.sql.rapids.tool.util.StringUtils
 /**
  * CSV row for a Spark Connect session. Serializes the lifecycle metadata for a
  * single session into the columns registered under
- * `ConnectSessionProfileResult` in [[OutHeaderRegistry]].
+ * `ConnectSessionProfileResult` in [[com.nvidia.spark.rapids.tool.views.OutHeaderRegistry]].
  *
  * `durationMs` is `endTime - startTime` when `endTime` is defined, else `-1`
  * (matches the convention used for open/unfinished sessions in other result
@@ -67,11 +67,11 @@ case class ConnectSessionProfileResult(
 /**
  * CSV row for a single Spark Connect operation. Captures the core lifecycle
  * (start/finish/close/fail/cancel timestamps), derived status, error message,
- * and the joined sqlIDs/jobIDs. Also captures statement-file provenance for
- * the separate `statements/<operationId>.txt` artifact.
+ * and the joined sqlIDs/jobIDs. Also records the sidecar basename for the
+ * `connect_statements/<operationId>.txt` artifact.
  *
- * sqlIds and jobIds are serialized semicolon-separated (to keep the CSV
- * single-column and avoid quoting issues).
+ * sqlIds and jobIds are serialized semicolon-separated to keep the CSV
+ * single-column and avoid quoting issues.
  */
 case class ConnectOperationProfileResult(
     appId: String,

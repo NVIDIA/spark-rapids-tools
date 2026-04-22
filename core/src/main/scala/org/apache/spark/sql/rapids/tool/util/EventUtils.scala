@@ -365,7 +365,7 @@ object EventUtils extends Logging {
 
   /**
    * Invoke a no-arg method on an object, caching the Method reference.
-   * @throws NoSuchMethodException if the method does not exist on the object's class.
+   * Throws NoSuchMethodException if the method does not exist on the object's class.
    */
   @throws[NoSuchMethodException]
   def invokeMethodOnEvent(event: AnyRef, methodName: String): Any = {

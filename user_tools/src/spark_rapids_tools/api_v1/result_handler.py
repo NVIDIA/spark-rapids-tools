@@ -227,7 +227,7 @@ class ResultHandler(object):
     def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
         return self.get_reader_path('coreRawMetrics')
 
-    def _get_per_app_table_path(self, table_label: str, app_id: str) -> Optional[BoundedCspPath]:
+    def get_per_app_table_path(self, table_label: str, app_id: str) -> Optional[BoundedCspPath]:
         """
         Resolve the per-application path for a table definition.
         :param table_label: Label of the table definition.
@@ -248,7 +248,7 @@ class ResultHandler(object):
         """
         Return the connect_statements directory for a given application, if present.
         """
-        stmt_dir = self._get_per_app_table_path('connectStatements', app_id)
+        stmt_dir = self.get_per_app_table_path('connectStatements', app_id)
         if stmt_dir is None or not stmt_dir.exists():
             return None
         return stmt_dir
@@ -262,7 +262,17 @@ class ResultHandler(object):
 
     def list_connect_statement_ops(self, app_id: str) -> List[str]:
         """
-        Return sorted operation IDs for all statement sidecars under connect_statements/.
+        List the sanitized operation IDs for all statement sidecars of an app.
+
+        Each file under ``<raw_metrics>/<app_id>/connect_statements/*.txt`` contributes
+        one entry (``.txt`` stripped). Operation IDs are sanitized to match the on-disk
+        basename: characters outside ``[A-Za-z0-9._-]`` are replaced with ``_``. Use
+        ``connect_operations.csv`` and its ``statementFile`` column to recover the
+        original operation IDs.
+
+        :param app_id: Spark application ID whose sidecar directory should be listed.
+        :return: Sorted list of sanitized operation IDs, or an empty list when no
+                 ``connect_statements/`` directory exists for the app.
         """
         stmt_dir = self.get_connect_statements_dir(app_id)
         if stmt_dir is None:

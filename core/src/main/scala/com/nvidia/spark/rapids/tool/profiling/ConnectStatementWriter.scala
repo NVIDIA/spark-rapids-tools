@@ -16,8 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.profiling
 
-import java.nio.charset.StandardCharsets
-
+import com.nvidia.spark.rapids.tool.ToolTextFileWriter
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -36,8 +35,9 @@ import org.apache.spark.internal.Logging
  * empty directory. Per-file IO errors are logged and skipped; they do not
  * abort the batch.
  *
- * Writes go through Hadoop `FileSystem` so the same code works for local
- * paths, HDFS, S3, GCS, etc. — matching every other per-app output file.
+ * Writes go through [[ToolTextFileWriter]] so the same UTF-8, permissions, and
+ * local/raw-filesystem behavior used by the rest of the tools output applies
+ * here as well.
  */
 object ConnectStatementWriter extends Logging {
 
@@ -66,10 +66,7 @@ object ConnectStatementWriter extends Logging {
       rootDir: String,
       ops: Iterable[ConnectOperationInfo],
       hadoopConf: Option[Configuration] = None): Map[String, String] = {
-    val conf = hadoopConf.getOrElse(new Configuration())
     val subDirPath = new Path(rootDir, SUB_DIR)
-    val fs = subDirPath.getFileSystem(conf)
-    var subDirCreated = false
     val builder = Map.newBuilder[String, String]
     ops.foreach { op =>
       val text = op.statementText
@@ -82,15 +79,15 @@ object ConnectStatementWriter extends Logging {
           // `/` and `..`, but verify the resolved parent matches.
           require(target.getParent == subDirPath,
             s"Refusing to write Connect statement sidecar outside $subDirPath: $target")
-          if (!subDirCreated) {
-            fs.mkdirs(subDirPath)
-            subDirCreated = true
-          }
-          val out = fs.create(target, /* overwrite = */ true)
+          val writer = new ToolTextFileWriter(
+            subDirPath.toString,
+            basename,
+            s"Connect statement sidecar for operation ${op.operationId}",
+            hadoopConf)
           try {
-            out.write(text.getBytes(StandardCharsets.UTF_8))
+            writer.write(text)
           } finally {
-            out.close()
+            writer.close()
           }
           builder += (op.operationId -> basename)
         } catch {

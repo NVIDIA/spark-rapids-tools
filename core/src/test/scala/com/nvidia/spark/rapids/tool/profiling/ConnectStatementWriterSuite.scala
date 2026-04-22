@@ -23,10 +23,9 @@ import java.util.Comparator
 import org.scalatest.funsuite.AnyFunSuite
 
 /**
- * Tests Task 6 of Spark Connect Phase 3 (#2065): writing each operation's
- * `statementText` to a sidecar file under
- * `<per-app-output-dir>/connect_statements/<operationId>.txt` and returning
- * the basename map used to populate the `statementFile` column in
+ * Tests for [[ConnectStatementWriter]]: writes each operation's `statementText`
+ * to a sidecar at `<per-app-output-dir>/connect_statements/<operationId>.txt`
+ * and returns the basename map used to populate the `statementFile` column in
  * `connect_operations.csv`.
  */
 class ConnectStatementWriterSuite extends AnyFunSuite {

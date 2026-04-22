@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Tests for Connect-specific ResultHandler helpers."""
+"""Tests for generic artifact-path lookups and Connect-specific helpers."""
 
 import os
 import shutil
 import tempfile
 import unittest
 
-from spark_rapids_tools.api_v1 import ProfCore
+from spark_rapids_tools.api_v1 import ProfCore, ProfWrapper
 
 
 class TestConnectHelpers(unittest.TestCase):
@@ -30,18 +30,27 @@ class TestConnectHelpers(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
         self.prof_output = os.path.join(self.temp_dir, 'rapids_4_spark_profile')
+        self.prof_wrapper_output = os.path.join(self.temp_dir, 'prof_20260422010101_deadbeef')
+        self.prof_wrapper_core_output = os.path.join(self.prof_wrapper_output, 'rapids_4_spark_profile')
         self.app_dir = os.path.join(self.prof_output, self.sample_app_id)
         self.statements_dir = os.path.join(self.app_dir, 'connect_statements')
         os.makedirs(self.statements_dir, exist_ok=True)
+        os.makedirs(os.path.join(
+            self.prof_wrapper_core_output,
+            self.sample_app_id,
+            'connect_statements'
+        ), exist_ok=True)
 
-        with open(os.path.join(self.prof_output, 'profiling_status.csv'), 'w', encoding='utf-8') as fh:
-            fh.write('Event Log,Status,App ID,Attempt ID,App Name,Description\n')
-            fh.write(f'/path/to/eventlog,SUCCESS,{self.sample_app_id},0,ProfTest,ok\n')
-
-        with open(os.path.join(self.statements_dir, 'op-1.txt'), 'w', encoding='utf-8') as fh:
-            fh.write('SELECT 1')
-        with open(os.path.join(self.statements_dir, 'op-2.txt'), 'w', encoding='utf-8') as fh:
-            fh.write('SELECT 2')
+        for base_dir in (self.prof_output, self.prof_wrapper_core_output):
+            app_dir = os.path.join(base_dir, self.sample_app_id)
+            statements_dir = os.path.join(app_dir, 'connect_statements')
+            with open(os.path.join(base_dir, 'profiling_status.csv'), 'w', encoding='utf-8') as fh:
+                fh.write('Event Log,Status,App ID,Attempt ID,App Name,Description\n')
+                fh.write(f'/path/to/eventlog,SUCCESS,{self.sample_app_id},0,ProfTest,ok\n')
+            with open(os.path.join(statements_dir, 'op-1.txt'), 'w', encoding='utf-8') as fh:
+                fh.write('SELECT 1')
+            with open(os.path.join(statements_dir, 'op-2.txt'), 'w', encoding='utf-8') as fh:
+                fh.write('SELECT 2')
         with open(os.path.join(self.app_dir, 'secret.txt'), 'w', encoding='utf-8') as fh:
             fh.write('SECRET')
 
@@ -53,6 +62,23 @@ class TestConnectHelpers(unittest.TestCase):
         path = handler.get_connect_statements_dir(self.sample_app_id)
         self.assertIsNotNone(path)
         self.assertEqual(path.base_name(), 'connect_statements')
+
+    def test_get_per_app_table_path_returns_connect_directory_path(self):
+        handler = ProfCore(self.prof_output)
+        path = handler.get_per_app_table_path('connectStatements', self.sample_app_id)
+        self.assertIsNotNone(path)
+        self.assertEqual(path.base_name(), 'connect_statements')
+        self.assertTrue(str(path).endswith(f'/{self.sample_app_id}/connect_statements'))
+
+    def test_get_table_path_resolves_nested_core_artifacts_from_wrapper(self):
+        handler = ProfWrapper(self.prof_wrapper_output)
+        status_path = handler.get_table_path('coreCSVStatus')
+        stmt_dir = handler.get_per_app_table_path('connectStatements', self.sample_app_id)
+        self.assertIsNotNone(status_path)
+        self.assertIsNotNone(stmt_dir)
+        self.assertTrue(str(status_path).endswith('/rapids_4_spark_profile/profiling_status.csv'))
+        self.assertTrue(str(stmt_dir).endswith(
+            f'/rapids_4_spark_profile/{self.sample_app_id}/connect_statements'))
 
     def test_list_connect_statement_ops_returns_sorted_operation_ids(self):
         handler = ProfCore(self.prof_output)

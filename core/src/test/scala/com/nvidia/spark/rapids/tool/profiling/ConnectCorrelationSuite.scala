@@ -32,11 +32,12 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.RapidsToolsConfUtil
 
 /**
- * Tests for Spark Connect sqlID/jobID correlation indexes on AppBase.
- * Task 1 verifies the reverse-index HashMaps exist and are initialized
- * empty on a fresh app. Task 2 verifies operationIdToSqlIds is populated
- * from SparkListenerSQLExecutionStart.jobTags. Task 3 will populate
- * operationIdToJobIds from SparkListenerJobStart.properties["spark.job.tags"].
+ * Tests for Spark Connect sqlID/jobID correlation indexes on `AppBase`.
+ * Covers:
+ *  - the reverse-index `HashMap`s exist and are initialized empty on a fresh app,
+ *  - `operationIdToSqlIds` is populated from `SparkListenerSQLExecutionStart.jobTags`,
+ *  - `operationIdToJobIds` is populated from
+ *    `SparkListenerJobStart.properties["spark.job.tags"]`.
  */
 class ConnectCorrelationSuite extends BaseNoSparkSuite {
 

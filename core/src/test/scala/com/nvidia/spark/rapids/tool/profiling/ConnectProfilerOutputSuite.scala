@@ -31,10 +31,10 @@ import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, UTF8Source}
 
 /**
- * Tests Task 5 of Spark Connect Phase 3 (#2065): wiring
- * [[ConnectSessionProfileResult]] / [[ConnectOperationProfileResult]] into the
- * Profiler's per-app CSV output. Verifies that `connect_sessions.csv` and
- * `connect_operations.csv` are produced in Connect mode and absent otherwise.
+ * Tests that [[ConnectSessionProfileResult]] and
+ * [[ConnectOperationProfileResult]] are wired into the Profiler's per-app CSV
+ * output — `connect_sessions.csv` and `connect_operations.csv` are produced in
+ * Connect mode and absent otherwise.
  */
 class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
 

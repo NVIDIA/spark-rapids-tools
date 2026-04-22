@@ -1169,6 +1169,12 @@ class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
     def is_empty(self) -> bool:
         return self._res_h.is_empty()
 
+    def get_table_path(self, table_label: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_table_path(table_label)
+
+    def get_per_app_table_path(self, table_label: str, app_id: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_per_app_table_path(table_label, app_id)
+
     def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
         return self._res_h.get_raw_metrics_path()
 
