@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAggregator
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
@@ -30,7 +30,6 @@ case class ProfilerAggregatedView(
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
-    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
     stageDiagnostics: Seq[StageDiagnosticResult])
 
 object RawMetricProfilerView  {
@@ -43,7 +42,6 @@ object RawMetricProfilerView  {
       AggMetricsResultSorter.sortSqlAgg(aggMetricsResults.sqlAggs),
       AggMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggMetricsResults.sqlDurAggs),
-      aggMetricsResults.maxTaskInputSizes,
       AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics))
   }
 }

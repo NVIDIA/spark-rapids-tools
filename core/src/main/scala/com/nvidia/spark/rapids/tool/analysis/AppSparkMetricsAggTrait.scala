@@ -45,7 +45,6 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       sqlMetricsAgg,
       analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
-      Seq(analysisObj.maxTaskInputSizeBytesPerSQL(index)),
       analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
   }
 
@@ -67,7 +66,6 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
         agg1.sqlAggs ++ agg2.sqlAggs,
         agg1.ioAggs ++ agg2.ioAggs,
         agg1.sqlDurAggs ++ agg2.sqlDurAggs,
-        agg1.maxTaskInputSizes ++ agg2.maxTaskInputSizes,
         agg1.stageDiagnostics ++ agg2.stageDiagnostics)
     }
   }

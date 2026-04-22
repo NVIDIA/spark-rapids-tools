@@ -536,14 +536,8 @@ object TuningSignalProfileResult {
   }
 
   def build(
-      maxTaskInputBytesRead: Long,
-      maxColumnarExchangeDataSizeBytes: Long,
       scanStagesWithGpuOom: Set[Long],
       gpuShuffleStagesWithContainerOom: Set[Long]): Seq[TuningSignalProfileResult] = Seq(
-    TuningSignalProfileResult("maxTaskInputBytesRead",
-      maxTaskInputBytesRead.toString),
-    TuningSignalProfileResult("maxColumnarExchangeDataSizeBytes",
-      maxColumnarExchangeDataSizeBytes.toString),
     TuningSignalProfileResult("scanStagesWithGpuOom",
       stageIdsToStr(scanStagesWithGpuOom)),
     TuningSignalProfileResult("gpuShuffleStagesWithContainerOom",
@@ -785,6 +779,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
   def executorDeserializeTimeSum: Long
   def executorRunTimeSum: Long
   def inputBytesReadSum: Long
+  def inputBytesReadMax: Long
   def inputRecordsReadSum: Long
   def jvmGCTimeSum: Long
   def memoryBytesSpilledSum: Long
@@ -825,6 +820,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,
@@ -862,6 +858,7 @@ case class JobAggTaskMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     inputRecordsReadSum: Long,
     jvmGCTimeSum: Long,
     memoryBytesSpilledSum: Long,
@@ -902,6 +899,7 @@ case class StageAggTaskMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     inputRecordsReadSum: Long,
     jvmGCTimeSum: Long,
     memoryBytesSpilledSum: Long,
@@ -956,6 +954,7 @@ case class StageAggTaskMetricsProfileResult(
         other.executorDeserializeTimeSum,
       executorRunTimeSum = this.executorRunTimeSum + other.executorRunTimeSum,
       inputBytesReadSum = this.inputBytesReadSum + other.inputBytesReadSum,
+      inputBytesReadMax = Math.max(this.inputBytesReadMax, other.inputBytesReadMax),
       inputRecordsReadSum = this.inputRecordsReadSum + other.inputRecordsReadSum,
       jvmGCTimeSum = this.jvmGCTimeSum + other.jvmGCTimeSum,
       memoryBytesSpilledSum = this.memoryBytesSpilledSum + other.memoryBytesSpilledSum,
@@ -1118,12 +1117,6 @@ case class StageDiagnosticResult(
   }
 }
 
-case class SQLMaxTaskInputSizes(
-    appId: String,
-    // Not added to the output since it is used only by the AutoTuner
-    maxTaskInputBytesRead: Double
-)
-
 case class SQLTaskAggMetricsProfileResult(
     appId: String,
     sqlId: Long,
@@ -1141,6 +1134,7 @@ case class SQLTaskAggMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     // Not added to the output since it is used only by the AutoTuner
     inputBytesReadAvg: Double,
     inputRecordsReadSum: Long,
@@ -1189,6 +1183,7 @@ case class SQLTaskAggMetricsProfileResult(
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,
@@ -1225,6 +1220,7 @@ case class SQLTaskAggMetricsProfileResult(
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,

@@ -293,7 +293,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
-    val maxTaskInputInfo = analysis.maxTaskInputSizes
     val sqlIdAlign = if (outputAlignedSQLIds) {
       collect.getSQLCleanAndAligned
     } else {
@@ -305,13 +304,9 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val failedTasks = healthCheck.getFailedTasks
     val failedStages = healthCheck.getFailedStages
 
-    // Compute AutoTuner inputs for application_tuning_metrics.csv
+    // Compute GPU OOM signals for tuning_signals.csv
     val singleApp = analyzedApps.head
     val pluginEnabled = singleApp.gpuMode
-    val maxTaskInput = analysis.maxTaskInputSizes.headOption
-      .map(_.maxTaskInputBytesRead.toLong).getOrElse(0L)
-    val maxColumnarExchange =
-      SingleAppSummaryInfoProvider.computeMaxColumnarExchangeDataSizeBytes(sqlMetrics)
     val scanOomStages = SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
       pluginEnabled, failedTasks, stageMetrics, singleApp)
     val gpuShuffleContainerOomStages =
@@ -322,7 +317,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     val appInfo = collect.getAppInfo
     val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
     val tuningSignals = TuningSignalProfileResult.build(
-      maxTaskInput, maxColumnarExchange.getOrElse(0L),
       scanOomStages, gpuShuffleContainerOomStages)
 
     logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
@@ -349,7 +343,6 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sparkProps = collect.getSparkProperties,
       sqlStageInfo = collect.getSQLToStage,
       wholeStage = collect.getWholeStageCodeGenMapping,
-      maxTaskInputBytesRead = maxTaskInputInfo,
       appLogPath = collect.getAppLogPath,
       ioMetrics = analysis.ioAggs,
       sysProps = collect.getSystemProperties,

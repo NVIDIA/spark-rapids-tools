@@ -47,7 +47,6 @@ case class ApplicationSummaryInfo(
     sparkProps: Seq[RapidsPropertyProfileResult],
     sqlStageInfo: Seq[SQLStageInfoProfileResult],
     wholeStage: Seq[WholeStageCodeGenResults],
-    maxTaskInputBytesRead: Seq[SQLMaxTaskInputSizes],
     appLogPath: Seq[AppLogPathProfileResults],
     ioMetrics: Seq[IOAnalysisProfileResult],
     sysProps: Seq[RapidsPropertyProfileResult],
@@ -187,8 +186,8 @@ class SingleAppSummaryInfoProvider(
   }
 
   override def getMaxInput: Double = {
-    if (app.maxTaskInputBytesRead.nonEmpty) {
-      app.maxTaskInputBytesRead.head.maxTaskInputBytesRead
+    if (app.sqlTaskAggMetrics.nonEmpty) {
+      app.sqlTaskAggMetrics.map(_.inputBytesReadMax).max.toDouble
     } else {
       0.0
     }

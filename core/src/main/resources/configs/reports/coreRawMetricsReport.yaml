@@ -373,6 +373,10 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
+          - name: input_bytesRead_max
+            dataType: Long
+            description: >-
+              Maximum per-task input bytes read within the aggregation unit
           - name: input_recordsRead_sum
             dataType: Long
             description: >-
@@ -570,6 +574,10 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
+          - name: input_bytesRead_max
+            dataType: Long
+            description: >-
+              Maximum per-task input bytes read within the aggregation unit
           - name: input_recordsRead_sum
             dataType: Long
             description: >-
@@ -783,6 +791,10 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
+          - name: input_bytesRead_max
+            dataType: Long
+            description: >-
+              Maximum per-task input bytes read within the aggregation unit
           - name: input_recordsRead_sum
             dataType: Long
             description: >-
@@ -1430,10 +1442,8 @@ reportDefinitions:
       # TuningSignalProfileResult
       - label: coreRawTuningSignalsCSV
         description: >-
-          Per-app diagnostic signals used as AutoTuner inputs (partition sizing, cluster
-          sizing). Vertical key-value layout; each emitted metric is one row. Current
-          rows: maxTaskInputBytesRead, maxColumnarExchangeDataSizeBytes (profiling only),
-          scanStagesWithGpuOom (profiling only), gpuShuffleStagesWithContainerOom (profiling only).
+          Per-app GPU-OOM diagnostic signals used as AutoTuner inputs. Vertical key-value
+          layout; each emitted metric is one row.
         fileName: tuning_signals.csv
         scope: per-app
         columns:

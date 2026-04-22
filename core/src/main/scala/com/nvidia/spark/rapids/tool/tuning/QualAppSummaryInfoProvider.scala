@@ -98,8 +98,8 @@ class QualAppSummaryInfoProvider(
   }
 
   override def getMaxInput: Double = {
-    if (rawAggMetrics.maxTaskInputSizes.nonEmpty) {
-      rawAggMetrics.maxTaskInputSizes.head.maxTaskInputBytesRead
+    if (rawAggMetrics.sqlAggs.nonEmpty) {
+      rawAggMetrics.sqlAggs.map(_.inputBytesReadMax).max.toDouble
     } else {
       0.0
     }

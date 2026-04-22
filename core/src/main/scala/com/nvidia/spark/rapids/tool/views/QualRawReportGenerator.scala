@@ -37,7 +37,6 @@ object QualRawReportGenerator extends Logging {
       AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
-      aggRawResult.maxTaskInputSizes,
       AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics))
     Map(
       STAGE_AGG_LABEL -> sortedRes.stageAggs,
@@ -71,12 +70,8 @@ object QualRawReportGenerator extends Logging {
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
-      // Compute aggregate metrics early so maxTaskInputBytesRead is available for
-      // application_tuning_metrics.csv
       val aggRawMetrics = QualSparkMetricsAggregator
         .getAggRawMetrics(app, sqlAnalyzer = Some(sqlPlanAnalyzer))
-      val maxTaskInput = aggRawMetrics.maxTaskInputSizes.headOption
-        .map(_.maxTaskInputBytesRead.toLong).getOrElse(0L)
 
       pWriter.writeText("### A. Information Collected ###")
       pWriter.writeTable(
@@ -106,9 +101,9 @@ object QualRawReportGenerator extends Logging {
       constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
-      // GPU-only signals default to 0/empty for qualification (CPU event logs)
+      // GPU-only signals default to empty for qualification (CPU event logs)
       val tuningSignals = TuningSignalProfileResult.build(
-        maxTaskInput, 0L, Set.empty[Long], Set.empty[Long])
+        Set.empty[Long], Set.empty[Long])
       pWriter.writeCSVTable(TUNING_SIGNALS, tuningSignals)
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeCSVTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
