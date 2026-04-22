@@ -17,7 +17,9 @@
 package com.nvidia.spark.rapids.tool.profiling
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
 
@@ -33,6 +35,9 @@ import org.apache.spark.internal.Logging
  * non-empty statement, so apps with no statements at all do not produce an
  * empty directory. Per-file IO errors are logged and skipped; they do not
  * abort the batch.
+ *
+ * Writes go through Hadoop `FileSystem` so the same code works for local
+ * paths, HDFS, S3, GCS, etc. — matching every other per-app output file.
  */
 object ConnectStatementWriter extends Logging {
 
@@ -48,31 +53,45 @@ object ConnectStatementWriter extends Logging {
    * Writes each operation's `statementText` to
    * `<rootDir>/connect_statements/<operationId>.txt` when non-empty.
    *
-   * @param rootDir per-app output directory (already exists)
-   * @param ops     operations to persist
-   * @return map of `operationId -> "<operationId>.txt"` basenames for the
-   *         operations whose sidecar file was written successfully.
+   * @param rootDir    per-app output directory (already exists)
+   * @param ops        operations to persist
+   * @param hadoopConf Hadoop configuration used to resolve the target
+   *                   filesystem. When `None`, a fresh `Configuration` is
+   *                   used (which resolves the default filesystem, typically
+   *                   local).
+   * @return map of `operationId -> "<sanitizedOperationId>.txt"` basenames for
+   *         the operations whose sidecar file was written successfully.
    */
   def writeStatementFiles(
       rootDir: String,
-      ops: Iterable[ConnectOperationInfo]): Map[String, String] = {
-    val subDirPath = Paths.get(rootDir, SUB_DIR).toAbsolutePath.normalize()
+      ops: Iterable[ConnectOperationInfo],
+      hadoopConf: Option[Configuration] = None): Map[String, String] = {
+    val conf = hadoopConf.getOrElse(new Configuration())
+    val subDirPath = new Path(rootDir, SUB_DIR)
+    val fs = subDirPath.getFileSystem(conf)
     var subDirCreated = false
     val builder = Map.newBuilder[String, String]
     ops.foreach { op =>
       val text = op.statementText
       if (text.nonEmpty) {
         try {
-          if (!subDirCreated) {
-            Files.createDirectories(subDirPath)
-            subDirCreated = true
-          }
           val safeId = sanitizeOperationId(op.operationId)
           val basename = s"$safeId$FILE_EXTENSION"
-          val target = subDirPath.resolve(basename).normalize()
-          require(target.startsWith(subDirPath),
+          val target = new Path(subDirPath, basename)
+          // Defense-in-depth containment check. Sanitization already removes
+          // `/` and `..`, but verify the resolved parent matches.
+          require(target.getParent == subDirPath,
             s"Refusing to write Connect statement sidecar outside $subDirPath: $target")
-          Files.write(target, text.getBytes(StandardCharsets.UTF_8))
+          if (!subDirCreated) {
+            fs.mkdirs(subDirPath)
+            subDirCreated = true
+          }
+          val out = fs.create(target, /* overwrite = */ true)
+          try {
+            out.write(text.getBytes(StandardCharsets.UTF_8))
+          } finally {
+            out.close()
+          }
           builder += (op.operationId -> basename)
         } catch {
           case e: Exception =>

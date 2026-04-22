@@ -435,7 +435,7 @@ abstract class EventProcessorBase[T <: AppBase](app: T) extends SparkListener wi
     if (app.isConnectMode) {
       val tagStr = event.properties.getProperty("spark.job.tags")
       if (tagStr != null && tagStr.nonEmpty) {
-        tagStr.split(",").iterator.map(_.trim).foreach { tag =>
+        tagStr.split(",").iterator.map(_.trim).filter(_.nonEmpty).foreach { tag =>
           app.jobTagToConnectOpId.get(tag).foreach { opId =>
             app.operationIdToJobIds
               .getOrElseUpdate(opId, mutable.HashSet.empty[Int])

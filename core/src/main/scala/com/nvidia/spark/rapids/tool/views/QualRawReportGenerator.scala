@@ -18,6 +18,7 @@ package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
 import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, Profiler, ProfileResult, SQLAccumProfileResults}
+import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
@@ -65,7 +66,8 @@ object QualRawReportGenerator extends Logging {
   def generateRawMetricQualViewAndGetDataSourceInfo(
       rootDir: String,
       app: QualificationAppInfo,
-      writeConnectStatements: Boolean = false): Seq[DataSourceProfileResult] = {
+      writeConnectStatements: Boolean = false,
+      hadoopConf: Option[Configuration] = None): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
     val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app)
     var dataSourceInfo: Seq[DataSourceProfileResult] = Seq.empty
@@ -114,7 +116,7 @@ object QualRawReportGenerator extends Logging {
         QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
       // we only need to write the CSV report of the WriteOps
       pWriter.writeCSVTable(QualWriteOpsView.getLabel, QualWriteOpsView.getRawView(Seq(app)))
-      Profiler.writeConnectTables(pWriter, app, writeConnectStatements)
+      Profiler.writeConnectTables(pWriter, app, writeConnectStatements, hadoopConf)
     } catch {
       case e: Exception =>
         logError(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")

@@ -156,7 +156,7 @@ class Qualification(
           val dsInfo =
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
               QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
-                outputDir, app, writeConnectStatements)
+                outputDir, app, writeConnectStatements, Some(hadoopConf))
             }.getOrElse(Seq.empty)
           val qualSumInfo = app.aggregateStats()
           AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>

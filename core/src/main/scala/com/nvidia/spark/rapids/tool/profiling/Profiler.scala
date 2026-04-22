@@ -418,7 +418,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
     profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
     profileOutputWriter.writeCSVTable("Unsupported SQL Plan", app.unsupportedOps)
-    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app, writeConnectStatements)
+    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app,
+      writeConnectStatements, Some(hadoopConf))
     if (outputAlignedSQLIds) {
       profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
@@ -496,9 +497,16 @@ object Profiler {
   def writeConnectTables(
       writer: ProfileOutputWriter,
       app: AppBase,
-      writeStatementSidecars: Boolean = false): Unit = {
+      writeStatementSidecars: Boolean = false,
+      hadoopConf: Option[Configuration] = None): Unit = {
     if (!app.isConnectMode) return
     val appId = app.appId
+    // Group once so the per-session operation count is O(operations) overall
+    // instead of O(sessions * operations).
+    val opCountBySession: Map[String, Long] =
+      app.connectOperations.values.groupBy(_.sessionId).map { case (sid, ops) =>
+        sid -> ops.size.toLong
+      }
     val sessionRows = app.connectSessions.values.toSeq.sortBy(_.sessionId).map { s =>
       ConnectSessionProfileResult(
         appId = appId,
@@ -506,13 +514,13 @@ object Profiler {
         userId = s.userId,
         startTime = s.startTime,
         endTime = s.endTime,
-        operationCount = app.connectOperations.values.count(_.sessionId == s.sessionId).toLong)
+        operationCount = opCountBySession.getOrElse(s.sessionId, 0L))
     }
     writer.writeCSVTable("Connect Sessions", sessionRows)
     val statementFiles: Map[String, String] =
       if (writeStatementSidecars) {
         ConnectStatementWriter.writeStatementFiles(
-          writer.outputDir, app.connectOperations.values)
+          writer.outputDir, app.connectOperations.values, hadoopConf)
       } else {
         Map.empty
       }
