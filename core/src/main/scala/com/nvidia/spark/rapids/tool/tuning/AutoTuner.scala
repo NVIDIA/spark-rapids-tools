@@ -857,7 +857,12 @@ abstract class AutoTuner(
         if (isOffHeapLimitUserEnabled) {
           executorMemOverhead
         } else {
-          executorMemOverhead + pinnedMem + spillMem
+          // Budget-aware: claim the full available memory (execMemLeft) as overhead
+          // so the container request (heap + overhead) covers the total node memory.
+          // This ensures freed memory from HEAP_PER_CORE capping is not wasted, and
+          // any residual budget is available as non-pinned spill fallback, JVM off-heap
+          // headroom, and prevents K8s/YARN from over-scheduling the node.
+          Math.max(executorMemOverhead + pinnedMem + spillMem, execMemLeft)
         }
       }
       // Handle the case when the final executor memory overhead is larger than the

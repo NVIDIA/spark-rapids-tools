@@ -93,6 +93,21 @@ case class ExecInfo(
   def exec: String = execRef.value
 
   /**
+   * Returns the unsupported expressions that are UDFs.
+   *
+   * Execs with udf=true may contain a mix of UDF expressions (with EMPTY_REASON) and non-UDF
+   * unsupported expressions (with specific reasons from supportedExprs.csv) in unsupportedExprs.
+   * Filter to only the UDF expressions.
+   */
+  def udfExprs: Seq[UnsupportedExprOpRef] = {
+    if (udf) {
+      unsupportedExprs.filter(_.unsupportedReason == UnsupportedReasonRef.EMPTY_REASON)
+    } else {
+      Seq.empty
+    }
+  }
+
+  /**
    * Determines if this ExecInfo represents a cluster node.
    *
    * Note: This method uses `clusterFlag` which is set during parsing when we know the node is
@@ -313,7 +328,6 @@ object ExecInfo {
     // Example: Scan parquet . ->  Scan parquet.
     // scan nodes needs trimming
     val nodeName = node.name.trim
-    // we don't want to mark the *InPandas and ArrowEvalPythonExec as unsupported with UDF
     val containsUDF = udf || ExecHelper.isUDF(node)
     // check is the node has a dataset operations and if so change to not supported
     val rddCheckRes = RDDCheckHelper.isDatasetOrRDDPlan(nodeName, node.desc)

@@ -129,7 +129,7 @@ default:
     description: >-
       Amount of pinned memory for GPU operations
     default: 2g
-    max: 4g
+    max: 8g
     usedBy: spark.rapids.memory.pinnedPool.size
 
   - name: PINNED_MEM_OFFHEAP_RATIO

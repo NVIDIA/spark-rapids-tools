@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025, NVIDIA CORPORATION.
+# Copyright (c) 2023-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,13 +16,14 @@
 
 import os
 from contextlib import contextmanager
-from pathlib import Path, PurePath
+from pathlib import Path
 import re
 import shutil
 import ssl
 import sys
 import textwrap
 import urllib
+import urllib.parse
 import tempfile
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
@@ -101,6 +102,41 @@ def stringify_path(fpath) -> str:
     return os.path.abspath(expanded_path)
 
 
+def _strip_path_quotes_and_whitespace(fpath: str) -> str:
+    """Remove surrounding whitespace and quote characters from a path-like string."""
+    return fpath.strip().strip("'\"")
+
+
+# Glob metacharacters must survive URI construction so that Hadoop's Path/GlobPattern
+# can expand wildcards on the JAR side. PurePath.as_uri() percent-encodes these, which
+# silently defeats glob expansion for local paths like `/data/cpu/*`.
+_LOCAL_URI_SAFE_CHARS = '/*?[]'
+
+
+def _local_path_to_file_uri(local_path: str) -> str:
+    """Build a `file://` URI from an absolute local path, preserving glob metacharacters."""
+    return 'file://' + urllib.parse.quote(local_path, safe=_LOCAL_URI_SAFE_CHARS)
+
+
+def _normalize_file_uri(fpath: str) -> str:
+    """Canonicalize `file:` URIs into absolute `file://` form when the scheme is present."""
+    if not fpath.lower().startswith('file:'):
+        return fpath
+
+    _, _, path_part = fpath.partition(':')
+    normalized_path = '/' + path_part.lstrip('/') if path_part else '/'
+    absolute_path = os.path.abspath(normalized_path)
+    return _local_path_to_file_uri(absolute_path)
+
+
+def _normalize_s3_uri(fpath: str, target_scheme: str = 's3') -> str:
+    """Rewrite S3-family URI schemes to the requested target scheme without changing the path."""
+    scheme, separator, path_part = fpath.partition('://')
+    if separator and scheme.lower() in {'s3', 's3a', 's3n'}:
+        return f'{target_scheme}://{path_part}'
+    return fpath
+
+
 def resolve_and_prepare_log_file(tools_home_dir: str):
     run_id = Utils.get_or_set_rapids_tools_env('RUN_ID')
     log_dir = f'{tools_home_dir}/logs'
@@ -120,12 +156,31 @@ def is_http_file(value: Any) -> bool:
 
 
 def get_path_as_uri(fpath: str) -> str:
-    if re.match(r'\w+://', fpath):
+    normalized_path = _normalize_s3_uri(_normalize_file_uri(_strip_path_quotes_and_whitespace(fpath)))
+    if re.match(r'\w+://', normalized_path):
         # that's already a valid url
-        return fpath
+        return normalized_path
     # stringify the path to apply the common methods which is expanding the file.
-    local_path = stringify_path(fpath)
-    return PurePath(local_path).as_uri()
+    local_path = stringify_path(normalized_path)
+    return _local_path_to_file_uri(local_path)
+
+
+def get_path_as_uri_for_hadoop(fpath: str) -> str:
+    """
+    Normalize a path for Hadoop/JVM consumers.
+
+    This differs from ``get_path_as_uri`` in one important way:
+    S3-family URIs are normalized to ``s3a://`` because that is the
+    Hadoop-facing scheme expected by the tools JAR.
+    """
+    normalized_path = _normalize_s3_uri(
+        _normalize_file_uri(_strip_path_quotes_and_whitespace(fpath)),
+        target_scheme='s3a'
+    )
+    if re.match(r'\w+://', normalized_path):
+        return normalized_path
+    local_path = stringify_path(normalized_path)
+    return _local_path_to_file_uri(local_path)
 
 
 def to_camel_case(word: str) -> str:
