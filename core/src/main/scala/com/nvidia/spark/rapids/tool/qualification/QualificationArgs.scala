@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -157,6 +157,13 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val perSql : ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Report at the individual SQL query level.")
+  val connectStatements: ScallopOption[Boolean] =
+    toggle("connect-statements",
+      default = Some(false),
+      prefix = "no-",
+      descrYes = "Write Spark Connect statementText sidecar files in raw_metrics. " +
+        "Disabled by default.",
+      descrNo = "Do not write Spark Connect statementText sidecar files.")
   val maxSqlDescLength: ScallopOption[Int] =
     opt[Int](required = false,
       descr = "Maximum length of the SQL description string output with the " +

@@ -42,6 +42,8 @@ class TestConnectHelpers(unittest.TestCase):
             fh.write('SELECT 1')
         with open(os.path.join(self.statements_dir, 'op-2.txt'), 'w', encoding='utf-8') as fh:
             fh.write('SELECT 2')
+        with open(os.path.join(self.app_dir, 'secret.txt'), 'w', encoding='utf-8') as fh:
+            fh.write('SECRET')
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -66,3 +68,7 @@ class TestConnectHelpers(unittest.TestCase):
         handler = ProfCore(self.prof_output)
         self.assertIsNone(handler.load_connect_statement(self.sample_app_id, 'missing-op'))
         self.assertIsNone(handler.load_connect_statement('missing-app', 'op-1'))
+
+    def test_load_connect_statement_sanitizes_operation_id_before_reading(self):
+        handler = ProfCore(self.prof_output)
+        self.assertIsNone(handler.load_connect_statement(self.sample_app_id, '../secret'))

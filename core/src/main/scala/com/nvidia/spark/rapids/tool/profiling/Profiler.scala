@@ -55,6 +55,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
   private val outputCSV: Boolean = appArgs.csv()
+  private val writeConnectStatements: Boolean = appArgs.connectStatements()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
   private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
@@ -417,7 +418,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
     profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
     profileOutputWriter.writeCSVTable("Unsupported SQL Plan", app.unsupportedOps)
-    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app)
+    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app, writeConnectStatements)
     if (outputAlignedSQLIds) {
       profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
@@ -488,13 +489,14 @@ object Profiler {
    * `writeCSVTable` returns early on empty input, so non-Connect apps produce
    * no file at all (matches the behavior of every other per-app table).
    *
-   * Each operation's `statementText` is written to a sidecar file under
-   * `<perAppDir>/connect_statements/<operationId>.txt` and the basename is
-   * recorded in the `statementFile` column of `connect_operations.csv`.
+   * When enabled, each operation's `statementText` is written to a sidecar file
+   * under `<perAppDir>/connect_statements/<operationId>.txt` and the basename
+   * is recorded in the `statementFile` column of `connect_operations.csv`.
    */
   def writeConnectTables(
       writer: ProfileOutputWriter,
-      app: AppBase): Unit = {
+      app: AppBase,
+      writeStatementSidecars: Boolean = false): Unit = {
     if (!app.isConnectMode) return
     val appId = app.appId
     val sessionRows = app.connectSessions.values.toSeq.sortBy(_.sessionId).map { s =>
@@ -508,8 +510,12 @@ object Profiler {
     }
     writer.writeCSVTable("Connect Sessions", sessionRows)
     val statementFiles: Map[String, String] =
-      ConnectStatementWriter.writeStatementFiles(
-        writer.outputDir, app.connectOperations.values)
+      if (writeStatementSidecars) {
+        ConnectStatementWriter.writeStatementFiles(
+          writer.outputDir, app.connectOperations.values)
+      } else {
+        Map.empty
+      }
     val opRows = app.connectOperations.values.toSeq.sortBy(_.operationId).map { op =>
       ConnectOperationProfileResult.from(
         appId = appId,

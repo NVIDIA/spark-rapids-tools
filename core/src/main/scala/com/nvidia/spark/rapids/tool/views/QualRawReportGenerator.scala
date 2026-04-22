@@ -64,7 +64,8 @@ object QualRawReportGenerator extends Logging {
 
   def generateRawMetricQualViewAndGetDataSourceInfo(
       rootDir: String,
-      app: QualificationAppInfo): Seq[DataSourceProfileResult] = {
+      app: QualificationAppInfo,
+      writeConnectStatements: Boolean = false): Seq[DataSourceProfileResult] = {
     val metricsDirectory = s"$rootDir/raw_metrics/${app.appId}"
     val sqlPlanAnalyzer = AppSQLPlanAnalyzer(app)
     var dataSourceInfo: Seq[DataSourceProfileResult] = Seq.empty
@@ -113,7 +114,7 @@ object QualRawReportGenerator extends Logging {
         QualRemovedExecutorView.getLabel, QualRemovedExecutorView.getRawView(Seq(app)))
       // we only need to write the CSV report of the WriteOps
       pWriter.writeCSVTable(QualWriteOpsView.getLabel, QualWriteOpsView.getRawView(Seq(app)))
-      Profiler.writeConnectTables(pWriter, app)
+      Profiler.writeConnectTables(pWriter, app, writeConnectStatements)
     } catch {
       case e: Exception =>
         logError(s"Error generating raw metrics for ${app.appId}: ${e.getMessage}")

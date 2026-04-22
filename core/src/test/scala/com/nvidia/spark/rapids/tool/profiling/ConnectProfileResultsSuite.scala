@@ -84,7 +84,7 @@ class ConnectProfileResultsSuite extends AnyFunSuite {
     assert(opRow.convertToSeq().length == opRow.outputHeaders.length)
   }
 
-  test("ConnectOperationProfileResult derives status and phases correctly") {
+  test("ConnectOperationProfileResult derives status and core columns correctly") {
     val op = new ConnectOperationInfo(
       operationId = "op", sessionId = "s", userId = "u",
       jobTag = "tag", statementText = "SELECT 1", startTime = 100L)
@@ -99,16 +99,12 @@ class ConnectProfileResultsSuite extends AnyFunSuite {
     assert(operationCol(row, "operationId") == "op")
     assert(operationCol(row, "status") == "SUCCEEDED")
     assert(operationCol(row, "durationMs") == "500")
-    assert(operationCol(row, "analyzePhaseMs") == "100")
-    assert(operationCol(row, "planPhaseMs") == "100")
-    assert(operationCol(row, "execPhaseMs") == "200")
-    assert(operationCol(row, "resultDeliveryPhaseMs") == "100")
+    assert(operationCol(row, "finishTime") == "500")
+    assert(operationCol(row, "closeTime") == "600")
     assert(operationCol(row, "sqlIds") == "42")
     assert(operationCol(row, "jobIds") == "7")
     assert(operationCol(row, "statementFile") == "op.txt")
-    assert(operationCol(row, "statementBytes") == "8")
     assert(operationCol(row, "statementTruncated") == "false")
-    assert(operationCol(row, "producedRowCount") == "1")
   }
 
   test("ConnectOperationProfileResult derives FAILED status with errorMessage") {
@@ -124,10 +120,8 @@ class ConnectProfileResultsSuite extends AnyFunSuite {
     assert(operationCol(row, "errorMessage") == "boom")
     assert(operationCol(row, "statementFile") == "")
     assert(operationCol(row, "durationMs") == "50")
-    assert(operationCol(row, "analyzePhaseMs") == "-1")
+    assert(operationCol(row, "failTime") == "150")
     assert(operationCol(row, "sqlIds") == "")
-    // producedRowCount is an Option[Long]; absent values render as null.
-    assert(operationCol(row, "producedRowCount") == null)
   }
 
   test("ConnectOperationProfileResult derives CANCELED status takes priority over FAILED") {

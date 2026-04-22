@@ -81,7 +81,7 @@ class QualificationConnectOutputSuite extends BaseNoSparkSuite {
     }
   }
 
-  test("qualification raw metrics emit connect CSVs and statement sidecars") {
+  test("qualification raw metrics emit connect CSVs and statement sidecars when enabled") {
     withQualificationApp(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
       app.connectSessions.put("sess-1", new ConnectSessionInfo(
         sessionId = "sess-1",
@@ -117,7 +117,8 @@ class QualificationConnectOutputSuite extends BaseNoSparkSuite {
 
       val tmpDir = Files.createTempDirectory("qual-connect-out-")
       try {
-        QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(tmpDir.toString, app)
+        QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
+          tmpDir.toString, app, writeConnectStatements = true)
 
         val appDir = tmpDir.resolve("raw_metrics").resolve(app.appId)
         val sessionsCsv = appDir.resolve("connect_sessions.csv")
@@ -178,6 +179,36 @@ class QualificationConnectOutputSuite extends BaseNoSparkSuite {
         assert(sessionLines.size == 2, s"unexpected session rows: $sessionLines")
         assert(sessionLines(1).contains("sess-1"),
           s"expected sess-1 row in session output: ${sessionLines(1)}")
+      } finally {
+        deleteRecursively(tmpDir)
+      }
+    }
+  }
+
+  test("qualification raw metrics do not emit statement sidecars by default") {
+    withQualificationApp(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      app.connectSessions.put("sess-1", new ConnectSessionInfo(
+        sessionId = "sess-1",
+        userId = "alice",
+        startTime = 100L,
+        endTime = Some(500L)))
+      app.connectOperations.put("op-1", new ConnectOperationInfo(
+        operationId = "op-1",
+        sessionId = "sess-1",
+        userId = "alice",
+        jobTag = "SparkConnect_OperationTag_User_alice_Session_sess-1_Operation_op-1",
+        statementText = "SELECT 1 plan body",
+        startTime = 110L))
+
+      val tmpDir = Files.createTempDirectory("qual-connect-out-")
+      try {
+        QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(tmpDir.toString, app)
+
+        val appDir = tmpDir.resolve("raw_metrics").resolve(app.appId)
+        assert(Files.exists(appDir.resolve("connect_operations.csv")),
+          s"expected connect_operations.csv under $appDir")
+        assert(!Files.exists(appDir.resolve("connect_statements")),
+          s"expected no connect_statements directory under $appDir by default")
       } finally {
         deleteRecursively(tmpDir)
       }

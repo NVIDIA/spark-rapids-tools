@@ -315,10 +315,8 @@ object OutHeaderRegistry {
         "operationCount"),
     "ConnectOperationProfileResult" ->
       Array("appID", "operationId", "sessionId", "userId", "jobTag",
-        "startTime", "analyzeTime", "readyForExecTime", "finishTime", "closeTime",
-        "failTime", "cancelTime", "durationMs",
-        "analyzePhaseMs", "planPhaseMs", "execPhaseMs", "resultDeliveryPhaseMs",
-        "status", "producedRowCount", "errorMessage",
-        "sqlIds", "jobIds", "statementFile", "statementBytes", "statementTruncated")
+        "startTime", "finishTime", "closeTime", "failTime", "cancelTime", "durationMs",
+        "status", "errorMessage",
+        "sqlIds", "jobIds", "statementFile", "statementTruncated")
   ) // End of outputHeaders map initialization
 }

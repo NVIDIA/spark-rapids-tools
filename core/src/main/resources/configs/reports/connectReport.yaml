@@ -51,9 +51,8 @@ reportDefinitions:
             description: Number of operations observed in the session.
       - label: connectOperations
         description: >-
-          One row per Spark Connect operation with lifecycle timestamps,
-          derived phase durations, linked SQL/job identifiers, and statement
-          sidecar metadata.
+          One row per Spark Connect operation with core lifecycle timestamps,
+          linked SQL/job identifiers, and statement sidecar metadata.
         fileName: connect_operations.csv
         scope: per-app
         columns:
@@ -75,12 +74,6 @@ reportDefinitions:
           - name: startTime
             dataType: Long
             description: Epoch millis when the operation started.
-          - name: analyzeTime
-            dataType: Long
-            description: Epoch millis when analysis completed, if observed.
-          - name: readyForExecTime
-            dataType: Long
-            description: Epoch millis when planning completed, if observed.
           - name: finishTime
             dataType: Long
             description: Epoch millis when execution completed, if observed.
@@ -96,24 +89,9 @@ reportDefinitions:
           - name: durationMs
             dataType: Long
             description: Derived end-to-end operation duration in milliseconds.
-          - name: analyzePhaseMs
-            dataType: Long
-            description: Time between start and analyze events, or -1.
-          - name: planPhaseMs
-            dataType: Long
-            description: Time between analyze and ready-for-execution events, or -1.
-          - name: execPhaseMs
-            dataType: Long
-            description: Time between ready-for-execution and finish events, or -1.
-          - name: resultDeliveryPhaseMs
-            dataType: Long
-            description: Time between finish and close events, or -1.
           - name: status
             dataType: String
             description: Derived operation status (RUNNING, SUCCEEDED, FAILED, CANCELED).
-          - name: producedRowCount
-            dataType: Long
-            description: Row count reported by the finish event, if present.
           - name: errorMessage
             dataType: String
             description: Error message reported by a failure event, if present.
@@ -126,9 +104,6 @@ reportDefinitions:
           - name: statementFile
             dataType: String
             description: Sidecar filename under connect_statements/ for this operation, if written.
-          - name: statementBytes
-            dataType: Long
-            description: UTF-8 byte length of statementText.
           - name: statementTruncated
             dataType: Boolean
             description: True when statementText includes Spark's truncation marker.
@@ -136,7 +111,7 @@ reportDefinitions:
         description: >-
           Directory of per-operation statementText sidecars. Each
           <operationId>.txt file contains the protobuf debug-format text of the
-          Connect operation statement.
+          Connect operation statement when Connect statement sidecars are enabled.
         fileName: connect_statements
         fileFormat: DIRECTORY
         scope: per-app

@@ -65,11 +65,10 @@ case class ConnectSessionProfileResult(
 }
 
 /**
- * CSV row for a single Spark Connect operation. Captures the full lifecycle
- * (start/analyze/readyForExec/finish/close/fail/cancel timestamps), the
- * derived phase durations, status, producedRowCount, error message, and the
- * joined sqlIDs/jobIDs. Also captures statement-file provenance for the
- * separate `statements/<operationId>.txt` artifact.
+ * CSV row for a single Spark Connect operation. Captures the core lifecycle
+ * (start/finish/close/fail/cancel timestamps), derived status, error message,
+ * and the joined sqlIDs/jobIDs. Also captures statement-file provenance for
+ * the separate `statements/<operationId>.txt` artifact.
  *
  * sqlIds and jobIds are serialized semicolon-separated (to keep the CSV
  * single-column and avoid quoting issues).
@@ -81,24 +80,16 @@ case class ConnectOperationProfileResult(
     userId: String,
     jobTag: String,
     startTime: Long,
-    analyzeTime: Option[Long],
-    readyForExecTime: Option[Long],
     finishTime: Option[Long],
     closeTime: Option[Long],
     failTime: Option[Long],
     cancelTime: Option[Long],
     durationMs: Long,
-    analyzePhaseMs: Long,
-    planPhaseMs: Long,
-    execPhaseMs: Long,
-    resultDeliveryPhaseMs: Long,
     status: String,
-    producedRowCount: Option[Long],
     errorMessage: Option[String],
     sqlIds: Seq[Long],
     jobIds: Seq[Int],
     statementFile: Option[String],
-    statementBytes: Long,
     statementTruncated: Boolean) extends ProfileResult {
 
   override def outputHeaders: Array[String] = {
@@ -113,24 +104,16 @@ case class ConnectOperationProfileResult(
       userId,
       jobTag,
       startTime.toString,
-      analyzeTime.map(_.toString).orNull,
-      readyForExecTime.map(_.toString).orNull,
       finishTime.map(_.toString).orNull,
       closeTime.map(_.toString).orNull,
       failTime.map(_.toString).orNull,
       cancelTime.map(_.toString).orNull,
       durationMs.toString,
-      analyzePhaseMs.toString,
-      planPhaseMs.toString,
-      execPhaseMs.toString,
-      resultDeliveryPhaseMs.toString,
       status,
-      producedRowCount.map(_.toString).orNull,
       errorMessage.getOrElse(""),
       sqlIds.mkString(";"),
       jobIds.mkString(";"),
       statementFile.getOrElse(""),
-      statementBytes.toString,
       statementTruncated.toString)
   }
 
@@ -142,24 +125,16 @@ case class ConnectOperationProfileResult(
       StringUtils.reformatCSVString(userId),
       StringUtils.reformatCSVString(jobTag),
       startTime.toString,
-      analyzeTime.map(_.toString).orNull,
-      readyForExecTime.map(_.toString).orNull,
       finishTime.map(_.toString).orNull,
       closeTime.map(_.toString).orNull,
       failTime.map(_.toString).orNull,
       cancelTime.map(_.toString).orNull,
       durationMs.toString,
-      analyzePhaseMs.toString,
-      planPhaseMs.toString,
-      execPhaseMs.toString,
-      resultDeliveryPhaseMs.toString,
       StringUtils.reformatCSVString(status),
-      producedRowCount.map(_.toString).orNull,
       StringUtils.reformatCSVString(errorMessage.getOrElse("")),
       StringUtils.reformatCSVString(sqlIds.mkString(";")),
       StringUtils.reformatCSVString(jobIds.mkString(";")),
       StringUtils.reformatCSVString(statementFile.getOrElse("")),
-      statementBytes.toString,
       statementTruncated.toString)
   }
 }
@@ -173,18 +148,6 @@ object ConnectOperationProfileResult {
    * representation of the original plan.
    */
   private[profiling] val TruncationMarker: String = "[truncated(size="
-
-  /**
-   * Returns `b - a` when both are defined, otherwise `-1`. Used to derive
-   * phase durations where an absent timestamp means the operation never
-   * reached that phase.
-   */
-  private def diff(a: Option[Long], b: Option[Long]): Long = {
-    (a, b) match {
-      case (Some(av), Some(bv)) => bv - av
-      case _ => -1L
-    }
-  }
 
   /**
    * Derives operation status from the observed lifecycle timestamps.
@@ -208,7 +171,6 @@ object ConnectOperationProfileResult {
     val endForDuration =
       op.closeTime.orElse(op.finishTime).orElse(op.failTime).orElse(op.cancelTime)
     val durationMs = endForDuration.map(_ - op.startTime).getOrElse(-1L)
-    val statementBytes = op.statementText.getBytes("UTF-8").length.toLong
     val statementTruncated = op.statementText.contains(TruncationMarker)
     ConnectOperationProfileResult(
       appId = appId,
@@ -217,24 +179,16 @@ object ConnectOperationProfileResult {
       userId = op.userId,
       jobTag = op.jobTag,
       startTime = op.startTime,
-      analyzeTime = op.analyzeTime,
-      readyForExecTime = op.readyForExecTime,
       finishTime = op.finishTime,
       closeTime = op.closeTime,
       failTime = op.failTime,
       cancelTime = op.cancelTime,
       durationMs = durationMs,
-      analyzePhaseMs = diff(Some(op.startTime), op.analyzeTime),
-      planPhaseMs = diff(op.analyzeTime, op.readyForExecTime),
-      execPhaseMs = diff(op.readyForExecTime, op.finishTime),
-      resultDeliveryPhaseMs = diff(op.finishTime, op.closeTime),
       status = deriveStatus(op),
-      producedRowCount = op.producedRowCount,
       errorMessage = op.errorMessage,
       sqlIds = sqlIds,
       jobIds = jobIds,
       statementFile = statementFile,
-      statementBytes = statementBytes,
       statementTruncated = statementTruncated)
   }
 }

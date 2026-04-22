@@ -153,11 +153,9 @@ class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
         // Header + 2 op rows
         assert(opLines.size == 3, s"unexpected operation rows: $opLines")
         assert(opLines.head ==
-          "appID,operationId,sessionId,userId,jobTag,startTime,analyzeTime," +
-            "readyForExecTime,finishTime,closeTime,failTime,cancelTime,durationMs," +
-            "analyzePhaseMs,planPhaseMs,execPhaseMs,resultDeliveryPhaseMs,status," +
-            "producedRowCount,errorMessage,sqlIds,jobIds,statementFile,statementBytes," +
-            "statementTruncated",
+          "appID,operationId,sessionId,userId,jobTag,startTime,finishTime,closeTime," +
+            "failTime,cancelTime,durationMs,status,errorMessage,sqlIds,jobIds," +
+            "statementFile,statementTruncated",
           s"unexpected operation header: ${opLines.head}")
         // Per-column parse: find the `status` column index from the registry and
         // assert exactly one SUCCEEDED and one FAILED row. Rows in this test case
@@ -175,22 +173,12 @@ class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
         assert(statusValues.count(_ == "FAILED") == 1,
           s"expected exactly one FAILED row: $statusValues")
 
-        // Task 6: verify sidecar statement files and the statementFile column.
-        // op-1 had non-empty statementText -> sidecar exists and basename appears
-        //   in the CSV. op-2 had empty statementText -> no sidecar and empty cell.
+        // Sidecars are disabled by default. The statementFile column remains
+        // empty until the caller opts into writing sidecars.
         val statementsDir = Paths.get(tmpDir.getAbsolutePath,
           ConnectStatementWriter.SUB_DIR)
-        assert(Files.isDirectory(statementsDir),
-          s"expected $statementsDir directory for op-1 sidecar")
-        val op1Sidecar = statementsDir.resolve("op-1.txt")
-        val op2Sidecar = statementsDir.resolve("op-2.txt")
-        assert(Files.exists(op1Sidecar), s"expected $op1Sidecar to exist")
-        assert(!Files.exists(op2Sidecar),
-          s"expected $op2Sidecar not to exist for empty statementText")
-        val op1Contents = new String(Files.readAllBytes(op1Sidecar),
-          StandardCharsets.UTF_8)
-        assert(op1Contents == op1StatementText,
-          s"sidecar contents mismatch: $op1Contents vs $op1StatementText")
+        assert(!Files.exists(statementsDir),
+          s"expected no $statementsDir when sidecars are disabled")
         val opIdIdx = opHeaders.indexOf("operationId")
         val statementFileIdx = opHeaders.indexOf("statementFile")
         assert(statementFileIdx >= 0,
@@ -202,8 +190,8 @@ class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
           val stmtFile = cols(statementFileIdx).stripPrefix("\"").stripSuffix("\"")
           opId -> stmtFile
         }.toMap
-        assert(stmtFileByOp("op-1") == "op-1.txt",
-          s"expected op-1 statementFile=op-1.txt, got ${stmtFileByOp("op-1")}")
+        assert(stmtFileByOp("op-1") == "",
+          s"expected op-1 statementFile empty by default, got ${stmtFileByOp("op-1")}")
         assert(stmtFileByOp("op-2") == "",
           s"expected op-2 statementFile empty, got ${stmtFileByOp("op-2")}")
       } finally {
@@ -268,6 +256,71 @@ class ConnectProfilerOutputSuite extends BaseNoSparkSuite {
         assert(sessionLines.size == 2, s"unexpected session rows: $sessionLines")
         assert(sessionLines(1).contains("sess-1"),
           s"expected sess-1 row in session output: ${sessionLines(1)}")
+      } finally {
+        deleteRecursively(tmpDir.toPath)
+      }
+    }
+  }
+
+  test("writeConnectTables writes statement sidecars only when enabled") {
+    withEventLog(logStartEvent, appStartEvent, envUpdateEvent, appEndEvent) { app =>
+      val op1StatementText = "SELECT 1 plan body"
+      app.connectSessions.put("sess-1", new ConnectSessionInfo(
+        sessionId = "sess-1",
+        userId = "alice",
+        startTime = 100L,
+        endTime = Some(500L)))
+      app.connectOperations.put("op-1", new ConnectOperationInfo(
+        operationId = "op-1",
+        sessionId = "sess-1",
+        userId = "alice",
+        jobTag = "SparkConnect_OperationTag_User_alice_Session_sess-1_Operation_op-1",
+        statementText = op1StatementText,
+        startTime = 110L))
+      app.connectOperations.put("op-2", new ConnectOperationInfo(
+        operationId = "op-2",
+        sessionId = "sess-1",
+        userId = "alice",
+        jobTag = "SparkConnect_OperationTag_User_alice_Session_sess-1_Operation_op-2",
+        statementText = "",
+        startTime = 120L))
+
+      val tmpDir = Files.createTempDirectory("prof-connect-out-").toFile
+      try {
+        val writer = new ProfileOutputWriter(tmpDir.getAbsolutePath, "profile",
+          numOutputRows = 1000, outputCSV = true)
+        try {
+          Profiler.writeConnectTables(writer, app, writeStatementSidecars = true)
+        } finally {
+          writer.close()
+        }
+
+        val opLines = readAllLines(Paths.get(tmpDir.getAbsolutePath, "connect_operations.csv"))
+        val opHeaders = OutHeaderRegistry.outputHeaders("ConnectOperationProfileResult")
+        val opIdIdx = opHeaders.indexOf("operationId")
+        val statementFileIdx = opHeaders.indexOf("statementFile")
+        val stmtFileByOp = opLines.tail.map { line =>
+          val cols = line.split(",", -1)
+          val opId = cols(opIdIdx).stripPrefix("\"").stripSuffix("\"")
+          val stmtFile = cols(statementFileIdx).stripPrefix("\"").stripSuffix("\"")
+          opId -> stmtFile
+        }.toMap
+
+        val statementsDir = Paths.get(tmpDir.getAbsolutePath, ConnectStatementWriter.SUB_DIR)
+        val op1Sidecar = statementsDir.resolve("op-1.txt")
+        val op2Sidecar = statementsDir.resolve("op-2.txt")
+        assert(Files.isDirectory(statementsDir),
+          s"expected $statementsDir directory when sidecars are enabled")
+        assert(Files.exists(op1Sidecar), s"expected $op1Sidecar to exist")
+        assert(!Files.exists(op2Sidecar),
+          s"expected $op2Sidecar not to exist for empty statementText")
+        val op1Contents = new String(Files.readAllBytes(op1Sidecar), StandardCharsets.UTF_8)
+        assert(op1Contents == op1StatementText,
+          s"sidecar contents mismatch: $op1Contents vs $op1StatementText")
+        assert(stmtFileByOp("op-1") == "op-1.txt",
+          s"expected op-1 statementFile=op-1.txt, got ${stmtFileByOp("op-1")}")
+        assert(stmtFileByOp("op-2") == "",
+          s"expected op-2 statementFile empty, got ${stmtFileByOp("op-2")}")
       } finally {
         deleteRecursively(tmpDir.toPath)
       }

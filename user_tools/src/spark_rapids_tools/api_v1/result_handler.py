@@ -88,6 +88,7 @@ class ResultHandler(object):
     readers: Dict[str, ToolReportReader]
     logger: Optional[Logger] = field(default=None)
     app_handlers: Dict[str, AppHandler] = field(default_factory=dict, init=False)
+    _connect_statement_unsafe_chars = re.compile(r'[^A-Za-z0-9._-]')
 
     def __post_init__(self):
         # init the logger if it is not defined
@@ -252,6 +253,13 @@ class ResultHandler(object):
             return None
         return stmt_dir
 
+    @classmethod
+    def _sanitize_connect_operation_id(cls, operation_id: str) -> str:
+        """
+        Sanitize operation IDs to the on-disk basename convention used by the Scala writer.
+        """
+        return cls._connect_statement_unsafe_chars.sub('_', operation_id)
+
     def list_connect_statement_ops(self, app_id: str) -> List[str]:
         """
         Return sorted operation IDs for all statement sidecars under connect_statements/.
@@ -274,7 +282,8 @@ class ResultHandler(object):
         stmt_dir = self.get_connect_statements_dir(app_id)
         if stmt_dir is None:
             return None
-        sub_path = stmt_dir.create_sub_path(f'{operation_id}.txt')
+        safe_operation_id = self._sanitize_connect_operation_id(operation_id)
+        sub_path = stmt_dir.create_sub_path(f'{safe_operation_id}.txt')
         if not sub_path.exists():
             return None
         txt_res = DataUtils.load_txt(sub_path)

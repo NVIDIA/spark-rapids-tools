@@ -31,10 +31,8 @@ class TestConnectE2E(unittest.TestCase):
     expected_statement = 'common { plan_id: 0 } range { start: 0 end: 100 step: 1 }\n'
     expected_operation_columns = [
         'appID', 'operationId', 'sessionId', 'userId', 'jobTag', 'startTime',
-        'analyzeTime', 'readyForExecTime', 'finishTime', 'closeTime', 'failTime',
-        'cancelTime', 'durationMs', 'analyzePhaseMs', 'planPhaseMs', 'execPhaseMs',
-        'resultDeliveryPhaseMs', 'status', 'producedRowCount', 'errorMessage',
-        'sqlIds', 'jobIds', 'statementFile', 'statementBytes', 'statementTruncated'
+        'finishTime', 'closeTime', 'failTime', 'cancelTime', 'durationMs', 'status',
+        'errorMessage', 'sqlIds', 'jobIds', 'statementFile', 'statementTruncated'
     ]
 
     def setUp(self):

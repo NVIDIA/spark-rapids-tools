@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class Qualification(
     enablePB: Boolean,
     reportSqlLevel: Boolean,
     maxSQLDescLength: Int,
+    writeConnectStatements: Boolean,
     mlOpsEnabled: Boolean,
     penalizeTransitions: Boolean,
     tunerContext: Option[TunerContext],
@@ -155,7 +156,7 @@ class Qualification(
           val dsInfo =
             AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
               QualRawReportGenerator.generateRawMetricQualViewAndGetDataSourceInfo(
-                outputDir, app)
+                outputDir, app, writeConnectStatements)
             }.getOrElse(Seq.empty)
           val qualSumInfo = app.aggregateStats()
           AppSubscriber.withSafeValidAttempt(app.appId, app.attemptId) { () =>
