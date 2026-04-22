@@ -255,7 +255,6 @@ class SingleAppSummaryInfoProvider(
 object SingleAppSummaryInfoProvider {
   /**
    * Computes the set of scan stage IDs that had GPU OOM failures.
-   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
    */
   def computeScanStagesWithGpuOom(
       pluginEnabled: Boolean,
@@ -293,7 +292,6 @@ object SingleAppSummaryInfoProvider {
    * Computes the set of shuffle stage IDs that had container OOM failures (YARN only).
    * Detects ExecutorLostFailure with exit code 137 (SIGKILL from container memory enforcement).
    * See: https://github.com/NVIDIA/spark-rapids-tools/issues/1566
-   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
    */
   def computeShuffleStagesWithOom(
       pluginEnabled: Boolean,
@@ -341,7 +339,6 @@ object SingleAppSummaryInfoProvider {
 
   /**
    * Computes the maximum data size from ColumnarExchange metrics.
-   * This static method enables computing the result before ApplicationSummaryInfo is assembled.
    */
   def computeMaxColumnarExchangeDataSizeBytes(
       sqlMetrics: Seq[SQLAccumProfileResults]): Option[Long] = {

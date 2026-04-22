@@ -103,7 +103,6 @@ object QualRawReportGenerator extends Logging {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      // Reuse already-computed aggRawMetrics instead of computing again
       constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
