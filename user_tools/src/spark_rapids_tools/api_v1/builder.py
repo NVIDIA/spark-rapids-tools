@@ -1172,6 +1172,15 @@ class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
     def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
         return self._res_h.get_raw_metrics_path()
 
+    def get_connect_statements_dir(self, app_id: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_connect_statements_dir(app_id)
+
+    def list_connect_statement_ops(self, app_id: str) -> List[str]:
+        return self._res_h.list_connect_statement_ops(app_id)
+
+    def load_connect_statement(self, app_id: str, operation_id: str) -> Optional[str]:
+        return self._res_h.load_connect_statement(app_id, operation_id)
+
 
 @dataclass
 class ProfWrapper(APIResHandler[ProfWrapperResultHandler]):

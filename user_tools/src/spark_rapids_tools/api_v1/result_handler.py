@@ -28,6 +28,7 @@ from spark_rapids_pytools.common.utilities import ToolLogging
 from spark_rapids_tools.api_v1 import AppHandler
 from spark_rapids_tools.api_v1.report_reader import ToolReportReader
 from spark_rapids_tools.storagelib.cspfs import BoundedCspPath, CspFs
+from spark_rapids_tools.utils.data_utils import DataUtils
 
 
 class ResultHandlerBaseMeta:    # pylint: disable=too-few-public-methods
@@ -224,6 +225,64 @@ class ResultHandler(object):
 
     def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
         return self.get_reader_path('coreRawMetrics')
+
+    def _get_per_app_table_path(self, table_label: str, app_id: str) -> Optional[BoundedCspPath]:
+        """
+        Resolve the per-application path for a table definition.
+        :param table_label: Label of the table definition.
+        :param app_id: Application ID under the per-app report root.
+        :return: The resolved path or None when the table/app is not available.
+        """
+        reader = self.get_reader_by_tbl(table_label)
+        if reader is None or not reader.is_per_app():
+            return None
+        if app_id not in self.app_handlers:
+            return None
+        table_def = reader.get_table(table_label)
+        if table_def is None:
+            return None
+        return reader.out_path.create_sub_path(f'{app_id}/{table_def.file_name}')
+
+    def get_connect_statements_dir(self, app_id: str) -> Optional[BoundedCspPath]:
+        """
+        Return the connect_statements directory for a given application, if present.
+        """
+        stmt_dir = self._get_per_app_table_path('connectStatements', app_id)
+        if stmt_dir is None or not stmt_dir.exists():
+            return None
+        return stmt_dir
+
+    def list_connect_statement_ops(self, app_id: str) -> List[str]:
+        """
+        Return sorted operation IDs for all statement sidecars under connect_statements/.
+        """
+        stmt_dir = self.get_connect_statements_dir(app_id)
+        if stmt_dir is None:
+            return []
+        op_files = CspFs.glob_path(
+            path=stmt_dir,
+            pattern=re.compile(r'.*\.txt$'),
+            item_type=FileType.File,
+            recursive=False
+        )
+        return sorted([p.base_name().rsplit('.txt', 1)[0] for p in op_files])
+
+    def load_connect_statement(self, app_id: str, operation_id: str) -> Optional[str]:
+        """
+        Load the statementText sidecar for a single Connect operation.
+        """
+        stmt_dir = self.get_connect_statements_dir(app_id)
+        if stmt_dir is None:
+            return None
+        sub_path = stmt_dir.create_sub_path(f'{operation_id}.txt')
+        if not sub_path.exists():
+            return None
+        txt_res = DataUtils.load_txt(sub_path)
+        if not txt_res.success or txt_res.data is None:
+            return None
+        if isinstance(txt_res.data, bytes):
+            return txt_res.decode_txt()
+        return txt_res.data
 
 #########################
 # Type Definitions
