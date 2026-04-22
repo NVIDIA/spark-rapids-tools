@@ -89,7 +89,7 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
       descr = "Number of thread to use for parallel processing. The default is the " +
         "number of cores on host divided by 4.")
   val csv: ScallopOption[Boolean] =
-    opt[Boolean](required = false, default = Some(true),
+    opt[Boolean](required = false,
       descr = "Output each table to a CSV file as well creating the summary text file.")
   val timeout: ScallopOption[Long] =
     opt[Long](required = false,
