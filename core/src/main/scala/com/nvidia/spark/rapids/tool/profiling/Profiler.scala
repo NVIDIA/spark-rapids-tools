@@ -494,7 +494,7 @@ object Profiler {
    */
   def writeConnectTables(
       writer: ProfileOutputWriter,
-      app: ApplicationInfo): Unit = {
+      app: AppBase): Unit = {
     if (!app.isConnectMode) return
     val appId = app.appId
     val sessionRows = app.connectSessions.values.toSeq.sortBy(_.sessionId).map { s =>
