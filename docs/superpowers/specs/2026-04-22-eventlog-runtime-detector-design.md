@@ -247,9 +247,11 @@ All errors subclass `EventLogDetectionError`:
 
 Runs `detect_spark_runtime` against a small curated set of existing fixtures under `core/src/test/resources/spark-events-*`:
 
-- `eventlog-gpu-dsv2.zstd` → `Route.PROFILING`, `SPARK_RAPIDS`
-- `eventlog_dsv2.zstd` → `Route.QUALIFICATION`, `SPARK`
-- A Databricks rolling fixture (to be identified during plan; if none exists we'll synthesize one)
+- `spark-events-profiling/eventlog-gpu-dsv2.zstd` → `Route.PROFILING`, `SPARK_RAPIDS`
+- `spark-events-profiling/eventlog_dsv2.zstd` → `Route.QUALIFICATION`, `SPARK`
+- `spark-events-qualification/eventlog_same_app_id_1.zstd` → `Route.QUALIFICATION`, `SPARK`
+
+Fixture inventory above is the realized set used by `test_detector_fixtures.py`. Databricks-rolling-dir coverage is exercised via synthesized fixtures in `test_detector.py` rather than a pre-existing Scala fixture, since `core/src/test/resources/` has no Databricks-rolling-shape fixture we can repurpose here.
 
 Not a full parity sweep — just anchor points to catch regressions.
 
@@ -261,7 +263,6 @@ Not a full parity sweep — just anchor points to catch regressions.
 
 ## 12. Open items for implementation plan
 
-- Confirm `core/src/test/resources/` contains a usable Databricks-rolling fixture; synthesize one if not.
 - Whether adding `zstandard` as a hard dep needs a `RELEASE.md` note.
 
 ## 13. Evolution
