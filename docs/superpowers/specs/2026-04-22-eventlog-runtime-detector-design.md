@@ -17,6 +17,14 @@ Provide a lightweight Python function that reads a bounded prefix of a Spark eve
 
 **This is best-effort early routing, not exact Scala parity.** On inconclusive input, the caller falls back to the full tool.
 
+**Asymmetric decision rule:** positive GPU evidence is decisive; absence of evidence in a bounded prefix is not. Concretely:
+
+- Decisive non-SPARK signal seen → `PROFILING`.
+- No signal seen, but the scanner walked the whole log (or the whole ordered file list in a rolling dir) to EOF → `QUALIFICATION`.
+- No signal seen and the `max_events_scanned` cap is hit first → `UNKNOWN`.
+
+This protects against the one dangerous failure mode (routing a GPU log to qualification output that gets fed into pipelines expecting CPU results) by never saying `QUALIFICATION` on truncated evidence.
+
 ## 3. Non-goals (V1)
 
 - Replacing the Scala event log reader. Multi-app directories, wildcards, comma lists, malformed logs, the full codec set, and most CSP quirks stay in Scala.
@@ -88,26 +96,34 @@ def detect_spark_runtime(
 
 Four small, independently testable components inside `eventlog_detector.py` (plus a markers file).
 
-### 7.1 `_resolve_event_log_file(path) -> (source, resolved)`
+### 7.1 `_resolve_event_log_files(path) -> (source, ordered_files)`
 
-Path resolver. Turns user input into the concrete file to read.
+Path resolver. Turns user input into an ordered list of one or more concrete files to read.
 
-- File input → return as-is.
+- File input → return `[file]`.
 - Directory input → Databricks-rolling shape only:
   - Use `CspFs.list_all_files(dir_path)` to list children.
   - Recognize Databricks files by the same prefix Scala uses in `EventLogPathProcessor.isDBEventLogFile` (`DB_EVENT_LOG_FILE_NAME_PREFIX = "eventlog"`).
   - Sort them exactly like Scala's `DatabricksRollingEventLogFilesFileReader` (`core/src/main/scala/com/nvidia/spark/rapids/tool/EventLogPathProcessor.scala:458-478, 496-500`): parse `LocalDateTime` from the `eventlog-YYYY-MM-DD--HH-MM[.codec]` pattern; bare `eventlog` (no `--date`) is treated as the latest and sorted last.
-  - Pick the earliest file. `SparkListenerApplicationStart` and `SparkListenerEnvironmentUpdate` live there.
+  - Return the full ordered list. The scanner walks them in order under one shared event budget; earliest file carries startup events, but GPU markers that appear via later `SQLExecutionStart.modifiedConfigs` can live in subsequent files.
   - If the directory contains no Databricks-pattern files → raise `UnsupportedInputError`.
 - Anything else (Spark-native rolling, generic multi-app dir, wildcard, comma list) → raise `UnsupportedInputError`.
 - Pattern matching only — no file reads for the shape decision.
 
-### 7.2 `_open_event_log_stream(resolved_path) -> Iterator[str]`
+### 7.2 `_open_event_log_stream(resolved_path)` — context manager yielding `Iterator[str]`
 
-Stream opener. Opens the file with the right codec and yields decoded text lines.
+Stream opener. Context manager (implemented with `@contextlib.contextmanager`) that opens the file with the right codec, yields an iterator of decoded text lines, and closes the underlying stream on exit.
+
+Usage shape:
+
+```python
+with _open_event_log_stream(resolved_path) as lines:
+    for line in lines:
+        ...
+```
 
 - Codec chosen by extension: plain / `.inprogress` / `.gz` / `.zstd` / `.zst`. Anything else → `UnsupportedCompressionError`.
-- Cloud paths use `CspPath.open_input_stream()`; the byte stream is wrapped by the codec reader, then by a text decoder yielding lines.
+- Cloud paths use `CspPath.open_input_stream()` (returns a closable byte stream); the byte stream is wrapped by the codec reader, then by a text decoder (`io.TextIOWrapper` or equivalent) yielding lines. The context-manager wrapper owns closing all three layers.
 
 ### 7.3 `_scan_events(lines, max_events) -> _ScanResult`
 
@@ -124,15 +140,16 @@ Event scanner. Parses lines as JSON and accumulates classification-relevant prop
 
 We intentionally do not track `SparkListenerJobStart` job-level properties. That would catch the DB plugin's job-level re-evaluation path, but that is a narrow Scala case and pushing further into the log moves us away from "lightweight." If a log is truly Databricks-only-detectable at job-start time, the caller's fallback path handles it.
 
-**Stop conditions:**
+**Stop conditions and termination mode:** the scanner walks the ordered file list (one file for a plain input, multiple for a Databricks rolling dir) under a single shared budget `max_events_scanned`.
 
-- Early-stop: as soon as `_classify_runtime(spark_properties)` returns anything other than `SPARK` (the signal is decisive and Scala's plugins are sticky-true — once set, they stay set).
-- EOF or `max_events_scanned` reached: return whatever was accumulated.
-- `max_events_scanned` default `500`. Startup events land in the first ~20; the rest is headroom for the first few `SQLExecutionStart` merges.
+- Early-stop (`Termination.DECISIVE`): as soon as `_classify_runtime(spark_properties)` returns anything other than `SPARK`. The signal is decisive; plugins are sticky-true in Scala (once set, stay set — `AppPropPlugTrait:66-68`).
+- Walked-to-end (`Termination.EXHAUSTED`): the final file's EOF is reached before the cap. We have seen the entire log.
+- Cap-reached (`Termination.CAP_HIT`): the cap hit before exhausting the files.
+- `max_events_scanned` default `500`. Startup events land in the first ~20; the rest is headroom for the first few `SQLExecutionStart` merges and any tail files.
 
 **Malformed input:** lines that aren't valid JSON are skipped.
 
-**Returned state:** `(spark_properties, app_id, app_name, spark_version, env_update_seen)`.
+**Returned state:** `(spark_properties, app_id, app_name, spark_version, env_update_seen, termination)` where `termination` is one of the three modes above.
 
 ### 7.4 `_classify_runtime(spark_properties) -> SparkRuntime`
 
@@ -142,19 +159,24 @@ Pure function over the accumulated properties dict. See section 8 for rules.
 
 ```
 detect_spark_runtime(path):
-    source, resolved = _resolve_event_log_file(path)
-    with _open_event_log_stream(resolved) as lines:
-        scan = _scan_events(lines, max_events_scanned)
+    source, ordered_files = _resolve_event_log_files(path)
+    scan = _scan_events_across(ordered_files, max_events_scanned)
 
-    if not scan.env_update_seen:
-        return DetectionResult(route=UNKNOWN, spark_runtime=None, ...,
-                               reason="no SparkListenerEnvironmentUpdate before cap")
+    runtime = _classify_runtime(scan.spark_properties) if scan.env_update_seen else None
 
-    runtime = _classify_runtime(scan.spark_properties)
-    route = PROFILING if runtime in {SPARK_RAPIDS, PHOTON, AURON} else QUALIFICATION
-    return DetectionResult(route=route, spark_runtime=runtime, ...,
-                           reason=f"classified as {runtime.value}")
+    # Decision rule (asymmetric — see section 2):
+    if runtime in {SPARK_RAPIDS, PHOTON, AURON}:
+        route, reason = PROFILING, f"decisive: classified as {runtime.value}"
+    elif scan.termination == EXHAUSTED and scan.env_update_seen:
+        route, reason = QUALIFICATION, "walked full log, no GPU signal"
+    else:
+        # CAP_HIT, or env-update never seen. Do not promote absence to CPU.
+        route, reason = UNKNOWN, "no decisive signal within bounded scan"
+
+    return DetectionResult(route=route, spark_runtime=runtime, ..., reason=reason)
 ```
+
+`_scan_events_across(ordered_files, budget)` is the thin wrapper that opens each file (via `_open_event_log_stream`) and feeds its lines into `_scan_events` while tracking the remaining global budget. It stops and returns as soon as the scanner reports `DECISIVE`, or when the budget is exhausted, or when the last file's EOF is reached.
 
 ### 7.6 `eventlog_detector_markers.py`
 
@@ -203,11 +225,12 @@ All errors subclass `EventLogDetectionError`:
 
 ### 10.1 Unit tests — `tests/spark_rapids_tools_ut/tools/test_eventlog_detector.py`
 
-- Path resolver: plain file; Databricks rolling dir (multi-file with dated + bare `eventlog`, asserting earliest picked); Spark-native rolling dir raises; multi-app dir raises; wildcard raises.
-- Stream opener: plain / gz / zstd each works; `.lz4`/`.snappy` raises.
-- Event scanner: env-update only → classifies from it; env-update + later SQLExecutionStart that sets `spark.plugins` → classification updates to `SPARK_RAPIDS`; no env-update within cap → `UNKNOWN`; malformed JSON lines skipped.
+- Path resolver: plain file → single-element list; Databricks rolling dir (multi-file with dated + bare `eventlog`) → ordered list with earliest first and bare `eventlog` last; Spark-native rolling dir raises; multi-app dir raises; wildcard raises.
+- Stream opener: plain / gz / zstd each works and closes on exit; `.lz4`/`.snappy` raises.
+- Event scanner: env-update only → classifies from it; env-update + later SQLExecutionStart that sets `spark.plugins` → classification updates to `SPARK_RAPIDS` and terminates DECISIVE; no env-update within cap → termination `CAP_HIT`; full-log scan with no GPU signal → termination `EXHAUSTED`; malformed JSON lines skipped.
+- Multi-file scan: GPU marker in a later Databricks-rolling file → picked up under the shared budget; budget exhausted across files → `CAP_HIT`.
 - Classifier: each of the four runtime outcomes, priority when multiple markers coexist, `spark.rapids.sql.enabled=false` override.
-- Routing: runtime → route mapping.
+- Routing rule: DECISIVE + non-SPARK → `PROFILING`; EXHAUSTED with env-update + SPARK → `QUALIFICATION`; CAP_HIT → `UNKNOWN`; env-update never seen → `UNKNOWN`.
 
 ### 10.2 Fixture tests — `tests/spark_rapids_tools_ut/tools/test_eventlog_detector_fixtures.py`
 
@@ -240,3 +263,9 @@ This spec was reshaped once after review feedback. Earlier drafts attempted:
 - 4-way `SparkRuntime` return as the primary contract — kept as auxiliary metadata; primary contract is now the `Route` enum (the actual decision the caller makes).
 
 The narrower V1 keeps the detector honest about what it is: a best-effort fast path that gets out of the way when the log doesn't give it enough signal.
+
+**Third review pass (2026-04-22):**
+
+- **Asymmetric decision rule** (sections 2, 7.5). Previously the spec promoted "no GPU signal in prefix" to `QUALIFICATION`. Under Scala's late-promotion paths (`SQLExecutionStart.modifiedConfigs`, job-level plugin re-eval), that is unsafe. The rule now requires either a decisive GPU signal (→ `PROFILING`) or a fully-walked log with no GPU signal (→ `QUALIFICATION`). Cap-hit returns `UNKNOWN`.
+- **Databricks rolling dir scans the full ordered list** (section 7.1, 7.5). Picking only the earliest file contradicted the scanner's expansion to handle `modifiedConfigs` (which can land in later rolled files). The resolver now returns the ordered file list and the scanner walks it under one shared event budget.
+- **Stream opener is a context manager** (section 7.2). Previous signature said `Iterator[str]` while the top-level flow used it with `with`. Clarified as a `@contextmanager` that yields the iterator and owns closing the underlying streams.
