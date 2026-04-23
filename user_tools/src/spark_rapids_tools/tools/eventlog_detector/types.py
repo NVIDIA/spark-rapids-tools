@@ -30,8 +30,9 @@ class Route(str, Enum):
 class SparkRuntime(str, Enum):
     """Runtime taxonomy.
 
-    Values match ``org.apache.spark.sql.rapids.tool.util.SparkRuntime`` in the
-    Scala core so aether's ``JobRun.spark_runtime`` column stays compatible.
+    Values mirror ``org.apache.spark.sql.rapids.tool.util.SparkRuntime``
+    in the Scala core so string comparisons against existing pipelines
+    keep working.
     """
 
     SPARK = "SPARK"
@@ -41,7 +42,7 @@ class SparkRuntime(str, Enum):
 
 
 class Termination(Enum):
-    """How the scanner stopped. Used internally by the detector flow."""
+    """How the scanner stopped."""
 
     DECISIVE = "DECISIVE"      # classification returned non-SPARK
     EXHAUSTED = "EXHAUSTED"    # walked every file to EOF under the budget
@@ -50,10 +51,10 @@ class Termination(Enum):
 
 @dataclass(frozen=True)
 class DetectionResult:
-    """Result returned by ``detect_spark_runtime``.
+    """Result returned by :func:`detect_spark_runtime`.
 
-    ``spark_runtime`` is best-effort metadata. ``None`` is valid (e.g., when
-    ``route`` is ``UNKNOWN`` because env-update was never seen).
+    ``spark_runtime`` is best-effort metadata and may be ``None`` when
+    ``route`` is ``UNKNOWN``.
     """
 
     route: Route
@@ -70,12 +71,12 @@ class EventLogDetectionError(Exception):
 
 
 class UnsupportedInputError(EventLogDetectionError):
-    """Input shape is outside V1 scope (multi-app dir, wildcard, comma list, ...)."""
+    """Input shape is not handled (multi-app dir, wildcard, comma list, ...)."""
 
 
 class UnsupportedCompressionError(EventLogDetectionError):
-    """File uses a compression codec the V1 detector does not handle."""
+    """File uses a compression codec the detector does not handle."""
 
 
 class EventLogReadError(EventLogDetectionError):
-    """Wraps an underlying I/O failure when reading the event log."""
+    """Wraps an I/O failure while reading the event log."""

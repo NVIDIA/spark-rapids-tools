@@ -14,17 +14,14 @@
 
 """Codec-aware context-managed line streamer for Spark event logs.
 
-Opens the file via ``CspPath.open_input_stream()``, applies the right
-decompression layer based on extension, wraps in a text decoder, and
-yields an ``Iterator[str]``. On exit the context manager closes every
-layer in reverse order. Streaming only — no buffering of the full file.
+Opens the file through ``CspPath.open_input_stream()``, wraps it with
+the right decompression and text layers, and yields an
+``Iterator[str]``. Streaming only — the full file is never buffered.
 
-PyArrow coupling: ``CspPath.open_input_stream()`` delegates to PyArrow's
-filesystem API, which auto-detects and decompresses ``.gz`` and ``.zst``
-files transparently. ``.zstd`` is not recognised by PyArrow, so this
-module decompresses it manually via ``zstandard``. If a future PyArrow
-release changes its codec detection, this suffix mapping must be
-re-verified.
+``CspPath.open_input_stream()`` delegates to PyArrow, which auto-detects
+and decompresses ``.gz`` and ``.zst`` transparently. ``.zstd`` is not
+recognised by PyArrow, so we decompress it manually via ``zstandard``.
+Revisit this mapping if the upstream codec detection changes.
 """
 
 import contextlib
@@ -40,19 +37,14 @@ from spark_rapids_tools.tools.eventlog_detector.types import (
 )
 
 
-# PyArrow's ``open_input_stream()`` transparently decompresses files whose
-# extension matches a codec it recognises (including ``.gz`` and ``.zst``).
-# For these we can read the already-decompressed byte stream directly.
+# Suffixes PyArrow already decompresses for us.
 _PYARROW_AUTO_DECOMP_SUFFIXES = {".gz", ".zst"}
-# PyArrow does NOT recognise ``.zstd`` as a codec suffix, so the byte stream
-# is raw compressed data that we must decompress ourselves.
+# Suffixes we must decompress manually via zstandard.
 _ZSTD_MANUAL_SUFFIXES = {".zstd"}
-# Suffixes treated as plain text (no decompression needed, no scheme check).
+# Suffixes treated as plain text.
 _PLAIN_SUFFIXES = {"", ".inprogress"}
-# Full whitelist of suffixes the detector accepts. Anything else raises
-# ``UnsupportedCompressionError`` — including explicitly-bad codecs like
-# ``.lz4`` / ``.lzf`` / ``.snappy`` and any unknown suffix we might
-# otherwise fall through as plain text.
+# Whitelist of accepted suffixes; anything else raises
+# ``UnsupportedCompressionError``.
 _SUPPORTED_SUFFIXES = (
     _PYARROW_AUTO_DECOMP_SUFFIXES | _ZSTD_MANUAL_SUFFIXES | _PLAIN_SUFFIXES
 )
@@ -71,10 +63,8 @@ def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
     suffix = _classify_suffix(path)
     if suffix not in _SUPPORTED_SUFFIXES:
         raise UnsupportedCompressionError(
-            f"File suffix '{suffix}' is not supported by the lightweight "
-            "event log detector. Supported: plain, .inprogress, .gz, "
-            ".zstd, .zst. Fall back to the full qualification/profiling "
-            "pipeline for this log."
+            f"File suffix '{suffix}' is not supported. "
+            "Supported: plain, .inprogress, .gz, .zstd, .zst."
         )
 
     try:
@@ -86,30 +76,26 @@ def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
     close_stack.callback(byte_stream.close)
     try:
         if suffix in _ZSTD_MANUAL_SUFFIXES:
-            # PyArrow does not recognise ``.zstd``, so the byte stream holds
-            # raw compressed frames — decompress them with the zstandard library.
+            # Decompress ``.zstd`` ourselves; PyArrow does not handle it.
             dctx = zstd.ZstdDecompressor()
             decompressed: io.RawIOBase = dctx.stream_reader(byte_stream)
             close_stack.callback(decompressed.close)
         else:
-            # Plain or PyArrow auto-decompressed (.gz/.zst/.inprogress/no
-            # extension). Pass the byte stream straight through — PyArrow
-            # has already handled decompression where needed.
+            # Plain text, or already decompressed by PyArrow.
             decompressed = byte_stream
 
         text = io.TextIOWrapper(decompressed, encoding="utf-8", errors="replace", newline="")
         close_stack.callback(text.close)
 
         def line_iter() -> Iterator[str]:
+            # One event per line; strip the trailing newline and leave
+            # empty lines for the caller to skip.
             for raw in text:
-                # Strip the trailing newline to match the "one event per line"
-                # contract. Empty lines are legal and skipped by the caller.
                 yield raw.rstrip("\r\n")
 
         try:
             yield line_iter()
         except Exception as exc:
-            # Convert any read-time I/O error into a typed domain error.
             raise EventLogReadError(f"Error reading event log {path}: {exc}") from exc
     finally:
         close_stack.close()

@@ -14,10 +14,9 @@
 
 """Bounded streaming event scanner.
 
-Walks JSON-per-line event logs under a shared event budget, merges
-properties from startup and per-SQL events into a single mutable dict,
-and reports early-stop/exhausted/cap-hit termination. Strictly streaming:
-no slurping, no accumulating raw events.
+Walks JSON-per-line event logs under a shared event budget, folding the
+relevant startup and per-SQL properties into a single mutable dict so
+the classifier can decide as soon as a decisive signal is seen.
 """
 
 import json
@@ -51,9 +50,9 @@ def _scan_events(
 ) -> _ScanResult:
     """Scan one stream of lines, optionally continuing from a prior state.
 
-    Returns the updated ``_ScanResult``. Terminates as soon as classification
-    turns non-SPARK (``DECISIVE``), or when the budget is exhausted
-    (``CAP_HIT``), or when ``lines`` is fully consumed (``EXHAUSTED``).
+    Terminates as ``DECISIVE`` on the first non-SPARK classification,
+    ``CAP_HIT`` when ``budget`` is exhausted, or ``EXHAUSTED`` when the
+    iterator runs out.
     """
     result = state if state is not None else _ScanResult()
 
@@ -68,8 +67,8 @@ def _scan_events(
         try:
             event = json.loads(raw)
         except (json.JSONDecodeError, ValueError):
-            # Malformed JSON line (Spark tolerates trailing partials). Count
-            # it against the budget so a pathological log can't stall us.
+            # Tolerate trailing partial lines in live logs; count them so
+            # a pathological log can't keep us scanning forever.
             result.events_scanned += 1
             continue
 
@@ -108,7 +107,6 @@ def _scan_events(
                     result.termination = Termination.DECISIVE
                     return result
 
-    # Fully consumed without early-stop or budget exhaustion.
     result.termination = Termination.EXHAUSTED
     return result
 
@@ -125,6 +123,5 @@ def _scan_events_across(files: List[CspPath], *, budget: int) -> _ScanResult:
             state = _scan_events(lines, budget=budget, state=state)
         if state.termination in (Termination.DECISIVE, Termination.CAP_HIT):
             return state
-    # All files consumed.
     state.termination = Termination.EXHAUSTED
     return state

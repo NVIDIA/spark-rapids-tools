@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Pure-function runtime classifier.
+"""Runtime classifier.
 
-``_classify_runtime`` maps a merged Spark properties dict to a
-``SparkRuntime``. Priority order when multiple markers are present:
-``PHOTON > AURON > SPARK_RAPIDS > SPARK``. This is a deterministic Python
-choice; Scala's plugin iteration order is undefined when multiple
-plugins claim a runtime, but in practice markers do not overlap.
+Maps a merged Spark properties dict to a :class:`SparkRuntime`. When
+multiple markers are present the priority is
+``PHOTON > AURON > SPARK_RAPIDS > SPARK``.
 """
 
 import re
@@ -29,12 +27,11 @@ from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime
 
 
 def _parse_bool(raw: str, default: bool) -> bool:
-    """Mirror Scala's ``Try { s.toBoolean }.getOrElse(default)``.
+    """Parse ``"true"``/``"false"`` case-insensitively; anything else returns ``default``.
 
-    Scala's ``String.toBoolean`` accepts only ``"true"``/``"false"``
-    case-insensitively. Everything else (including ``"yes"``, ``"no"``,
-    ``"1"``, ``"0"``) falls back to ``default`` because the Scala call
-    would throw ``IllegalArgumentException``.
+    Matches Scala's ``Try { s.toBoolean }.getOrElse(default)`` — Scala's
+    ``String.toBoolean`` only accepts the two literals and throws on
+    everything else.
     """
     stripped = raw.strip().lower()
     if stripped == "true":

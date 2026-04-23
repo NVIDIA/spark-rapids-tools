@@ -14,12 +14,11 @@
 
 """Lightweight event log runtime detector.
 
-Public entry point: ``detect_spark_runtime``. Returns a ``DetectionResult``
-carrying a routing decision (``QUALIFICATION`` / ``PROFILING`` / ``UNKNOWN``)
-and best-effort metadata, by scanning a bounded prefix of a Spark event log.
+Scans a bounded prefix of a Spark event log and returns a routing
+decision (``QUALIFICATION`` / ``PROFILING`` / ``UNKNOWN``) plus
+best-effort runtime metadata, without invoking the full tools pipeline.
 
-See docs/superpowers/specs/2026-04-22-eventlog-runtime-detector-design.md
-for the full contract and the Scala sources this mirrors.
+Public entry point: :func:`detect_spark_runtime`.
 """
 
 from .detector import detect_spark_runtime

@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Top-level event log runtime detector.
-
-``detect_spark_runtime(path)`` returns a ``DetectionResult`` carrying the
-routing decision and best-effort metadata. On inconclusive input, returns
-``Route.UNKNOWN`` rather than raising; callers fall back to the full
-Scala pipeline in that case.
-"""
+"""Top-level event log runtime detector."""
 
 from typing import Optional, Union
 
@@ -44,20 +38,18 @@ def detect_spark_runtime(
 ) -> DetectionResult:
     """Classify a single-app event log into a routing decision.
 
-    Returns ``DetectionResult`` with:
+    Returns a :class:`DetectionResult` whose ``route`` is ``PROFILING`` on
+    a decisive non-SPARK classification, ``QUALIFICATION`` only after the
+    scanner walked the full log without seeing a GPU-family signal, and
+    ``UNKNOWN`` otherwise (e.g., the budget was hit first or the log never
+    emitted ``SparkListenerEnvironmentUpdate``).
 
-    * ``route`` = ``PROFILING`` for any decisive non-SPARK classification,
-    * ``QUALIFICATION`` only after the scanner walked the full log with
-      no GPU-family signal,
-    * ``UNKNOWN`` when the event budget was hit first or
-      ``SparkListenerEnvironmentUpdate`` was never seen.
-
-    ``max_events_scanned`` caps CPU/IO cost; large CPU logs routinely end
-    as ``UNKNOWN`` at the cap. Raise the cap at the call site to trade
-    cost for decisiveness.
+    ``max_events_scanned`` caps CPU/IO cost. Large CPU logs routinely end
+    as ``UNKNOWN`` at the cap; raise it at the call site to trade cost
+    for decisiveness.
     """
-    # Preserve the original user-supplied string in the result's source_path
-    # so callers see their input back unchanged (including cloud URI schemes).
+    # Keep the caller's input verbatim in source_path (cloud URI schemes
+    # would otherwise be stripped by CspPath normalisation).
     source_path = event_log if isinstance(event_log, str) else str(event_log)
     path = event_log if isinstance(event_log, CspPath) else CspPath(str(event_log))
     _, files = _resolve_event_log_files(path)

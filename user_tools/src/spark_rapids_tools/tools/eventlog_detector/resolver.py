@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Input-path resolution for the event log detector.
+"""Input-path resolver.
 
-Resolves one user-supplied path into a list of one or more concrete files
-to read, in scan order. Supports a single file or a Databricks rolling
-directory. Spark-native rolling, generic multi-app directories, wildcards,
-and comma lists raise ``UnsupportedInputError`` and are expected to fall
-back to the full Scala pipeline.
+Resolves a user-supplied path into an ordered list of concrete files to
+scan. Supports a single file or a Databricks rolling directory; any
+other shape raises :class:`UnsupportedInputError` so the caller can
+fall back to the full tools pipeline.
 """
 
 import re
@@ -34,11 +33,12 @@ _DB_DATE_PATTERN = re.compile(m.DB_EVENT_LOG_DATE_REGEX)
 
 
 def _parse_databricks_file_datetime(name: str) -> Optional[datetime]:
-    """Parse ``eventlog-YYYY-MM-DD--HH-MM[.codec]`` to a datetime.
+    """Parse a Databricks rolled filename to its embedded datetime.
 
-    Returns ``None`` for bare ``eventlog`` and any name that does not match
-    the dated pattern. The caller sorts ``None`` as "latest/current" to
-    mirror Scala's ``getDBEventLogFileDate`` which defaults to ``now()``.
+    Returns ``None`` for bare ``eventlog`` (the current/latest chunk) and
+    for any name that does not match the dated pattern; callers sort
+    ``None`` last to mirror Scala's ``getDBEventLogFileDate`` which
+    defaults the bare file to ``now()``.
     """
     if not name.startswith(m.DB_EVENT_LOG_FILE_PREFIX):
         return None
@@ -56,9 +56,8 @@ def _is_databricks_event_log_filename(name: str) -> bool:
 def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
     """Resolve ``path`` to an ordered list of files to scan.
 
-    Returns ``(source, files)`` where ``source`` is the original input
-    rendered as a string (preserved for the ``DetectionResult``) and
-    ``files`` is the scan order.
+    Returns ``(source, files)`` where ``source`` is the stripped string
+    form of the input and ``files`` is the scan order.
     """
     source = path.no_scheme
 
@@ -70,23 +69,20 @@ def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
             f"Path is neither a file nor a directory: {source}"
         )
 
-    # Directory: must be a Databricks rolling dir. Spark-native rolling
-    # (eventlog_v2_*) and generic multi-app directories are out of scope.
+    # Only Databricks-style rolling directories are supported here;
+    # Spark-native (eventlog_v2_*) and multi-app directories are not.
     children = CspFs.list_all_files(path)
     db_files = [c for c in children if _is_databricks_event_log_filename(c.base_name())]
     if not db_files:
         raise UnsupportedInputError(
-            f"Directory {source} is not a supported input shape. The detector "
-            "handles single files or Databricks rolling directories only; fall "
-            "back to the full pipeline for Spark-native rolling, multi-app "
-            "directories, wildcards, or comma-separated inputs."
+            f"Directory {source} is not a supported input shape. Only single "
+            "files and Databricks rolling directories are handled here; use "
+            "the full pipeline for other shapes."
         )
 
-    # Sort mirroring DatabricksRollingEventLogFilesFileReader: dated files
-    # ascending by parsed datetime, bare `eventlog` last (treated as
-    # "latest/current"). Stable sort on filename first to keep ordering
-    # deterministic among equal-date files (extremely unlikely in practice
-    # but cheap insurance for tests).
+    # Dated files ascend by embedded timestamp; bare `eventlog` sorts
+    # last, matching DatabricksRollingEventLogFilesFileReader. The first
+    # sort keeps equal-date files in a deterministic order.
     db_files.sort(key=lambda f: f.base_name())
     db_files.sort(
         key=lambda f: (
