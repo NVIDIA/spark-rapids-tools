@@ -96,6 +96,15 @@ def detect_spark_runtime(
 
 Four small, independently testable components inside `eventlog_detector.py` (plus a markers file).
 
+**Memory contract (applies to every component below):**
+
+- No full-file reads. No `read()`, no `readlines()`, no slurping a log into memory. All I/O is line-at-a-time streaming via `_open_event_log_stream`'s iterator.
+- No accumulation of raw events. Each parsed JSON line is inspected, the relevant fields are merged into state, and the line is discarded before moving on.
+- Retained state per invocation is bounded and small: a handful of scalars (`app_id`, `app_name`, `spark_version`, `env_update_seen`, a running event counter, a termination enum) plus one mutable `spark_properties: dict[str, str]` that grows only with env-update values and later `modifiedConfigs` merges. Nothing else is held across iterations.
+- The scanner must never buffer the full list of seen events; it walks, updates state, and moves on.
+
+This is what the "lightweight" claim actually rests on. Any implementation change that accumulates per-event data must be reviewed against this contract.
+
 ### 7.1 `_resolve_event_log_files(path) -> (source, ordered_files)`
 
 Path resolver. Turns user input into an ordered list of one or more concrete files to read.
@@ -146,6 +155,8 @@ We intentionally do not track `SparkListenerJobStart` job-level properties. That
 - Walked-to-end (`Termination.EXHAUSTED`): the final file's EOF is reached before the cap. We have seen the entire log.
 - Cap-reached (`Termination.CAP_HIT`): the cap hit before exhausting the files.
 - `max_events_scanned` default `500`. Startup events land in the first ~20; the rest is headroom for the first few `SQLExecutionStart` merges and any tail files.
+
+**What the cap is actually for:** `max_events_scanned` is the primary protection against CPU-time and I/O blowups on large logs, not just a tie-breaker for ambiguity. Big CPU logs will routinely hit the cap before EOF and therefore terminate as `CAP_HIT`, which maps to `Route.UNKNOWN`. That is intentional — the detector refuses to speculate, and the caller falls back to the full tool. Users who want to convert more of their `UNKNOWN`s to `QUALIFICATION` can raise the cap at the call site, accepting the proportional increase in cost.
 
 **Malformed input:** lines that aren't valid JSON are skipped.
 
@@ -263,6 +274,11 @@ This spec was reshaped once after review feedback. Earlier drafts attempted:
 - 4-way `SparkRuntime` return as the primary contract — kept as auxiliary metadata; primary contract is now the `Route` enum (the actual decision the caller makes).
 
 The narrower V1 keeps the detector honest about what it is: a best-effort fast path that gets out of the way when the log doesn't give it enough signal.
+
+**Fourth review pass (2026-04-22):**
+
+- **Explicit memory contract** (section 7). Stated up front that the detector is strictly streaming with no full-file reads, no raw-event accumulation, and a bounded per-invocation state (a few scalars plus one mutable `spark_properties` dict). Closes the door on a well-meaning implementation drifting into `read()` / `readlines()` / full-log buffering.
+- **Cap framing** (section 7.3). `max_events_scanned` is documented as the primary cost cap, not just an ambiguity tie-breaker. Large CPU logs intentionally end as `UNKNOWN` at cap, which is expected behavior — callers that want a higher conversion to `QUALIFICATION` can raise the cap and accept the cost.
 
 **Third review pass (2026-04-22):**
 
