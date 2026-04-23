@@ -50,6 +50,7 @@ _ZSTD_MANUAL_SUFFIXES = {".zstd"}
 # Suffixes that unambiguously indicate a codec we do not support in V1.
 _UNSUPPORTED_CODEC_SUFFIXES = {".lz4", ".lzf", ".snappy"}
 
+
 def _classify_suffix(path: CspPath) -> str:
     name = path.base_name().lower()
     dot = name.rfind(".")
