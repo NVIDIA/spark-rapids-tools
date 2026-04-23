@@ -132,6 +132,10 @@ class TestDatabricksRolling:
         result = detect_spark_runtime(CspPath(str(d)))
         assert result.route is Route.PROFILING
         assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
+        # The decisive signal came from the bare `eventlog` file (the latest,
+        # sorted last after the dated chunk). event_log_path should reflect
+        # that, not the first-opened file.
+        assert result.event_log_path.endswith("/eventlog")
 
 
 class TestUnsupportedInput:

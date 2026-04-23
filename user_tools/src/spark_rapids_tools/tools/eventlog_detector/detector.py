@@ -84,7 +84,7 @@ def detect_spark_runtime(
             else "no SparkListenerEnvironmentUpdate reached"
         )
 
-    resolved_path = str(files[0]) if files else source_path
+    resolved_path = scan.last_scanned_path or (str(files[0]) if files else source_path)
     return DetectionResult(
         route=route,
         spark_runtime=runtime,

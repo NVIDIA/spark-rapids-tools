@@ -40,6 +40,7 @@ class _ScanResult:
     env_update_seen: bool = False
     events_scanned: int = 0
     termination: Termination = Termination.EXHAUSTED
+    last_scanned_path: Optional[str] = None
 
 
 def _scan_events(
@@ -119,6 +120,7 @@ def _scan_events_across(files: List[CspPath], *, budget: int) -> _ScanResult:
         if state.events_scanned >= budget:
             state.termination = Termination.CAP_HIT
             return state
+        state.last_scanned_path = str(path)
         with _open_event_log_stream(path) as lines:
             state = _scan_events(lines, budget=budget, state=state)
         if state.termination in (Termination.DECISIVE, Termination.CAP_HIT):
