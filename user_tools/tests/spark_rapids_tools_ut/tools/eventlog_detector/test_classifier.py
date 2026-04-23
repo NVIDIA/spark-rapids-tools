@@ -60,6 +60,16 @@ class TestSparkRapids:
         }
         assert _classify_runtime(props) is SparkRuntime.SPARK_RAPIDS
 
+    @pytest.mark.parametrize("bogus_value", ["no", "0", "yes", "1", "", "maybe"])
+    def test_non_toboolean_values_default_to_true_matching_scala(self, bogus_value):
+        # Scala: Try { "no".toBoolean }.getOrElse(true) == true because
+        # "no" is not parseable. The Python classifier must do the same.
+        props = {
+            "spark.plugins": "com.nvidia.spark.SQLPlugin",
+            "spark.rapids.sql.enabled": bogus_value,
+        }
+        assert _classify_runtime(props) is SparkRuntime.SPARK_RAPIDS
+
 
 class TestAuron:
     """Test AURON classification logic."""

@@ -28,16 +28,18 @@ from spark_rapids_tools.tools.eventlog_detector import markers as m
 from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime
 
 
-_TRUE_STRINGS = {"true", "1", "yes"}
-_FALSE_STRINGS = {"false", "0", "no"}
-
-
 def _parse_bool(raw: str, default: bool) -> bool:
-    """Mirror Scala's ``Try { s.toBoolean }.getOrElse(default)``."""
+    """Mirror Scala's ``Try { s.toBoolean }.getOrElse(default)``.
+
+    Scala's ``String.toBoolean`` accepts only ``"true"``/``"false"``
+    case-insensitively. Everything else (including ``"yes"``, ``"no"``,
+    ``"1"``, ``"0"``) falls back to ``default`` because the Scala call
+    would throw ``IllegalArgumentException``.
+    """
     stripped = raw.strip().lower()
-    if stripped in _TRUE_STRINGS:
+    if stripped == "true":
         return True
-    if stripped in _FALSE_STRINGS:
+    if stripped == "false":
         return False
     return default
 
