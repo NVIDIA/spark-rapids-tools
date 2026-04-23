@@ -46,6 +46,12 @@ class TestDatabricksDateParse:
     def test_non_eventlog_prefix_returns_none(self):
         assert _parse_databricks_file_datetime("application_1234.log") is None
 
+    def test_out_of_range_components_return_none(self):
+        # month=13 is syntactically 2 digits but not a valid month;
+        # datetime() would raise ValueError, we want None instead.
+        assert _parse_databricks_file_datetime("eventlog-2021-13-01--00-00") is None
+        assert _parse_databricks_file_datetime("eventlog-2021-02-30--25-99") is None
+
 
 class TestResolveSingleFile:
     """Test resolving a single event log file."""

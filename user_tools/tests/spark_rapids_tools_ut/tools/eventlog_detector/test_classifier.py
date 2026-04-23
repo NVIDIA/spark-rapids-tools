@@ -78,6 +78,17 @@ class TestAuron:
         props = {"spark.sql.extensions": "com.bytedance.auron.AuronSparkSessionExtension"}
         assert _classify_runtime(props) is SparkRuntime.AURON
 
+    def test_extension_with_embedded_newlines(self):
+        # Some pipelines concatenate spark.sql.extensions with newlines;
+        # the regex must still match.
+        props = {
+            "spark.sql.extensions": (
+                "com.example.SomeOtherExtension\n"
+                "com.bytedance.auron.AuronSparkSessionExtension"
+            ),
+        }
+        assert _classify_runtime(props) is SparkRuntime.AURON
+
     def test_extension_and_enabled_false_demotes_to_spark(self):
         props = {
             "spark.sql.extensions": "com.bytedance.auron.AuronSparkSessionExtension",

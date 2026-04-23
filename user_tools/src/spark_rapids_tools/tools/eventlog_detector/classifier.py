@@ -53,7 +53,11 @@ def _is_spark_rapids(props: Mapping[str, str]) -> bool:
 
 def _is_auron(props: Mapping[str, str]) -> bool:
     extensions = props.get(m.AURON_SPARK_EXTENSIONS_KEY)
-    if extensions is None or not re.fullmatch(m.AURON_EXTENSION_REGEX, extensions):
+    # ``re.DOTALL`` so the ``.*`` anchors also match newlines, in case a
+    # multi-entry ``spark.sql.extensions`` is newline-separated.
+    if extensions is None or not re.fullmatch(
+        m.AURON_EXTENSION_REGEX, extensions, re.DOTALL
+    ):
         return False
     enabled_raw = props.get(m.AURON_ENABLED_KEY, m.AURON_ENABLED_DEFAULT)
     return enabled_raw.strip().lower() == m.AURON_ENABLED_DEFAULT

@@ -46,7 +46,12 @@ def _parse_databricks_file_datetime(name: str) -> Optional[datetime]:
     if match is None:
         return None
     year, month, day, hour, minute = (int(g) for g in match.groups())
-    return datetime(year, month, day, hour, minute)
+    try:
+        return datetime(year, month, day, hour, minute)
+    except ValueError:
+        # Components are syntactically 2 digits but out of range
+        # (e.g. month=13). Treat as unparseable — sorts last.
+        return None
 
 
 def _is_databricks_event_log_filename(name: str) -> bool:

@@ -95,7 +95,9 @@ def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
 
         try:
             yield line_iter()
-        except Exception as exc:
+        except OSError as exc:
+            # Only reclassify real I/O failures; let caller-side logic
+            # errors bubble up untouched.
             raise EventLogReadError(f"Error reading event log {path}: {exc}") from exc
     finally:
         close_stack.close()

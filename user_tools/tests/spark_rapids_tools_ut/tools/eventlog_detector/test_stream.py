@@ -146,3 +146,13 @@ class TestIoFailure:
         with pytest.raises(EventLogReadError):
             with _open_event_log_stream(CspPath(str(p))) as lines:
                 next(iter(lines))
+
+    def test_caller_side_exception_is_not_reclassified(self, plain_file):  # pylint: disable=redefined-outer-name
+        # Caller-raised exceptions must propagate untouched, not be
+        # reclassified as EventLogReadError.
+        class _MarkerError(RuntimeError):
+            pass
+
+        with pytest.raises(_MarkerError):
+            with _open_event_log_stream(plain_file):
+                raise _MarkerError("not an I/O failure")
