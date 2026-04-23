@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Unit tests for ``eventlog_detector.markers``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 import re
 
@@ -20,6 +21,8 @@ from spark_rapids_tools.tools.eventlog_detector import markers as m
 
 
 class TestGpuMarkers:
+    """Test GPU plugin marker constants."""
+
     def test_plugin_substring_exact(self):
         assert m.GPU_PLUGIN_CLASS_SUBSTRING == "com.nvidia.spark.SQLPlugin"
 
@@ -28,6 +31,8 @@ class TestGpuMarkers:
 
 
 class TestAuronMarkers:
+    """Test Auron extension and enabled marker constants."""
+
     def test_extension_regex_fullmatches_expected_value(self):
         # Mirrors AuronParseHelper.extensionRegxMap.
         pat = re.compile(m.AURON_EXTENSION_REGEX)
@@ -42,6 +47,8 @@ class TestAuronMarkers:
 
 
 class TestDatabricksPrecondition:
+    """Test Databricks precondition key constants."""
+
     def test_all_three_tag_keys_present(self):
         assert m.DB_PRECONDITION_KEYS == (
             "spark.databricks.clusterUsageTags.clusterAllTags",
@@ -51,6 +58,8 @@ class TestDatabricksPrecondition:
 
 
 class TestPhotonMarkers:
+    """Test Photon marker regex constants."""
+
     def test_marker_map_fullmatches_expected(self):
         pats = {k: re.compile(v) for k, v in m.PHOTON_MARKER_REGEX.items()}
         assert pats[
@@ -73,6 +82,8 @@ class TestPhotonMarkers:
 
 
 class TestDatabricksRollingFileName:
+    """Test Databricks rolling log file name pattern constants."""
+
     def test_prefix_is_eventlog(self):
         assert m.DB_EVENT_LOG_FILE_PREFIX == "eventlog"
 

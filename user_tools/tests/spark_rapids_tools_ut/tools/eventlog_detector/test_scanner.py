@@ -14,27 +14,21 @@
 
 """Unit tests for ``eventlog_detector.scanner``."""
 
+import json
 from pathlib import Path
 from typing import List
-
-import pytest
 
 from spark_rapids_tools.storagelib import CspPath
 from spark_rapids_tools.tools.eventlog_detector.scanner import (
     _scan_events,
     _scan_events_across,
 )
-from spark_rapids_tools.tools.eventlog_detector.types import (
-    SparkRuntime,
-    Termination,
-)
+from spark_rapids_tools.tools.eventlog_detector.types import Termination
 
 
 # ---------- Line builders ----------
 
 def env_update(props: dict) -> str:
-    import json
-
     return json.dumps(
         {
             "Event": "SparkListenerEnvironmentUpdate",
@@ -47,14 +41,10 @@ def env_update(props: dict) -> str:
 
 
 def log_start(version: str = "3.5.1") -> str:
-    import json
-
     return json.dumps({"Event": "SparkListenerLogStart", "Spark Version": version})
 
 
 def app_start(app_id: str = "app-1", app_name: str = "App") -> str:
-    import json
-
     return json.dumps(
         {
             "Event": "SparkListenerApplicationStart",
@@ -65,8 +55,6 @@ def app_start(app_id: str = "app-1", app_name: str = "App") -> str:
 
 
 def sql_exec_start(modified_configs: dict) -> str:
-    import json
-
     return json.dumps(
         {
             "Event": "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart",
@@ -84,6 +72,8 @@ def sql_exec_start(modified_configs: dict) -> str:
 # ---------- Tests for _scan_events (single stream) ----------
 
 class TestScanEvents:
+    """Tests for _scan_events scanning a single event stream."""
+
     def test_env_update_with_gpu_is_decisive(self):
         lines = iter(
             [
@@ -165,6 +155,8 @@ def _write(path: Path, lines: List[str]) -> CspPath:
 
 
 class TestScanEventsAcross:
+    """Tests for _scan_events_across scanning across multiple files."""
+
     def test_gpu_signal_in_second_file_is_decisive(self, tmp_path):
         f1 = _write(
             tmp_path / "eventlog-2021-06-14--18-00",

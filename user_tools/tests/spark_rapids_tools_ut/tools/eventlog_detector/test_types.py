@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Unit tests for ``eventlog_detector.types``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 import pytest
 
@@ -29,6 +30,8 @@ from spark_rapids_tools.tools.eventlog_detector.types import (
 
 
 class TestRoute:
+    """Test the Route string enum."""
+
     def test_has_three_values(self):
         assert {r.value for r in Route} == {"QUALIFICATION", "PROFILING", "UNKNOWN"}
 
@@ -38,6 +41,8 @@ class TestRoute:
 
 
 class TestSparkRuntime:
+    """Test the SparkRuntime string enum."""
+
     def test_values_match_scala_enum_exactly(self):
         # These strings match org.apache.spark.sql.rapids.tool.util.SparkRuntime
         # which aether already persists in JobRun.spark_runtime.
@@ -53,11 +58,15 @@ class TestSparkRuntime:
 
 
 class TestTermination:
+    """Test the Termination enum modes."""
+
     def test_has_three_modes(self):
         assert {t.name for t in Termination} == {"DECISIVE", "EXHAUSTED", "CAP_HIT"}
 
 
 class TestDetectionResult:
+    """Test DetectionResult dataclass semantics."""
+
     def test_frozen_dataclass(self):
         result = DetectionResult(
             route=Route.PROFILING,
@@ -74,15 +83,15 @@ class TestDetectionResult:
             result.route = Route.UNKNOWN  # type: ignore[misc]
 
     def test_structural_equality(self):
-        kwargs = dict(
-            route=Route.QUALIFICATION,
-            spark_runtime=SparkRuntime.SPARK,
-            app_id="a",
-            spark_version="3.5.1",
-            event_log_path="/tmp/a",
-            source_path="/tmp/a",
-            reason="walked full log, no GPU-family signal",
-        )
+        kwargs = {
+            "route": Route.QUALIFICATION,
+            "spark_runtime": SparkRuntime.SPARK,
+            "app_id": "a",
+            "spark_version": "3.5.1",
+            "event_log_path": "/tmp/a",
+            "source_path": "/tmp/a",
+            "reason": "walked full log, no GPU-family signal",
+        }
         assert DetectionResult(**kwargs) == DetectionResult(**kwargs)
         assert hash(DetectionResult(**kwargs)) == hash(DetectionResult(**kwargs))
         # Distinct payloads compare unequal.
@@ -104,6 +113,8 @@ class TestDetectionResult:
 
 
 class TestExceptionHierarchy:
+    """Test that all detector exceptions form a coherent hierarchy."""
+
     def test_all_errors_subclass_base(self):
         for cls in (
             UnsupportedInputError,

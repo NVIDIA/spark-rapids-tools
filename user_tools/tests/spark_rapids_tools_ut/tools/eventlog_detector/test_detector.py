@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Integration tests for ``eventlog_detector.detect_spark_runtime``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 import json
 from pathlib import Path
@@ -45,6 +46,8 @@ def _write_plain_log(path: Path, events: list) -> None:
 
 
 class TestAcceptsStringPath:
+    """Test that detect_spark_runtime accepts plain string paths."""
+
     def test_str_input_resolves(self, tmp_path):
         log = tmp_path / "eventlog"
         _write_plain_log(
@@ -61,6 +64,8 @@ class TestAcceptsStringPath:
 
 
 class TestGpuLog:
+    """Test detection on GPU event logs."""
+
     def test_env_update_with_plugin_classifies_as_profiling(self, tmp_path):
         log = tmp_path / "eventlog"
         _write_plain_log(
@@ -79,6 +84,8 @@ class TestGpuLog:
 
 
 class TestCapHit:
+    """Test detection when the event budget is exhausted before env-update."""
+
     def test_no_env_update_before_cap_is_unknown(self, tmp_path):
         log = tmp_path / "eventlog"
         # Many LogStart events, no env-update. Cap hits first.
@@ -89,10 +96,13 @@ class TestCapHit:
         result = detect_spark_runtime(str(log), max_events_scanned=5)
         assert result.route is Route.UNKNOWN
         assert result.spark_runtime is None
-        assert "no decisive signal" in result.reason.lower() or "no sparklistenerenvironmentupdate" in result.reason.lower()
+        reason = result.reason.lower()
+        assert "no decisive signal" in reason or "no sparklistenerenvironmentupdate" in reason
 
 
 class TestDatabricksRolling:
+    """Test detection on Databricks rolling event log directories."""
+
     def test_gpu_in_later_rolled_file(self, tmp_path):
         d = tmp_path / "dbrolling"
         d.mkdir()
@@ -125,6 +135,8 @@ class TestDatabricksRolling:
 
 
 class TestUnsupportedInput:
+    """Test that unsupported input shapes raise the expected error."""
+
     def test_spark_native_rolling_dir_raises(self, tmp_path):
         d = tmp_path / "eventlog_v2_local-1623876083964"
         d.mkdir()
@@ -134,6 +146,8 @@ class TestUnsupportedInput:
 
 
 class TestReasonStrings:
+    """Test the human-readable reason field on DetectionResult."""
+
     def test_reason_mentions_runtime_on_profiling(self, tmp_path):
         log = tmp_path / "eventlog"
         _write_plain_log(
@@ -154,6 +168,8 @@ class TestReasonStrings:
 
 
 class TestSourcePathPreserved:
+    """Test that source_path echoes the original input string."""
+
     def test_source_path_equals_input_string(self, tmp_path):
         log = tmp_path / "eventlog"
         _write_plain_log(log, [env_update({"spark.master": "local"})])

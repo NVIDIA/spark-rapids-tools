@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Unit tests for ``eventlog_detector.classifier``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 import pytest
 
@@ -21,11 +22,15 @@ from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime
 
 
 class TestEmptyProperties:
+    """Test classification with an empty properties dict."""
+
     def test_empty_props_is_spark(self):
         assert _classify_runtime({}) is SparkRuntime.SPARK
 
 
 class TestSparkRapids:
+    """Test SPARK_RAPIDS classification logic."""
+
     def test_plugin_and_default_enabled(self):
         props = {"spark.plugins": "foo,com.nvidia.spark.SQLPlugin,bar"}
         assert _classify_runtime(props) is SparkRuntime.SPARK_RAPIDS
@@ -57,6 +62,8 @@ class TestSparkRapids:
 
 
 class TestAuron:
+    """Test AURON classification logic."""
+
     def test_extension_and_default_enabled(self):
         props = {"spark.sql.extensions": "com.bytedance.auron.AuronSparkSessionExtension"}
         assert _classify_runtime(props) is SparkRuntime.AURON
@@ -77,6 +84,8 @@ class TestAuron:
 
 
 class TestDatabricksPhoton:
+    """Test Databricks PHOTON classification logic."""
+
     @pytest.fixture
     def db_precond_props(self):
         return {

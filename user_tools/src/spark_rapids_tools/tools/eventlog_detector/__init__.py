@@ -22,7 +22,16 @@ See docs/superpowers/specs/2026-04-22-eventlog-runtime-detector-design.md
 for the full contract and the Scala sources this mirrors.
 """
 
-from typing import Any
+from .detector import detect_spark_runtime
+from .types import (
+    DetectionResult,
+    EventLogDetectionError,
+    EventLogReadError,
+    Route,
+    SparkRuntime,
+    UnsupportedCompressionError,
+    UnsupportedInputError,
+)
 
 __all__ = [
     "DetectionResult",
@@ -34,27 +43,3 @@ __all__ = [
     "UnsupportedInputError",
     "detect_spark_runtime",
 ]
-
-# Lazy re-exports: the submodules that back these names are added across
-# subsequent tasks. Using ``__getattr__`` defers the import until the name
-# is actually accessed, which keeps intermediate test suites importable
-# while the package is being built out.
-_TYPES_NAMES = {
-    "DetectionResult",
-    "EventLogDetectionError",
-    "EventLogReadError",
-    "Route",
-    "SparkRuntime",
-    "UnsupportedCompressionError",
-    "UnsupportedInputError",
-}
-
-
-def __getattr__(name: str) -> Any:
-    if name == "detect_spark_runtime":
-        from .detector import detect_spark_runtime as _fn
-        return _fn
-    if name in _TYPES_NAMES:
-        from . import types as _types
-        return getattr(_types, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

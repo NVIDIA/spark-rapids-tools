@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Unit tests for ``eventlog_detector.stream``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 import gzip
 from pathlib import Path
@@ -72,34 +73,42 @@ def zstd_file(tmp_path: Path) -> CspPath:
 
 
 class TestPlainStream:
-    def test_yields_all_lines(self, plain_file):
+    """Test streaming plain-text event logs."""
+
+    def test_yields_all_lines(self, plain_file):  # pylint: disable=redefined-outer-name
         with _open_event_log_stream(plain_file) as lines:
-            collected = [ln for ln in lines]
+            collected = list(lines)
         assert collected == SAMPLE_LINES
 
 
 class TestGzipStream:
-    def test_yields_all_lines(self, gz_file):
+    """Test streaming gzip-compressed event logs."""
+
+    def test_yields_all_lines(self, gz_file):  # pylint: disable=redefined-outer-name
         with _open_event_log_stream(gz_file) as lines:
-            collected = [ln for ln in lines]
+            collected = list(lines)
         assert collected == SAMPLE_LINES
 
 
 class TestZstdStream:
-    def test_yields_all_lines(self, zstd_file):
+    """Test streaming zstd-compressed event logs."""
+
+    def test_yields_all_lines(self, zstd_file):  # pylint: disable=redefined-outer-name
         with _open_event_log_stream(zstd_file) as lines:
-            collected = [ln for ln in lines]
+            collected = list(lines)
         assert collected == SAMPLE_LINES
 
     def test_zst_short_suffix_also_works(self, tmp_path):
         p = tmp_path / "eventlog.zst"
         _write_zstd(p)
         with _open_event_log_stream(CspPath(str(p))) as lines:
-            collected = [ln for ln in lines]
+            collected = list(lines)
         assert collected == SAMPLE_LINES
 
 
 class TestUnsupportedCompression:
+    """Test that unsupported compression formats raise UnsupportedCompressionError."""
+
     def test_lz4_raises(self, tmp_path):
         p = tmp_path / "eventlog.lz4"
         p.write_bytes(b"not-real-lz4")
@@ -123,6 +132,8 @@ class TestUnsupportedCompression:
 
 
 class TestIoFailure:
+    """Test that I/O errors raise EventLogReadError."""
+
     def test_missing_file_raises_read_error(self, tmp_path):
         p = tmp_path / "does-not-exist"
         with pytest.raises(EventLogReadError):

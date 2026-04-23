@@ -13,6 +13,7 @@
 # limitations under the License.
 
 """Unit tests for ``eventlog_detector.resolver``."""
+# pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
 from datetime import datetime
 from pathlib import Path
@@ -28,6 +29,8 @@ from spark_rapids_tools.tools.eventlog_detector.types import UnsupportedInputErr
 
 
 class TestDatabricksDateParse:
+    """Test Databricks rolling log file date parsing."""
+
     def test_bare_eventlog_is_latest_sentinel(self):
         # Returns None; caller treats None as "sort last".
         assert _parse_databricks_file_datetime("eventlog") is None
@@ -45,6 +48,8 @@ class TestDatabricksDateParse:
 
 
 class TestResolveSingleFile:
+    """Test resolving a single event log file."""
+
     def test_single_file_returns_single_element_list(self, tmp_path: Path):
         f = tmp_path / "eventlog.zstd"
         f.write_bytes(b"x")
@@ -54,6 +59,8 @@ class TestResolveSingleFile:
 
 
 class TestResolveDatabricksRollingDir:
+    """Test resolving a Databricks rolling event log directory."""
+
     def test_orders_earliest_first_and_bare_eventlog_last(self, tmp_path: Path):
         d = tmp_path / "dbrolling"
         d.mkdir()
@@ -86,6 +93,8 @@ class TestResolveDatabricksRollingDir:
 
 
 class TestResolveUnsupportedShapes:
+    """Test that unsupported directory shapes raise UnsupportedInputError."""
+
     def test_spark_native_rolling_dir_raises(self, tmp_path: Path):
         d = tmp_path / "eventlog_v2_local-1623876083964"
         d.mkdir()
