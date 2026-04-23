@@ -130,6 +130,13 @@ class TestUnsupportedCompression:
             with _open_event_log_stream(CspPath(str(p))) as _:
                 pass
 
+    def test_unknown_suffix_raises(self, tmp_path):
+        p = tmp_path / "eventlog.weirdcodec"
+        p.write_bytes(b"some-bytes")
+        with pytest.raises(UnsupportedCompressionError):
+            with _open_event_log_stream(CspPath(str(p))) as _:
+                pass
+
 
 class TestIoFailure:
     """Test that I/O errors raise EventLogReadError."""

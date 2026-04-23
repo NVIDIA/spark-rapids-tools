@@ -47,8 +47,15 @@ _PYARROW_AUTO_DECOMP_SUFFIXES = {".gz", ".zst"}
 # PyArrow does NOT recognise ``.zstd`` as a codec suffix, so the byte stream
 # is raw compressed data that we must decompress ourselves.
 _ZSTD_MANUAL_SUFFIXES = {".zstd"}
-# Suffixes that unambiguously indicate a codec we do not support in V1.
-_UNSUPPORTED_CODEC_SUFFIXES = {".lz4", ".lzf", ".snappy"}
+# Suffixes treated as plain text (no decompression needed, no scheme check).
+_PLAIN_SUFFIXES = {"", ".inprogress"}
+# Full whitelist of suffixes the detector accepts. Anything else raises
+# ``UnsupportedCompressionError`` — including explicitly-bad codecs like
+# ``.lz4`` / ``.lzf`` / ``.snappy`` and any unknown suffix we might
+# otherwise fall through as plain text.
+_SUPPORTED_SUFFIXES = (
+    _PYARROW_AUTO_DECOMP_SUFFIXES | _ZSTD_MANUAL_SUFFIXES | _PLAIN_SUFFIXES
+)
 
 
 def _classify_suffix(path: CspPath) -> str:
@@ -62,10 +69,11 @@ def _classify_suffix(path: CspPath) -> str:
 @contextlib.contextmanager
 def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
     suffix = _classify_suffix(path)
-    if suffix in _UNSUPPORTED_CODEC_SUFFIXES:
+    if suffix not in _SUPPORTED_SUFFIXES:
         raise UnsupportedCompressionError(
-            f"Compression codec '{suffix}' is not supported by the lightweight "
-            "event log detector. Fall back to the full qualification/profiling "
+            f"File suffix '{suffix}' is not supported by the lightweight "
+            "event log detector. Supported: plain, .inprogress, .gz, "
+            ".zstd, .zst. Fall back to the full qualification/profiling "
             "pipeline for this log."
         )
 
@@ -84,13 +92,9 @@ def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
             decompressed: io.RawIOBase = dctx.stream_reader(byte_stream)
             close_stack.callback(decompressed.close)
         else:
-            # For ``.gz``, ``.zst``, ``.inprogress``, and unknown/plain
-            # suffixes, PyArrow already handles decompression (or there is
-            # nothing to decompress). Pass the byte stream straight through.
-            # If the file is actually compressed with an unknown codec the
-            # scanner will see garbled lines that don't parse as JSON; those
-            # will be skipped and the caller will see Route.UNKNOWN — the
-            # correct failure mode for this lightweight path.
+            # Plain or PyArrow auto-decompressed (.gz/.zst/.inprogress/no
+            # extension). Pass the byte stream straight through — PyArrow
+            # has already handled decompression where needed.
             decompressed = byte_stream
 
         text = io.TextIOWrapper(decompressed, encoding="utf-8", errors="replace", newline="")
