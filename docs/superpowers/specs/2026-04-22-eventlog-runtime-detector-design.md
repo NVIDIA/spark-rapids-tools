@@ -65,25 +65,26 @@ Enum string values match the Scala `SparkRuntime` enum exactly so aether's exist
 | Input shape | Supported | Notes |
 | --- | --- | --- |
 | Single file (plain or compressed) | ✅ | Primary case |
-| Spark native rolling dir (`eventlog_v2_*`) | ✅ | Reads first `events_1_*` chunk only |
-| Databricks rolling dir (`eventlog`, `eventlog-*` files) | ✅ | Reads first file |
+| Spark native rolling dir (`eventlog_v2_*`) | ✅ | Reads first (earliest) `events_1_*` chunk — it holds `ApplicationStart` + `EnvironmentUpdate` |
+| Databricks rolling dir (`eventlog`, `eventlog-*` files) | ✅ | Sort mirroring Scala's `DatabricksRollingEventLogFilesFileReader` (see 7.1), read the earliest |
 | Generic directory of independent logs | ❌ | Raises `UnsupportedEventLogShapeError` |
 | Wildcard path | ❌ | Same |
 | Comma-separated list | ❌ | Same |
 
 Rationale: aether's `is_multi_event_log_input()` already distinguishes single-app from multi-app inputs. Pre-flight detection is most useful for the single-app case; multi-app inputs don't bind to a single `aether_job_id` anyway.
 
-Compression codecs:
+Compression codecs (Spark-native set per `EventLogPathProcessor.SPARK_SHORT_COMPRESSION_CODEC_NAMES` — `lz4, lzf, snappy, zstd`, plus `gz`):
 
 | Extension | Dependency | Availability |
 | --- | --- | --- |
 | none, `.inprogress` | stdlib | always |
 | `.gz` | stdlib `gzip` | always |
-| `.zstd`, `.zst` | `zstandard` | **non-optional new dep** — existing test fixtures are zstd, common Spark default |
-| `.lz4` | `lz4` | optional extra `spark-rapids-tools[compression]` |
-| `.snappy` | `cramjam` | optional extra `spark-rapids-tools[compression]` |
+| `.zstd`, `.zst` | `zstandard` | **non-optional new dep** — existing test fixtures are zstd; default in several Spark deployments |
+| `.lz4` | `lz4` | optional extra `spark-rapids-user-tools[compression]` (new extra, introduced in this PR) |
+| `.lzf` | `python-lzf` (or equivalent — plan will pin the choice) | optional extra `spark-rapids-user-tools[compression]` |
+| `.snappy` | `cramjam` | optional extra `spark-rapids-user-tools[compression]` |
 
-Missing optional codec lib → `UnsupportedCompressionError` with actionable install message.
+Missing optional codec lib → `UnsupportedCompressionError` with actionable install message pointing at the correct PyPI name `spark-rapids-user-tools[compression]`. The `[compression]` extra is introduced by this feature; it does not exist in `user_tools/pyproject.toml` today.
 
 ## 7. Module structure
 
@@ -94,9 +95,11 @@ Four small, independently testable components inside `eventlog_detector.py` (plu
 Path resolver. Turns user input into the concrete file to read.
 
 - File input → return as-is.
-- Directory input → pattern match against Spark-native and Databricks rolling layouts; pick first chunk.
-- Anything else → raise `UnsupportedEventLogShapeError`.
-- Pattern matching uses `BoundedCspPath.list_dir()` semantics; no file reads for the shape decision.
+- Directory input → pattern match against rolling layouts:
+  - **Spark native** (`eventlog_v2_*` directory): list children via `CspFs.list_all_files(dir_path)`; pick the lexicographically earliest file whose name matches `events_1_*` (chunk index 1, which carries `ApplicationStart` + `EnvironmentUpdate`).
+  - **Databricks** (files named `eventlog` or `eventlog-<DATE>--<HH-MM>[.codec]`): list children via `CspFs.list_all_files(dir_path)`; sort using the same rule as Scala's `DatabricksRollingEventLogFilesFileReader` (`core/src/main/scala/com/nvidia/spark/rapids/tool/EventLogPathProcessor.scala:458-478, 496-500`) — parsed `LocalDateTime` from the filename, with bare `eventlog` treated as *latest* (i.e., sorted last); pick the earliest. That is the file carrying app-start.
+- Anything else (generic multi-app dir, wildcard, comma list) → raise `UnsupportedEventLogShapeError`.
+- Pattern matching only — no file reads for the shape decision.
 
 ### 7.2 `_open_event_log_stream(resolved_path) -> Iterator[str]`
 
@@ -104,17 +107,44 @@ Stream opener. Opens the file with the right codec and yields decoded text lines
 
 - Codec chosen by extension.
 - Codec libs imported lazily inside this function — missing lib raises `UnsupportedCompressionError`, does not fail the module import.
-- Cloud paths handled via `BoundedCspPath.open()`; codec streams layered on top.
+- Cloud paths handled via `CspPath.open_input_stream()`; the returned stream is wrapped by the codec reader, then by a text decoder yielding lines.
 
 ### 7.3 `_scan_events(lines, max_events) -> _ScanResult`
 
-Event scanner. Parses lines as JSON, collects three events, stops.
+Event scanner. Parses lines as JSON, merges properties from the events Scala uses for runtime classification, and stops when enough state is accumulated (or the cap is reached).
 
-- Tracks: `SparkListenerLogStart` (→ Spark version), `SparkListenerApplicationStart` (→ appId, appName), `SparkListenerEnvironmentUpdate` (→ `Spark Properties` dict).
-- Stops as soon as `SparkListenerEnvironmentUpdate` is seen AND either `SparkListenerApplicationStart` is seen or the env-update came after it (i.e., we have both). In normal Spark logs both land within the first ~20 events.
-- Skips malformed JSON lines (Spark tolerates trailing partial lines in live logs).
-- Hard cap at `max_events_scanned` (default 1000). Purely defensive.
-- On EOF or cap with env-update seen: returns `_ScanResult` populated with whatever was found (app-start may be `None`). On EOF or cap with env-update NOT seen: raises `EventLogIncompleteError` — classification is unknown.
+**Events the scanner must consume** (all of these affect runtime classification in Scala):
+
+| Event | Scala handler | Effect on classification state |
+| --- | --- | --- |
+| `SparkListenerLogStart` | `EventProcessorBase.doSparkListenerLogStart` → `handleLogStartForCachedProps` | Captures Spark version |
+| `SparkListenerApplicationStart` | populates `appMetaData` | Captures appId / appName |
+| `SparkListenerEnvironmentUpdate` | `handleEnvUpdateForCachedProps` → `updatePredicatesFromSparkProperties` → `reEvaluate(sparkProperties)` + `gpuMode ||= isPluginEnabled(...)` | Seeds the main `Spark Properties` dict; initial plugin evaluation |
+| `SparkListenerJobStart` | `handleJobStartForCachedProps` → `reEvaluateOnJobLevel(jobProperties)` | Re-evaluates plugins with `hasJobLevelConfigs=true` (DB, Iceberg, Hive). Only matters for Photon/DB here (Auron and SPARK_RAPIDS are driver-level and already settled) |
+| `SparkListenerSQLExecutionStart` | `doSparkListenerSQLExecutionStart` → `mergeModifiedConfigs(modifiedConfigs)` → `updatePredicatesFromSparkProperties` | Merges per-SQL config overrides into `sparkProperties`; can turn on gpuMode or a plugin whose key was not present at env-update time |
+
+Scanning only `SparkListenerEnvironmentUpdate` would diverge from Scala for logs that enable `spark.plugins` / `spark.rapids.sql.enabled` / Databricks tags via `modifiedConfigs` or job-level properties. We consume all five events above.
+
+**Property merging (mirrors Scala):**
+
+- `spark_properties` = env-update `Spark Properties` with per-SQL `modifiedConfigs` merged last-write-wins (matches `CacheablePropsHandler.mergeModifiedConfigs`).
+- For DB plugin specifically (`hasJobLevelConfigs=true`): also feed `SparkListenerJobStart.properties` to the DB precondition check. All three DB tag keys must be non-empty from the combined property pool (env-update ∪ job-level ∪ modifiedConfigs).
+- Classification after each merge follows the exact rules in section 8.
+
+**Sticky semantics:** plugin matches are sticky (once true, stay true — `AppPropPlugTrait:66-68`). Same for gpuMode. So classification can only become more specific over time (SPARK → PHOTON/AURON/SPARK_RAPIDS), never less.
+
+**Stop conditions:**
+
+- Early-stop: as soon as `SparkListenerEnvironmentUpdate` has been seen AND the classification is non-SPARK, we can return. A non-SPARK label is sticky.
+- Extended-scan: if classification is still SPARK after env-update, keep scanning `SparkListenerJobStart` and `SparkListenerSQLExecutionStart` events, merging their properties, re-classifying after each merge. Stop at first non-SPARK classification or at `max_events_scanned`.
+- Cap: `max_events_scanned` default raised from the original 1000 to **2000** to accommodate SQLExecutionStart events that can land later in the log. `SparkListenerApplicationStart` is also captured if/when seen during the extended scan.
+
+**Malformed input:** lines that aren't valid JSON are skipped (Spark tolerates trailing partial lines in live logs).
+
+**Terminal states:**
+
+- EOF or cap with env-update seen → returns `_ScanResult` with the final classification state. If classification is still SPARK here, that is the final answer (matches what Scala would emit given the same prefix).
+- EOF or cap with env-update NOT seen → raises `EventLogIncompleteError`. Classification is unknown and the caller should fall back to the full pipeline.
 
 ### 7.4 `_classify_runtime(spark_properties) -> SparkRuntime`
 
@@ -195,4 +225,15 @@ A Scala-side test that synthesizes property maps, exercises each plugin, and exp
 
 - Exact location / filename of the short user-facing doc (match whatever existing convention `user_tools/docs/` uses).
 - Whether the `zstandard` dep addition warrants an entry in `RELEASE.md` or similar.
-- Whether we skip the `[compression]` extra in V1 and only support plain + gz + zstd (keeping V1 even smaller). Current plan: ship the extra but make it opt-in.
+- Final pick for `.lzf` codec package (`python-lzf` vs alternative); the plan should verify it installs cleanly alongside current `user_tools/pyproject.toml` constraints before committing.
+- Whether we keep `.snappy` / `.lzf` behind the `[compression]` extra (current plan) or fold them in as hard deps (simpler but bigger install).
+- Parity-test fixture inventory: enumerate every file under `core/src/test/resources/spark-events-*` and record the expected `SparkRuntime` label, derived from existing Scala test expectations. The plan step owns this list.
+
+## 13. Review feedback addressed (2026-04-22)
+
+Findings applied against the initial draft of this spec:
+
+1. **Scan scope extended beyond env-update** (section 7.3). The scanner now also consumes `SparkListenerJobStart` and `SparkListenerSQLExecutionStart` and merges their property sets into classification, mirroring `EventProcessorBase.doSparkListenerSQLExecutionStart` / `handleJobStartForCachedProps` and `CacheablePropsHandler.mergeModifiedConfigs`. This closes the gap where a log enables `spark.plugins` via `modifiedConfigs` or Databricks tags via job-level properties.
+2. **Databricks rolling-dir file selection** (sections 6 and 7.1). File pick is now an explicit mirror of `DatabricksRollingEventLogFilesFileReader`: parse `--YYYY-MM-DD--HH-MM` from each filename, treat bare `eventlog` as latest (sort last), pick the earliest. That is the file that carries app-start.
+3. **Storage API corrected** (section 7.1, 7.2). Uses `CspFs.list_all_files(path)` and `CspPath.open_input_stream()`. `BoundedCspPath.list_dir()` / `.open()` do not exist.
+4. **Compression set and packaging fixed** (section 6). `.lzf` is added alongside `.lz4`/`.snappy`/`.zstd` to match Scala's `SPARK_SHORT_COMPRESSION_CODEC_NAMES` and the existing `user_tools/docs/user-tools-onprem.md` claim. Install guidance uses the correct distribution name `spark-rapids-user-tools` and the `[compression]` extra is explicitly called out as a new extra introduced by this feature.
