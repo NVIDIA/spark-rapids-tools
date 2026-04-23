@@ -85,6 +85,8 @@ dependencies = [
     "scikit-learn==1.7.0",
     # used for retrieving available memory on the host
     "psutil==7.0.0",
+    # used to read zstd-compressed spark event logs
+    "zstandard==0.25.0",
     # pyspark for distributed computing
     "pyspark>=3.5.7,<4.0.0",
     # Jproperties used to handle Java properties file (added for the Tools API)
