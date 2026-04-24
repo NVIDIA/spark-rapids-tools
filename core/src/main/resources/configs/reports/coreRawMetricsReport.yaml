@@ -16,6 +16,7 @@
 # Note that all the output files in this list should be considered internal-use only.
 
 # <application-id>/
+#    ├── app_level_recommendation_signals.csv
 #    ├── application_information.csv
 #    ├── application_log_path_mapping.csv
 #    ├── cluster_information.json
@@ -40,7 +41,6 @@
 #    ├── stage_level_aggregated_task_metrics.csv
 #    ├── stage_level_all_metrics.csv
 #    ├── system_properties.csv
-#    ├── tuning_signals.csv
 #    ├── unsupported_sql_plan.csv
 #    ├── wholestagecodegen_mapping.csv
 #    ├── write_operations.csv
@@ -1439,20 +1439,27 @@ reportDefinitions:
         fileName: profile.log
         fileFormat: TXT
         scope: per-app
-      # TuningSignalProfileResult
-      - label: coreRawTuningSignalsCSV
+      # AppLevelRecommendationSignalsProfileResult
+      - label: coreRawAppLevelRecommendationSignalsCSV
         description: >-
-          Per-app GPU-OOM diagnostic signals used as AutoTuner inputs. Vertical key-value
-          layout; each emitted metric is one row.
-        fileName: tuning_signals.csv
+          Per-app derived signals that feed recommendation engines (AutoTuner, qualx,
+          etc.). Single row per app; wide layout, one column per signal.
+          GPU-only signals are 0 for qualification (CPU event logs).
+        fileName: app_level_recommendation_signals.csv
         scope: per-app
         columns:
-          - name: name
+          - name: appId
             dataType: String
             description: >-
-              Name of the tuning signal
-          - name: value
-            dataType: String
+              Application ID.
+          - name: numScanStagesWithGpuOom
+            dataType: Int
             description: >-
-              Signal value. Numeric signals are stored as their integer string form;
-              stage-ID signals are comma-separated lists (empty string when none).
+              Number of scan stages where failed tasks had GPU OOM errors
+              (GpuRetryOOM / GpuSplitAndRetryOOM / jni.GpuOOM). Profiling only.
+          - name: numGpuShuffleStagesWithContainerOom
+            dataType: Int
+            description: >-
+              Number of GPU shuffle stages (GpuShuffleExchangeExec) where YARN killed
+              the container due to container-level OOM (ExecutorLostFailure + exit 137).
+              Profiling only.

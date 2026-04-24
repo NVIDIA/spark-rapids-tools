@@ -70,8 +70,8 @@ object OutHeaderRegistry {
     "AppInfoProfileResults" ->
       Array("appName", "appId", "attemptId", "sparkUser", "startTime", "endTime", "duration",
         "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds"),
-    "TuningSignalProfileResult" ->
-      Array("name", "value"),
+    "AppLevelRecommendationSignalsProfileResult" ->
+      Array("appId", "numScanStagesWithGpuOom", "numGpuShuffleStagesWithContainerOom"),
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->

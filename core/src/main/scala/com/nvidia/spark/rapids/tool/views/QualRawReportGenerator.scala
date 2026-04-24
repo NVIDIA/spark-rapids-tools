@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults, TuningSignalProfileResult}
+import com.nvidia.spark.rapids.tool.profiling.{AppLevelRecommendationSignalsProfileResult, DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
@@ -101,10 +101,10 @@ object QualRawReportGenerator extends Logging {
       constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
-      // GPU-only signals default to empty for qualification (CPU event logs)
-      val tuningSignals = TuningSignalProfileResult.build(
-        Set.empty[Long], Set.empty[Long])
-      pWriter.writeCSVTable(TUNING_SIGNALS, tuningSignals)
+      // GPU-only signals default to 0 for qualification (CPU event logs)
+      val appLevelRecommendationSignals = AppLevelRecommendationSignalsProfileResult.build(
+        app.appId, Set.empty[Long], Set.empty[Long])
+      pWriter.writeCSVTable(APP_LEVEL_RECOMMENDATION_SIGNALS, appLevelRecommendationSignals)
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeCSVTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
       pWriter.writeTable(

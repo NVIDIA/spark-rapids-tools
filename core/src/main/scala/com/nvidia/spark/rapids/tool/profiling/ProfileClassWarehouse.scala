@@ -516,32 +516,34 @@ case class AppInfoProfileResults(
   }
 }
 
-case class TuningSignalProfileResult(
-    name: String,
-    value: String) extends ProfileResult {
+case class AppLevelRecommendationSignalsProfileResult(
+    appId: String,
+    numScanStagesWithGpuOom: Int,
+    numGpuShuffleStagesWithContainerOom: Int) extends ProfileResult {
   override def outputHeaders: Array[String] = {
-    OutHeaderRegistry.outputHeaders("TuningSignalProfileResult")
+    OutHeaderRegistry.outputHeaders("AppLevelRecommendationSignalsProfileResult")
   }
 
-  override def convertToSeq(): Array[String] = Array(name, value)
+  override def convertToSeq(): Array[String] = Array(
+    appId,
+    numScanStagesWithGpuOom.toString,
+    numGpuShuffleStagesWithContainerOom.toString)
 
   override def convertToCSVSeq(): Array[String] = Array(
-    StringUtils.reformatCSVString(name),
-    StringUtils.reformatCSVString(value))
+    StringUtils.reformatCSVString(appId),
+    numScanStagesWithGpuOom.toString,
+    numGpuShuffleStagesWithContainerOom.toString)
 }
 
-object TuningSignalProfileResult {
-  private def stageIdsToStr(stageIds: Set[Long]): String = {
-    if (stageIds.isEmpty) "" else stageIds.toSeq.sorted.mkString(",")
-  }
-
+object AppLevelRecommendationSignalsProfileResult {
   def build(
+      appId: String,
       scanStagesWithGpuOom: Set[Long],
-      gpuShuffleStagesWithContainerOom: Set[Long]): Seq[TuningSignalProfileResult] = Seq(
-    TuningSignalProfileResult("scanStagesWithGpuOom",
-      stageIdsToStr(scanStagesWithGpuOom)),
-    TuningSignalProfileResult("gpuShuffleStagesWithContainerOom",
-      stageIdsToStr(gpuShuffleStagesWithContainerOom)))
+      gpuShuffleStagesWithContainerOom: Set[Long]): Seq[AppLevelRecommendationSignalsProfileResult] = Seq(
+    AppLevelRecommendationSignalsProfileResult(
+      appId,
+      scanStagesWithGpuOom.size,
+      gpuShuffleStagesWithContainerOom.size))
 }
 
 case class AppLogPathProfileResults(

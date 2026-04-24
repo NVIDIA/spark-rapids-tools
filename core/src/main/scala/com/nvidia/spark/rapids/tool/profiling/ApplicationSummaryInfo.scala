@@ -54,7 +54,7 @@ case class ApplicationSummaryInfo(
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
     writeOpsInfo: Seq[WriteOpProfileResult],
     sqlPlanInfo: Seq[SQLPlanInfoProfileResult],
-    tuningSignals: Seq[TuningSignalProfileResult] = Seq.empty)
+    appLevelRecommendationSignals: Seq[AppLevelRecommendationSignalsProfileResult] = Seq.empty)
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

@@ -316,8 +316,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
 
     val appInfo = collect.getAppInfo
     val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
-    val tuningSignals = TuningSignalProfileResult.build(
-      scanOomStages, gpuShuffleContainerOomStages)
+    val appLevelRecommendationSignals = AppLevelRecommendationSignalsProfileResult.build(
+      appId, scanOomStages, gpuShuffleContainerOomStages)
 
     logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
@@ -350,7 +350,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
       sqlPlanInfo = collect.getSQLPlanInfoTruncated,
-      tuningSignals = tuningSignals)
+      appLevelRecommendationSignals = appLevelRecommendationSignals)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -423,7 +423,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
-    profileOutputWriter.writeCSVTable(TUNING_SIGNALS, app.tuningSignals)
+    profileOutputWriter.writeCSVTable(APP_LEVEL_RECOMMENDATION_SIGNALS,
+      app.appLevelRecommendationSignals)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
     profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)
