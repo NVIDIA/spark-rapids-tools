@@ -539,11 +539,13 @@ object AppLevelRecommendationSignalsProfileResult {
   def build(
       appId: String,
       scanStagesWithGpuOom: Set[Long],
-      gpuShuffleStagesWithContainerOom: Set[Long]): Seq[AppLevelRecommendationSignalsProfileResult] = Seq(
-    AppLevelRecommendationSignalsProfileResult(
+      gpuShuffleStagesWithContainerOom: Set[Long])
+      : Seq[AppLevelRecommendationSignalsProfileResult] = {
+    Seq(AppLevelRecommendationSignalsProfileResult(
       appId,
       scanStagesWithGpuOom.size,
       gpuShuffleStagesWithContainerOom.size))
+  }
 }
 
 case class AppLogPathProfileResults(
