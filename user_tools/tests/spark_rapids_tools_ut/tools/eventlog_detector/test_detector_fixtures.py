@@ -15,7 +15,7 @@
 """Anchor tests against fixtures already shipped in the Scala core.
 
 These are not a full parity sweep. They catch regressions on a small
-curated set covering each decisive route.
+curated set covering each decisive execution decision.
 """
 
 from pathlib import Path
@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 from spark_rapids_tools.tools.eventlog_detector import detect_spark_runtime
-from spark_rapids_tools.tools.eventlog_detector.types import Route, SparkRuntime
+from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime, ToolExecution
 
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -31,32 +31,32 @@ CORE_FIXTURES = REPO_ROOT / "core" / "src" / "test" / "resources"
 
 
 @pytest.mark.parametrize(
-    "relative_path,expected_route,expected_runtime",
+    "relative_path,expected_execution,expected_runtime",
     [
         (
             "spark-events-profiling/eventlog-gpu-dsv2.zstd",
-            Route.PROFILING,
+            ToolExecution.PROFILING,
             SparkRuntime.SPARK_RAPIDS,
         ),
         (
             "spark-events-profiling/eventlog_dsv2.zstd",
-            Route.QUALIFICATION,
+            ToolExecution.QUALIFICATION,
             SparkRuntime.SPARK,
         ),
         (
             "spark-events-qualification/eventlog_same_app_id_1.zstd",
-            Route.QUALIFICATION,
+            ToolExecution.QUALIFICATION,
             SparkRuntime.SPARK,
         ),
     ],
 )
-def test_detector_matches_expected_route_on_scala_fixture(
-    relative_path: str, expected_route: Route, expected_runtime: SparkRuntime
+def test_detector_matches_expected_execution_on_scala_fixture(
+    relative_path: str, expected_execution: ToolExecution, expected_runtime: SparkRuntime
 ) -> None:
     fixture = CORE_FIXTURES / relative_path
     if not fixture.exists():
         pytest.skip(f"fixture not available: {fixture}")
     # Fixtures are ~small; a generous budget keeps this test decisive.
     result = detect_spark_runtime(str(fixture), max_events_scanned=5000)
-    assert result.route is expected_route, result.reason
+    assert result.tool_execution is expected_execution, result.reason
     assert result.spark_runtime is expected_runtime, result.reason

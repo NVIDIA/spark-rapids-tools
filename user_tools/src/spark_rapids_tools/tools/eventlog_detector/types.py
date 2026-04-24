@@ -19,8 +19,8 @@ from enum import Enum
 from typing import Optional
 
 
-class Route(str, Enum):
-    """Routing decision returned to the caller."""
+class ToolExecution(str, Enum):
+    """Tool execution decision returned to the caller."""
 
     QUALIFICATION = "QUALIFICATION"
     PROFILING = "PROFILING"
@@ -37,14 +37,13 @@ class SparkRuntime(str, Enum):
 
     SPARK = "SPARK"
     SPARK_RAPIDS = "SPARK_RAPIDS"
-    PHOTON = "PHOTON"
-    AURON = "AURON"
 
 
 class Termination(Enum):
     """How the scanner stopped."""
 
     DECISIVE = "DECISIVE"      # classification returned non-SPARK
+    CPU_FAST_PATH = "CPU_FAST_PATH"  # stopped after plain-SPARK startup props
     EXHAUSTED = "EXHAUSTED"    # walked every file to EOF under the budget
     CAP_HIT = "CAP_HIT"        # hit max_events_scanned before exhausting files
 
@@ -54,10 +53,10 @@ class DetectionResult:
     """Result returned by :func:`detect_spark_runtime`.
 
     ``spark_runtime`` is best-effort metadata and may be ``None`` when
-    ``route`` is ``UNKNOWN``.
+    ``tool_execution`` is ``UNKNOWN``.
     """
 
-    route: Route
+    tool_execution: ToolExecution
     spark_runtime: Optional[SparkRuntime]
     app_id: Optional[str]
     spark_version: Optional[str]

@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Runtime classifier.
+"""Classify Spark runtime from accumulated Spark properties.
 
-Maps a merged Spark properties dict to a :class:`SparkRuntime`. When
-multiple markers are present the priority is
-``PHOTON > AURON > SPARK_RAPIDS > SPARK``.
+The scanner extracts Spark properties from event-log records and passes the
+merged map to this module. This module only answers whether those properties
+represent standard Spark or a RAPIDS-enabled application.
 """
 
-import re
 from typing import Mapping
 
 from spark_rapids_tools.tools.eventlog_detector import markers as m
@@ -27,11 +26,12 @@ from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime
 
 
 def _parse_bool(raw: str, default: bool) -> bool:
-    """Parse ``"true"``/``"false"`` case-insensitively; anything else returns ``default``.
+    """Parse Spark boolean strings with Scala-compatible fallback behavior.
 
-    Matches Scala's ``Try { s.toBoolean }.getOrElse(default)`` — Scala's
-    ``String.toBoolean`` only accepts the two literals and throws on
-    everything else.
+    Scala's ``String.toBoolean`` accepts only ``true`` and ``false``. The
+    Scala tools wrap that parse in ``Try(...).getOrElse(default)``, so values
+    such as ``yes``, ``1``, or an empty string must return ``default`` rather
+    than using Python truthiness.
     """
     stripped = raw.strip().lower()
     if stripped == "true":
@@ -42,6 +42,7 @@ def _parse_bool(raw: str, default: bool) -> bool:
 
 
 def _is_spark_rapids(props: Mapping[str, str]) -> bool:
+    """Return true when Spark properties show the RAPIDS SQL plugin is active."""
     plugins = props.get(m.GPU_PLUGIN_KEY, "")
     if m.GPU_PLUGIN_CLASS_SUBSTRING not in plugins:
         return False
@@ -51,38 +52,21 @@ def _is_spark_rapids(props: Mapping[str, str]) -> bool:
     return _parse_bool(raw, default=m.GPU_ENABLED_DEFAULT)
 
 
-def _is_auron(props: Mapping[str, str]) -> bool:
-    extensions = props.get(m.AURON_SPARK_EXTENSIONS_KEY)
-    # ``re.DOTALL`` so the ``.*`` anchors also match newlines, in case a
-    # multi-entry ``spark.sql.extensions`` is newline-separated.
-    if extensions is None or not re.fullmatch(
-        m.AURON_EXTENSION_REGEX, extensions, re.DOTALL
-    ):
-        return False
-    enabled_raw = props.get(m.AURON_ENABLED_KEY, m.AURON_ENABLED_DEFAULT)
-    return enabled_raw.strip().lower() == m.AURON_ENABLED_DEFAULT
+def _has_rapids_conf_markers(props: Mapping[str, str]) -> bool:
+    """Return true when properties contain any RAPIDS-related configuration.
 
-
-def _is_databricks(props: Mapping[str, str]) -> bool:
-    return all(props.get(k, "").strip() for k in m.DB_PRECONDITION_KEYS)
-
-
-def _is_photon(props: Mapping[str, str]) -> bool:
-    if not _is_databricks(props):
-        return False
-    for key, pattern in m.PHOTON_MARKER_REGEX.items():
-        value = props.get(key)
-        if value is not None and re.fullmatch(pattern, value):
-            return True
-    return False
+    This is intentionally broader than ``_is_spark_rapids``. A disabled or
+    incomplete RAPIDS configuration is not classified as RAPIDS, but its
+    presence should prevent early CPU routing because later events may update
+    the effective configuration.
+    """
+    if m.GPU_PLUGIN_CLASS_SUBSTRING in props.get(m.GPU_PLUGIN_KEY, ""):
+        return True
+    return m.GPU_ENABLED_KEY in props
 
 
 def _classify_runtime(props: Mapping[str, str]) -> SparkRuntime:
-    # Priority: PHOTON > AURON > SPARK_RAPIDS > SPARK.
-    if _is_photon(props):
-        return SparkRuntime.PHOTON
-    if _is_auron(props):
-        return SparkRuntime.AURON
+    """Classify accumulated Spark properties into the supported runtime enum."""
     if _is_spark_rapids(props):
         return SparkRuntime.SPARK_RAPIDS
     return SparkRuntime.SPARK

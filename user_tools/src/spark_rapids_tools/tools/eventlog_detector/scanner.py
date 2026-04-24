@@ -14,9 +14,8 @@
 
 """Bounded streaming event scanner.
 
-Walks JSON-per-line event logs under a shared event budget, folding the
-relevant startup and per-SQL properties into a single mutable dict so
-the classifier can decide as soon as a decisive signal is seen.
+Walks JSON-per-line event logs under a shared event budget and accumulates the
+startup and per-SQL properties required for runtime classification.
 """
 
 import json
@@ -25,7 +24,10 @@ from typing import Dict, Iterable, List, Optional
 
 from spark_rapids_tools.storagelib import CspPath
 from spark_rapids_tools.tools.eventlog_detector import markers as m
-from spark_rapids_tools.tools.eventlog_detector.classifier import _classify_runtime
+from spark_rapids_tools.tools.eventlog_detector.classifier import (
+    _classify_runtime,
+    _has_rapids_conf_markers,
+)
 from spark_rapids_tools.tools.eventlog_detector.stream import _open_event_log_stream
 from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime, Termination
 
@@ -37,6 +39,7 @@ class _ScanResult:
     app_name: Optional[str] = None
     spark_version: Optional[str] = None
     env_update_seen: bool = False
+    rapids_build_info_seen: bool = False
     events_scanned: int = 0
     termination: Termination = Termination.EXHAUSTED
     last_scanned_path: Optional[str] = None
@@ -46,6 +49,7 @@ def _scan_events(
     lines: Iterable[str],
     *,
     budget: int,
+    allow_cpu_fast_path: bool = True,
     state: Optional[_ScanResult] = None,
 ) -> _ScanResult:
     """Scan one stream of lines, optionally continuing from a prior state.
@@ -74,6 +78,13 @@ def _scan_events(
 
         result.events_scanned += 1
         name = event.get("Event")
+        if name in (
+            m.EVENT_SPARK_RAPIDS_BUILD_INFO,
+            m.EVENT_SPARK_RAPIDS_BUILD_INFO_SHORTNAME,
+        ):
+            result.rapids_build_info_seen = True
+            result.termination = Termination.DECISIVE
+            return result
         if name == m.EVENT_LOG_START:
             version = event.get("Spark Version")
             if isinstance(version, str):
@@ -92,8 +103,12 @@ def _scan_events(
                     if isinstance(k, str) and isinstance(v, str):
                         result.spark_properties[k] = v
                 result.env_update_seen = True
-                if _classify_runtime(result.spark_properties) is not SparkRuntime.SPARK:
+                runtime = _classify_runtime(result.spark_properties)
+                if runtime is not SparkRuntime.SPARK:
                     result.termination = Termination.DECISIVE
+                    return result
+                if allow_cpu_fast_path and not _has_rapids_conf_markers(result.spark_properties):
+                    result.termination = Termination.CPU_FAST_PATH
                     return result
         elif name in (m.EVENT_SQL_EXECUTION_START, m.EVENT_SQL_EXECUTION_START_SHORTNAME):
             modified = event.get("modifiedConfigs") or {}
@@ -111,7 +126,12 @@ def _scan_events(
     return result
 
 
-def _scan_events_across(files: List[CspPath], *, budget: int) -> _ScanResult:
+def _scan_events_across(
+    files: List[CspPath],
+    *,
+    budget: int,
+    allow_cpu_fast_path: bool = True,
+) -> _ScanResult:
     """Walk ``files`` in order under a single shared ``budget``."""
     state = _ScanResult()
     for path in files:
@@ -120,8 +140,17 @@ def _scan_events_across(files: List[CspPath], *, budget: int) -> _ScanResult:
             return state
         state.last_scanned_path = str(path)
         with _open_event_log_stream(path) as lines:
-            state = _scan_events(lines, budget=budget, state=state)
-        if state.termination in (Termination.DECISIVE, Termination.CAP_HIT):
+            state = _scan_events(
+                lines,
+                budget=budget,
+                allow_cpu_fast_path=allow_cpu_fast_path,
+                state=state,
+            )
+        if state.termination in (
+            Termination.DECISIVE,
+            Termination.CPU_FAST_PATH,
+            Termination.CAP_HIT,
+        ):
             return state
     state.termination = Termination.EXHAUSTED
     return state

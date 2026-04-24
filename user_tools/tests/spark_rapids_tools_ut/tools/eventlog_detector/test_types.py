@@ -21,36 +21,36 @@ from spark_rapids_tools.tools.eventlog_detector.types import (
     DetectionResult,
     EventLogDetectionError,
     EventLogReadError,
-    Route,
     SparkRuntime,
     Termination,
+    ToolExecution,
     UnsupportedCompressionError,
     UnsupportedInputError,
 )
 
 
-class TestRoute:
-    """Test the Route string enum."""
+class TestToolExecution:
+    """Test the ToolExecution string enum."""
 
-    def test_has_three_values(self):
-        assert {r.value for r in Route} == {"QUALIFICATION", "PROFILING", "UNKNOWN"}
+    def test_has_expected_values(self):
+        assert {r.value for r in ToolExecution} == {
+            "QUALIFICATION",
+            "PROFILING",
+            "UNKNOWN",
+        }
 
     def test_is_string_enum(self):
         # str subclass means aether can compare against plain strings.
-        assert Route.PROFILING == "PROFILING"
+        assert ToolExecution.PROFILING == "PROFILING"
 
 
 class TestSparkRuntime:
-    """Test the SparkRuntime string enum."""
+    """Test the reduced SparkRuntime string enum."""
 
-    def test_values_match_scala_enum_exactly(self):
-        # These strings match org.apache.spark.sql.rapids.tool.util.SparkRuntime
-        # which aether already persists in JobRun.spark_runtime.
+    def test_values_cover_spark_and_rapids_only(self):
         assert {r.value for r in SparkRuntime} == {
             "SPARK",
             "SPARK_RAPIDS",
-            "PHOTON",
-            "AURON",
         }
 
     def test_is_string_enum(self):
@@ -60,8 +60,13 @@ class TestSparkRuntime:
 class TestTermination:
     """Test the Termination enum modes."""
 
-    def test_has_three_modes(self):
-        assert {t.name for t in Termination} == {"DECISIVE", "EXHAUSTED", "CAP_HIT"}
+    def test_has_expected_modes(self):
+        assert {t.name for t in Termination} == {
+            "DECISIVE",
+            "CPU_FAST_PATH",
+            "EXHAUSTED",
+            "CAP_HIT",
+        }
 
 
 class TestDetectionResult:
@@ -69,7 +74,7 @@ class TestDetectionResult:
 
     def test_frozen_dataclass(self):
         result = DetectionResult(
-            route=Route.PROFILING,
+            tool_execution=ToolExecution.PROFILING,
             spark_runtime=SparkRuntime.SPARK_RAPIDS,
             app_id="app-1",
             spark_version="3.5.1",
@@ -80,17 +85,17 @@ class TestDetectionResult:
         # Python raises FrozenInstanceError (a subclass of AttributeError)
         # when you try to assign to a field on a frozen dataclass.
         with pytest.raises(AttributeError):
-            result.route = Route.UNKNOWN  # type: ignore[misc]
+            result.tool_execution = ToolExecution.UNKNOWN  # type: ignore[misc]
 
     def test_structural_equality(self):
         kwargs = {
-            "route": Route.QUALIFICATION,
+            "tool_execution": ToolExecution.QUALIFICATION,
             "spark_runtime": SparkRuntime.SPARK,
             "app_id": "a",
             "spark_version": "3.5.1",
             "event_log_path": "/tmp/a",
             "source_path": "/tmp/a",
-            "reason": "walked full log, no GPU-family signal",
+            "reason": "walked full log, no RAPIDS signal",
         }
         assert DetectionResult(**kwargs) == DetectionResult(**kwargs)
         assert hash(DetectionResult(**kwargs)) == hash(DetectionResult(**kwargs))
@@ -100,7 +105,7 @@ class TestDetectionResult:
 
     def test_accepts_optional_fields_as_none(self):
         result = DetectionResult(
-            route=Route.UNKNOWN,
+            tool_execution=ToolExecution.UNKNOWN,
             spark_runtime=None,
             app_id=None,
             spark_version=None,
@@ -108,7 +113,7 @@ class TestDetectionResult:
             source_path="/tmp/x",
             reason="no decisive signal within bounded scan",
         )
-        assert result.route is Route.UNKNOWN
+        assert result.tool_execution is ToolExecution.UNKNOWN
         assert result.spark_runtime is None
 
 

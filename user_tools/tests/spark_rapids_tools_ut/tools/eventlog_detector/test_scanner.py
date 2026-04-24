@@ -26,8 +26,6 @@ from spark_rapids_tools.tools.eventlog_detector.scanner import (
 from spark_rapids_tools.tools.eventlog_detector.types import Termination
 
 
-# ---------- Line builders ----------
-
 def env_update(props: dict) -> str:
     return json.dumps(
         {
@@ -54,6 +52,18 @@ def app_start(app_id: str = "app-1", app_name: str = "App") -> str:
     )
 
 
+def rapids_build_info() -> str:
+    return json.dumps(
+        {
+            "Event": "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent",
+            "sparkRapidsBuildInfo": {"version": "24.06.0"},
+            "sparkRapidsJniBuildInfo": {},
+            "cudfBuildInfo": {},
+            "sparkRapidsPrivateBuildInfo": {},
+        }
+    )
+
+
 def sql_exec_start(modified_configs: dict) -> str:
     return json.dumps(
         {
@@ -69,10 +79,15 @@ def sql_exec_start(modified_configs: dict) -> str:
     )
 
 
-# ---------- Tests for _scan_events (single stream) ----------
-
 class TestScanEvents:
     """Tests for _scan_events scanning a single event stream."""
+
+    def test_build_info_event_is_decisive_before_env_update(self):
+        lines = iter([log_start(), rapids_build_info(), app_start()])
+        result = _scan_events(lines, budget=100)
+        assert result.rapids_build_info_seen is True
+        assert result.termination is Termination.DECISIVE
+        assert result.events_scanned == 2
 
     def test_env_update_with_gpu_is_decisive(self):
         lines = iter(
@@ -88,7 +103,7 @@ class TestScanEvents:
         assert result.spark_version == "3.5.1"
         assert result.termination is Termination.DECISIVE
 
-    def test_env_update_cpu_then_sql_start_flips_to_gpu(self):
+    def test_cpu_fast_path_stops_at_env_update_by_default(self):
         lines = iter(
             [
                 log_start(),
@@ -98,13 +113,28 @@ class TestScanEvents:
             ]
         )
         result = _scan_events(lines, budget=100)
-        assert result.termination is Termination.DECISIVE
+        assert result.env_update_seen is True
+        assert result.termination is Termination.CPU_FAST_PATH
+        assert result.events_scanned == 3
 
-    def test_cpu_only_to_eof_is_exhausted(self):
+    def test_cpu_fast_path_can_be_disabled(self):
         lines = iter([log_start(), app_start(), env_update({"spark.master": "local"})])
-        result = _scan_events(lines, budget=100)
+        result = _scan_events(lines, budget=100, allow_cpu_fast_path=False)
         assert result.env_update_seen is True
         assert result.termination is Termination.EXHAUSTED
+
+    def test_fast_path_ignored_when_rapids_marker_present(self):
+        lines = iter(
+            [
+                env_update({
+                    "spark.plugins": "com.nvidia.spark.SQLPlugin",
+                    "spark.rapids.sql.enabled": "false",
+                }),
+                sql_exec_start({"spark.rapids.sql.enabled": "true"}),
+            ]
+        )
+        result = _scan_events(lines, budget=100)
+        assert result.termination is Termination.DECISIVE
 
     def test_no_env_update_within_budget_is_cap_hit(self):
         # Budget less than the number of events, none of them env-update.
@@ -143,11 +173,23 @@ class TestScanEvents:
         )
         result = _scan_events(lines, budget=100)
         assert result.termination is Termination.DECISIVE
-        # Final accumulated props reflect the merge.
         assert result.spark_properties["spark.rapids.sql.enabled"] == "true"
 
+    def test_sql_start_classifies_after_full_modified_config_merge(self):
+        lines = iter(
+            [
+                env_update({"spark.rapids.sql.enabled": "false"}),
+                sql_exec_start({
+                    "spark.plugins": "com.nvidia.spark.SQLPlugin",
+                    "spark.rapids.sql.enabled": "false",
+                }),
+            ]
+        )
+        result = _scan_events(lines, budget=100)
+        assert result.termination is Termination.EXHAUSTED
+        assert result.spark_properties["spark.plugins"] == "com.nvidia.spark.SQLPlugin"
+        assert result.spark_properties["spark.rapids.sql.enabled"] == "false"
 
-# ---------- Tests for _scan_events_across (multi-file) ----------
 
 def _write(path: Path, lines: List[str]) -> CspPath:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -159,22 +201,45 @@ class TestScanEventsAcross:
 
     def test_gpu_signal_in_second_file_is_decisive(self, tmp_path):
         f1 = _write(
-            tmp_path / "eventlog-2021-06-14--18-00",
-            [log_start(), app_start(), env_update({"spark.master": "local"})],
+            tmp_path / "events_1_app-1",
+            [log_start(), app_start(), env_update({"spark.rapids.sql.enabled": "false"})],
+        )
+        f2 = _write(tmp_path / "events_2_app-1", [rapids_build_info()])
+        result = _scan_events_across([f1, f2], budget=100)
+        assert result.termination is Termination.DECISIVE
+        assert result.last_scanned_path == str(f2)
+
+    def test_cpu_fast_path_applies_across_files_when_no_rapids_markers(self, tmp_path):
+        f1 = _write(tmp_path / "events_1_app-1", [env_update({"spark.master": "local"})])
+        f2 = _write(tmp_path / "events_2_app-1", [sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"})])
+        result = _scan_events_across([f1, f2], budget=100)
+        assert result.termination is Termination.CPU_FAST_PATH
+        assert result.last_scanned_path == str(f1)
+
+    def test_cpu_fast_path_skips_when_rapids_marker_present_across_files(self, tmp_path):
+        f1 = _write(
+            tmp_path / "events_1_app-1",
+            [env_update({"spark.rapids.sql.enabled": "false"})],
         )
         f2 = _write(
-            tmp_path / "eventlog-2021-06-14--20-00",
-            [sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"})],
+            tmp_path / "events_2_app-1",
+            [sql_exec_start({
+                "spark.plugins": "com.nvidia.spark.SQLPlugin",
+                "spark.rapids.sql.enabled": "true",
+            })],
         )
         result = _scan_events_across([f1, f2], budget=100)
         assert result.termination is Termination.DECISIVE
+        assert result.last_scanned_path == str(f2)
 
     def test_shared_budget_applied_across_files(self, tmp_path):
         # 3 events in first file, 3 in second. Budget = 4. Second file stops
         # after one event, before any GPU signal.
-        f1 = _write(tmp_path / "a", [log_start(), app_start(), env_update({"spark.master": "local"})])
+        f1 = _write(tmp_path / "events_1_app-1", [log_start(), app_start(), env_update({
+            "spark.rapids.sql.enabled": "false",
+        })])
         f2 = _write(
-            tmp_path / "b",
+            tmp_path / "events_2_app-1",
             [
                 sql_exec_start({"spark.master": "still-cpu"}),
                 sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"}),
@@ -185,6 +250,6 @@ class TestScanEventsAcross:
         assert result.termination is Termination.CAP_HIT
 
     def test_all_files_exhausted_returns_exhausted(self, tmp_path):
-        f1 = _write(tmp_path / "a", [env_update({"spark.master": "local"})])
-        result = _scan_events_across([f1], budget=100)
+        f1 = _write(tmp_path / "events_1_app-1", [env_update({"spark.master": "local"})])
+        result = _scan_events_across([f1], budget=100, allow_cpu_fast_path=False)
         assert result.termination is Termination.EXHAUSTED

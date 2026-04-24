@@ -20,8 +20,7 @@ the right decompression and text layers, and yields an
 
 ``CspPath.open_input_stream()`` delegates to PyArrow, which auto-detects
 and decompresses ``.gz`` and ``.zst`` transparently. ``.zstd`` is not
-recognised by PyArrow, so we decompress it manually via ``zstandard``.
-Revisit this mapping if the upstream codec detection changes.
+recognised by PyArrow, so this module decompresses it via ``zstandard``.
 """
 
 import contextlib

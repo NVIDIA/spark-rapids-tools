@@ -17,7 +17,10 @@
 
 import pytest
 
-from spark_rapids_tools.tools.eventlog_detector.classifier import _classify_runtime
+from spark_rapids_tools.tools.eventlog_detector.classifier import (
+    _classify_runtime,
+    _has_rapids_conf_markers,
+)
 from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime
 
 
@@ -26,6 +29,24 @@ class TestEmptyProperties:
 
     def test_empty_props_is_spark(self):
         assert _classify_runtime({}) is SparkRuntime.SPARK
+
+
+class TestRapidsConfigMarkers:
+    """Test marker presence checks used by the CPU fast path."""
+
+    def test_plain_spark_props_have_no_rapids_markers(self):
+        assert _has_rapids_conf_markers({"spark.master": "local"}) is False
+
+    def test_disabled_rapids_plugin_still_counts_as_marker(self):
+        props = {
+            "spark.plugins": "com.nvidia.spark.SQLPlugin",
+            "spark.rapids.sql.enabled": "false",
+        }
+        assert _classify_runtime(props) is SparkRuntime.SPARK
+        assert _has_rapids_conf_markers(props) is True
+
+    def test_rapids_enabled_key_alone_counts_as_marker(self):
+        assert _has_rapids_conf_markers({"spark.rapids.sql.enabled": "true"}) is True
 
 
 class TestSparkRapids:
@@ -69,91 +90,3 @@ class TestSparkRapids:
             "spark.rapids.sql.enabled": bogus_value,
         }
         assert _classify_runtime(props) is SparkRuntime.SPARK_RAPIDS
-
-
-class TestAuron:
-    """Test AURON classification logic."""
-
-    def test_extension_and_default_enabled(self):
-        props = {"spark.sql.extensions": "com.bytedance.auron.AuronSparkSessionExtension"}
-        assert _classify_runtime(props) is SparkRuntime.AURON
-
-    def test_extension_with_embedded_newlines(self):
-        # Some pipelines concatenate spark.sql.extensions with newlines;
-        # the regex must still match.
-        props = {
-            "spark.sql.extensions": (
-                "com.example.SomeOtherExtension\n"
-                "com.bytedance.auron.AuronSparkSessionExtension"
-            ),
-        }
-        assert _classify_runtime(props) is SparkRuntime.AURON
-
-    def test_extension_and_enabled_false_demotes_to_spark(self):
-        props = {
-            "spark.sql.extensions": "com.bytedance.auron.AuronSparkSessionExtension",
-            "spark.auron.enabled": "FALSE",
-        }
-        assert _classify_runtime(props) is SparkRuntime.SPARK
-
-    def test_auron_enabled_case_insensitive(self):
-        props = {
-            "spark.sql.extensions": "AuronSparkSessionExtension",
-            "spark.auron.enabled": " TrUe ",
-        }
-        assert _classify_runtime(props) is SparkRuntime.AURON
-
-
-class TestDatabricksPhoton:
-    """Test Databricks PHOTON classification logic."""
-
-    @pytest.fixture
-    def db_precond_props(self):
-        return {
-            "spark.databricks.clusterUsageTags.clusterAllTags": "[{...}]",
-            "spark.databricks.clusterUsageTags.clusterId": "1234",
-            "spark.databricks.clusterUsageTags.clusterName": "dev-cluster",
-        }
-
-    def test_precondition_only_is_spark(self, db_precond_props):
-        assert _classify_runtime(db_precond_props) is SparkRuntime.SPARK
-
-    def test_precondition_plus_photon_version(self, db_precond_props):
-        props = {
-            **db_precond_props,
-            "spark.databricks.clusterUsageTags.sparkVersion": "11.3.x-photon-scala2.12",
-        }
-        assert _classify_runtime(props) is SparkRuntime.PHOTON
-
-    def test_precondition_plus_photon_engine(self, db_precond_props):
-        props = {**db_precond_props, "spark.databricks.clusterUsageTags.runtimeEngine": "PHOTON"}
-        assert _classify_runtime(props) is SparkRuntime.PHOTON
-
-    def test_photon_marker_without_precondition_is_spark(self):
-        props = {"spark.databricks.clusterUsageTags.runtimeEngine": "PHOTON"}
-        assert _classify_runtime(props) is SparkRuntime.SPARK
-
-    def test_photon_engine_other_value_is_spark(self, db_precond_props):
-        props = {**db_precond_props, "spark.databricks.clusterUsageTags.runtimeEngine": "STANDARD"}
-        assert _classify_runtime(props) is SparkRuntime.SPARK
-
-
-class TestPriority:
-    """PHOTON > AURON > SPARK_RAPIDS > SPARK when markers coexist."""
-
-    def test_photon_beats_spark_rapids(self):
-        props = {
-            "spark.plugins": "com.nvidia.spark.SQLPlugin",
-            "spark.databricks.clusterUsageTags.clusterAllTags": "[{...}]",
-            "spark.databricks.clusterUsageTags.clusterId": "1",
-            "spark.databricks.clusterUsageTags.clusterName": "c",
-            "spark.databricks.clusterUsageTags.runtimeEngine": "PHOTON",
-        }
-        assert _classify_runtime(props) is SparkRuntime.PHOTON
-
-    def test_auron_beats_spark_rapids(self):
-        props = {
-            "spark.plugins": "com.nvidia.spark.SQLPlugin",
-            "spark.sql.extensions": "AuronSparkSessionExtension",
-        }
-        assert _classify_runtime(props) is SparkRuntime.AURON

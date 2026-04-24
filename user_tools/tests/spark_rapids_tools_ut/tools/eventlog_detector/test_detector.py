@@ -23,8 +23,8 @@ import pytest
 from spark_rapids_tools.storagelib import CspPath
 from spark_rapids_tools.tools.eventlog_detector import detect_spark_runtime
 from spark_rapids_tools.tools.eventlog_detector.types import (
-    Route,
     SparkRuntime,
+    ToolExecution,
     UnsupportedInputError,
 )
 
@@ -36,6 +36,29 @@ def env_update(props: dict) -> dict:
         "System Properties": {},
         "Classpath Entries": {},
         "JVM Information": {},
+    }
+
+
+def build_info() -> dict:
+    return {
+        "Event": "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent",
+        "sparkRapidsBuildInfo": {"version": "24.06.0"},
+        "sparkRapidsJniBuildInfo": {},
+        "cudfBuildInfo": {},
+        "sparkRapidsPrivateBuildInfo": {},
+    }
+
+
+def sql_exec_start(modified_configs: dict) -> dict:
+    return {
+        "Event": "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart",
+        "executionId": 0,
+        "description": "",
+        "details": "",
+        "physicalPlanDescription": "",
+        "sparkPlanInfo": {},
+        "time": 0,
+        "modifiedConfigs": modified_configs,
     }
 
 
@@ -59,12 +82,26 @@ class TestAcceptsStringPath:
             ],
         )
         result = detect_spark_runtime(str(log))
-        assert result.route is Route.QUALIFICATION
+        assert result.tool_execution is ToolExecution.QUALIFICATION
         assert result.spark_runtime is SparkRuntime.SPARK
 
 
-class TestGpuLog:
-    """Test detection on GPU event logs."""
+class TestRapidsLog:
+    """Test detection on RAPIDS event logs."""
+
+    def test_build_info_event_classifies_as_profiling(self, tmp_path):
+        log = tmp_path / "eventlog"
+        _write_plain_log(
+            log,
+            [
+                {"Event": "SparkListenerLogStart", "Spark Version": "3.5.1"},
+                build_info(),
+            ],
+        )
+        result = detect_spark_runtime(CspPath(str(log)))
+        assert result.tool_execution is ToolExecution.PROFILING
+        assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
+        assert result.spark_version == "3.5.1"
 
     def test_env_update_with_plugin_classifies_as_profiling(self, tmp_path):
         log = tmp_path / "eventlog"
@@ -77,10 +114,52 @@ class TestGpuLog:
             ],
         )
         result = detect_spark_runtime(CspPath(str(log)))
-        assert result.route is Route.PROFILING
+        assert result.tool_execution is ToolExecution.PROFILING
         assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
         assert result.app_id == "g"
-        assert result.spark_version == "3.5.1"
+
+
+class TestCpuFastPath:
+    """Test the default fast path for startup properties that look like plain Spark."""
+
+    def test_env_update_without_rapids_markers_returns_qualification(self, tmp_path):
+        log = tmp_path / "eventlog"
+        _write_plain_log(
+            log,
+            [
+                {"Event": "SparkListenerLogStart", "Spark Version": "3.5.1"},
+                {"Event": "SparkListenerApplicationStart", "App ID": "c", "App Name": "C"},
+                env_update({"spark.master": "local"}),
+                sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"}),
+            ],
+        )
+        result = detect_spark_runtime(str(log))
+        assert result.tool_execution is ToolExecution.QUALIFICATION
+        assert result.spark_runtime is SparkRuntime.SPARK
+        assert "startup properties" in result.reason.lower()
+
+    def test_fast_path_can_be_disabled(self, tmp_path):
+        log = tmp_path / "eventlog"
+        _write_plain_log(log, [env_update({"spark.master": "local"})])
+        result = detect_spark_runtime(str(log), allow_cpu_fast_path=False)
+        assert result.tool_execution is ToolExecution.QUALIFICATION
+        assert "walked full log" in result.reason.lower()
+
+    def test_fast_path_does_not_fire_when_rapids_marker_present(self, tmp_path):
+        log = tmp_path / "eventlog"
+        _write_plain_log(
+            log,
+            [
+                env_update({
+                    "spark.plugins": "com.nvidia.spark.SQLPlugin",
+                    "spark.rapids.sql.enabled": "false",
+                }),
+                sql_exec_start({"spark.rapids.sql.enabled": "true"}),
+            ],
+        )
+        result = detect_spark_runtime(str(log))
+        assert result.tool_execution is ToolExecution.PROFILING
+        assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
 
 
 class TestCapHit:
@@ -88,63 +167,55 @@ class TestCapHit:
 
     def test_no_env_update_before_cap_is_unknown(self, tmp_path):
         log = tmp_path / "eventlog"
-        # Many LogStart events, no env-update. Cap hits first.
         _write_plain_log(
             log,
             [{"Event": "SparkListenerLogStart", "Spark Version": "3.5.1"}] * 10,
         )
         result = detect_spark_runtime(str(log), max_events_scanned=5)
-        assert result.route is Route.UNKNOWN
+        assert result.tool_execution is ToolExecution.UNKNOWN
         assert result.spark_runtime is None
-        reason = result.reason.lower()
-        assert "no decisive signal" in reason or "no sparklistenerenvironmentupdate" in reason
 
 
-class TestDatabricksRolling:
-    """Test detection on Databricks rolling event log directories."""
+class TestOssRolling:
+    """Test detection on Apache Spark rolling event-log directories."""
 
-    def test_gpu_in_later_rolled_file(self, tmp_path):
-        d = tmp_path / "dbrolling"
+    def test_rapids_signal_in_later_rolled_file(self, tmp_path):
+        d = tmp_path / "eventlog_v2_app-1"
         d.mkdir()
         _write_plain_log(
-            d / "eventlog-2021-06-14--18-00",
+            d / "events_1_app-1",
             [
                 {"Event": "SparkListenerLogStart", "Spark Version": "3.5.1"},
                 {"Event": "SparkListenerApplicationStart", "App ID": "d", "App Name": "D"},
-                env_update({"spark.master": "local"}),
+                env_update({"spark.rapids.sql.enabled": "false"}),
             ],
         )
-        _write_plain_log(
-            d / "eventlog",
-            [
-                {
-                    "Event": "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart",
-                    "executionId": 0,
-                    "description": "",
-                    "details": "",
-                    "physicalPlanDescription": "",
-                    "sparkPlanInfo": {},
-                    "time": 0,
-                    "modifiedConfigs": {"spark.plugins": "com.nvidia.spark.SQLPlugin"},
-                }
-            ],
-        )
+        _write_plain_log(d / "events_2_app-1", [build_info()])
         result = detect_spark_runtime(CspPath(str(d)))
-        assert result.route is Route.PROFILING
+        assert result.tool_execution is ToolExecution.PROFILING
         assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
-        # The decisive signal came from the bare `eventlog` file (the latest,
-        # sorted last after the dated chunk). event_log_path should reflect
-        # that, not the first-opened file.
-        assert result.event_log_path.endswith("/eventlog")
+        assert result.event_log_path.endswith("/events_2_app-1")
+
+    def test_cpu_fast_path_applies_to_rolling_dir(self, tmp_path):
+        d = tmp_path / "eventlog_v2_app-1"
+        d.mkdir()
+        _write_plain_log(d / "events_1_app-1", [env_update({"spark.master": "local"})])
+        _write_plain_log(d / "events_2_app-1", [sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"})])
+        result = detect_spark_runtime(CspPath(str(d)))
+        assert result.tool_execution is ToolExecution.QUALIFICATION
+        assert result.spark_runtime is SparkRuntime.SPARK
+        assert result.event_log_path.endswith("/events_1_app-1")
+        assert "startup properties" in result.reason.lower()
 
 
 class TestUnsupportedInput:
     """Test that unsupported input shapes raise the expected error."""
 
-    def test_spark_native_rolling_dir_raises(self, tmp_path):
-        d = tmp_path / "eventlog_v2_local-1623876083964"
+    def test_non_oss_rolling_dir_raises(self, tmp_path):
+        d = tmp_path / "non_oss_rolling"
         d.mkdir()
-        (d / "events_1_local-1623876083964").write_bytes(b"")
+        (d / "eventlog").write_bytes(b"")
+        (d / "eventlog-2021-06-14--18-00.gz").write_bytes(b"")
         with pytest.raises(UnsupportedInputError):
             detect_spark_runtime(CspPath(str(d)))
 
@@ -154,20 +225,15 @@ class TestReasonStrings:
 
     def test_reason_mentions_runtime_on_profiling(self, tmp_path):
         log = tmp_path / "eventlog"
-        _write_plain_log(
-            log,
-            [
-                env_update({"spark.plugins": "com.nvidia.spark.SQLPlugin"}),
-            ],
-        )
+        _write_plain_log(log, [build_info()])
         result = detect_spark_runtime(str(log))
         assert "SPARK_RAPIDS" in result.reason
 
-    def test_reason_mentions_full_log_on_qualification(self, tmp_path):
+    def test_reason_mentions_full_log_on_strict_qualification(self, tmp_path):
         log = tmp_path / "eventlog"
         _write_plain_log(log, [env_update({"spark.master": "local"})])
-        result = detect_spark_runtime(str(log))
-        assert result.route is Route.QUALIFICATION
+        result = detect_spark_runtime(str(log), allow_cpu_fast_path=False)
+        assert result.tool_execution is ToolExecution.QUALIFICATION
         assert "walked full log" in result.reason.lower()
 
 

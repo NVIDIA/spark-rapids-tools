@@ -12,13 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Property keys, regexes, and constants used by the runtime classifier.
+"""Property keys and constants used by the runtime detector.
 
 Each block carries a Scala source reference so the two implementations
 can be kept in sync when the Scala detection rules change.
 """
-
-from typing import Mapping, Tuple
 
 # GPU (SPARK_RAPIDS) markers.
 # Scala: org/apache/spark/sql/rapids/tool/ToolUtils.scala :: isPluginEnabled
@@ -28,43 +26,20 @@ GPU_ENABLED_KEY: str = "spark.rapids.sql.enabled"
 # Defaults to true when missing or unparseable.
 GPU_ENABLED_DEFAULT: bool = True
 
-# AURON markers.
-# Scala: com/nvidia/spark/rapids/tool/planparser/auron/AuronParseHelper.scala
-AURON_SPARK_EXTENSIONS_KEY: str = "spark.sql.extensions"
-AURON_EXTENSION_REGEX: str = r".*AuronSparkSessionExtension.*"
-AURON_ENABLED_KEY: str = "spark.auron.enabled"
-AURON_ENABLED_DEFAULT: str = "true"
+# RAPIDS 24.06+ plugin marker.
+# Scala: com/nvidia/spark/rapids/SparkRapidsBuildInfoEvent.scala
+EVENT_SPARK_RAPIDS_BUILD_INFO: str = "com.nvidia.spark.rapids.SparkRapidsBuildInfoEvent"
+EVENT_SPARK_RAPIDS_BUILD_INFO_SHORTNAME: str = "SparkRapidsBuildInfoEvent"
 
-# Databricks precondition — all three keys must be non-empty.
-# Scala: com/nvidia/spark/rapids/tool/planparser/db/DBPlugin.scala :: DBConditionImpl
-DB_PRECONDITION_KEYS: Tuple[str, str, str] = (
-    "spark.databricks.clusterUsageTags.clusterAllTags",
-    "spark.databricks.clusterUsageTags.clusterId",
-    "spark.databricks.clusterUsageTags.clusterName",
-)
-
-# Photon markers — any one fullmatches once the Databricks precondition holds.
-# Scala: com/nvidia/spark/rapids/tool/planparser/db/DatabricksParseHelper.scala :: PhotonParseHelper
-PHOTON_MARKER_REGEX: Mapping[str, str] = {
-    "spark.databricks.clusterUsageTags.sparkVersion": r".*-photon-.*",
-    "spark.databricks.clusterUsageTags.effectiveSparkVersion": r".*-photon-.*",
-    "spark.databricks.clusterUsageTags.sparkImageLabel": r".*-photon-.*",
-    "spark.databricks.clusterUsageTags.runtimeEngine": r"PHOTON",
-}
-
-# Databricks rolling event-log file layout.
-# Scala: com/nvidia/spark/rapids/tool/EventLogPathProcessor.scala :: getDBEventLogFileDate
-DB_EVENT_LOG_FILE_PREFIX: str = "eventlog"
-# ``eventlog-YYYY-MM-DD--HH-MM[.codec]``. Bare ``eventlog`` does not match
-# and is treated as the latest chunk (sorted last) by the resolver.
-DB_EVENT_LOG_DATE_REGEX: str = (
-    r"^eventlog-(\d{4})-(\d{2})-(\d{2})--(\d{2})-(\d{2})(?:\.[A-Za-z0-9]+)?$"
-)
+# Apache Spark rolling event-log directory layout.
+# Scala: com/nvidia/spark/rapids/tool/EventLogPathProcessor.scala :: isEventLogDir
+OSS_EVENT_LOG_DIR_PREFIX: str = "eventlog_v2_"
+OSS_EVENT_LOG_FILE_PREFIX: str = "events_"
 
 # Spark listener event names consumed by the scanner.
 EVENT_LOG_START: str = "SparkListenerLogStart"
 EVENT_APPLICATION_START: str = "SparkListenerApplicationStart"
 EVENT_ENVIRONMENT_UPDATE: str = "SparkListenerEnvironmentUpdate"
 EVENT_SQL_EXECUTION_START: str = "org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart"
-# Unqualified shortname; sometimes used in test fixtures.
+# Unqualified event name accepted by the scanner for compatibility.
 EVENT_SQL_EXECUTION_START_SHORTNAME: str = "SparkListenerSQLExecutionStart"

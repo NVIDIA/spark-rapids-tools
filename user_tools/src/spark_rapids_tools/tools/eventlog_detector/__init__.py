@@ -14,9 +14,9 @@
 
 """Lightweight event log runtime detector.
 
-Scans a bounded prefix of a Spark event log and returns a routing
-decision (``QUALIFICATION`` / ``PROFILING`` / ``UNKNOWN``) plus
-best-effort runtime metadata, without invoking the full tools pipeline.
+Scans a bounded prefix of a Spark event log and returns a tool execution
+decision (``QUALIFICATION`` / ``PROFILING`` / ``UNKNOWN``) plus best-effort
+runtime metadata, without invoking the full tools pipeline.
 
 Public entry point: :func:`detect_spark_runtime`.
 """
@@ -26,8 +26,8 @@ from .types import (
     DetectionResult,
     EventLogDetectionError,
     EventLogReadError,
-    Route,
     SparkRuntime,
+    ToolExecution,
     UnsupportedCompressionError,
     UnsupportedInputError,
 )
@@ -36,8 +36,8 @@ __all__ = [
     "DetectionResult",
     "EventLogDetectionError",
     "EventLogReadError",
-    "Route",
     "SparkRuntime",
+    "ToolExecution",
     "UnsupportedCompressionError",
     "UnsupportedInputError",
     "detect_spark_runtime",

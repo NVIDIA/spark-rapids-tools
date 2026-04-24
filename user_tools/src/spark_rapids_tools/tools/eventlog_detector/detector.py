@@ -22,31 +22,31 @@ from spark_rapids_tools.tools.eventlog_detector.resolver import _resolve_event_l
 from spark_rapids_tools.tools.eventlog_detector.scanner import _scan_events_across
 from spark_rapids_tools.tools.eventlog_detector.types import (
     DetectionResult,
-    Route,
     SparkRuntime,
     Termination,
+    ToolExecution,
 )
-
-
-_GPU_FAMILY = frozenset({SparkRuntime.SPARK_RAPIDS, SparkRuntime.PHOTON, SparkRuntime.AURON})
 
 
 def detect_spark_runtime(
     event_log: Union[str, CspPath],
     *,
     max_events_scanned: int = 500,
+    allow_cpu_fast_path: bool = True,
 ) -> DetectionResult:
-    """Classify a single-app event log into a routing decision.
+    """Classify a single-app event log into a tool execution decision.
 
-    Returns a :class:`DetectionResult` whose ``route`` is ``PROFILING`` on
-    a decisive non-SPARK classification, ``QUALIFICATION`` only after the
-    scanner walked the full log without seeing a GPU-family signal, and
-    ``UNKNOWN`` otherwise (e.g., the budget was hit first or the log never
-    emitted ``SparkListenerEnvironmentUpdate``).
+    Returns ``PROFILING`` when a RAPIDS marker is found, ``QUALIFICATION`` when
+    the log appears to be OSS Spark/CPU, and ``UNKNOWN`` when the bounded scan
+    cannot make a decision.
 
-    ``max_events_scanned`` caps CPU/IO cost. Large CPU logs routinely end
-    as ``UNKNOWN`` at the cap; raise it at the call site to trade cost
-    for decisiveness.
+    ``max_events_scanned`` caps CPU/IO cost. Logs that do not expose a RAPIDS
+    marker or ``SparkListenerEnvironmentUpdate`` within the cap remain
+    ``UNKNOWN``.
+
+    ``allow_cpu_fast_path`` enables early CPU routing when startup properties
+    contain no RAPIDS markers. Disable it to require EOF before returning
+    ``QUALIFICATION``.
     """
     # Keep the caller's input verbatim in source_path (cloud URI schemes
     # would otherwise be stripped by CspPath normalisation).
@@ -54,22 +54,31 @@ def detect_spark_runtime(
     path = event_log if isinstance(event_log, CspPath) else CspPath(str(event_log))
     _, files = _resolve_event_log_files(path)
 
-    scan = _scan_events_across(files, budget=max_events_scanned)
+    scan = _scan_events_across(
+        files,
+        budget=max_events_scanned,
+        allow_cpu_fast_path=allow_cpu_fast_path,
+    )
 
     runtime: Optional[SparkRuntime]
-    if scan.env_update_seen:
+    if scan.rapids_build_info_seen:
+        runtime = SparkRuntime.SPARK_RAPIDS
+    elif scan.env_update_seen:
         runtime = _classify_runtime(scan.spark_properties)
     else:
         runtime = None
 
-    if runtime in _GPU_FAMILY:
-        route = Route.PROFILING
+    if runtime is SparkRuntime.SPARK_RAPIDS:
+        tool_execution = ToolExecution.PROFILING
         reason = f"decisive: classified as {runtime.value}"
+    elif scan.termination is Termination.CPU_FAST_PATH and runtime is SparkRuntime.SPARK:
+        tool_execution = ToolExecution.QUALIFICATION
+        reason = "startup properties classify as SPARK with no RAPIDS markers"
     elif scan.termination is Termination.EXHAUSTED and scan.env_update_seen:
-        route = Route.QUALIFICATION
-        reason = "walked full log, no GPU-family signal"
+        tool_execution = ToolExecution.QUALIFICATION
+        reason = "walked full log, no RAPIDS signal"
     else:
-        route = Route.UNKNOWN
+        tool_execution = ToolExecution.UNKNOWN
         reason = (
             "no decisive signal within bounded scan"
             if scan.env_update_seen
@@ -78,7 +87,7 @@ def detect_spark_runtime(
 
     resolved_path = scan.last_scanned_path or (str(files[0]) if files else source_path)
     return DetectionResult(
-        route=route,
+        tool_execution=tool_execution,
         spark_runtime=runtime,
         app_id=scan.app_id,
         spark_version=scan.spark_version,

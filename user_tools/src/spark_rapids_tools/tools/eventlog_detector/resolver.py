@@ -12,16 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Input-path resolver.
-
-Resolves a user-supplied path into an ordered list of concrete files to
-scan. Supports a single file or a Databricks rolling directory; any
-other shape raises :class:`UnsupportedInputError` so the caller can
-fall back to the full tools pipeline.
-"""
+"""Input-path resolver for single files and Apache Spark rolling event logs."""
 
 import re
-from datetime import datetime
 from typing import List, Optional, Tuple
 
 from spark_rapids_tools.storagelib import CspFs, CspPath
@@ -29,40 +22,32 @@ from spark_rapids_tools.tools.eventlog_detector import markers as m
 from spark_rapids_tools.tools.eventlog_detector.types import UnsupportedInputError
 
 
-_DB_DATE_PATTERN = re.compile(m.DB_EVENT_LOG_DATE_REGEX)
+_OSS_EVENT_FILE_PATTERN = re.compile(r"^events_(\d+)_.*")
 
 
-def _parse_databricks_file_datetime(name: str) -> Optional[datetime]:
-    """Parse a Databricks rolled filename to its embedded datetime.
-
-    Returns ``None`` for bare ``eventlog`` (the current/latest chunk) and
-    for any name that does not match the dated pattern; callers sort
-    ``None`` last to mirror Scala's ``getDBEventLogFileDate`` which
-    defaults the bare file to ``now()``.
-    """
-    if not name.startswith(m.DB_EVENT_LOG_FILE_PREFIX):
-        return None
-    match = _DB_DATE_PATTERN.match(name)
+def _parse_oss_event_file_index(name: str) -> Optional[int]:
+    """Return the numeric chunk index from ``events_<n>_...`` files."""
+    match = _OSS_EVENT_FILE_PATTERN.match(name)
     if match is None:
         return None
-    year, month, day, hour, minute = (int(g) for g in match.groups())
-    try:
-        return datetime(year, month, day, hour, minute)
-    except ValueError:
-        # Components are syntactically 2 digits but out of range
-        # (e.g. month=13). Treat as unparseable — sorts last.
-        return None
+    return int(match.group(1))
 
 
-def _is_databricks_event_log_filename(name: str) -> bool:
-    return name.startswith(m.DB_EVENT_LOG_FILE_PREFIX)
+def _is_oss_event_log_file(path: CspPath) -> bool:
+    return _parse_oss_event_file_index(path.base_name()) is not None
+
+
+def _base_name_from_source(source: str) -> str:
+    """Return the final path component, ignoring trailing separators."""
+    return source.rstrip("/").rsplit("/", 1)[-1]
 
 
 def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
     """Resolve ``path`` to an ordered list of files to scan.
 
-    Returns ``(source, files)`` where ``source`` is the stripped string
-    form of the input and ``files`` is the scan order.
+    Supported inputs are a single concrete file or an Apache Spark rolling
+    event-log directory named ``eventlog_v2_*``. Other directory layouts are
+    rejected so callers can use the full tools pipeline.
     """
     source = path.no_scheme
 
@@ -74,24 +59,21 @@ def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
             f"Path is neither a file nor a directory: {source}"
         )
 
-    # Only Databricks-style rolling directories are supported here;
-    # Spark-native (eventlog_v2_*) and multi-app directories are not.
-    children = CspFs.list_all_files(path)
-    db_files = [c for c in children if _is_databricks_event_log_filename(c.base_name())]
-    if not db_files:
+    if not _base_name_from_source(source).startswith(m.OSS_EVENT_LOG_DIR_PREFIX):
         raise UnsupportedInputError(
             f"Directory {source} is not a supported input shape. Only single "
-            "files and Databricks rolling directories are handled here; use "
-            "the full pipeline for other shapes."
+            "files and Apache Spark rolling event-log directories are handled "
+            "here; use the full pipeline for other shapes."
         )
 
-    # Dated files ascend by embedded timestamp; bare `eventlog` sorts
-    # last, matching DatabricksRollingEventLogFilesFileReader. The first
-    # sort keeps equal-date files in a deterministic order.
-    db_files.sort(key=lambda f: f.base_name())
-    db_files.sort(
+    event_files = [c for c in CspFs.list_all_files(path) if _is_oss_event_log_file(c)]
+    if not event_files:
+        raise UnsupportedInputError(f"Directory {source} does not contain Spark event chunks")
+
+    event_files.sort(
         key=lambda f: (
-            _parse_databricks_file_datetime(f.base_name()) or datetime.max,
+            _parse_oss_event_file_index(f.base_name()) or 0,
+            f.base_name(),
         )
     )
-    return source, db_files
+    return source, event_files
