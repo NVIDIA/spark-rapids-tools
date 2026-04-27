@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
+import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 /**
  * The result of the aggregation of the raw metrics. It contains the aggregated metrics for an
@@ -31,7 +31,6 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTa
  * @param sqlAggs           the aggregated Spark metrics for SQLs
  * @param ioAggs            lists the SQLs along their IO metrics
  * @param sqlDurAggs        the aggregated duration and CPU time for SQLs
- * @param maxTaskInputSizes a sequence of SQLMaxTaskInputSizes that contains the maximum input size
  * @param stageDiagnostics  the stage level Spark metrics for diagnostic purposes
  */
 case class AggRawMetricsResult(
@@ -41,5 +40,4 @@ case class AggRawMetricsResult(
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
-    maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
     stageDiagnostics: Seq[StageDiagnosticResult])

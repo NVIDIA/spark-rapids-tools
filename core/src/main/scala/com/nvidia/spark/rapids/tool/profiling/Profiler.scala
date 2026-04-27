@@ -293,20 +293,33 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
-    val maxTaskInputInfo = if (useAutoTuner) {
-      analysis.maxTaskInputSizes
-    } else {
-      Seq.empty
-    }
     val sqlIdAlign = if (outputAlignedSQLIds) {
       collect.getSQLCleanAndAligned
     } else {
       Seq.empty
     }
     val endTime = System.currentTimeMillis()
-    val appInfo = collect.getAppInfo
     val sqlMetrics = collect.getSQLPlanMetrics
-    logDebug(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
+    val stageMetrics = collect.getStageLevelMetrics
+    val failedTasks = healthCheck.getFailedTasks
+    val failedStages = healthCheck.getFailedStages
+
+    // Compute GPU OOM signals for tuning_signals.csv
+    val singleApp = analyzedApps.head
+    val pluginEnabled = singleApp.gpuMode
+    val scanOomStages = SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
+      pluginEnabled, failedTasks, stageMetrics, singleApp)
+    val gpuShuffleContainerOomStages =
+      SingleAppSummaryInfoProvider.computeShuffleStagesWithContainerOom(
+        pluginEnabled, singleApp.sparkProperties.get("spark.master"),
+        failedStages, failedTasks)
+
+    val appInfo = collect.getAppInfo
+    val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
+    val appLevelRecommendationSignals = AppLevelRecommendationSignalsProfileResult.build(
+      appId, scanOomStages, gpuShuffleContainerOomStages)
+
+    logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
       appInfo = appInfo,
       dsInfo = collect.getDataSourceInfo(sqlMetrics),
@@ -315,14 +328,14 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsProps = collect.getRapidsProperties,
       rapidsJar = collect.getRapidsJARInfo,
       sqlMetrics = sqlMetrics,
-      stageMetrics = collect.getStageLevelMetrics,
+      stageMetrics = stageMetrics,
       jobAggMetrics = analysis.jobAggs,
       stageAggMetrics = analysis.stageAggs,
       sqlTaskAggMetrics = analysis.sqlAggs,
       durAndCpuMet = analysis.sqlDurAggs,
       skewInfo = analysis.taskShuffleSkew,
-      failedTasks = healthCheck.getFailedTasks,
-      failedStages = healthCheck.getFailedStages,
+      failedTasks = failedTasks,
+      failedStages = failedStages,
       failedJobs = healthCheck.getFailedJobs,
       removedBMs = healthCheck.getRemovedBlockManager,
       removedExecutors = healthCheck.getRemovedExecutors,
@@ -330,14 +343,14 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sparkProps = collect.getSparkProperties,
       sqlStageInfo = collect.getSQLToStage,
       wholeStage = collect.getWholeStageCodeGenMapping,
-      maxTaskInputBytesRead = maxTaskInputInfo,
       appLogPath = collect.getAppLogPath,
       ioMetrics = analysis.ioAggs,
       sysProps = collect.getSystemProperties,
       sqlCleanedAlignedIds = sqlIdAlign,
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
-      sqlPlanInfo = collect.getSQLPlanInfoTruncated)
+      sqlPlanInfo = collect.getSQLPlanInfoTruncated,
+      appLevelRecommendationSignals = appLevelRecommendationSignals)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -410,6 +423,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
+    profileOutputWriter.writeCSVTable(APP_LEVEL_RECOMMENDATION_SIGNALS,
+      app.appLevelRecommendationSignals)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
     profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)

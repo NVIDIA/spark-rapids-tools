@@ -3139,7 +3139,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
           "spark.rapids.sql.concurrentGpuTasks" -> "4")
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-        logEventsProps, Some(testSparkVersion), scanStagesWithGpuOom = hasGpuOOm)
+        logEventsProps, Some(testSparkVersion),
+        scanStagesWithGpuOom = if (hasGpuOOm) Set(1L) else Set.empty)
       val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
       // Configure cluster info using Platform's existing method
@@ -3291,7 +3292,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true)
+      logEventsProps, Some(testSparkVersion), gpuShuffleStagesWithContainerOom = Set(1L))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
@@ -3379,7 +3380,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true,
+      logEventsProps, Some(testSparkVersion), gpuShuffleStagesWithContainerOom = Set(1L),
       meanInput = 50000, meanShuffleRead = 80000)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 

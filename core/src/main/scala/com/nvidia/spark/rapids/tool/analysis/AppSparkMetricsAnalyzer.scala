@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,6 +106,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             perJobRec.executorDeserializeTimeSum,
             perJobRec.executorRunTimeSum,
             perJobRec.inputBytesReadSum,
+            perJobRec.inputBytesReadMax,
             perJobRec.inputRecordsReadSum,
             perJobRec.jvmGCTimeSum,
             perJobRec.memoryBytesSpilledSum,
@@ -203,6 +204,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
             preSqlRec.executorDeserializeTimeSum,
             preSqlRec.executorRunTimeSum,
             preSqlRec.inputBytesReadSum,
+            preSqlRec.inputBytesReadMax,
             preSqlRec.inputBytesReadAvg,
             preSqlRec.inputRecordsReadSum,
             preSqlRec.jvmGCTimeSum,
@@ -250,32 +252,6 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         sqlAgg.srTotalBytesReadSum,
         sqlAgg.swBytesWrittenSum)
     }.toSeq
-  }
-
-  /**
-   * Find the maximum task input size
-   * @param index App index  (used by the profiler tool)
-   * @return a single SQLMaxTaskInputSizes record that contains the maximum value. If none, it will
-   *         be 0L
-   */
-  def maxTaskInputSizeBytesPerSQL(index: Int): SQLMaxTaskInputSizes = {
-    // TODO: We should keep maxInputSize as a field in the stageAggregate to avoid doing an
-    //       extra path on the tasks
-    val maxOfSqls = app.sqlIdToStages.map { case (_, stageIds) =>
-      // TODO: Should we only consider successful tasks?
-      val tasksInSQL = app.taskManager.getTasksByStageIds(stageIds)
-      if (tasksInSQL.isEmpty) {
-        0L
-      } else {
-        tasksInSQL.map(_.input_bytesRead).max
-      }
-    }
-    val maxVal = if (maxOfSqls.nonEmpty) {
-      maxOfSqls.max
-    } else {
-      0L
-    }
-    SQLMaxTaskInputSizes(app.appId, maxVal)
   }
 
   /**
@@ -398,6 +374,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
         perStageRec.executorDeserializeTimeSum,
         perStageRec.executorRunTimeSum,
         perStageRec.inputBytesReadSum,
+        perStageRec.inputBytesReadMax,
         perStageRec.inputRecordsReadSum,
         perStageRec.jvmGCTimeSum,
         perStageRec.memoryBytesSpilledSum,
