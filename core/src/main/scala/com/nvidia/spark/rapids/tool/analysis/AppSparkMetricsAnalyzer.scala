@@ -553,8 +553,9 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     }
     val stageMap: Map[Int, Seq[StageAggGpuMetricsProfileResult]] =
       stageRows.groupBy(_.stageId)
-    app.sqlIdToStages.flatMap { case (sqlId, stageIds) =>
-      val rowsForSql = stageIds.flatMap(stageMap.getOrElse(_, Seq.empty))
+    app.sqlIdToStages.toSeq.flatMap { case (sqlId, stageIds) =>
+      val rowsForSql: Seq[StageAggGpuMetricsProfileResult] =
+        stageIds.toSeq.flatMap(s => stageMap.getOrElse(s, Seq.empty))
       rollupGpuRows(rowsForSql).map { case (metric, unit, sum, max, avg) =>
         SQLAggGpuMetricsProfileResult(
           sqlId = sqlId,
@@ -564,7 +565,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
           max = max,
           avg = avg)
       }
-    }.toSeq.sortBy(r => (r.sqlId, r.metricName))
+    }.sortBy(r => (r.sqlId, r.metricName))
   }
 
   /**
