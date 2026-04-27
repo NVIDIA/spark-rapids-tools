@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -928,10 +928,15 @@ reportDefinitions:
       - label: coreRawGpuAppLevelAggregatedTaskMetricsCSV
         description: >-
           GPU task metric aggregations at application level. One row per
-          metricName for the whole app (rolls up all stage-level GPU rows).
+          (appId, metricName) for the whole app (rolls up all stage-level
+          GPU rows).
         fileName: gpu_app_level_aggregated_task_metrics.csv
         scope: per-app
         columns:
+          - name: appId
+            dataType: String
+            description: >-
+              Application identifier.
           - name: metricName
             dataType: String
             description: >-

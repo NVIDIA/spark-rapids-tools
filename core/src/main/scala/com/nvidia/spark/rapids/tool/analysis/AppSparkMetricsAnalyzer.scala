@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -581,6 +581,7 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
     }
     rollupGpuRows(stageRows).map { case (metric, unit, sum, max, avg) =>
       AppAggGpuMetricsProfileResult(
+        appId = app.appId,
         metricName = metric,
         unit = unit,
         sum = sum,

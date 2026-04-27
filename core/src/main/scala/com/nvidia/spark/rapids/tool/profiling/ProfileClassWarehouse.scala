@@ -1617,11 +1617,12 @@ case class SQLAggGpuMetricsProfileResult(
 }
 
 /**
- * GPU task metric aggregation at app level — one row per metricName for the
- * whole application. Same rollup rules as SQL-level. numTasks intentionally
- * omitted (would be constant per app and is available elsewhere).
+ * GPU task metric aggregation at app level — one row per (appId, metricName).
+ * Same rollup rules as SQL-level. numTasks intentionally omitted (would be a
+ * constant per app and is available in existing per-app CSVs).
  */
 case class AppAggGpuMetricsProfileResult(
+    appId: String,
     metricName: String,
     unit: String,
     sum: Option[Long],
@@ -1634,6 +1635,7 @@ case class AppAggGpuMetricsProfileResult(
 
   override def convertToSeq(): Array[String] = {
     Array(
+      appId,
       metricName,
       unit,
       sum.map(_.toString).getOrElse(""),
