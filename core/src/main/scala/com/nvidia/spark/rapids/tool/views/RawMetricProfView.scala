@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.ProfSparkMetricsAggregator
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
+import com.nvidia.spark.rapids.tool.profiling.{AppAggGpuMetricsProfileResult, IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLAggGpuMetricsProfileResult, SQLDurationExecutorTimeProfileResult, SQLMaxTaskInputSizes, SQLTaskAggMetricsProfileResult, StageAggGpuMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 
@@ -31,7 +31,10 @@ case class ProfilerAggregatedView(
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
     maxTaskInputSizes: Seq[SQLMaxTaskInputSizes],
-    stageDiagnostics: Seq[StageDiagnosticResult])
+    stageDiagnostics: Seq[StageDiagnosticResult],
+    gpuStageAggs: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
+    gpuSqlAggs: Seq[SQLAggGpuMetricsProfileResult] = Seq.empty,
+    gpuAppAggs: Seq[AppAggGpuMetricsProfileResult] = Seq.empty)
 
 object RawMetricProfilerView  {
   def getAggMetrics(apps: Seq[ApplicationInfo]): ProfilerAggregatedView = {
@@ -44,6 +47,9 @@ object RawMetricProfilerView  {
       AggMetricsResultSorter.sortIO(aggMetricsResults.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggMetricsResults.sqlDurAggs),
       aggMetricsResults.maxTaskInputSizes,
-      AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics))
+      AggMetricsResultSorter.sortStageDiagnostics(aggMetricsResults.stageDiagnostics),
+      aggMetricsResults.gpuStageAggs.sortBy(r => (r.stageId, r.metricName)),
+      aggMetricsResults.gpuSqlAggs.sortBy(r => (r.sqlId, r.metricName)),
+      aggMetricsResults.gpuAppAggs.sortBy(_.metricName))
   }
 }

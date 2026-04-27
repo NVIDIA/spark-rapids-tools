@@ -54,7 +54,10 @@ case class ApplicationSummaryInfo(
     sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult],
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
     writeOpsInfo: Seq[WriteOpProfileResult],
-    sqlPlanInfo: Seq[SQLPlanInfoProfileResult])
+    sqlPlanInfo: Seq[SQLPlanInfoProfileResult],
+    gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
+    gpuSqlAggMetrics: Seq[SQLAggGpuMetricsProfileResult] = Seq.empty,
+    gpuAppAggMetrics: Seq[AppAggGpuMetricsProfileResult] = Seq.empty)
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

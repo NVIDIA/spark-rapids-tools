@@ -30,6 +30,9 @@ package object views {
   val SQL_MAX_INPUT_SIZE = "SQL Max Task Input Size"
   val STAGE_DIAGNOSTICS_LABEL = "Stage Level Diagnostic Metrics"
   val CLUSTER_INFORMATION_LABEL = "Cluster Information"
+  val GPU_STAGE_AGG_LABEL = "GPU stage level aggregated task metrics"
+  val GPU_SQL_AGG_LABEL = "GPU SQL level aggregated task metrics"
+  val GPU_APP_AGG_LABEL = "GPU app level aggregated task metrics"
 
   val AGG_DESCRIPTION = Map(
     STAGE_AGG_LABEL -> "Stage metrics",
@@ -38,6 +41,9 @@ package object views {
     IO_LABEL -> "IO Metrics per SQL",
     SQL_DUR_LABEL -> "Total duration and CPUTime per SQL",
     TASK_SHUFFLE_SKEW ->
-      "(When task's Shuffle Read Size > 3 * Avg Stage-level size)"
+      "(When task's Shuffle Read Size > 3 * Avg Stage-level size)",
+    GPU_STAGE_AGG_LABEL -> "GPU task metrics per stage",
+    GPU_SQL_AGG_LABEL -> "GPU task metrics per SQL",
+    GPU_APP_AGG_LABEL -> "GPU task metrics per application"
   )
 }

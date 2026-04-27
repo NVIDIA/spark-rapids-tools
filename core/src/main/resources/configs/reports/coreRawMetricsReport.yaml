@@ -854,6 +854,106 @@ reportDefinitions:
             dataType: Long
             description: >-
               TBD
+      # GPU task metric aggregations (stage / sql / app)
+      - label: coreRawGpuStageLevelAggregatedTaskMetricsCSV
+        description: >-
+          GPU task metric aggregations at stage level. Long-format: one row per
+          (stageId, metricName). Auto-discovered from accumulator names starting
+          with gpu, perfio.s3., or equal to multithreadReaderMaxParallelism.
+        fileName: gpu_stage_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: stageId
+            dataType: Int
+            description: >-
+              Stage identifier.
+          - name: numTasks
+            dataType: Int
+            description: >-
+              Number of tasks in the stage (includes task-attempt duplicates).
+          - name: metricName
+            dataType: String
+            description: >-
+              GPU accumulator name (e.g. gpuTime, gpuMaxDeviceMemoryBytes).
+          - name: unit
+            dataType: String
+            description: >-
+              ms for time/wait metrics, bytes for byte metrics, count otherwise.
+          - name: sum
+            dataType: Long
+            description: >-
+              Total across tasks in the stage. Empty for max-aggregated metrics.
+          - name: max
+            dataType: Long
+            description: >-
+              Peak per-task value in the stage.
+          - name: avg
+            dataType: Long
+            description: >-
+              Rolling per-task average. Empty for max-aggregated metrics.
+      - label: coreRawGpuSqlLevelAggregatedTaskMetricsCSV
+        description: >-
+          GPU task metric aggregations at SQL level. Rolls up stage-level GPU
+          rows across stages in the SQL (via sqlIdToStages). numTasks is
+          deliberately omitted: it would be a constant per SQL across every
+          metric row (already in sql_level_aggregated_task_metrics.csv).
+        fileName: gpu_sql_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: sqlId
+            dataType: Long
+            description: >-
+              SQL identifier.
+          - name: metricName
+            dataType: String
+            description: >-
+              GPU accumulator name.
+          - name: unit
+            dataType: String
+            description: >-
+              ms / bytes / count.
+          - name: sum
+            dataType: Long
+            description: >-
+              Sum of stage sums. Empty for max-aggregated metrics.
+          - name: max
+            dataType: Long
+            description: >-
+              Max of stage maxes.
+          - name: avg
+            dataType: Long
+            description: >-
+              Task-weighted average across stages. Empty for max-aggregated
+              metrics.
+      - label: coreRawGpuAppLevelAggregatedTaskMetricsCSV
+        description: >-
+          GPU task metric aggregations at application level. One row per
+          metricName for the whole app (rolls up all stage-level GPU rows).
+        fileName: gpu_app_level_aggregated_task_metrics.csv
+        scope: per-app
+        columns:
+          - name: metricName
+            dataType: String
+            description: >-
+              GPU accumulator name.
+          - name: unit
+            dataType: String
+            description: >-
+              ms / bytes / count.
+          - name: sum
+            dataType: Long
+            description: >-
+              Sum across all stages in the app. Empty for max-aggregated
+              metrics.
+          - name: max
+            dataType: Long
+            description: >-
+              Overall peak reading any task produced during the run.
+          - name: avg
+            dataType: Long
+            description: >-
+              Task-weighted average across all stages. Empty for
+              max-aggregated metrics.
       # AccumProfileResults
       - label: coreRawStageLevelAllMetricsCSV
         description: >-

@@ -337,7 +337,10 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sqlCleanedAlignedIds = sqlIdAlign,
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
-      sqlPlanInfo = collect.getSQLPlanInfoTruncated)
+      sqlPlanInfo = collect.getSQLPlanInfoTruncated,
+      gpuStageAggMetrics = analysis.gpuStageAggs,
+      gpuSqlAggMetrics = analysis.gpuSqlAggs,
+      gpuAppAggMetrics = analysis.gpuAppAggs)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -405,6 +408,15 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeCSVTable(JOB_AGG_LABEL, app.jobAggMetrics)
     profileOutputWriter.writeCSVTable(STAGE_AGG_LABEL, app.stageAggMetrics)
     profileOutputWriter.writeCSVTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics)
+    if (app.gpuStageAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_STAGE_AGG_LABEL, app.gpuStageAggMetrics)
+    }
+    if (app.gpuSqlAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_SQL_AGG_LABEL, app.gpuSqlAggMetrics)
+    }
+    if (app.gpuAppAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_APP_AGG_LABEL, app.gpuAppAggMetrics)
+    }
     profileOutputWriter.writeCSVTable(IO_LABEL, app.ioMetrics)
     profileOutputWriter.writeCSVTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format

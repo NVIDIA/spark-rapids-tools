@@ -401,4 +401,105 @@ class AnalysisSuite extends AnyFunSuite {
     val dataSourceResults = ProfDataSourceView.getRawView(apps.toSeq)
     assert(dataSourceResults.exists(_.scan_time > 0))
   }
+
+  // ---------------------------------------------------------------------------
+  // GPU task metric aggregations (stage / SQL / app)
+  // ---------------------------------------------------------------------------
+
+  test("GPU metric aggregation: stage / sql / app rows produced for GPU log") {
+    val logs = Array(s"$logDir/gpu_oom_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val agg = RawMetricProfilerView.getAggMetrics(apps.toSeq)
+    assert(agg.gpuStageAggs.nonEmpty, "expected stage-level GPU rows")
+    assert(agg.gpuSqlAggs.nonEmpty, "expected SQL-level GPU rows")
+    assert(agg.gpuAppAggs.nonEmpty, "expected app-level GPU rows")
+
+    // Discovery: only gpu* / perfio.s3.* / multithreadReaderMaxParallelism names.
+    agg.gpuStageAggs.foreach { row =>
+      val n = row.metricName
+      assert(n.startsWith("gpu") || n.startsWith("perfio.s3.") ||
+        n == "multithreadReaderMaxParallelism", s"unexpected metric name: $n")
+    }
+
+    // Unit convention is internally consistent.
+    agg.gpuStageAggs.foreach { row =>
+      val expected =
+        if (row.metricName.contains("Time") || row.metricName.contains("Wait")) "ms"
+        else if (row.metricName.contains("Bytes")) "bytes"
+        else "count"
+      assert(row.unit == expected,
+        s"unit mismatch for ${row.metricName}: got ${row.unit}, expected $expected")
+    }
+
+    // Rollup math: SQL.sum == Σ stage.sum across the SQL's stages, per metric.
+    val stageRowsByMetric = agg.gpuStageAggs.groupBy(_.metricName)
+    val sqlRowsByMetric = agg.gpuSqlAggs.groupBy(_.metricName)
+    sqlRowsByMetric.foreach { case (metric, sqlRows) =>
+      val sqlSum = sqlRows.flatMap(_.sum).sum
+      val stageSum = stageRowsByMetric.getOrElse(metric, Seq.empty).flatMap(_.sum).sum
+      assert(sqlSum == stageSum, s"SQL sum mismatch for $metric: $sqlSum vs $stageSum")
+      val sqlMax = sqlRows.flatMap(_.max)
+      val stageMax = stageRowsByMetric.getOrElse(metric, Seq.empty).flatMap(_.max)
+      if (stageMax.nonEmpty) {
+        assert(sqlMax.nonEmpty && sqlMax.max == stageMax.max,
+          s"SQL max mismatch for $metric")
+      }
+    }
+
+    // App row exactly matches the rollup of all stage rows per metric.
+    val appByMetric = agg.gpuAppAggs.groupBy(_.metricName).mapValues(_.head)
+    stageRowsByMetric.foreach { case (metric, stageRows) =>
+      val appRow = appByMetric(metric)
+      val expectedSum = stageRows.flatMap(_.sum)
+      assert(appRow.sum.map(s => s == expectedSum.sum).getOrElse(expectedSum.isEmpty),
+        s"App sum mismatch for $metric")
+      val expectedMax = stageRows.flatMap(_.max)
+      assert(appRow.max.map(m => m == expectedMax.max).getOrElse(expectedMax.isEmpty),
+        s"App max mismatch for $metric")
+    }
+  }
+
+  test("GPU metric aggregation: max-aggregated metrics carry only max") {
+    val logs = Array(s"$logDir/gpu_oom_eventlog.zstd")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val agg = RawMetricProfilerView.getAggMetrics(apps.toSeq)
+    val maxOnlyNames = Set(
+      "gpuMaxDeviceMemoryBytes", "gpuMaxHostMemoryBytes", "gpuMaxPageableMemoryBytes",
+      "gpuMaxPinnedMemoryBytes", "gpuMaxDiskMemoryBytes", "gpuMaxTaskFootprint",
+      "gpuOnGpuTasksWaitingGPUMaxCount", "gpuMaxConcurrentGpuTasks",
+      "multithreadReaderMaxParallelism")
+    val maxRows = agg.gpuStageAggs.filter(r => maxOnlyNames.contains(r.metricName)) ++
+      agg.gpuSqlAggs.filter(r => maxOnlyNames.contains(r.metricName)) ++
+      agg.gpuAppAggs.filter(r => maxOnlyNames.contains(r.metricName))
+    assert(maxRows.nonEmpty, "expected at least one max-aggregated metric row")
+    maxRows.foreach { r =>
+      val sum = r match {
+        case s: StageAggGpuMetricsProfileResult => s.sum
+        case s: SQLAggGpuMetricsProfileResult => s.sum
+        case s: AppAggGpuMetricsProfileResult => s.sum
+      }
+      val avg = r match {
+        case s: StageAggGpuMetricsProfileResult => s.avg
+        case s: SQLAggGpuMetricsProfileResult => s.avg
+        case s: AppAggGpuMetricsProfileResult => s.avg
+      }
+      val max = r match {
+        case s: StageAggGpuMetricsProfileResult => s.max
+        case s: SQLAggGpuMetricsProfileResult => s.max
+        case s: AppAggGpuMetricsProfileResult => s.max
+      }
+      assert(sum.isEmpty, s"max-only metric should have empty sum: $r")
+      assert(avg.isEmpty, s"max-only metric should have empty avg: $r")
+      assert(max.isDefined, s"max-only metric should have a max value: $r")
+    }
+  }
+
+  test("GPU metric aggregation: empty for CPU-only event log") {
+    val logs = Array(s"$qualLogDir/nds_q86_test")
+    val apps = ToolTestUtils.processProfileApps(logs, sparkSession)
+    val agg = RawMetricProfilerView.getAggMetrics(apps.toSeq)
+    assert(agg.gpuStageAggs.isEmpty, "CPU-only log should produce no GPU stage rows")
+    assert(agg.gpuSqlAggs.isEmpty, "CPU-only log should produce no GPU SQL rows")
+    assert(agg.gpuAppAggs.isEmpty, "CPU-only log should produce no GPU app rows")
+  }
 }

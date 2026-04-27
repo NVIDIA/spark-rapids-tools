@@ -38,7 +38,10 @@ object QualRawReportGenerator extends Logging {
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
       aggRawResult.maxTaskInputSizes,
-      AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics))
+      AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics),
+      aggRawResult.gpuStageAggs.sortBy(r => (r.stageId, r.metricName)),
+      aggRawResult.gpuSqlAggs.sortBy(r => (r.sqlId, r.metricName)),
+      aggRawResult.gpuAppAggs.sortBy(_.metricName))
     Map(
       STAGE_AGG_LABEL -> sortedRes.stageAggs,
       JOB_AGG_LABEL -> sortedRes.jobAggs,
@@ -46,7 +49,10 @@ object QualRawReportGenerator extends Logging {
       SQL_AGG_LABEL -> sortedRes.sqlAggs,
       IO_LABEL -> sortedRes.ioAggs,
       SQL_DUR_LABEL -> sortedRes.sqlDurAggs,
-      STAGE_DIAGNOSTICS_LABEL -> sortedRes.stageDiagnostics)
+      STAGE_DIAGNOSTICS_LABEL -> sortedRes.stageDiagnostics,
+      GPU_STAGE_AGG_LABEL -> sortedRes.gpuStageAggs,
+      GPU_SQL_AGG_LABEL -> sortedRes.gpuSqlAggs,
+      GPU_APP_AGG_LABEL -> sortedRes.gpuAppAggs)
   }
 
   private def generateSQLProcessingView(

@@ -45,7 +45,12 @@ object AccumMetaRef {
     "gpuMaxPageableMemoryBytes",
     "gpuMaxDeviceMemoryBytes",
     "gpuMaxHostMemoryBytes",
-    "gpuMaxPinnedMemoryBytes"
+    "gpuMaxPinnedMemoryBytes",
+    "gpuMaxDiskMemoryBytes",
+    "gpuMaxTaskFootprint",
+    "gpuOnGpuTasksWaitingGPUMaxCount",
+    "gpuMaxConcurrentGpuTasks",
+    "multithreadReaderMaxParallelism"
   )
   val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
 

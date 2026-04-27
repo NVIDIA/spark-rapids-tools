@@ -309,6 +309,12 @@ object OutHeaderRegistry {
     "WriteOpProfileResult" ->
       Array("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
           "location", "tableName", "dataBase", "outputColumns", "writeMode",
-          "partitionColumns", "compressionOption", "fullDescription")
+          "partitionColumns", "compressionOption", "fullDescription"),
+    "StageAggGpuMetricsProfileResult" ->
+      Array("stageId", "numTasks", "metricName", "unit", "sum", "max", "avg"),
+    "SQLAggGpuMetricsProfileResult" ->
+      Array("sqlId", "metricName", "unit", "sum", "max", "avg"),
+    "AppAggGpuMetricsProfileResult" ->
+      Array("metricName", "unit", "sum", "max", "avg")
   ) // End of outputHeaders map initialization
 }

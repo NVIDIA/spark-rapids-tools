@@ -427,6 +427,167 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       stageLevelSparkMetrics(index).put(sm.stageInfo.stageId, rowToStore)
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // GPU task metric aggregations (Stage / SQL / App)
+  // ---------------------------------------------------------------------------
+  //
+  // Discovery convention: an accumulator is a GPU task metric if its name
+  //   - starts with "gpu",  OR
+  //   - starts with "perfio.s3.", OR
+  //   - equals "multithreadReaderMaxParallelism".
+  // Unit convention (from name): contains Time|Wait → ms (raw ns / 1e6);
+  // contains Bytes → bytes; otherwise → count.
+  // Max-aggregated metrics are discriminated via AccumMetaRef.isAggregateByMax;
+  // for those, sum and avg are empty and only max is meaningful.
+
+  private def isGpuMetric(name: String): Boolean = {
+    name.startsWith("gpu") ||
+      name.startsWith("perfio.s3.") ||
+      name == "multithreadReaderMaxParallelism"
+  }
+
+  private def unitForMetric(name: String): String = {
+    if (name.contains("Time") || name.contains("Wait")) "ms"
+    else if (name.contains("Bytes")) "bytes"
+    else "count"
+  }
+
+  private def convertValue(name: String, raw: Long): Long = {
+    if (name.contains("Time") || name.contains("Wait")) raw / 1000000L else raw
+  }
+
+  /**
+   * Aggregate GPU task accumulators by stage. Emits one row per (stageId,
+   * metricName). Returns Seq.empty when the app has no GPU metrics, which
+   * upstream uses to suppress CSV generation.
+   */
+  def aggregateGpuMetricsByStage(index: Int): Seq[StageAggGpuMetricsProfileResult] = {
+    val gpuAccums = app.accumManager.accumInfoMap.values.filter { ai =>
+      isGpuMetric(ai.infoRef.getName())
+    }.toSeq
+    if (gpuAccums.isEmpty) {
+      return Seq.empty
+    }
+    val stageCache = stageLevelSparkMetrics(index)
+    val rows = scala.collection.mutable.ArrayBuffer[StageAggGpuMetricsProfileResult]()
+    gpuAccums.foreach { ai =>
+      val name = ai.infoRef.getName()
+      val unit = unitForMetric(name)
+      val isMax = ai.infoRef.isAggregateByMax
+      ai.getStageIds.foreach { stageId =>
+        ai.calculateAccStatsForStage(stageId).foreach { stats =>
+          val numTasks = stageCache.get(stageId).map(_.numTasks).getOrElse(0)
+          val (sum, max, avg) = if (isMax) {
+            (None: Option[Long],
+              Some(convertValue(name, stats.max)),
+              None: Option[Long])
+          } else {
+            (Some(convertValue(name, stats.total)),
+              Some(convertValue(name, stats.max)),
+              Some(convertValue(name, stats.med)))
+          }
+          // Skip rows carrying no signal (both sum and max zero/absent).
+          val zeroSum = sum.forall(_ == 0L)
+          val zeroMax = max.forall(_ == 0L)
+          if (!(zeroSum && zeroMax)) {
+            rows += StageAggGpuMetricsProfileResult(
+              stageId = stageId,
+              numTasks = numTasks,
+              metricName = name,
+              unit = unit,
+              sum = sum,
+              max = max,
+              avg = avg)
+          }
+        }
+      }
+    }
+    rows.toSeq.sortBy(r => (r.stageId, r.metricName))
+  }
+
+  /**
+   * Rollup helper: groups stage-level GPU rows by metric name and reduces to
+   * (unit, sum, max, avg). sum is Σ stage.sum (None for max metrics); max is
+   * max stage.max; avg is task-weighted Σ(stage.avg * stage.numTasks)
+   * / Σ stage.numTasks over the stages that recorded the metric. numTasks is
+   * intentionally not propagated — see SQLAggGpuMetricsProfileResult /
+   * AppAggGpuMetricsProfileResult docstrings.
+   */
+  private def rollupGpuRows(
+      rows: Seq[StageAggGpuMetricsProfileResult]
+  ): Seq[(String, String, Option[Long], Option[Long], Option[Long])] = {
+    rows.groupBy(_.metricName).map { case (metricName, group) =>
+      val unit = group.head.unit
+      val sumOpt: Option[Long] = {
+        val xs = group.flatMap(_.sum)
+        if (xs.isEmpty) None else Some(xs.sum)
+      }
+      val maxOpt: Option[Long] = {
+        val xs = group.flatMap(_.max)
+        if (xs.isEmpty) None else Some(xs.max)
+      }
+      val avgOpt: Option[Long] = {
+        val weighted = group.flatMap { r => r.avg.map(a => (a, r.numTasks)) }
+        val weightTasks = weighted.map(_._2).sum
+        if (weighted.isEmpty || weightTasks == 0) {
+          None
+        } else {
+          Some(weighted.map { case (a, n) => a * n }.sum / weightTasks)
+        }
+      }
+      (metricName, unit, sumOpt, maxOpt, avgOpt)
+    }.toSeq
+  }
+
+  /**
+   * Aggregate GPU task metrics by SQL. Rolls up stage-level rows using
+   * app.sqlIdToStages. One row per (sqlId, metricName).
+   */
+  def aggregateGpuMetricsBySql(
+      index: Int,
+      stageRows: Seq[StageAggGpuMetricsProfileResult]
+  ): Seq[SQLAggGpuMetricsProfileResult] = {
+    if (stageRows.isEmpty) {
+      return Seq.empty
+    }
+    val stageMap: Map[Int, Seq[StageAggGpuMetricsProfileResult]] =
+      stageRows.groupBy(_.stageId)
+    app.sqlIdToStages.flatMap { case (sqlId, stageIds) =>
+      val rowsForSql = stageIds.flatMap(stageMap.getOrElse(_, Seq.empty))
+      rollupGpuRows(rowsForSql).map { case (metric, unit, sum, max, avg) =>
+        SQLAggGpuMetricsProfileResult(
+          sqlId = sqlId,
+          metricName = metric,
+          unit = unit,
+          sum = sum,
+          max = max,
+          avg = avg)
+      }
+    }.toSeq.sortBy(r => (r.sqlId, r.metricName))
+  }
+
+  /**
+   * Aggregate GPU task metrics across the whole application. One row per
+   * metricName. For max-aggregated metrics this gives the peak reading any
+   * task produced during the run.
+   */
+  def aggregateGpuMetricsByApp(
+      index: Int,
+      stageRows: Seq[StageAggGpuMetricsProfileResult]
+  ): Seq[AppAggGpuMetricsProfileResult] = {
+    if (stageRows.isEmpty) {
+      return Seq.empty
+    }
+    rollupGpuRows(stageRows).map { case (metric, unit, sum, max, avg) =>
+      AppAggGpuMetricsProfileResult(
+        metricName = metric,
+        unit = unit,
+        sum = sum,
+        max = max,
+        avg = avg)
+    }.sortBy(_.metricName)
+  }
 }
 
 /**
