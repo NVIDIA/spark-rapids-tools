@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,10 @@ case class ApplicationSummaryInfo(
     sqlCleanedAlignedIds: Seq[SQLCleanAndAlignIdsProfileResult],
     sparkRapidsBuildInfo: Seq[SparkRapidsBuildInfoEvent],
     writeOpsInfo: Seq[WriteOpProfileResult],
-    sqlPlanInfo: Seq[SQLPlanInfoProfileResult])
+    sqlPlanInfo: Seq[SQLPlanInfoProfileResult],
+    gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
+    gpuSqlAggMetrics: Seq[SQLAggGpuMetricsProfileResult] = Seq.empty,
+    gpuAppAggMetrics: Seq[AppAggGpuMetricsProfileResult] = Seq.empty)
 
 trait AppInfoPropertyGetter {
   // returns all the properties (i.e., spark)

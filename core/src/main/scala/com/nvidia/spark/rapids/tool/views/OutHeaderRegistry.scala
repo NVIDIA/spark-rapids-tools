@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -309,6 +309,12 @@ object OutHeaderRegistry {
     "WriteOpProfileResult" ->
       Array("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
           "location", "tableName", "dataBase", "outputColumns", "writeMode",
-          "partitionColumns", "compressionOption", "fullDescription")
+          "partitionColumns", "compressionOption", "fullDescription"),
+    "StageAggGpuMetricsProfileResult" ->
+      Array("stageId", "numTasks", "metricName", "unit", "sum", "max", "avg"),
+    "SQLAggGpuMetricsProfileResult" ->
+      Array("sqlId", "metricName", "unit", "sum", "max", "avg"),
+    "AppAggGpuMetricsProfileResult" ->
+      Array("appId", "metricName", "unit", "sum", "max", "avg")
   ) // End of outputHeaders map initialization
 }

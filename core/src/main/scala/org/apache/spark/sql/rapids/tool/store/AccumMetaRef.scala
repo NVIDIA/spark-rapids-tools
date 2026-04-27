@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,7 +45,12 @@ object AccumMetaRef {
     "gpuMaxPageableMemoryBytes",
     "gpuMaxDeviceMemoryBytes",
     "gpuMaxHostMemoryBytes",
-    "gpuMaxPinnedMemoryBytes"
+    "gpuMaxPinnedMemoryBytes",
+    "gpuMaxDiskMemoryBytes",
+    "gpuMaxTaskFootprint",
+    "gpuOnGpuTasksWaitingGPUMaxCount",
+    "gpuMaxConcurrentGpuTasks",
+    "multithreadReaderMaxParallelism"
   )
   val EMPTY_ACCUM_META_REF: AccumMetaRef = new AccumMetaRef(0L, AccumNameRef.EMPTY_ACC_NAME_REF)
 

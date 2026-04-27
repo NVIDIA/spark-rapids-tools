@@ -1516,3 +1516,132 @@ object SparkRapidsOomExceptions {
 object UnixExitCode {
   val FORCE_KILLED = 137
 }
+
+/**
+ * GPU task metric aggregation at stage level — one row per (stageId, metricName).
+ * Long/transposed schema: unit and sum/max/avg vary by metric. Empty `sum` / `avg`
+ * denote max-aggregated metrics (e.g. `gpuMaxDeviceMemoryBytes`).
+ */
+case class StageAggGpuMetricsProfileResult(
+    stageId: Int,
+    numTasks: Int,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("StageAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      stageId.toString,
+      numTasks.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+
+  /**
+   * Combines two rows for the same (stageId, metricName) across stage attempts.
+   * Mirrors the policy used by StageAggTaskMetricsProfileResult: sum += sum,
+   * max = max(max), avg = (a+b)/2, numTasks += numTasks.
+   */
+  def aggregateStageProfileMetric(
+      other: StageAggGpuMetricsProfileResult): StageAggGpuMetricsProfileResult = {
+    def addOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
+      case (Some(x), Some(y)) => Some(x + y)
+      case (Some(x), None) => Some(x)
+      case (None, Some(y)) => Some(y)
+      case _ => None
+    }
+    def maxOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
+      case (Some(x), Some(y)) => Some(Math.max(x, y))
+      case (Some(x), None) => Some(x)
+      case (None, Some(y)) => Some(y)
+      case _ => None
+    }
+    def avgOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
+      case (Some(x), Some(y)) => Some((x + y) / 2)
+      case (Some(x), None) => Some(x)
+      case (None, Some(y)) => Some(y)
+      case _ => None
+    }
+    StageAggGpuMetricsProfileResult(
+      stageId = this.stageId,
+      numTasks = this.numTasks + other.numTasks,
+      metricName = this.metricName,
+      unit = this.unit,
+      sum = addOpt(this.sum, other.sum),
+      max = maxOpt(this.max, other.max),
+      avg = avgOpt(this.avg, other.avg))
+  }
+}
+
+/**
+ * GPU task metric aggregation at SQL level — one row per (sqlId, metricName).
+ * Rolled up from stage-level rows: sum = Σ stage.sum, max = max stage.max,
+ * avg = task-weighted average over stage.avg. numTasks is intentionally not
+ * carried — it would be a constant per SQL across every metric row (the non-GPU
+ * sql_level_aggregated_task_metrics.csv already has it once per SQL).
+ */
+case class SQLAggGpuMetricsProfileResult(
+    sqlId: Long,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("SQLAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      sqlId.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
+
+/**
+ * GPU task metric aggregation at app level — one row per (appId, metricName).
+ * Same rollup rules as SQL-level. numTasks intentionally omitted (would be a
+ * constant per app and is available in existing per-app CSVs).
+ */
+case class AppAggGpuMetricsProfileResult(
+    appId: String,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("AppAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      appId,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
