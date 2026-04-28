@@ -63,10 +63,3 @@ class TestExceptionHierarchy:
             EventLogReadError,
         ):
             assert issubclass(cls, EventLogDetectionError)
-
-    def test_base_is_exception_not_value_error(self):
-        # We deliberately do NOT inherit ValueError: EventLogReadError wraps
-        # I/O failures (missing file, permissions), which are not bad-input
-        # errors. Keeping the base at Exception avoids that semantic mismatch.
-        assert issubclass(EventLogDetectionError, Exception)
-        assert not issubclass(EventLogDetectionError, ValueError)

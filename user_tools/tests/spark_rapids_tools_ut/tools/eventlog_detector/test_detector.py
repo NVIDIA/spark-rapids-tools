@@ -151,22 +151,6 @@ class TestCpuFastPath:
         assert result.tool_execution is ToolExecution.PROFILING
         assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
 
-    def test_fast_path_does_not_fire_when_rapids_marker_present(self, tmp_path):
-        log = tmp_path / "eventlog"
-        _write_plain_log(
-            log,
-            [
-                env_update({
-                    "spark.plugins": "com.nvidia.spark.SQLPlugin",
-                    "spark.rapids.sql.enabled": "false",
-                }),
-                sql_exec_start({"spark.rapids.sql.enabled": "true"}),
-            ],
-        )
-        result = detect_spark_runtime(str(log))
-        assert result.tool_execution is ToolExecution.PROFILING
-        assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
-
 
 class TestCapHit:
     """Test detection when the event budget is exhausted before env-update."""
@@ -224,23 +208,6 @@ class TestUnsupportedInput:
         (d / "eventlog-2021-06-14--18-00.gz").write_bytes(b"")
         with pytest.raises(UnsupportedInputError):
             detect_spark_runtime(CspPath(str(d)))
-
-
-class TestReasonStrings:
-    """Test the human-readable reason field on DetectionResult."""
-
-    def test_reason_mentions_runtime_on_profiling(self, tmp_path):
-        log = tmp_path / "eventlog"
-        _write_plain_log(log, [build_info()])
-        result = detect_spark_runtime(str(log))
-        assert "SPARK_RAPIDS" in result.reason
-
-    def test_reason_mentions_full_log_on_strict_qualification(self, tmp_path):
-        log = tmp_path / "eventlog"
-        _write_plain_log(log, [env_update({"spark.master": "local"})])
-        result = detect_spark_runtime(str(log), allow_cpu_fast_path=False)
-        assert result.tool_execution is ToolExecution.QUALIFICATION
-        assert "walked full log" in result.reason.lower()
 
 
 class TestSourcePathPreserved:

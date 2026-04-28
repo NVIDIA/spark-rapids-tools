@@ -109,29 +109,9 @@ class TestZstdStream:
 class TestUnsupportedCompression:
     """Test that unsupported compression formats raise UnsupportedCompressionError."""
 
-    def test_lz4_raises(self, tmp_path):
-        p = tmp_path / "eventlog.lz4"
-        p.write_bytes(b"not-real-lz4")
-        with pytest.raises(UnsupportedCompressionError):
-            with open_event_log_stream(CspPath(str(p))) as _:
-                pass
-
-    def test_snappy_raises(self, tmp_path):
-        p = tmp_path / "eventlog.snappy"
-        p.write_bytes(b"not-real-snappy")
-        with pytest.raises(UnsupportedCompressionError):
-            with open_event_log_stream(CspPath(str(p))) as _:
-                pass
-
-    def test_lzf_raises(self, tmp_path):
-        p = tmp_path / "eventlog.lzf"
-        p.write_bytes(b"not-real-lzf")
-        with pytest.raises(UnsupportedCompressionError):
-            with open_event_log_stream(CspPath(str(p))) as _:
-                pass
-
-    def test_unknown_suffix_raises(self, tmp_path):
-        p = tmp_path / "eventlog.weirdcodec"
+    @pytest.mark.parametrize("suffix", [".lz4", ".snappy", ".lzf", ".weirdcodec"])
+    def test_unsupported_suffix_raises(self, tmp_path, suffix):
+        p = tmp_path / f"eventlog{suffix}"
         p.write_bytes(b"some-bytes")
         with pytest.raises(UnsupportedCompressionError):
             with open_event_log_stream(CspPath(str(p))) as _:

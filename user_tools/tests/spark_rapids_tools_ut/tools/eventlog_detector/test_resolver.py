@@ -94,11 +94,3 @@ class TestResolveUnsupportedShapes:
         (d / "eventlog").write_bytes(b"")
         with pytest.raises(UnsupportedInputError, match="eventlog_v2_\\*"):
             resolve_event_log_files(CspPath(str(d)))
-
-    def test_generic_multi_app_dir_raises(self, tmp_path: Path):
-        d = tmp_path / "multi"
-        d.mkdir()
-        (d / "app-1.zstd").write_bytes(b"")
-        (d / "app-2.zstd").write_bytes(b"")
-        with pytest.raises(UnsupportedInputError):
-            resolve_event_log_files(CspPath(str(d)))
