@@ -1,0 +1,81 @@
+# Copyright (c) 2026, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Types, enums, and exceptions for the event log runtime detector."""
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+
+class ToolExecution(str, Enum):
+    """Tool execution decision returned to the caller."""
+
+    QUALIFICATION = "QUALIFICATION"
+    PROFILING = "PROFILING"
+    UNKNOWN = "UNKNOWN"
+
+
+class SparkRuntime(str, Enum):
+    """Runtime taxonomy.
+
+    Values mirror ``org.apache.spark.sql.rapids.tool.util.SparkRuntime``
+    in the Scala core so string comparisons against existing pipelines
+    keep working.
+    """
+
+    SPARK = "SPARK"
+    SPARK_RAPIDS = "SPARK_RAPIDS"
+
+
+class Termination(Enum):
+    """How the scanner stopped."""
+
+    DECISIVE = "DECISIVE"      # classification returned non-SPARK
+    CPU_FAST_PATH = "CPU_FAST_PATH"  # stopped after plain-SPARK startup props
+    EXHAUSTED = "EXHAUSTED"    # walked every file to EOF under the budget
+    CAP_HIT = "CAP_HIT"        # hit max_events_scanned before exhausting files
+
+
+@dataclass(frozen=True)
+class DetectionResult:
+    """Result returned by :func:`detect_spark_runtime`.
+
+    ``spark_runtime`` is best-effort metadata and may be ``None`` when
+    ``tool_execution`` is ``UNKNOWN``.
+    """
+
+    tool_execution: ToolExecution
+    spark_runtime: Optional[SparkRuntime]
+    app_id: Optional[str]
+    spark_version: Optional[str]
+    event_log_path: str
+    source_path: str
+    reason: str
+
+
+class EventLogDetectionError(Exception):
+    """Base class for detector errors."""
+
+
+class UnsupportedInputError(EventLogDetectionError):
+    """Input shape is not handled (multi-app dir, wildcard, comma list, ...)."""
+
+
+class UnsupportedCompressionError(EventLogDetectionError):
+    """File uses a compression codec the detector does not handle."""
+
+
+class EventLogReadError(EventLogDetectionError):
+    """Wraps an I/O failure while reading the event log."""
