@@ -17,9 +17,9 @@
 from typing import Optional, Union
 
 from spark_rapids_tools.storagelib import CspPath
-from spark_rapids_tools.tools.eventlog_detector.classifier import _classify_runtime
-from spark_rapids_tools.tools.eventlog_detector.resolver import _resolve_event_log_files
-from spark_rapids_tools.tools.eventlog_detector.scanner import _scan_events_across
+from spark_rapids_tools.tools.eventlog_detector.classifier import classify_runtime
+from spark_rapids_tools.tools.eventlog_detector.resolver import resolve_event_log_files
+from spark_rapids_tools.tools.eventlog_detector.scanner import scan_events_across
 from spark_rapids_tools.tools.eventlog_detector.types import (
     DetectionResult,
     SparkRuntime,
@@ -52,9 +52,9 @@ def detect_spark_runtime(
     # would otherwise be stripped by CspPath normalisation).
     source_path = event_log if isinstance(event_log, str) else str(event_log)
     path = event_log if isinstance(event_log, CspPath) else CspPath(str(event_log))
-    _, files = _resolve_event_log_files(path)
+    _, files = resolve_event_log_files(path)
 
-    scan = _scan_events_across(
+    scan = scan_events_across(
         files,
         budget=max_events_scanned,
         allow_cpu_fast_path=allow_cpu_fast_path,
@@ -64,7 +64,7 @@ def detect_spark_runtime(
     if scan.rapids_build_info_seen:
         runtime = SparkRuntime.SPARK_RAPIDS
     elif scan.env_update_seen:
-        runtime = _classify_runtime(scan.spark_properties)
+        runtime = classify_runtime(scan.spark_properties)
     else:
         runtime = None
 

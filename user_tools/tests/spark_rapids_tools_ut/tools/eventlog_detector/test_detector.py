@@ -140,10 +140,16 @@ class TestCpuFastPath:
 
     def test_fast_path_can_be_disabled(self, tmp_path):
         log = tmp_path / "eventlog"
-        _write_plain_log(log, [env_update({"spark.master": "local"})])
+        _write_plain_log(
+            log,
+            [
+                env_update({"spark.master": "local"}),
+                sql_exec_start({"spark.plugins": "com.nvidia.spark.SQLPlugin"}),
+            ],
+        )
         result = detect_spark_runtime(str(log), allow_cpu_fast_path=False)
-        assert result.tool_execution is ToolExecution.QUALIFICATION
-        assert "walked full log" in result.reason.lower()
+        assert result.tool_execution is ToolExecution.PROFILING
+        assert result.spark_runtime is SparkRuntime.SPARK_RAPIDS
 
     def test_fast_path_does_not_fire_when_rapids_marker_present(self, tmp_path):
         log = tmp_path / "eventlog"

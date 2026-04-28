@@ -58,7 +58,7 @@ def _classify_suffix(path: CspPath) -> str:
 
 
 @contextlib.contextmanager
-def _open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
+def open_event_log_stream(path: CspPath) -> Iterator[Iterator[str]]:
     suffix = _classify_suffix(path)
     if suffix not in _SUPPORTED_SUFFIXES:
         raise UnsupportedCompressionError(

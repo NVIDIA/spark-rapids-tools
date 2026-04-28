@@ -21,8 +21,8 @@ import pytest
 
 from spark_rapids_tools.storagelib import CspPath
 from spark_rapids_tools.tools.eventlog_detector.resolver import (
-    _parse_oss_event_file_index,
-    _resolve_event_log_files,
+    parse_oss_event_file_index,
+    resolve_event_log_files,
 )
 from spark_rapids_tools.tools.eventlog_detector.types import UnsupportedInputError
 
@@ -31,12 +31,12 @@ class TestOssEventFileIndex:
     """Test Apache Spark rolling event file index parsing."""
 
     def test_events_file_index_parses(self):
-        assert _parse_oss_event_file_index("events_1_app-1.zstd") == 1
-        assert _parse_oss_event_file_index("events_10_app-1") == 10
+        assert parse_oss_event_file_index("events_1_app-1.zstd") == 1
+        assert parse_oss_event_file_index("events_10_app-1") == 10
 
     def test_non_events_file_returns_none(self):
-        assert _parse_oss_event_file_index("appstatus_app-1.inprogress") is None
-        assert _parse_oss_event_file_index("eventlog") is None
+        assert parse_oss_event_file_index("appstatus_app-1.inprogress") is None
+        assert parse_oss_event_file_index("eventlog") is None
 
 
 class TestResolveSingleFile:
@@ -45,7 +45,7 @@ class TestResolveSingleFile:
     def test_single_file_returns_single_element_list(self, tmp_path: Path):
         f = tmp_path / "eventlog.zstd"
         f.write_bytes(b"x")
-        source, files = _resolve_event_log_files(CspPath(str(f)))
+        source, files = resolve_event_log_files(CspPath(str(f)))
         assert source == str(f)
         assert [p.base_name() for p in files] == ["eventlog.zstd"]
 
@@ -60,7 +60,7 @@ class TestResolveOssRollingDir:
         (d / "events_2_app-1.zstd").write_bytes(b"")
         (d / "events_1_app-1.zstd").write_bytes(b"")
         (d / "appstatus_app-1.inprogress").write_bytes(b"")
-        source, files = _resolve_event_log_files(CspPath(str(d)))
+        source, files = resolve_event_log_files(CspPath(str(d)))
         assert source == str(d)
         assert [p.base_name() for p in files] == [
             "events_1_app-1.zstd",
@@ -72,7 +72,7 @@ class TestResolveOssRollingDir:
         d = tmp_path / "eventlog_v2_app-1"
         d.mkdir()
         (d / "events_1_app-1.zstd").write_bytes(b"")
-        source, files = _resolve_event_log_files(CspPath(f"{d}/"))
+        source, files = resolve_event_log_files(CspPath(f"{d}/"))
         assert source.rstrip("/") == str(d)
         assert [p.base_name() for p in files] == ["events_1_app-1.zstd"]
 
@@ -81,7 +81,7 @@ class TestResolveOssRollingDir:
         d.mkdir()
         (d / "appstatus_app-1.inprogress").write_bytes(b"")
         with pytest.raises(UnsupportedInputError):
-            _resolve_event_log_files(CspPath(str(d)))
+            resolve_event_log_files(CspPath(str(d)))
 
 
 class TestResolveUnsupportedShapes:
@@ -92,8 +92,8 @@ class TestResolveUnsupportedShapes:
         d.mkdir()
         (d / "eventlog-2021-06-14--18-00.gz").write_bytes(b"")
         (d / "eventlog").write_bytes(b"")
-        with pytest.raises(UnsupportedInputError):
-            _resolve_event_log_files(CspPath(str(d)))
+        with pytest.raises(UnsupportedInputError, match="eventlog_v2_\\*"):
+            resolve_event_log_files(CspPath(str(d)))
 
     def test_generic_multi_app_dir_raises(self, tmp_path: Path):
         d = tmp_path / "multi"
@@ -101,4 +101,4 @@ class TestResolveUnsupportedShapes:
         (d / "app-1.zstd").write_bytes(b"")
         (d / "app-2.zstd").write_bytes(b"")
         with pytest.raises(UnsupportedInputError):
-            _resolve_event_log_files(CspPath(str(d)))
+            resolve_event_log_files(CspPath(str(d)))

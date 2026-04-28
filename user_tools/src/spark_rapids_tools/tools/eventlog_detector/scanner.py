@@ -25,10 +25,10 @@ from typing import Dict, Iterable, List, Optional
 from spark_rapids_tools.storagelib import CspPath
 from spark_rapids_tools.tools.eventlog_detector import markers as m
 from spark_rapids_tools.tools.eventlog_detector.classifier import (
-    _classify_runtime,
-    _has_rapids_conf_markers,
+    classify_runtime,
+    has_rapids_conf_markers,
 )
-from spark_rapids_tools.tools.eventlog_detector.stream import _open_event_log_stream
+from spark_rapids_tools.tools.eventlog_detector.stream import open_event_log_stream
 from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime, Termination
 
 
@@ -36,7 +36,6 @@ from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime, Termi
 class _ScanResult:
     spark_properties: Dict[str, str] = field(default_factory=dict)
     app_id: Optional[str] = None
-    app_name: Optional[str] = None
     spark_version: Optional[str] = None
     env_update_seen: bool = False
     rapids_build_info_seen: bool = False
@@ -45,7 +44,7 @@ class _ScanResult:
     last_scanned_path: Optional[str] = None
 
 
-def _scan_events(
+def scan_events(
     lines: Iterable[str],
     *,
     budget: int,
@@ -55,8 +54,8 @@ def _scan_events(
     """Scan one stream of lines, optionally continuing from a prior state.
 
     Terminates as ``DECISIVE`` on the first non-SPARK classification,
-    ``CAP_HIT`` when ``budget`` is exhausted, or ``EXHAUSTED`` when the
-    iterator runs out.
+    ``CPU_FAST_PATH`` after plain Spark startup properties, ``CAP_HIT`` when
+    ``budget`` is exhausted, or ``EXHAUSTED`` when the iterator runs out.
     """
     result = state if state is not None else _ScanResult()
 
@@ -91,11 +90,8 @@ def _scan_events(
                 result.spark_version = version
         elif name == m.EVENT_APPLICATION_START:
             app_id = event.get("App ID")
-            app_name = event.get("App Name")
             if isinstance(app_id, str):
                 result.app_id = app_id
-            if isinstance(app_name, str):
-                result.app_name = app_name
         elif name == m.EVENT_ENVIRONMENT_UPDATE:
             props = event.get("Spark Properties") or {}
             if isinstance(props, dict):
@@ -103,11 +99,11 @@ def _scan_events(
                     if isinstance(k, str) and isinstance(v, str):
                         result.spark_properties[k] = v
                 result.env_update_seen = True
-                runtime = _classify_runtime(result.spark_properties)
+                runtime = classify_runtime(result.spark_properties)
                 if runtime is not SparkRuntime.SPARK:
                     result.termination = Termination.DECISIVE
                     return result
-                if allow_cpu_fast_path and not _has_rapids_conf_markers(result.spark_properties):
+                if allow_cpu_fast_path and not has_rapids_conf_markers(result.spark_properties):
                     result.termination = Termination.CPU_FAST_PATH
                     return result
         elif name in (m.EVENT_SQL_EXECUTION_START, m.EVENT_SQL_EXECUTION_START_SHORTNAME):
@@ -116,8 +112,10 @@ def _scan_events(
                 for k, v in modified.items():
                     if isinstance(k, str) and isinstance(v, str):
                         result.spark_properties[k] = v
+                # Per-query configs refine startup properties; without env-update
+                # context they are not enough to classify the whole event log.
                 if result.env_update_seen and (
-                    _classify_runtime(result.spark_properties) is not SparkRuntime.SPARK
+                    classify_runtime(result.spark_properties) is not SparkRuntime.SPARK
                 ):
                     result.termination = Termination.DECISIVE
                     return result
@@ -126,7 +124,7 @@ def _scan_events(
     return result
 
 
-def _scan_events_across(
+def scan_events_across(
     files: List[CspPath],
     *,
     budget: int,
@@ -139,8 +137,8 @@ def _scan_events_across(
             state.termination = Termination.CAP_HIT
             return state
         state.last_scanned_path = str(path)
-        with _open_event_log_stream(path) as lines:
-            state = _scan_events(
+        with open_event_log_stream(path) as lines:
+            state = scan_events(
                 lines,
                 budget=budget,
                 allow_cpu_fast_path=allow_cpu_fast_path,

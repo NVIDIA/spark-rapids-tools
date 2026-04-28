@@ -39,6 +39,8 @@ CORE_FIXTURES = REPO_ROOT / "core" / "src" / "test" / "resources"
             SparkRuntime.SPARK_RAPIDS,
         ),
         (
+            # The Profiling tool can process CPU logs; this fixture lives under
+            # profiling resources but has no RAPIDS runtime markers.
             "spark-events-profiling/eventlog_dsv2.zstd",
             ToolExecution.QUALIFICATION,
             SparkRuntime.SPARK,

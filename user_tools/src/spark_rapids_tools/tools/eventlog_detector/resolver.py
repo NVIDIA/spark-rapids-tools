@@ -25,7 +25,7 @@ from spark_rapids_tools.tools.eventlog_detector.types import UnsupportedInputErr
 _OSS_EVENT_FILE_PATTERN = re.compile(r"^events_(\d+)_.*")
 
 
-def _parse_oss_event_file_index(name: str) -> Optional[int]:
+def parse_oss_event_file_index(name: str) -> Optional[int]:
     """Return the numeric chunk index from ``events_<n>_...`` files."""
     match = _OSS_EVENT_FILE_PATTERN.match(name)
     if match is None:
@@ -34,7 +34,7 @@ def _parse_oss_event_file_index(name: str) -> Optional[int]:
 
 
 def _is_oss_event_log_file(path: CspPath) -> bool:
-    return _parse_oss_event_file_index(path.base_name()) is not None
+    return parse_oss_event_file_index(path.base_name()) is not None
 
 
 def _base_name_from_source(source: str) -> str:
@@ -42,7 +42,7 @@ def _base_name_from_source(source: str) -> str:
     return source.rstrip("/").rsplit("/", 1)[-1]
 
 
-def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
+def resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
     """Resolve ``path`` to an ordered list of files to scan.
 
     Supported inputs are a single concrete file or an Apache Spark rolling
@@ -62,7 +62,8 @@ def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
     if not _base_name_from_source(source).startswith(m.OSS_EVENT_LOG_DIR_PREFIX):
         raise UnsupportedInputError(
             f"Directory {source} is not a supported input shape. Only single "
-            "files and Apache Spark rolling event-log directories are handled "
+            f"files and Apache Spark rolling event-log directories named "
+            f"{m.OSS_EVENT_LOG_DIR_PREFIX}* are handled "
             "here; use the full pipeline for other shapes."
         )
 
@@ -72,7 +73,7 @@ def _resolve_event_log_files(path: CspPath) -> Tuple[str, List[CspPath]]:
 
     event_files.sort(
         key=lambda f: (
-            _parse_oss_event_file_index(f.base_name()) or 0,
+            parse_oss_event_file_index(f.base_name()) or 0,
             f.base_name(),
         )
     )

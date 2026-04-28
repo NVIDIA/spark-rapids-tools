@@ -52,7 +52,7 @@ def _is_spark_rapids(props: Mapping[str, str]) -> bool:
     return _parse_bool(raw, default=m.GPU_ENABLED_DEFAULT)
 
 
-def _has_rapids_conf_markers(props: Mapping[str, str]) -> bool:
+def has_rapids_conf_markers(props: Mapping[str, str]) -> bool:
     """Return true when properties contain any RAPIDS-related configuration.
 
     This is intentionally broader than ``_is_spark_rapids``. A disabled or
@@ -65,7 +65,7 @@ def _has_rapids_conf_markers(props: Mapping[str, str]) -> bool:
     return m.GPU_ENABLED_KEY in props
 
 
-def _classify_runtime(props: Mapping[str, str]) -> SparkRuntime:
+def classify_runtime(props: Mapping[str, str]) -> SparkRuntime:
     """Classify accumulated Spark properties into the supported runtime enum."""
     if _is_spark_rapids(props):
         return SparkRuntime.SPARK_RAPIDS

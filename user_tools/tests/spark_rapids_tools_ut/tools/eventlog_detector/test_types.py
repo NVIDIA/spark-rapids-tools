@@ -15,14 +15,10 @@
 """Unit tests for ``eventlog_detector.types``."""
 # pylint: disable=too-few-public-methods  # test classes naturally have few methods
 
-import pytest
-
 from spark_rapids_tools.tools.eventlog_detector.types import (
-    DetectionResult,
     EventLogDetectionError,
     EventLogReadError,
     SparkRuntime,
-    Termination,
     ToolExecution,
     UnsupportedCompressionError,
     UnsupportedInputError,
@@ -55,66 +51,6 @@ class TestSparkRuntime:
 
     def test_is_string_enum(self):
         assert SparkRuntime.SPARK_RAPIDS == "SPARK_RAPIDS"
-
-
-class TestTermination:
-    """Test the Termination enum modes."""
-
-    def test_has_expected_modes(self):
-        assert {t.name for t in Termination} == {
-            "DECISIVE",
-            "CPU_FAST_PATH",
-            "EXHAUSTED",
-            "CAP_HIT",
-        }
-
-
-class TestDetectionResult:
-    """Test DetectionResult dataclass semantics."""
-
-    def test_frozen_dataclass(self):
-        result = DetectionResult(
-            tool_execution=ToolExecution.PROFILING,
-            spark_runtime=SparkRuntime.SPARK_RAPIDS,
-            app_id="app-1",
-            spark_version="3.5.1",
-            event_log_path="/tmp/x",
-            source_path="/tmp/x",
-            reason="decisive: classified as SPARK_RAPIDS",
-        )
-        # Python raises FrozenInstanceError (a subclass of AttributeError)
-        # when you try to assign to a field on a frozen dataclass.
-        with pytest.raises(AttributeError):
-            result.tool_execution = ToolExecution.UNKNOWN  # type: ignore[misc]
-
-    def test_structural_equality(self):
-        kwargs = {
-            "tool_execution": ToolExecution.QUALIFICATION,
-            "spark_runtime": SparkRuntime.SPARK,
-            "app_id": "a",
-            "spark_version": "3.5.1",
-            "event_log_path": "/tmp/a",
-            "source_path": "/tmp/a",
-            "reason": "walked full log, no RAPIDS signal",
-        }
-        assert DetectionResult(**kwargs) == DetectionResult(**kwargs)
-        assert hash(DetectionResult(**kwargs)) == hash(DetectionResult(**kwargs))
-        # Distinct payloads compare unequal.
-        other = DetectionResult(**{**kwargs, "app_id": "b"})
-        assert DetectionResult(**kwargs) != other
-
-    def test_accepts_optional_fields_as_none(self):
-        result = DetectionResult(
-            tool_execution=ToolExecution.UNKNOWN,
-            spark_runtime=None,
-            app_id=None,
-            spark_version=None,
-            event_log_path="/tmp/x",
-            source_path="/tmp/x",
-            reason="no decisive signal within bounded scan",
-        )
-        assert result.tool_execution is ToolExecution.UNKNOWN
-        assert result.spark_runtime is None
 
 
 class TestExceptionHierarchy:

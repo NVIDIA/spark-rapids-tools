@@ -22,7 +22,7 @@ import pytest
 import zstandard as zstd
 
 from spark_rapids_tools.storagelib import CspPath
-from spark_rapids_tools.tools.eventlog_detector.stream import _open_event_log_stream
+from spark_rapids_tools.tools.eventlog_detector.stream import open_event_log_stream
 from spark_rapids_tools.tools.eventlog_detector.types import (
     EventLogReadError,
     UnsupportedCompressionError,
@@ -76,7 +76,7 @@ class TestPlainStream:
     """Test streaming plain-text event logs."""
 
     def test_yields_all_lines(self, plain_file):  # pylint: disable=redefined-outer-name
-        with _open_event_log_stream(plain_file) as lines:
+        with open_event_log_stream(plain_file) as lines:
             collected = list(lines)
         assert collected == SAMPLE_LINES
 
@@ -85,7 +85,7 @@ class TestGzipStream:
     """Test streaming gzip-compressed event logs."""
 
     def test_yields_all_lines(self, gz_file):  # pylint: disable=redefined-outer-name
-        with _open_event_log_stream(gz_file) as lines:
+        with open_event_log_stream(gz_file) as lines:
             collected = list(lines)
         assert collected == SAMPLE_LINES
 
@@ -94,14 +94,14 @@ class TestZstdStream:
     """Test streaming zstd-compressed event logs."""
 
     def test_yields_all_lines(self, zstd_file):  # pylint: disable=redefined-outer-name
-        with _open_event_log_stream(zstd_file) as lines:
+        with open_event_log_stream(zstd_file) as lines:
             collected = list(lines)
         assert collected == SAMPLE_LINES
 
     def test_zst_short_suffix_also_works(self, tmp_path):
         p = tmp_path / "eventlog.zst"
         _write_zstd(p)
-        with _open_event_log_stream(CspPath(str(p))) as lines:
+        with open_event_log_stream(CspPath(str(p))) as lines:
             collected = list(lines)
         assert collected == SAMPLE_LINES
 
@@ -113,28 +113,28 @@ class TestUnsupportedCompression:
         p = tmp_path / "eventlog.lz4"
         p.write_bytes(b"not-real-lz4")
         with pytest.raises(UnsupportedCompressionError):
-            with _open_event_log_stream(CspPath(str(p))) as _:
+            with open_event_log_stream(CspPath(str(p))) as _:
                 pass
 
     def test_snappy_raises(self, tmp_path):
         p = tmp_path / "eventlog.snappy"
         p.write_bytes(b"not-real-snappy")
         with pytest.raises(UnsupportedCompressionError):
-            with _open_event_log_stream(CspPath(str(p))) as _:
+            with open_event_log_stream(CspPath(str(p))) as _:
                 pass
 
     def test_lzf_raises(self, tmp_path):
         p = tmp_path / "eventlog.lzf"
         p.write_bytes(b"not-real-lzf")
         with pytest.raises(UnsupportedCompressionError):
-            with _open_event_log_stream(CspPath(str(p))) as _:
+            with open_event_log_stream(CspPath(str(p))) as _:
                 pass
 
     def test_unknown_suffix_raises(self, tmp_path):
         p = tmp_path / "eventlog.weirdcodec"
         p.write_bytes(b"some-bytes")
         with pytest.raises(UnsupportedCompressionError):
-            with _open_event_log_stream(CspPath(str(p))) as _:
+            with open_event_log_stream(CspPath(str(p))) as _:
                 pass
 
 
@@ -144,7 +144,7 @@ class TestIoFailure:
     def test_missing_file_raises_read_error(self, tmp_path):
         p = tmp_path / "does-not-exist"
         with pytest.raises(EventLogReadError):
-            with _open_event_log_stream(CspPath(str(p))) as lines:
+            with open_event_log_stream(CspPath(str(p))) as lines:
                 next(iter(lines))
 
     def test_caller_side_exception_is_not_reclassified(self, plain_file):  # pylint: disable=redefined-outer-name
@@ -154,5 +154,5 @@ class TestIoFailure:
             pass
 
         with pytest.raises(_MarkerError):
-            with _open_event_log_stream(plain_file):
+            with open_event_log_stream(plain_file):
                 raise _MarkerError("not an I/O failure")
