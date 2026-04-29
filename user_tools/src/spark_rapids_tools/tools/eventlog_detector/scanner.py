@@ -1,0 +1,154 @@
+# Copyright (c) 2026, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Bounded streaming event scanner.
+
+Walks JSON-per-line event logs under a shared event budget and accumulates the
+startup and per-SQL properties required for runtime classification.
+"""
+
+import json
+from dataclasses import dataclass, field
+from typing import Dict, Iterable, List, Optional
+
+from spark_rapids_tools.storagelib import CspPath
+from spark_rapids_tools.tools.eventlog_detector import markers as m
+from spark_rapids_tools.tools.eventlog_detector.classifier import (
+    classify_runtime,
+    has_rapids_conf_markers,
+)
+from spark_rapids_tools.tools.eventlog_detector.stream import open_event_log_stream
+from spark_rapids_tools.tools.eventlog_detector.types import SparkRuntime, Termination
+
+
+@dataclass
+class _ScanResult:
+    spark_properties: Dict[str, str] = field(default_factory=dict)
+    app_id: Optional[str] = None
+    spark_version: Optional[str] = None
+    env_update_seen: bool = False
+    rapids_build_info_seen: bool = False
+    events_scanned: int = 0
+    termination: Termination = Termination.EXHAUSTED
+    last_scanned_path: Optional[str] = None
+
+
+def scan_events(
+    lines: Iterable[str],
+    *,
+    budget: int,
+    allow_cpu_fast_path: bool = True,
+    state: Optional[_ScanResult] = None,
+) -> _ScanResult:
+    """Scan one stream of lines, optionally continuing from a prior state.
+
+    Terminates as ``DECISIVE`` on the first non-SPARK classification,
+    ``CPU_FAST_PATH`` after plain Spark startup properties, ``CAP_HIT`` when
+    ``budget`` is exhausted, or ``EXHAUSTED`` when the iterator runs out.
+    """
+    result = state if state is not None else _ScanResult()
+
+    for raw in lines:
+        if result.events_scanned >= budget:
+            result.termination = Termination.CAP_HIT
+            return result
+
+        if not raw:
+            continue
+
+        try:
+            event = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            # Tolerate trailing partial lines in live logs; count them so
+            # a pathological log can't keep us scanning forever.
+            result.events_scanned += 1
+            continue
+
+        result.events_scanned += 1
+        name = event.get("Event")
+        if name in (
+            m.EVENT_SPARK_RAPIDS_BUILD_INFO,
+            m.EVENT_SPARK_RAPIDS_BUILD_INFO_SHORTNAME,
+        ):
+            result.rapids_build_info_seen = True
+            result.termination = Termination.DECISIVE
+            return result
+        if name == m.EVENT_LOG_START:
+            version = event.get("Spark Version")
+            if isinstance(version, str):
+                result.spark_version = version
+        elif name == m.EVENT_APPLICATION_START:
+            app_id = event.get("App ID")
+            if isinstance(app_id, str):
+                result.app_id = app_id
+        elif name == m.EVENT_ENVIRONMENT_UPDATE:
+            props = event.get("Spark Properties") or {}
+            if isinstance(props, dict):
+                for k, v in props.items():
+                    if isinstance(k, str) and isinstance(v, str):
+                        result.spark_properties[k] = v
+                result.env_update_seen = True
+                runtime = classify_runtime(result.spark_properties)
+                if runtime is not SparkRuntime.SPARK:
+                    result.termination = Termination.DECISIVE
+                    return result
+                if allow_cpu_fast_path and not has_rapids_conf_markers(result.spark_properties):
+                    result.termination = Termination.CPU_FAST_PATH
+                    return result
+        elif name in (m.EVENT_SQL_EXECUTION_START, m.EVENT_SQL_EXECUTION_START_SHORTNAME):
+            modified = event.get("modifiedConfigs") or {}
+            if isinstance(modified, dict) and modified:
+                for k, v in modified.items():
+                    if isinstance(k, str) and isinstance(v, str):
+                        result.spark_properties[k] = v
+                # Per-query configs refine startup properties; without env-update
+                # context they are not enough to classify the whole event log.
+                if result.env_update_seen and (
+                    classify_runtime(result.spark_properties) is not SparkRuntime.SPARK
+                ):
+                    result.termination = Termination.DECISIVE
+                    return result
+
+    result.termination = Termination.EXHAUSTED
+    return result
+
+
+def scan_events_across(
+    files: List[CspPath],
+    *,
+    budget: int,
+    allow_cpu_fast_path: bool = True,
+) -> _ScanResult:
+    """Walk ``files`` in order under a single shared ``budget``."""
+    state = _ScanResult()
+    for path in files:
+        if state.events_scanned >= budget:
+            state.termination = Termination.CAP_HIT
+            return state
+        state.last_scanned_path = str(path)
+        with open_event_log_stream(path) as lines:
+            state = scan_events(
+                lines,
+                budget=budget,
+                allow_cpu_fast_path=allow_cpu_fast_path,
+                state=state,
+            )
+        if state.termination in (
+            Termination.DECISIVE,
+            Termination.CPU_FAST_PATH,
+            Termination.CAP_HIT,
+        ):
+            return state
+    state.termination = Termination.EXHAUSTED
+    return state
