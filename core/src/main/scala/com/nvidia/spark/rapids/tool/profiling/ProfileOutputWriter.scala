@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.json4s.jackson.Serialization
  * In case the outputCSV is set to true, it will write each table to a
  * separate CSV file.
  */
-class ProfileOutputWriter(outputDir: String, filePrefix: String, numOutputRows: Int,
+class ProfileOutputWriter(val outputDir: String, filePrefix: String, numOutputRows: Int,
     outputCSV: Boolean = false) {
 
   implicit val formats: DefaultFormats.type = DefaultFormats

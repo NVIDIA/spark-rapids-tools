@@ -1,0 +1,121 @@
+# Copyright (c) 2026, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Spark Connect session / operation report written per application by both the
+# profiling and qualification tools.
+
+reportDefinitions:
+  - reportId: connectReport
+    description: >-
+      Per-application Spark Connect session and operation metadata plus a
+      directory of per-operation protobuf-text statement payloads.
+    scope: per-app
+    tableDefinitions:
+      - label: connectSessions
+        description: >-
+          One row per Spark Connect session observed in the event log.
+        fileName: connect_sessions.csv
+        scope: per-app
+        columns:
+          - name: appID
+            dataType: String
+            description: Application ID.
+          - name: sessionId
+            dataType: String
+            description: UUID of the Spark Connect session.
+          - name: userId
+            dataType: String
+            description: User who owns the session.
+          - name: startTime
+            dataType: Long
+            description: Epoch millis when the session started.
+          - name: endTime
+            dataType: Long
+            description: Epoch millis when the session closed, if observed.
+          - name: durationMs
+            dataType: Long
+            description: Session duration in milliseconds, or -1 if still open.
+          - name: operationCount
+            dataType: Long
+            description: Number of operations observed in the session.
+      - label: connectOperations
+        description: >-
+          One row per Spark Connect operation with core lifecycle timestamps,
+          linked SQL/job identifiers, and statement sidecar metadata.
+        fileName: connect_operations.csv
+        scope: per-app
+        columns:
+          - name: appID
+            dataType: String
+            description: Application ID.
+          - name: operationId
+            dataType: String
+            description: UUID of the Spark Connect operation.
+          - name: sessionId
+            dataType: String
+            description: Session UUID that owns the operation.
+          - name: userId
+            dataType: String
+            description: User who submitted the operation.
+          - name: jobTag
+            dataType: String
+            description: Correlation tag shared with SQLExecutionStart and JobStart events.
+          - name: startTime
+            dataType: Long
+            description: Epoch millis when the operation started.
+          - name: finishTime
+            dataType: Long
+            description: Epoch millis when execution completed, if observed.
+          - name: closeTime
+            dataType: Long
+            description: Epoch millis when the operation closed, if observed.
+          - name: failTime
+            dataType: Long
+            description: Epoch millis when the operation failed, if observed.
+          - name: cancelTime
+            dataType: Long
+            description: Epoch millis when the operation was canceled, if observed.
+          - name: durationMs
+            dataType: Long
+            description: Derived end-to-end operation duration in milliseconds.
+          - name: status
+            dataType: String
+            description: Derived operation status (RUNNING, SUCCEEDED, FAILED, CANCELED).
+          - name: errorMessage
+            dataType: String
+            description: Error message reported by a failure event, if present.
+          - name: sqlIds
+            dataType: String
+            description: Semicolon-separated SQL execution IDs correlated to the operation.
+          - name: jobIds
+            dataType: String
+            description: Semicolon-separated Spark job IDs correlated to the operation.
+          - name: statementFile
+            dataType: String
+            description: Sidecar filename under connect_statements/ for this operation, if written.
+          - name: statementTruncated
+            dataType: Boolean
+            description: >-
+              True when statementText includes Spark's textual truncation
+              marker. This does not detect Spark 4.x depth-based subtree
+              elision, which collapses nested structures to {} without a
+              marker.
+      - label: connectStatements
+        description: >-
+          Directory of per-operation statementText sidecars. Each
+          <operationId>.txt file contains the protobuf debug-format text of the
+          Connect operation statement when Connect statement sidecars are enabled.
+        fileName: connect_statements
+        fileFormat: DIRECTORY
+        scope: per-app
