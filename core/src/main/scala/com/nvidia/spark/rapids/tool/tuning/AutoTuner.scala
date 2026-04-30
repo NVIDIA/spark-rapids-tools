@@ -2182,7 +2182,7 @@ class ProfilingAutoTuner(
     // First, calculate the recommendation based on input sizes
     val calculatedValueFromInputSize = super.calculateMaxPartitionBytesInMB(maxPartitionBytes)
     getPropertyValue("spark.sql.files.maxPartitionBytes") match {
-      case Some(currentValue) if appInfoProvider.hasScanStagesWithGpuOom =>
+      case Some(currentValue) if appInfoProvider.scanStagesWithGpuOom.nonEmpty =>
         // GPU OOM detected. We may want to reduce max partition size.
         val halvedValue = StringUtils.convertToMB(currentValue, Some(ByteUnit.BYTE)) / 2
         // Choose the minimum between the calculated value and half of the current value.
@@ -2203,7 +2203,7 @@ class ProfilingAutoTuner(
    */
   override def recommendShufflePartitionsInternal(): Int = {
     val calculatedValue = super.recommendShufflePartitionsInternal()
-    if (appInfoProvider.hasShuffleStagesWithOom) {
+    if (appInfoProvider.gpuShuffleStagesWithContainerOom.nonEmpty) {
       // Shuffle Stages with Task OOM detected. We may want to increase shuffle partitions.
       val recShufflePartitions = shufflePartitionValue *
         configProvider.getEntry("SHUFFLE_PARTITION_MULTIPLIER").getDefault.toInt

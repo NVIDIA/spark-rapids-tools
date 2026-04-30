@@ -70,6 +70,8 @@ object OutHeaderRegistry {
     "AppInfoProfileResults" ->
       Array("appName", "appId", "attemptId", "sparkUser", "startTime", "endTime", "duration",
         "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds"),
+    "AppLevelRecommendationSignalsProfileResult" ->
+      Array("appId", "numScanStagesWithGpuOom", "numGpuShuffleStagesWithContainerOom"),
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->
@@ -124,6 +126,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",
@@ -156,6 +159,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",
@@ -231,6 +235,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",

@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.views
 
 import com.nvidia.spark.rapids.tool.analysis.{AggRawMetricsResult, AppSQLPlanAnalyzer, QualSparkMetricsAggregator}
-import com.nvidia.spark.rapids.tool.profiling.{DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
+import com.nvidia.spark.rapids.tool.profiling.{AppLevelRecommendationSignalsProfileResult, DataSourceProfileResult, ProfileOutputWriter, ProfileResult, SQLAccumProfileResults}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.qualification.QualificationAppInfo
@@ -37,7 +37,6 @@ object QualRawReportGenerator extends Logging {
       AggMetricsResultSorter.sortSqlAgg(aggRawResult.sqlAggs),
       AggMetricsResultSorter.sortIO(aggRawResult.ioAggs),
       AggMetricsResultSorter.sortSqlDurationAgg(aggRawResult.sqlDurAggs),
-      aggRawResult.maxTaskInputSizes,
       AggMetricsResultSorter.sortStageDiagnostics(aggRawResult.stageDiagnostics),
       aggRawResult.gpuStageAggs.sortBy(r => (r.stageId, r.metricName)),
       aggRawResult.gpuSqlAggs.sortBy(r => (r.sqlId, r.metricName)),
@@ -77,6 +76,9 @@ object QualRawReportGenerator extends Logging {
     val pWriter =
       new ProfileOutputWriter(metricsDirectory, "profile", 10000000, outputCSV = true)
     try {
+      val aggRawMetrics = QualSparkMetricsAggregator
+        .getAggRawMetrics(app, sqlAnalyzer = Some(sqlPlanAnalyzer))
+
       pWriter.writeText("### A. Information Collected ###")
       pWriter.writeTable(
         QualInformationView.getLabel, QualInformationView.getRawView(Seq(app)))
@@ -102,11 +104,13 @@ object QualRawReportGenerator extends Logging {
         SystemQualPropertiesView.getRawView(Seq(app)),
         Some(SystemQualPropertiesView.getDescription))
       pWriter.writeText("\n### B. Analysis ###\n")
-      constructLabelsMaps(QualSparkMetricsAggregator
-        .getAggRawMetrics(
-          app, sqlAnalyzer = Some(sqlPlanAnalyzer))).foreach { case (label, metrics) =>
+      constructLabelsMaps(aggRawMetrics).foreach { case (label, metrics) =>
           pWriter.writeCSVTable(label, metrics)
       }
+      // GPU-only signals default to 0 for qualification (CPU event logs)
+      val appLevelRecommendationSignals = AppLevelRecommendationSignalsProfileResult.build(
+        app.appId, Set.empty[Long], Set.empty[Long])
+      pWriter.writeCSVTable(APP_LEVEL_RECOMMENDATION_SIGNALS, appLevelRecommendationSignals)
       pWriter.writeText("\n### C. Health Check###\n")
       pWriter.writeCSVTable(QualFailedTaskView.getLabel, QualFailedTaskView.getRawView(Seq(app)))
       pWriter.writeTable(
