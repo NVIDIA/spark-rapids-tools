@@ -23,6 +23,7 @@ import com.nvidia.spark.rapids.tool.analysis.util.AggAccumHelper
 import com.nvidia.spark.rapids.tool.analysis.util.StageAccumDiagnosticMetrics._
 import com.nvidia.spark.rapids.tool.profiling._
 
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.rapids.tool.{AppBase, ToolUtils}
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
@@ -47,7 +48,7 @@ import org.apache.spark.sql.rapids.tool.store.AccumMetaRef
  *
  * @param app the AppBase object to analyze
  */
-class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
+class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) with Logging {
   // Hashmap to cache the stage level metrics. It is initialized to None just in case the caller
   // does not call methods in order starting with stage level metrics.
   private var stageLevelCache:
@@ -454,7 +455,18 @@ class AppSparkMetricsAnalyzer(app: AppBase) extends AppAnalysisBase(app) {
       val isMax = ai.infoRef.isAggregateByMax
       ai.getStageIds.foreach { stageId =>
         ai.calculateAccStatsForStage(stageId).foreach { stats =>
-          val numTasks = stageCache.get(stageId).map(_.numTasks).getOrElse(0)
+          // Invariant: stages with GPU accumulators are tracked by stageManager
+          // and therefore cached. The fallback to 0 is defensive for edge cases
+          // (e.g. driver-side accumulators) where the stage is absent from the
+          // task-metrics cache. A 0 here would also exclude the stage from the
+          // task-weighted avg in rollupGpuRows while sum/max still accumulate,
+          // so log a warning so the inconsistency is visible.
+          val numTasks = stageCache.get(stageId).map(_.numTasks).getOrElse {
+            logWarning(s"GPU accumulator '$name' references stage $stageId which " +
+              s"is not in the stage-task metrics cache; using numTasks = 0. " +
+              s"This will be excluded from task-weighted averages at SQL/app level.")
+            0
+          }
           val (sum, max, avg) = if (isMax) {
             (None: Option[Long],
               Some(convertValue(name, stats.max)),

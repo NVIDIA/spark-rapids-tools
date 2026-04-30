@@ -1573,6 +1573,12 @@ object UnixExitCode {
  * GPU task metric aggregation at stage level — one row per (stageId, metricName).
  * Long/transposed schema: unit and sum/max/avg vary by metric. Empty `sum` / `avg`
  * denote max-aggregated metrics (e.g. `gpuMaxDeviceMemoryBytes`).
+ *
+ * Note on stage attempts: unlike StageAggTaskMetricsProfileResult, this class has
+ * no aggregateStageProfileMetric helper because attempt merging happens upstream
+ * at the AccumInfo layer — `AccumInfo.stagesStatMap` is keyed by stageId only
+ * (not stageId + attemptNumber), so calculateAccStatsForStage already returns
+ * the merged result across attempts.
  */
 case class StageAggGpuMetricsProfileResult(
     stageId: Int,
@@ -1599,41 +1605,6 @@ case class StageAggGpuMetricsProfileResult(
   }
 
   override def convertToCSVSeq(): Array[String] = convertToSeq()
-
-  /**
-   * Combines two rows for the same (stageId, metricName) across stage attempts.
-   * Mirrors the policy used by StageAggTaskMetricsProfileResult: sum += sum,
-   * max = max(max), avg = (a+b)/2, numTasks += numTasks.
-   */
-  def aggregateStageProfileMetric(
-      other: StageAggGpuMetricsProfileResult): StageAggGpuMetricsProfileResult = {
-    def addOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
-      case (Some(x), Some(y)) => Some(x + y)
-      case (Some(x), None) => Some(x)
-      case (None, Some(y)) => Some(y)
-      case _ => None
-    }
-    def maxOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
-      case (Some(x), Some(y)) => Some(Math.max(x, y))
-      case (Some(x), None) => Some(x)
-      case (None, Some(y)) => Some(y)
-      case _ => None
-    }
-    def avgOpt(a: Option[Long], b: Option[Long]): Option[Long] = (a, b) match {
-      case (Some(x), Some(y)) => Some((x + y) / 2)
-      case (Some(x), None) => Some(x)
-      case (None, Some(y)) => Some(y)
-      case _ => None
-    }
-    StageAggGpuMetricsProfileResult(
-      stageId = this.stageId,
-      numTasks = this.numTasks + other.numTasks,
-      metricName = this.metricName,
-      unit = this.unit,
-      sum = addOpt(this.sum, other.sum),
-      max = maxOpt(this.max, other.max),
-      avg = avgOpt(this.avg, other.avg))
-  }
 }
 
 /**
