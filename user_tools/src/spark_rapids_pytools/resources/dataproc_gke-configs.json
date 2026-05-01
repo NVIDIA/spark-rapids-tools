@@ -20,6 +20,17 @@
             }
           },
           {
+            "name": "Apache Spark Connect",
+            "uri": "https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/3.5.7/spark-connect_2.12-3.5.7.jar",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "11469f1eeb53c250b9bada24fff2f76b25c407eb"
+              },
+              "size": 14147901
+            }
+          },
+          {
             "name": "GCS Connector Hadoop3",
             "uri": "https://repo1.maven.org/maven2/com/google/cloud/bigdataoss/gcs-connector/hadoop3-2.2.14/gcs-connector-hadoop3-2.2.14-shaded.jar",
             "verification": {
@@ -45,6 +56,17 @@
             "dependencyType": {
               "depType": "archive",
               "relativePath": "jars/*"
+            }
+          },
+          {
+            "name": "Apache Spark Connect",
+            "uri": "https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/3.5.0/spark-connect_2.12-3.5.0.jar",
+            "verification": {
+              "fileHash": {
+                "algorithm": "sha1",
+                "value": "6a514b94478fbb86217162211991a17612d32a15"
+              },
+              "size": 17177871
             }
           },
           {
