@@ -646,7 +646,8 @@ abstract class AutoTuner(
    */
   private def isConcurrentGpuTasksAutoTunedByPlugin: Boolean = {
     getRapidsPluginJarVersion.exists { jarVer =>
-      ToolUtils.compareVersions(jarVer, autoTunerHelper.pluginVersionAutoConcurrentGpuTasks) >= 0
+      ToolUtils.compareVersions(jarVer, autoTunerHelper.pluginVersionAutoConcurrentGpuTasks)
+        .exists(_ >= 0)
     }
   }
 
@@ -1559,7 +1560,7 @@ abstract class AutoTuner(
               val latestPluginVersion = WebCrawlerUtil.getLatestPluginRelease
               latestPluginVersion match {
                 case Some(ver) =>
-                  if (ToolUtils.compareVersions(jarVer, ver) < 0) {
+                  if (ToolUtils.compareVersions(jarVer, ver).exists(_ < 0)) {
                     val jarURL = WebCrawlerUtil.getPluginMvnDownloadLink(ver)
                     appendComment(
                       "A newer RAPIDS Accelerator for Apache Spark plugin is available:\n" +

@@ -1669,6 +1669,14 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
       s"Expected enforced concurrentGpuTasks=4 to be present, got:\n$output")
   }
 
+  test("Target cluster preserve concurrentGpuTasks overrides plugin >= 25.06 drop") {
+    val output = runConcurrentGpuTasksScenario(
+      Seq("rapids-4-spark_2.12-25.08.0.jar"),
+      preserveProps = List("spark.rapids.sql.concurrentGpuTasks"))
+    assert(output.contains("spark.rapids.sql.concurrentGpuTasks"),
+      s"Expected preserved concurrentGpuTasks to be present, got:\n$output")
+  }
+
   test("No recommendation when the jar pluginJar is up-to-date") {
     // 1. Pull the latest release from mvn.
     // 2. The Autotuner finds tha the jar version is latest. No comments should be added
