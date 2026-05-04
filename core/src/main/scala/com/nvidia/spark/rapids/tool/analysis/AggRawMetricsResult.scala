@@ -16,7 +16,7 @@
 
 package com.nvidia.spark.rapids.tool.analysis
 
-import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
+import com.nvidia.spark.rapids.tool.profiling.{AppAggGpuMetricsProfileResult, IOAnalysisProfileResult, JobAggTaskMetricsProfileResult, ShuffleSkewProfileResult, SQLAggGpuMetricsProfileResult, SQLDurationExecutorTimeProfileResult, SQLTaskAggMetricsProfileResult, StageAggGpuMetricsProfileResult, StageAggTaskMetricsProfileResult, StageDiagnosticResult}
 
 /**
  * The result of the aggregation of the raw metrics. It contains the aggregated metrics for an
@@ -32,6 +32,9 @@ import com.nvidia.spark.rapids.tool.profiling.{IOAnalysisProfileResult, JobAggTa
  * @param ioAggs            lists the SQLs along their IO metrics
  * @param sqlDurAggs        the aggregated duration and CPU time for SQLs
  * @param stageDiagnostics  the stage level Spark metrics for diagnostic purposes
+ * @param gpuStageAggs      GPU task metric aggregations at stage level
+ * @param gpuSqlAggs        GPU task metric aggregations at SQL level
+ * @param gpuAppAggs        GPU task metric aggregations at app level
  */
 case class AggRawMetricsResult(
     jobAggs: Seq[JobAggTaskMetricsProfileResult],
@@ -40,4 +43,7 @@ case class AggRawMetricsResult(
     sqlAggs: Seq[SQLTaskAggMetricsProfileResult],
     ioAggs: Seq[IOAnalysisProfileResult],
     sqlDurAggs: Seq[SQLDurationExecutorTimeProfileResult],
-    stageDiagnostics: Seq[StageDiagnosticResult])
+    stageDiagnostics: Seq[StageDiagnosticResult],
+    gpuStageAggs: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
+    gpuSqlAggs: Seq[SQLAggGpuMetricsProfileResult] = Seq.empty,
+    gpuAppAggs: Seq[AppAggGpuMetricsProfileResult] = Seq.empty)

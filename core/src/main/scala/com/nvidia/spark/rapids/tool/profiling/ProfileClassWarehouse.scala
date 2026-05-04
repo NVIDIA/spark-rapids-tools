@@ -1568,3 +1568,103 @@ object SparkRapidsOomExceptions {
 object UnixExitCode {
   val FORCE_KILLED = 137
 }
+
+/**
+ * GPU task metric aggregation at stage level — one row per (stageId, metricName).
+ * Long/transposed schema: unit and sum/max/avg vary by metric. Empty `sum` / `avg`
+ * denote max-aggregated metrics (e.g. `gpuMaxDeviceMemoryBytes`).
+ *
+ * Note on stage attempts: unlike StageAggTaskMetricsProfileResult, this class has
+ * no aggregateStageProfileMetric helper because attempt merging happens upstream
+ * at the AccumInfo layer — `AccumInfo.stagesStatMap` is keyed by stageId only
+ * (not stageId + attemptNumber), so calculateAccStatsForStage already returns
+ * the merged result across attempts.
+ */
+case class StageAggGpuMetricsProfileResult(
+    stageId: Int,
+    numTasks: Int,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("StageAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      stageId.toString,
+      numTasks.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
+
+/**
+ * GPU task metric aggregation at SQL level — one row per (sqlId, metricName).
+ * Rolled up from stage-level rows: sum = Σ stage.sum, max = max stage.max,
+ * avg = task-weighted average over stage.avg. numTasks is intentionally not
+ * carried — it would be a constant per SQL across every metric row (the non-GPU
+ * sql_level_aggregated_task_metrics.csv already has it once per SQL).
+ */
+case class SQLAggGpuMetricsProfileResult(
+    sqlId: Long,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("SQLAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      sqlId.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
+
+/**
+ * GPU task metric aggregation at app level — one row per (appId, metricName).
+ * Same rollup rules as SQL-level. numTasks intentionally omitted (would be a
+ * constant per app and is available in existing per-app CSVs).
+ */
+case class AppAggGpuMetricsProfileResult(
+    appId: String,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("AppAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      appId,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
