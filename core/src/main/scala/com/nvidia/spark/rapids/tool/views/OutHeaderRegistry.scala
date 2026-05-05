@@ -322,6 +322,12 @@ object OutHeaderRegistry {
       Array("appID", "operationId", "sessionId", "userId", "jobTag",
         "startTime", "finishTime", "closeTime", "failTime", "cancelTime", "durationMs",
         "status", "errorMessage",
-        "sqlIds", "jobIds", "statementFile", "statementTruncated")
+        "sqlIds", "jobIds", "statementFile", "statementTruncated"),
+    "StageAggGpuMetricsProfileResult" ->
+      Array("stageId", "numTasks", "metricName", "unit", "sum", "max", "avg"),
+    "SQLAggGpuMetricsProfileResult" ->
+      Array("sqlId", "metricName", "unit", "sum", "max", "avg"),
+    "AppAggGpuMetricsProfileResult" ->
+      Array("appId", "metricName", "unit", "sum", "max", "avg")
   ) // End of outputHeaders map initialization
 }

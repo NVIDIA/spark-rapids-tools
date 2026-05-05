@@ -38,6 +38,7 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       sqlAnalyzer: Option[AppSQLPlanAnalyzer] = None): AggRawMetricsResult = {
     val analysisObj = AppSparkMetricsAnalyzer(app)
     val sqlMetricsAgg = analysisObj.aggregateSparkMetricsBySql(index)
+    val gpuStageRows = analysisObj.aggregateGpuMetricsByStage(index)
     AggRawMetricsResult(
       analysisObj.aggregateSparkMetricsByJob(index),
       analysisObj.aggregateSparkMetricsByStage(index),
@@ -45,7 +46,10 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
       sqlMetricsAgg,
       analysisObj.aggregateIOMetricsBySql(sqlMetricsAgg),
       analysisObj.aggregateDurationAndCPUTimeBySql(index),
-      analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer))
+      analysisObj.aggregateDiagnosticMetricsByStage(index, sqlAnalyzer),
+      gpuStageRows,
+      analysisObj.aggregateGpuMetricsBySql(index, gpuStageRows),
+      analysisObj.aggregateGpuMetricsByApp(index, gpuStageRows))
   }
 
   /**
@@ -66,7 +70,10 @@ trait AppSparkMetricsAggTrait extends AppIndexMapperTrait {
         agg1.sqlAggs ++ agg2.sqlAggs,
         agg1.ioAggs ++ agg2.ioAggs,
         agg1.sqlDurAggs ++ agg2.sqlDurAggs,
-        agg1.stageDiagnostics ++ agg2.stageDiagnostics)
+        agg1.stageDiagnostics ++ agg2.stageDiagnostics,
+        agg1.gpuStageAggs ++ agg2.gpuStageAggs,
+        agg1.gpuSqlAggs ++ agg2.gpuSqlAggs,
+        agg1.gpuAppAggs ++ agg2.gpuAppAggs)
     }
   }
 }
