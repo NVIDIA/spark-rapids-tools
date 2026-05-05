@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1169,8 +1169,23 @@ class APIResHandler(Generic[ToolResultHandlerT], metaclass=ResHandlerMeta):
     def is_empty(self) -> bool:
         return self._res_h.is_empty()
 
+    def get_table_path(self, table_label: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_table_path(table_label)
+
+    def get_per_app_table_path(self, table_label: str, app_id: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_per_app_table_path(table_label, app_id)
+
     def get_raw_metrics_path(self) -> Optional[BoundedCspPath]:
         return self._res_h.get_raw_metrics_path()
+
+    def get_connect_statements_dir(self, app_id: str) -> Optional[BoundedCspPath]:
+        return self._res_h.get_connect_statements_dir(app_id)
+
+    def list_connect_statement_ops(self, app_id: str) -> List[str]:
+        return self._res_h.list_connect_statement_ops(app_id)
+
+    def load_connect_statement(self, app_id: str, operation_id: str) -> Optional[str]:
+        return self._res_h.load_connect_statement(app_id, operation_id)
 
 
 @dataclass

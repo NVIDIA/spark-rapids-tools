@@ -20,6 +20,17 @@
               }
             },
             {
+              "name": "Apache Spark Connect",
+              "uri": "https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/3.5.7/spark-connect_2.12-3.5.7.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "11469f1eeb53c250b9bada24fff2f76b25c407eb"
+                },
+                "size": 14147901
+              }
+            },
+            {
               "name": "Hadoop Azure",
               "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
               "verification": {
@@ -48,6 +59,17 @@
               }
             },
             {
+              "name": "Apache Spark Connect",
+              "uri": "https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/3.5.6/spark-connect_2.12-3.5.6.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "91c16f5383ba28f96f01b92a8553433bc1df0f67"
+                },
+                "size": 14147901
+              }
+            },
+            {
               "name": "Hadoop Azure",
               "uri": "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-azure/3.3.4/hadoop-azure-3.3.4.jar",
               "verification": {
@@ -73,6 +95,17 @@
               "dependencyType": {
                 "depType": "archive",
                 "relativePath": "jars/*"
+              }
+            },
+            {
+              "name": "Apache Spark Connect",
+              "uri": "https://repo1.maven.org/maven2/org/apache/spark/spark-connect_2.12/3.5.0/spark-connect_2.12-3.5.0.jar",
+              "verification": {
+                "fileHash": {
+                  "algorithm": "sha1",
+                  "value": "6a514b94478fbb86217162211991a17612d32a15"
+                },
+                "size": 17177871
               }
             },
             {

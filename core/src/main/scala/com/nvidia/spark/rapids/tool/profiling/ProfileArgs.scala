@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2025, NVIDIA CORPORATION.
+ * Copyright (c) 2021-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,6 +91,12 @@ Usage: java -cp rapids-4-spark-tools_2.12-<version>.jar:$SPARK_HOME/jars/*
   val csv: ScallopOption[Boolean] =
     opt[Boolean](required = false,
       descr = "Output each table to a CSV file as well creating the summary text file.")
+  val connectStatements: ScallopOption[Boolean] =
+    toggle("connect-statements",
+      default = Some(false),
+      prefix = "no-",
+      descrYes = "Write Spark Connect statementText sidecar files. Disabled by default.",
+      descrNo = "Do not write Spark Connect statementText sidecar files.")
   val timeout: ScallopOption[Long] =
     opt[Long](required = false,
       descr = "Maximum time in seconds to wait for the event logs to be processed. " +
