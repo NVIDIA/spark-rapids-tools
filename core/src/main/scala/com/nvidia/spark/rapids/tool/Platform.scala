@@ -781,6 +781,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   /**
+   * Check if the property has a user override from the target cluster — either an
+   * `enforced` value or a `preserve` directive.
+   */
+  final def isPropertyUserOverridden(propertyKey: String): Boolean = {
+    getUserEnforcedSparkProperty(propertyKey).isDefined || isPropertyPreserved(propertyKey)
+  }
+
+  /**
    * Set the default driver node type for the recommended cluster if it is missing.
    */
   final def setDefaultDriverNodeToRecommendedClusterIfMissing() : Unit = {

@@ -626,6 +626,32 @@ abstract class AutoTuner(
   }
 
   /**
+   * Extracts the unique RAPIDS plugin jar version from the application's classpath
+   * entries. Returns None if no version (or more than one distinct version) is found.
+   */
+  private def getRapidsPluginJarVersion: Option[String] = {
+    appInfoProvider.getRapidsJars
+      .flatMap(autoTunerHelper.pluginJarRegEx.findAllMatchIn(_).map(_.group(1)))
+      .distinct match {
+        case Seq(ver) => Some(ver)
+        case _ => None
+      }
+  }
+
+  /**
+   * Returns true when the application uses a RAPIDS plugin version that already
+   * auto-tunes `spark.rapids.sql.concurrentGpuTasks` at runtime, in which case
+   * the AutoTuner should drop its recommendation for that property.
+   * Reference: https://github.com/NVIDIA/spark-rapids/pull/12374
+   */
+  private def isConcurrentGpuTasksAutoTunedByPlugin: Boolean = {
+    getRapidsPluginJarVersion.exists { jarVer =>
+      ToolUtils.compareVersions(jarVer, autoTunerHelper.pluginVersionAutoConcurrentGpuTasks)
+        .exists(_ >= 0)
+    }
+  }
+
+  /**
    * Recommendation for initial heap size based on certain amount of memory per core.
    * Note that we will later reduce this if needed for off heap memory.
    */
@@ -1186,8 +1212,18 @@ abstract class AutoTuner(
       recommendExecutorResourceGpuProps()
       appendRecommendation("spark.task.resource.gpu.amount",
         configProvider.getEntry("TASK_GPU_RESOURCE_AMT").getDefault.toDouble)
-      appendRecommendation("spark.rapids.sql.concurrentGpuTasks",
-        calcGpuConcTasks().toInt)
+      val concGpuTasksKey = "spark.rapids.sql.concurrentGpuTasks"
+      // Target cluster `enforced` and `preserve` overrides take precedence; only drop the
+      // recommendation when neither is set and the plugin already auto-tunes it.
+      if (!platform.isPropertyUserOverridden(concGpuTasksKey) &&
+          isConcurrentGpuTasksAutoTunedByPlugin) {
+        // Plugin version auto-tunes concurrent GPU tasks based on memory usage,
+        // so suppress the AutoTuner recommendation and the corresponding missing comment.
+        // Reference: https://github.com/NVIDIA/spark-rapids/pull/12374
+        skippedRecommendations += concGpuTasksKey
+      } else {
+        appendRecommendation(concGpuTasksKey, calcGpuConcTasks())
+      }
       val execCores = platform.recommendedClusterInfo.map(_.coresPerExecutor).getOrElse(1)
       val availableMemPerExec =
         platform.recommendedWorkerNode.map(_.getMemoryPerExec).getOrElse(0.0)
@@ -1524,7 +1560,7 @@ abstract class AutoTuner(
               val latestPluginVersion = WebCrawlerUtil.getLatestPluginRelease
               latestPluginVersion match {
                 case Some(ver) =>
-                  if (ToolUtils.compareVersions(jarVer, ver) < 0) {
+                  if (ToolUtils.compareVersions(jarVer, ver).exists(_ < 0)) {
                     val jarURL = WebCrawlerUtil.getPluginMvnDownloadLink(ver)
                     appendComment(
                       "A newer RAPIDS Accelerator for Apache Spark plugin is available:\n" +
@@ -2236,6 +2272,10 @@ trait AutoTunerHelper extends Logging {
   def recommendedClusterSizingStrategy(platform: Platform): ClusterSizingStrategy
   // the plugin jar is in the form of rapids-4-spark_scala_binary-(version)-*.jar
   lazy val pluginJarRegEx: Regex = "rapids-4-spark_\\d\\.\\d+-(\\d{2}\\.\\d{2}\\.\\d+).*\\.jar".r
+  // Starting with this plugin version, the RAPIDS plugin auto-tunes the number of
+  // concurrent GPU tasks based on memory usage (see spark-rapids#12374), so the
+  // AutoTuner should no longer recommend `spark.rapids.sql.concurrentGpuTasks`.
+  lazy val pluginVersionAutoConcurrentGpuTasks: String = "25.06.0"
   lazy val gpuKryoRegistratorClassName = "com.nvidia.spark.rapids.GpuKryoRegistrator"
   lazy val rapidsPluginClassName = "com.nvidia.spark.SQLPlugin"
   lazy val kubernetesGpuVendor = "nvidia.com"
