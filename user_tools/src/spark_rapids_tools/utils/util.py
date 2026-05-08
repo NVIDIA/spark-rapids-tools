@@ -16,13 +16,14 @@
 
 import os
 from contextlib import contextmanager
-from pathlib import Path, PurePath
+from pathlib import Path
 import re
 import shutil
 import ssl
 import sys
 import textwrap
 import urllib
+import urllib.parse
 import tempfile
 import xml.etree.ElementTree as elem_tree
 from functools import reduce
@@ -106,6 +107,17 @@ def _strip_path_quotes_and_whitespace(fpath: str) -> str:
     return fpath.strip().strip("'\"")
 
 
+# Glob metacharacters must survive URI construction so that Hadoop's Path/GlobPattern
+# can expand wildcards on the JAR side. PurePath.as_uri() percent-encodes these, which
+# silently defeats glob expansion for local paths like `/data/cpu/*`.
+_LOCAL_URI_SAFE_CHARS = '/*?[]'
+
+
+def _local_path_to_file_uri(local_path: str) -> str:
+    """Build a `file://` URI from an absolute local path, preserving glob metacharacters."""
+    return 'file://' + urllib.parse.quote(local_path, safe=_LOCAL_URI_SAFE_CHARS)
+
+
 def _normalize_file_uri(fpath: str) -> str:
     """Canonicalize `file:` URIs into absolute `file://` form when the scheme is present."""
     if not fpath.lower().startswith('file:'):
@@ -114,7 +126,7 @@ def _normalize_file_uri(fpath: str) -> str:
     _, _, path_part = fpath.partition(':')
     normalized_path = '/' + path_part.lstrip('/') if path_part else '/'
     absolute_path = os.path.abspath(normalized_path)
-    return PurePath(absolute_path).as_uri()
+    return _local_path_to_file_uri(absolute_path)
 
 
 def _normalize_s3_uri(fpath: str, target_scheme: str = 's3') -> str:
@@ -150,7 +162,7 @@ def get_path_as_uri(fpath: str) -> str:
         return normalized_path
     # stringify the path to apply the common methods which is expanding the file.
     local_path = stringify_path(normalized_path)
-    return PurePath(local_path).as_uri()
+    return _local_path_to_file_uri(local_path)
 
 
 def get_path_as_uri_for_hadoop(fpath: str) -> str:
@@ -168,7 +180,7 @@ def get_path_as_uri_for_hadoop(fpath: str) -> str:
     if re.match(r'\w+://', normalized_path):
         return normalized_path
     local_path = stringify_path(normalized_path)
-    return PurePath(local_path).as_uri()
+    return _local_path_to_file_uri(local_path)
 
 
 def to_camel_case(word: str) -> str:

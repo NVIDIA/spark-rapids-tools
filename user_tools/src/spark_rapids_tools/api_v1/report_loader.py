@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.
+# Copyright (c) 2025-2026, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -134,7 +134,8 @@ class ReportLoader(object):
         return [
             f'{self.core_report_dir}/qualCoreReport.yaml',
             f'{self.core_report_dir}/profCoreReport.yaml',
-            f'{self.core_report_dir}/coreRawMetricsReport.yaml'
+            f'{self.core_report_dir}/coreRawMetricsReport.yaml',
+            f'{self.core_report_dir}/connectReport.yaml'
         ]
 
     @property

@@ -55,6 +55,7 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     s"/${Profiler.SUBDIR}"
   private val numOutputRows = appArgs.numOutputRows.getOrElse(1000)
   private val outputCSV: Boolean = appArgs.csv()
+  private val writeConnectStatements: Boolean = appArgs.connectStatements()
   private val useAutoTuner: Boolean = appArgs.autoTuner()
   private val outputAlignedSQLIds: Boolean = appArgs.outputSqlIdsAligned()
   private val enableDiagnosticViews: Boolean = appArgs.enableDiagnosticViews()
@@ -293,20 +294,33 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       }
     }
     val analysis = RawMetricProfilerView.getAggMetrics(analyzedApps)
-    val maxTaskInputInfo = if (useAutoTuner) {
-      analysis.maxTaskInputSizes
-    } else {
-      Seq.empty
-    }
     val sqlIdAlign = if (outputAlignedSQLIds) {
       collect.getSQLCleanAndAligned
     } else {
       Seq.empty
     }
     val endTime = System.currentTimeMillis()
-    val appInfo = collect.getAppInfo
     val sqlMetrics = collect.getSQLPlanMetrics
-    logDebug(s"Time to collect Profiling Info [${appInfo.head.appId}]: ${endTime - startTime}.")
+    val stageMetrics = collect.getStageLevelMetrics
+    val failedTasks = healthCheck.getFailedTasks
+    val failedStages = healthCheck.getFailedStages
+
+    // Compute GPU OOM signals for tuning_signals.csv
+    val singleApp = analyzedApps.head
+    val pluginEnabled = singleApp.gpuMode
+    val scanOomStages = SingleAppSummaryInfoProvider.computeScanStagesWithGpuOom(
+      pluginEnabled, failedTasks, stageMetrics, singleApp)
+    val gpuShuffleContainerOomStages =
+      SingleAppSummaryInfoProvider.computeShuffleStagesWithContainerOom(
+        pluginEnabled, singleApp.sparkProperties.get("spark.master"),
+        failedStages, failedTasks)
+
+    val appInfo = collect.getAppInfo
+    val appId = appInfo.headOption.flatMap(_.appId).getOrElse("")
+    val appLevelRecommendationSignals = AppLevelRecommendationSignalsProfileResult.build(
+      appId, scanOomStages, gpuShuffleContainerOomStages)
+
+    logDebug(s"Time to collect Profiling Info [$appId]: ${endTime - startTime}.")
     val appInfoSummary = ApplicationSummaryInfo(
       appInfo = appInfo,
       dsInfo = collect.getDataSourceInfo(sqlMetrics),
@@ -315,14 +329,14 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       rapidsProps = collect.getRapidsProperties,
       rapidsJar = collect.getRapidsJARInfo,
       sqlMetrics = sqlMetrics,
-      stageMetrics = collect.getStageLevelMetrics,
+      stageMetrics = stageMetrics,
       jobAggMetrics = analysis.jobAggs,
       stageAggMetrics = analysis.stageAggs,
       sqlTaskAggMetrics = analysis.sqlAggs,
       durAndCpuMet = analysis.sqlDurAggs,
       skewInfo = analysis.taskShuffleSkew,
-      failedTasks = healthCheck.getFailedTasks,
-      failedStages = healthCheck.getFailedStages,
+      failedTasks = failedTasks,
+      failedStages = failedStages,
       failedJobs = healthCheck.getFailedJobs,
       removedBMs = healthCheck.getRemovedBlockManager,
       removedExecutors = healthCheck.getRemovedExecutors,
@@ -330,14 +344,17 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
       sparkProps = collect.getSparkProperties,
       sqlStageInfo = collect.getSQLToStage,
       wholeStage = collect.getWholeStageCodeGenMapping,
-      maxTaskInputBytesRead = maxTaskInputInfo,
       appLogPath = collect.getAppLogPath,
       ioMetrics = analysis.ioAggs,
       sysProps = collect.getSystemProperties,
       sqlCleanedAlignedIds = sqlIdAlign,
       sparkRapidsBuildInfo = collect.getSparkRapidsInfo,
       writeOpsInfo = collect.getWriteOperationInfo,
-      sqlPlanInfo = collect.getSQLPlanInfoTruncated)
+      sqlPlanInfo = collect.getSQLPlanInfoTruncated,
+      appLevelRecommendationSignals = appLevelRecommendationSignals,
+      gpuStageAggMetrics = analysis.gpuStageAggs,
+      gpuSqlAggMetrics = analysis.gpuSqlAggs,
+      gpuAppAggMetrics = analysis.gpuAppAggs)
     (appInfoSummary,
      DiagnosticSummaryInfo(analysis.stageDiagnostics, collect.getIODiagnosticMetrics))
   }
@@ -405,11 +422,22 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeCSVTable(JOB_AGG_LABEL, app.jobAggMetrics)
     profileOutputWriter.writeCSVTable(STAGE_AGG_LABEL, app.stageAggMetrics)
     profileOutputWriter.writeCSVTable(SQL_AGG_LABEL, app.sqlTaskAggMetrics)
+    if (app.gpuStageAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_STAGE_AGG_LABEL, app.gpuStageAggMetrics)
+    }
+    if (app.gpuSqlAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_SQL_AGG_LABEL, app.gpuSqlAggMetrics)
+    }
+    if (app.gpuAppAggMetrics.nonEmpty) {
+      profileOutputWriter.writeCSVTable(GPU_APP_AGG_LABEL, app.gpuAppAggMetrics)
+    }
     profileOutputWriter.writeCSVTable(IO_LABEL, app.ioMetrics)
     profileOutputWriter.writeCSVTable(SQL_DUR_LABEL, app.durAndCpuMet)
     // writeOps are generated in only CSV format
     profileOutputWriter.writeCSVTable(ProfWriteOpsView.getLabel, app.writeOpsInfo)
     profileOutputWriter.writeCSVTable(TASK_SHUFFLE_SKEW, app.skewInfo)
+    profileOutputWriter.writeCSVTable(APP_LEVEL_RECOMMENDATION_SIGNALS,
+      app.appLevelRecommendationSignals)
     profileOutputWriter.writeText("\n### C. Health Check###\n")
     profileOutputWriter.writeCSVTable(ProfFailedTaskView.getLabel, app.failedTasks)
     profileOutputWriter.writeTable(ProfFailedStageView.getLabel, app.failedStages)
@@ -417,6 +445,8 @@ class Profiler(hadoopConf: Configuration, appArgs: ProfileArgs, enablePB: Boolea
     profileOutputWriter.writeTable(ProfRemovedBLKMgrView.getLabel, app.removedBMs)
     profileOutputWriter.writeCSVTable(ProfRemovedExecutorView.getLabel, app.removedExecutors)
     profileOutputWriter.writeCSVTable("Unsupported SQL Plan", app.unsupportedOps)
+    Profiler.writeConnectTables(profileOutputWriter, profilerResult.app,
+      writeConnectStatements, Some(hadoopConf))
     if (outputAlignedSQLIds) {
       profileOutputWriter.writeTable(
         ProfSQLPlanAlignedView.getLabel, app.sqlCleanedAlignedIds,
@@ -480,6 +510,59 @@ object Profiler {
   private val DRIVER_LOG_NAME = "driver"
   val PROFILE_LOG_NAME = "profile"
   val SUBDIR = "rapids_4_spark_profile"
+
+  /**
+   * Writes `Connect Sessions` and `Connect Operations` per-app CSV tables when
+   * the application is in Spark Connect mode. No-op otherwise: the underlying
+   * `writeCSVTable` returns early on empty input, so non-Connect apps produce
+   * no file at all (matches the behavior of every other per-app table).
+   *
+   * When enabled, each operation's `statementText` is written to a sidecar file
+   * under `<perAppDir>/connect_statements/<operationId>.txt` and the basename
+   * is recorded in the `statementFile` column of `connect_operations.csv`.
+   */
+  def writeConnectTables(
+      writer: ProfileOutputWriter,
+      app: AppBase,
+      writeStatementSidecars: Boolean = false,
+      hadoopConf: Option[Configuration] = None): Unit = {
+    if (!app.isConnectMode) return
+    val appId = app.appId
+    // Group once so the per-session operation count is O(operations) overall
+    // instead of O(sessions * operations).
+    val opCountBySession: Map[String, Long] =
+      app.connectOperations.values.groupBy(_.sessionId).map { case (sid, ops) =>
+        sid -> ops.size.toLong
+      }
+    val sessionRows = app.connectSessions.values.toSeq.sortBy(_.sessionId).map { s =>
+      ConnectSessionProfileResult(
+        appId = appId,
+        sessionId = s.sessionId,
+        userId = s.userId,
+        startTime = s.startTime,
+        endTime = s.endTime,
+        operationCount = opCountBySession.getOrElse(s.sessionId, 0L))
+    }
+    writer.writeCSVTable("Connect Sessions", sessionRows)
+    val statementFiles: Map[String, String] =
+      if (writeStatementSidecars) {
+        ConnectStatementWriter.writeStatementFiles(
+          writer.outputDir, app.connectOperations.values, hadoopConf)
+      } else {
+        Map.empty
+      }
+    val opRows = app.connectOperations.values.toSeq.sortBy(_.operationId).map { op =>
+      ConnectOperationProfileResult.from(
+        appId = appId,
+        op = op,
+        sqlIds = app.operationIdToSqlIds.get(op.operationId)
+          .map(_.toSeq.sorted).getOrElse(Seq.empty),
+        jobIds = app.operationIdToJobIds.get(op.operationId)
+          .map(_.toSeq.sorted).getOrElse(Seq.empty),
+        statementFile = statementFiles.get(op.operationId))
+    }
+    writer.writeCSVTable("Connect Operations", opRows)
+  }
 
   def getAutoTunerResultsAsString(props: Seq[TuningEntryTrait],
       comments: Seq[RecommendedCommentResult]): String = {

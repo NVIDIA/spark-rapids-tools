@@ -32,7 +32,8 @@ import org.apache.spark.sql.rapids.tool.AppBase
  * directly imported to preserve compatibility with older Spark profiles.
  * Events are identified by class-name prefix, fields are extracted via
  * cached reflective accessors in [[EventUtils]], and results are stored
- * in [[ConnectSessionInfo]] and [[ConnectOperationInfo]].
+ * in [[com.nvidia.spark.rapids.tool.profiling.ConnectSessionInfo]] and
+ * [[com.nvidia.spark.rapids.tool.profiling.ConnectOperationInfo]].
  */
 object ConnectEventHandler extends Logging {
 

@@ -143,7 +143,11 @@ abstract class AppBase(
   val connectOperations: HashMap[String, ConnectOperationInfo] = HashMap.empty
   // jobTag -> operationId index for correlation with SQL executions and jobs.
   val jobTagToConnectOpId: HashMap[String, String] = HashMap.empty
-  def isConnectMode: Boolean = connectOperations.nonEmpty
+  // operationId -> sqlIDs discovered via SparkListenerSQLExecutionStart.jobTags.
+  val operationIdToSqlIds: HashMap[String, HashSet[Long]] = HashMap.empty
+  // operationId -> jobIDs discovered via SparkListenerJobStart.properties["spark.job.tags"].
+  val operationIdToJobIds: HashMap[String, HashSet[Int]] = HashMap.empty
+  def isConnectMode: Boolean = connectSessions.nonEmpty || connectOperations.nonEmpty
 
   def sqlPlans: immutable.Map[Long, SparkPlanInfo] = sqlManager.getPlanInfos
 

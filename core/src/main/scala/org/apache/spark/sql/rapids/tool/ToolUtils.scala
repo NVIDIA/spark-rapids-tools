@@ -68,21 +68,28 @@ object ToolUtils extends Logging {
     org.apache.spark.SPARK_VERSION
   }
 
-  def compareVersions(verA: String, verB: String): Int = {
+  /**
+   * Compare two version strings using
+   * [[org.apache.maven.artifact.versioning.ComparableVersion#compareTo]]. The wrapped
+   * `Int` follows the standard `compareTo` sign convention (negative / zero / positive).
+   * Returns `None` if either string fails to parse, so callers cannot confuse a parse
+   * failure with version equality.
+   */
+  def compareVersions(verA: String, verB: String): Option[Int] = {
     Try {
       val verObjA = new ComparableVersion(verA)
       val verObjB = new ComparableVersion(verB)
       verObjA.compareTo(verObjB)
     } match {
-      case Success(compRes) => compRes
+      case Success(compRes) => Some(compRes)
       case Failure(t) =>
         logError(s"exception comparing two versions [$verA, $verB]", t)
-        0
+        None
     }
   }
 
   def runtimeIsSparkVersion(refVersion: String): Boolean = {
-    compareVersions(refVersion, sparkRuntimeVersion) == 0
+    compareVersions(refVersion, sparkRuntimeVersion).contains(0)
   }
 
   private def compareToSparkVersion(currVersion: String, lookupVersion: String): Int = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024, NVIDIA CORPORATION.
+ * Copyright (c) 2024-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ class TaskMetricsAccumRec {
   var executorDeserializeTimeSum: Long = 0
   var executorRunTimeSum: Long = 0
   var inputBytesReadSum: Long = 0
+  var inputBytesReadMax: Long = Long.MinValue
   var inputRecordsReadSum: Long = 0
   var jvmGCTimeSum: Long = 0
   var memoryBytesSpilledSum: Long = 0
@@ -70,6 +71,7 @@ class TaskMetricsAccumRec {
   def resetFields(): Unit = {
     durationMax = 0
     durationMin = 0
+    inputBytesReadMax = 0
     peakExecutionMemoryMax = 0
     resultSizeMax = 0
   }
@@ -102,6 +104,7 @@ class TaskMetricsAccumRec {
     swWriteTimeSum += rec.sw_writeTime
     // Max fields
     durationMax = math.max(durationMax, rec.duration)
+    inputBytesReadMax = math.max(inputBytesReadMax, rec.input_bytesRead)
     peakExecutionMemoryMax = math.max(peakExecutionMemoryMax, rec.peakExecutionMemory)
     resultSizeMax = math.max(resultSizeMax, rec.resultSize)
     // Min Fields
@@ -136,6 +139,7 @@ class TaskMetricsAccumRec {
     swWriteTimeSum += rec.swWriteTimeSum
     // Max
     durationMax = math.max(durationMax, rec.durationMax)
+    inputBytesReadMax = math.max(inputBytesReadMax, rec.inputBytesReadMax)
     peakExecutionMemoryMax = math.max(peakExecutionMemoryMax, rec.peakExecutionMemoryMax)
     resultSizeMax = math.max(resultSizeMax, rec.resultSizeMax)
     // Min

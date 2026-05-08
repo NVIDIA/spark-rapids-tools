@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -70,6 +70,8 @@ object OutHeaderRegistry {
     "AppInfoProfileResults" ->
       Array("appName", "appId", "attemptId", "sparkUser", "startTime", "endTime", "duration",
         "durationStr", "sparkRuntime", "sparkVersion", "pluginEnabled", "totalCoreSeconds"),
+    "AppLevelRecommendationSignalsProfileResult" ->
+      Array("appId", "numScanStagesWithGpuOom", "numGpuShuffleStagesWithContainerOom"),
     "AppLogPathProfileResults" ->
       Array("appName", "appId", "eventLogPath"),
     "FailedTaskProfileResults" ->
@@ -124,6 +126,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",
@@ -156,6 +159,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",
@@ -231,6 +235,7 @@ object OutHeaderRegistry {
         "executorDeserializeTime_sum",
         "executorRunTime_sum",
         "input_bytesRead_sum",
+        "input_bytesRead_max",
         "input_recordsRead_sum",
         "jvmGCTime_sum",
         "memoryBytesSpilled_sum",
@@ -309,6 +314,20 @@ object OutHeaderRegistry {
     "WriteOpProfileResult" ->
       Array("sqlID", "sqlPlanVersion", "nodeId", "fromFinalPlan", "execName", "format",
           "location", "tableName", "dataBase", "outputColumns", "writeMode",
-          "partitionColumns", "compressionOption", "fullDescription")
+          "partitionColumns", "compressionOption", "fullDescription"),
+    "ConnectSessionProfileResult" ->
+      Array("appID", "sessionId", "userId", "startTime", "endTime", "durationMs",
+        "operationCount"),
+    "ConnectOperationProfileResult" ->
+      Array("appID", "operationId", "sessionId", "userId", "jobTag",
+        "startTime", "finishTime", "closeTime", "failTime", "cancelTime", "durationMs",
+        "status", "errorMessage",
+        "sqlIds", "jobIds", "statementFile", "statementTruncated"),
+    "StageAggGpuMetricsProfileResult" ->
+      Array("stageId", "numTasks", "metricName", "unit", "sum", "max", "avg"),
+    "SQLAggGpuMetricsProfileResult" ->
+      Array("sqlId", "metricName", "unit", "sum", "max", "avg"),
+    "AppAggGpuMetricsProfileResult" ->
+      Array("appId", "metricName", "unit", "sum", "max", "avg")
   ) // End of outputHeaders map initialization
 }

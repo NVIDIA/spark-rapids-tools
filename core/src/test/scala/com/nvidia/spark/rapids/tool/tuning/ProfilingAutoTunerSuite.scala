@@ -1600,6 +1600,83 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  // Helper that runs the AutoTuner without pre-setting `spark.rapids.sql.concurrentGpuTasks`
+  // so the default recommendation path is exercised. Returns the AutoTuner output string.
+  private def runConcurrentGpuTasksScenario(
+      rapidsJars: Seq[String],
+      enforcedProps: Map[String, String] = Map.empty,
+      preserveProps: List[String] = List.empty): String = {
+    val customProps = mutable.LinkedHashMap(
+      "spark.executor.cores" -> "16",
+      "spark.executor.memory" -> "122880MiB",
+      "spark.executor.memoryOverhead" -> "8396m",
+      "spark.rapids.memory.pinnedPool.size" -> "4096m",
+      "spark.rapids.shuffle.multiThreaded.reader.threads" -> "16",
+      "spark.rapids.shuffle.multiThreaded.writer.threads" -> "16",
+      "spark.rapids.sql.multiThreadedRead.numThreads" -> "20",
+      "spark.shuffle.manager" ->
+        s"com.nvidia.spark.rapids.spark$testSmVersion.RapidsShuffleManager",
+      "spark.sql.files.maxPartitionBytes" -> "512m",
+      "spark.task.resource.gpu.amount" -> "0.001")
+    val sparkProps = defaultDataprocProps.++(customProps)
+    val platform = if (enforcedProps.nonEmpty || preserveProps.nonEmpty) {
+      val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+        enforcedSparkProperties = enforcedProps,
+        preserveSparkProperties = preserveProps
+      )
+      PlatformFactory.createInstance(PlatformNames.DATAPROC, Some(targetClusterInfo))
+    } else {
+      PlatformFactory.createInstance(PlatformNames.DATAPROC)
+    }
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 32,
+      numWorkers = 4,
+      gpuCount = 2,
+      sparkProperties = sparkProps.toMap
+    )
+    val autoTuner =
+      buildAutoTunerForTests(getGpuAppMockInfoProvider(
+        propsFromLog = sparkProps,
+        rapidsJars = rapidsJars), platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    Profiler.getAutoTunerResultsAsString(properties, comments)
+  }
+
+  test("AutoTuner drops concurrentGpuTasks recommendation for plugin >= 25.06") {
+    val output = runConcurrentGpuTasksScenario(Seq("rapids-4-spark_2.12-25.06.0.jar"))
+    assert(!output.contains("spark.rapids.sql.concurrentGpuTasks"),
+      s"Expected no concurrentGpuTasks recommendation/comment, got:\n$output")
+  }
+
+  test("AutoTuner keeps concurrentGpuTasks recommendation for plugin < 25.06") {
+    val output = runConcurrentGpuTasksScenario(Seq("rapids-4-spark_2.12-25.04.0.jar"))
+    assert(output.contains("spark.rapids.sql.concurrentGpuTasks"),
+      s"Expected concurrentGpuTasks to be present, got:\n$output")
+  }
+
+  test("AutoTuner keeps concurrentGpuTasks recommendation when no plugin jar version found") {
+    val output = runConcurrentGpuTasksScenario(Seq.empty)
+    assert(output.contains("spark.rapids.sql.concurrentGpuTasks"),
+      s"Expected concurrentGpuTasks to be present, got:\n$output")
+  }
+
+  test("Target cluster enforced concurrentGpuTasks overrides plugin >= 25.06 drop") {
+    val output = runConcurrentGpuTasksScenario(
+      Seq("rapids-4-spark_2.12-25.08.0.jar"),
+      enforcedProps = Map("spark.rapids.sql.concurrentGpuTasks" -> "4"))
+    assert(output.contains("spark.rapids.sql.concurrentGpuTasks=4"),
+      s"Expected enforced concurrentGpuTasks=4 to be present, got:\n$output")
+  }
+
+  test("Target cluster preserve concurrentGpuTasks overrides plugin >= 25.06 drop") {
+    val output = runConcurrentGpuTasksScenario(
+      Seq("rapids-4-spark_2.12-25.08.0.jar"),
+      preserveProps = List("spark.rapids.sql.concurrentGpuTasks"))
+    assert(output.contains("spark.rapids.sql.concurrentGpuTasks"),
+      s"Expected preserved concurrentGpuTasks to be present, got:\n$output")
+  }
+
   test("No recommendation when the jar pluginJar is up-to-date") {
     // 1. Pull the latest release from mvn.
     // 2. The Autotuner finds tha the jar version is latest. No comments should be added
@@ -3139,7 +3216,8 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
           "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
           "spark.rapids.sql.concurrentGpuTasks" -> "4")
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-        logEventsProps, Some(testSparkVersion), scanStagesWithGpuOom = hasGpuOOm)
+        logEventsProps, Some(testSparkVersion),
+        scanStagesWithGpuOom = if (hasGpuOOm) Set(1L) else Set.empty)
       val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
       // Configure cluster info using Platform's existing method
@@ -3291,7 +3369,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true)
+      logEventsProps, Some(testSparkVersion), gpuShuffleStagesWithContainerOom = Set(1L))
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 
     // Configure cluster info using Platform's existing method
@@ -3379,7 +3457,7 @@ class ProfilingAutoTunerSuite extends ProfilingAutoTunerSuiteBase {
         "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
         "spark.rapids.sql.concurrentGpuTasks" -> "4")
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
-      logEventsProps, Some(testSparkVersion), shuffleStagesWithOom = true,
+      logEventsProps, Some(testSparkVersion), gpuShuffleStagesWithContainerOom = Set(1L),
       meanInput = 50000, meanShuffleRead = 80000)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC)
 

@@ -49,8 +49,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val meanShuffleRead: Double,
     val shuffleStagesWithPosSpilling: Set[Long],
     val shuffleSkewStages: Set[Long],
-    val scanStagesWithGpuOom: Boolean,
-    val shuffleStagesWithOom: Boolean,
+    val scanStagesWithGpuOomSet: Set[Long],
+    val gpuShuffleStagesWithContainerOomSet: Set[Long],
     val maxColumnarExchangeDataSizeBytes: Option[Long] = None)
     extends BaseProfilingAppSummaryInfoProvider {
   override def isAppInfoAvailable = true
@@ -69,8 +69,8 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getRedundantReadSize: Long = redundantReadSize
   override def getShuffleStagesWithPosSpilling: Set[Long] = shuffleStagesWithPosSpilling
   override def getShuffleSkewStages: Set[Long] = shuffleSkewStages
-  override def hasScanStagesWithGpuOom: Boolean = scanStagesWithGpuOom
-  override def hasShuffleStagesWithOom: Boolean = shuffleStagesWithOom
+  override def scanStagesWithGpuOom: Set[Long] = scanStagesWithGpuOomSet
+  override def gpuShuffleStagesWithContainerOom: Set[Long] = gpuShuffleStagesWithContainerOomSet
   override def getMaxColumnarExchangeDataSizeBytes: Option[Long] = maxColumnarExchangeDataSizeBytes
 
   /**
@@ -135,13 +135,13 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       meanShuffleRead: Double = 0.0,
       shuffleStagesWithPosSpilling: Set[Long] = Set(),
       shuffleSkewStages: Set[Long] = Set(),
-      scanStagesWithGpuOom: Boolean = false,
-      shuffleStagesWithOom: Boolean = false,
+      scanStagesWithGpuOom: Set[Long] = Set(),
+      gpuShuffleStagesWithContainerOom: Set[Long] = Set(),
       maxColumnarExchangeDataSizeBytes: Option[Long] = None): AppInfoProviderMockTest = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom,
-      shuffleStagesWithOom, maxColumnarExchangeDataSizeBytes)
+      gpuShuffleStagesWithContainerOom, maxColumnarExchangeDataSizeBytes)
   }
 
   /**

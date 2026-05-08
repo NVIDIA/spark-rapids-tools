@@ -1,0 +1,2 @@
+Event Log,Status,App ID,Attempt ID,App Name,Description
+/path/to/connect_with_sql_job,SUCCESS,local-connect-e2e,0,ConnectE2E,Processing time: 1ms

@@ -516,6 +516,38 @@ case class AppInfoProfileResults(
   }
 }
 
+case class AppLevelRecommendationSignalsProfileResult(
+    appId: String,
+    numScanStagesWithGpuOom: Int,
+    numGpuShuffleStagesWithContainerOom: Int) extends ProfileResult {
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("AppLevelRecommendationSignalsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = Array(
+    appId,
+    numScanStagesWithGpuOom.toString,
+    numGpuShuffleStagesWithContainerOom.toString)
+
+  override def convertToCSVSeq(): Array[String] = Array(
+    StringUtils.reformatCSVString(appId),
+    numScanStagesWithGpuOom.toString,
+    numGpuShuffleStagesWithContainerOom.toString)
+}
+
+object AppLevelRecommendationSignalsProfileResult {
+  def build(
+      appId: String,
+      scanStagesWithGpuOom: Set[Long],
+      gpuShuffleStagesWithContainerOom: Set[Long])
+      : Seq[AppLevelRecommendationSignalsProfileResult] = {
+    Seq(AppLevelRecommendationSignalsProfileResult(
+      appId,
+      scanStagesWithGpuOom.size,
+      gpuShuffleStagesWithContainerOom.size))
+  }
+}
+
 case class AppLogPathProfileResults(
     appName: String, appId: Option[String], eventLogPath: String)  extends ProfileResult {
   override def outputHeaders: Array[String] = {
@@ -751,6 +783,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
   def executorDeserializeTimeSum: Long
   def executorRunTimeSum: Long
   def inputBytesReadSum: Long
+  def inputBytesReadMax: Long
   def inputRecordsReadSum: Long
   def jvmGCTimeSum: Long
   def memoryBytesSpilledSum: Long
@@ -791,6 +824,7 @@ trait BaseJobStageAggTaskMetricsProfileResult extends ProfileResult {
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,
@@ -828,6 +862,7 @@ case class JobAggTaskMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     inputRecordsReadSum: Long,
     jvmGCTimeSum: Long,
     memoryBytesSpilledSum: Long,
@@ -868,6 +903,7 @@ case class StageAggTaskMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     inputRecordsReadSum: Long,
     jvmGCTimeSum: Long,
     memoryBytesSpilledSum: Long,
@@ -922,6 +958,7 @@ case class StageAggTaskMetricsProfileResult(
         other.executorDeserializeTimeSum,
       executorRunTimeSum = this.executorRunTimeSum + other.executorRunTimeSum,
       inputBytesReadSum = this.inputBytesReadSum + other.inputBytesReadSum,
+      inputBytesReadMax = Math.max(this.inputBytesReadMax, other.inputBytesReadMax),
       inputRecordsReadSum = this.inputRecordsReadSum + other.inputRecordsReadSum,
       jvmGCTimeSum = this.jvmGCTimeSum + other.jvmGCTimeSum,
       memoryBytesSpilledSum = this.memoryBytesSpilledSum + other.memoryBytesSpilledSum,
@@ -1084,12 +1121,6 @@ case class StageDiagnosticResult(
   }
 }
 
-case class SQLMaxTaskInputSizes(
-    appId: String,
-    // Not added to the output since it is used only by the AutoTuner
-    maxTaskInputBytesRead: Double
-)
-
 case class SQLTaskAggMetricsProfileResult(
     appId: String,
     sqlId: Long,
@@ -1107,6 +1138,7 @@ case class SQLTaskAggMetricsProfileResult(
     executorDeserializeTimeSum: Long,
     executorRunTimeSum: Long,
     inputBytesReadSum: Long,
+    inputBytesReadMax: Long,
     // Not added to the output since it is used only by the AutoTuner
     inputBytesReadAvg: Double,
     inputRecordsReadSum: Long,
@@ -1155,6 +1187,7 @@ case class SQLTaskAggMetricsProfileResult(
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,
@@ -1191,6 +1224,7 @@ case class SQLTaskAggMetricsProfileResult(
       executorDeserializeTimeSum.toString,
       executorRunTimeSum.toString,
       inputBytesReadSum.toString,
+      inputBytesReadMax.toString,
       inputRecordsReadSum.toString,
       jvmGCTimeSum.toString,
       memoryBytesSpilledSum.toString,
@@ -1499,15 +1533,33 @@ case class RecommendedCommentResult(comment: String) {
   override def toString: String = "- %s".format(comment)
 }
 
+// scalastyle:off line.size.limit
 /**
- * Helper object to store the list of SparkRapids OOM exceptions.
+ * Helper object to detect OOM exceptions from SparkRapids event logs.
+ *
+ * GPU OOM class names from spark-rapids-jni:
+ * - GpuOOM -> GpuRetryOOM, GpuSplitAndRetryOOM
+ * See: https://github.com/NVIDIA/spark-rapids-jni/blob/725cd64be2115cd072bf51d7d6c5281d6d08bf4f/src/main/cpp/src/SparkResourceAdaptorJni.cpp#L1313
+ * See: https://github.com/NVIDIA/spark-rapids/blob/79922d62a1c5759963e969018322ad8e544629ff/sql-plugin/src/main/scala/com/nvidia/spark/rapids/RmmRapidsRetryIterator.scala
  */
+// scalastyle:on line.size.limit
 object SparkRapidsOomExceptions {
-  val gpuExceptionClassNames: Set[String] = {
-    Set("GpuSplitAndRetryOOM", "GpuRetryOOM")
-  }
+  // Current JNI: GpuOOM -> GpuRetryOOM, GpuSplitAndRetryOOM
+  // Pre-24.02 JNI: jni.SplitAndRetryOOM, jni.RetryOOM (no Gpu prefix)
+  // Using "jni." prefix to avoid matching CpuSplitAndRetryOOM / CpuRetryOOM
+  // Using "jni.GpuOOM" (anchored) for the base class to avoid partial matches
+  val gpuExceptionClassNames: Set[String] =
+    Set("GpuSplitAndRetryOOM", "GpuRetryOOM", "jni.GpuOOM",
+        "jni.SplitAndRetryOOM", "jni.RetryOOM")
 
   val gpuShuffleClassName: String = "GpuShuffleExchangeExec"
+
+  /**
+   * Check if a failure reason indicates a GPU OOM error.
+   */
+  def isGpuOom(failureReason: String): Boolean = {
+    gpuExceptionClassNames.exists(failureReason.contains)
+  }
 }
 
 /**
@@ -1515,4 +1567,104 @@ object SparkRapidsOomExceptions {
  */
 object UnixExitCode {
   val FORCE_KILLED = 137
+}
+
+/**
+ * GPU task metric aggregation at stage level — one row per (stageId, metricName).
+ * Long/transposed schema: unit and sum/max/avg vary by metric. Empty `sum` / `avg`
+ * denote max-aggregated metrics (e.g. `gpuMaxDeviceMemoryBytes`).
+ *
+ * Note on stage attempts: unlike StageAggTaskMetricsProfileResult, this class has
+ * no aggregateStageProfileMetric helper because attempt merging happens upstream
+ * at the AccumInfo layer — `AccumInfo.stagesStatMap` is keyed by stageId only
+ * (not stageId + attemptNumber), so calculateAccStatsForStage already returns
+ * the merged result across attempts.
+ */
+case class StageAggGpuMetricsProfileResult(
+    stageId: Int,
+    numTasks: Int,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("StageAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      stageId.toString,
+      numTasks.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
+
+/**
+ * GPU task metric aggregation at SQL level — one row per (sqlId, metricName).
+ * Rolled up from stage-level rows: sum = Σ stage.sum, max = max stage.max,
+ * avg = task-weighted average over stage.avg. numTasks is intentionally not
+ * carried — it would be a constant per SQL across every metric row (the non-GPU
+ * sql_level_aggregated_task_metrics.csv already has it once per SQL).
+ */
+case class SQLAggGpuMetricsProfileResult(
+    sqlId: Long,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("SQLAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      sqlId.toString,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
+}
+
+/**
+ * GPU task metric aggregation at app level — one row per (appId, metricName).
+ * Same rollup rules as SQL-level. numTasks intentionally omitted (would be a
+ * constant per app and is available in existing per-app CSVs).
+ */
+case class AppAggGpuMetricsProfileResult(
+    appId: String,
+    metricName: String,
+    unit: String,
+    sum: Option[Long],
+    max: Option[Long],
+    avg: Option[Long]) extends ProfileResult {
+
+  override def outputHeaders: Array[String] = {
+    OutHeaderRegistry.outputHeaders("AppAggGpuMetricsProfileResult")
+  }
+
+  override def convertToSeq(): Array[String] = {
+    Array(
+      appId,
+      metricName,
+      unit,
+      sum.map(_.toString).getOrElse(""),
+      max.map(_.toString).getOrElse(""),
+      avg.map(_.toString).getOrElse(""))
+  }
+
+  override def convertToCSVSeq(): Array[String] = convertToSeq()
 }
