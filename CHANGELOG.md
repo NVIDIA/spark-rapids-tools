@@ -1,6 +1,27 @@
 
 <br/>
 
+## Release [v26.04.0](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.0)
+Generated on 2026-05-08
+### Autotuner
+
+- Drop AutoTuner recommendation for concurrentGpuTasks for apps using plugin >= 25.06 ([#2090](https://github.com/NVIDIA/spark-rapids-tools/pull/2090))
+
+### User Tools
+
+- feat(connect): add phase 3 metadata reporting ([#2081](https://github.com/NVIDIA/spark-rapids-tools/pull/2081))
+- [FEA] Lightweight event log runtime detector (#2082) ([#2086](https://github.com/NVIDIA/spark-rapids-tools/pull/2086))
+- Preserve glob metacharacters in local file URIs for Hadoop boundary ([#2080](https://github.com/NVIDIA/spark-rapids-tools/pull/2080))
+
+### Core
+
+- Aggregate GPU task metrics in the profiling tool ([#2088](https://github.com/NVIDIA/spark-rapids-tools/pull/2088))
+- Export AutoTuner inputs to output and fix GPU OOM detection  ([#2071](https://github.com/NVIDIA/spark-rapids-tools/pull/2071))
+- Add Spark Connect event parsing support ([#2075](https://github.com/NVIDIA/spark-rapids-tools/pull/2075))
+
+
+<br/>
+
 ## Release [v26.02.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.02.6)
 Generated on 2026-04-17
 ### Autotuner
