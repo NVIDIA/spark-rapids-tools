@@ -1602,6 +1602,117 @@ class QualificationSuite extends BaseWithSparkSuite {
     expectedReason =
       "Iceberg write requires spark.sql.parquet.fieldId.write.enabled=true")
 
+  // Locks in the Iceberg-aware format gate: only IcebergParquet is treated as GPU.
+  // We create an Iceberg table with `write.format.default=orc` and assert the
+  // resulting AppendData IcebergOrc node is reported as unsupported with the
+  // Unsupported IO format reason — matching the plugin's stance that ORC and
+  // Avro data files are not GPU-supported for Iceberg.
+  runConditionalTest("AppendDataExec falls back when Iceberg table write format is ORC",
+      checkIcebergGpuSupportForSpark) {
+    val expectedWriteExec = "AppendData IcebergOrc"
+    TrampolineUtil.withTempDir { warehouseDir =>
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl("create an Iceberg ORC-write app")
+            .withAppName("TestAppAppendDataIcebergOrc")
+            .withSparkConfigs(
+              Map(
+                "spark.sql.extensions" ->
+                  "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+                "spark.sql.catalog.local" -> "org.apache.iceberg.spark.SparkCatalog",
+                "spark.sql.catalog.local.type" -> "hadoop",
+                "spark.sql.catalog.local.warehouse" -> warehouseDir.getAbsolutePath))
+            .withFunc { (_, spark) =>
+              import spark.implicits._
+              spark.sql(
+                """CREATE TABLE local.db.orc_target (id BIGINT, data STRING)
+                  |USING iceberg
+                  |TBLPROPERTIES ('write.format.default' = 'orc')
+                  |""".stripMargin)
+              val df = Seq((1L, "a"), (2L, "b")).toDF("id", "data")
+              df.writeTo("local.db.orc_target").append()
+              spark.sql("SELECT * FROM local.db.orc_target")
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl("IcebergOrc writes should be marked unsupported")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "AppendData IcebergOrc appears in unsupported operators",
+              csvF => {
+                csvF.csvRows.count { r =>
+                  expectedWriteExec.equals(r("Unsupported Operator")) &&
+                    r("Details").equals("Unsupported IO format")
+                } shouldBe 1
+              }))
+        .build()
+    }
+  }
+
+  // Exercise the same gate logic on the ReplaceData branch of MergeRowsIcebergParser.
+  // We disable `spark.rapids.sql.format.iceberg.enabled` and run a copy-on-write MERGE,
+  // expecting ReplaceData to flip back to unsupported with the matching reason.
+  runConditionalTest(
+    "ReplaceDataExec falls back when spark.rapids.sql.format.iceberg.enabled=false",
+    checkIcebergGpuSupportForSpark) {
+    val expectedReplaceData = "ReplaceData"
+    TrampolineUtil.withTempDir { warehouseDir =>
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl("create an Iceberg CoW MERGE app with iceberg.enabled=false")
+            .withAppName("TestAppReplaceDataIcebergDisabled")
+            .withSparkConfigs(
+              Map(
+                "spark.sql.extensions" ->
+                  "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+                "spark.sql.catalog.local" -> "org.apache.iceberg.spark.SparkCatalog",
+                "spark.sql.catalog.local.type" -> "hadoop",
+                "spark.sql.catalog.local.warehouse" -> warehouseDir.getAbsolutePath,
+                // The gate under test:
+                "spark.rapids.sql.format.iceberg.enabled" -> "false"))
+            .withFunc { (_, spark) =>
+              import spark.implicits._
+              spark.sql(
+                "CREATE TABLE local.db.target (id BIGINT, value STRING) USING iceberg")
+              Seq((1L, "old1"), (2L, "old2"))
+                .toDF("id", "value")
+                .writeTo("local.db.target")
+                .append()
+              Seq((1L, "new1"), (3L, "new3"))
+                .toDF("id", "value")
+                .createOrReplaceTempView("src")
+              spark.sql(
+                """MERGE INTO local.db.target t
+                  |USING src s
+                  |ON t.id = s.id
+                  |WHEN MATCHED THEN UPDATE SET t.value = s.value
+                  |WHEN NOT MATCHED THEN INSERT (id, value) VALUES (s.id, s.value)
+                  |""".stripMargin)
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl("ReplaceData should be unsupported when iceberg.enabled=false")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "ReplaceData appears with the iceberg-disabled reason",
+              csvF => {
+                csvF.csvRows.count { r =>
+                  r("Unsupported Operator").contains(expectedReplaceData) &&
+                    r("Details").equals("Iceberg GPU support disabled by configuration")
+                } should be >= 1
+              }))
+        .build()
+    }
+  }
+
   runConditionalTest("Iceberg metadata table scans are unsupported",
    checkIcebergSupportForSpark) {
     // This test verifies that Iceberg metadata table scans are detected and marked as unsupported.
