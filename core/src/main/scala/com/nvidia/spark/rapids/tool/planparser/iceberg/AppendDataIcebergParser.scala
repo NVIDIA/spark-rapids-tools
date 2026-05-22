@@ -97,9 +97,9 @@ class AppendDataIcebergParser(
     }
   }
 
-  protected def checkCatalogSupport(): Boolean = {
+  protected def checkCatalogSupport: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
-    IcebergHelper.firstUnsupportedCatalogReason(props) match {
+    IcebergGpuSupport.firstUnsupportedCatalogReason(props) match {
       case Some(reason) =>
         setUnsupportedReason(reason)
         false
@@ -117,7 +117,7 @@ class AppendDataIcebergParser(
   protected def isWriteSupported: Boolean = {
     if (isIcebergWriteFormatSupported) {
       // check if the compression is supported
-      checkCatalogSupport() && checkCompression
+      checkCatalogSupport && checkCompression
     } else {
       setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
       false
@@ -125,32 +125,21 @@ class AppendDataIcebergParser(
   }
 
   /**
-   * Iceberg-aware write-format check.
-   *
-   * `AppendDataIcebergExtract.extractFormat` returns combined names like "IcebergParquet",
-   * "IcebergOrc", or "IcebergAvro". The plugin only supports Parquet data files for Iceberg,
-   * so we accept "IcebergParquet" and reject the other variants explicitly. An unknown format
-   * stays optimistic so we do not regress event logs that fail to expose the format string.
+   * Delegates to `IcebergGpuSupport.isSupportedDataFileFormat` against the format
+   * extracted from `node.desc` by `AppendDataIcebergExtract`.
    */
   protected def isIcebergWriteFormatSupported: Boolean = {
-    val fmt = writeOpMeta.dataFormat()
-    if (fmt == null || fmt.equals(StringUtils.UNKNOWN_EXTRACT)) {
-      true
-    } else {
-      fmt.equalsIgnoreCase("IcebergParquet")
-    }
+    IcebergGpuSupport.isSupportedDataFileFormat(writeOpMeta.dataFormat())
   }
 
   /**
-   * Runtime and configuration gates that have to pass before any Iceberg write can run
-   * on GPU. The gate cascade itself lives in `IcebergHelper.firstUnsupportedRuntimeReason`
-   * so AppendData and ReplaceData stay consistent; this method just plumbs the
-   * per-parser unsupported-reason setter.
+   * Plumbs `IcebergGpuSupport.firstUnsupportedWritePrerequisite` to the parser's
+   * `setUnsupportedReason`.
    */
   protected def checkIcebergRuntimeGates: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
     val sparkVer = app.map(_.sparkVersion).getOrElse("")
-    IcebergHelper.firstUnsupportedRuntimeReason(props, sparkVer) match {
+    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer) match {
       case Some(reason) =>
         setUnsupportedReason(reason)
         false

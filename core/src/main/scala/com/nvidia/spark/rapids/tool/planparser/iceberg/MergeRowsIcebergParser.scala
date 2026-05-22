@@ -26,26 +26,35 @@ import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
 import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
- * A parser for Iceberg merge-related operations (MergeRows, ReplaceData).
+ * Parser for three sibling Iceberg execs:
  *
- * This parser handles Iceberg MERGE INTO operations:
- * - MergeRows: The intermediate exec that handles merge logic (keep, discard, split rows)
- * - ReplaceData: The write operator for copy-on-write mode
+ *   - `MergeRows`   — intermediate row classifier used by MERGE INTO. Emits
+ *     `keep` / `discard` / `split` expressions; not a write operator.
+ *   - `ReplaceData` — copy-on-write write exec; rewrites data files for CoW
+ *     DELETE / UPDATE / MERGE.
+ *   - `WriteDelta`  — merge-on-read write exec; writes position-delete files for
+ *     MoR DELETE / UPDATE / MERGE.
  *
- * DAG structure (copy-on-write mode):
+ * The three execs are siblings in Spark's plan tree, not a hierarchy. Each branch
+ * has its own gate set:
+ *
+ *   - MergeRows: parses merge expressions; unsupported.
+ *   - ReplaceData: runtime/config + catalog + Parquet data-file format gates from
+ *     [[IcebergGpuSupport]].
+ *   - WriteDelta: unsupported; controlled at the plugin by
+ *     `spark.rapids.sql.exec.WriteDeltaExec`.
+ *
+ * DAG shapes:
+ *
  * {{{
- *   ReplaceData (12)           <- Write operator (CoW mode)
- *   +- Project (11)
- *      +- MergeRows (10)       <- Merge logic operator
- *         +- SortMergeJoin FullOuter (9)
- *            :- BatchScan (target table)
- *            +- BatchScan (source table)
+ *   Copy-on-write MERGE:        Merge-on-read MERGE:
+ *     ReplaceData                  WriteDelta
+ *     +- Project                   +- Exchange
+ *        +- MergeRows                 +- MergeRows
+ *           +- SortMergeJoin             +- SortMergeJoin
  * }}}
  *
- * GPU support exists when data types are compatible:
- * - GpuMergeRows handles the merge logic
- * - GpuReplaceData handles the write
- *
+ * TODO: split into per-exec parser classes; each branch has independent logic.
  *
  * @param node the Spark plan graph node
  * @param checker the plugin type checker
@@ -85,9 +94,9 @@ class MergeRowsIcebergParser(
   }
 
   /**
-   * Looks up the ReplaceData write metadata in `physicalPlanDescription` (extracted by
-   * IcebergWriteExtract). Returns true when the underlying data file format is Parquet.
-   * If the format string is unavailable we stay optimistic, mirroring AppendData behavior.
+   * Extracts the ReplaceData data-file format from `physicalPlanDescription` and
+   * delegates to `IcebergGpuSupport.isSupportedDataFileFormat`. If the format string
+   * is unavailable the helper stays optimistic, mirroring AppendData behavior.
    */
   protected def isReplaceDataWriteSupported: Boolean = {
     val meta: Option[WriteOperationMetadataTrait] = for {
@@ -99,8 +108,7 @@ class MergeRowsIcebergParser(
     } yield m
 
     val fmt = meta.map(_.dataFormat()).getOrElse(StringUtils.UNKNOWN_EXTRACT)
-    val ok = fmt == null || fmt.equals(StringUtils.UNKNOWN_EXTRACT) ||
-      fmt.equalsIgnoreCase("IcebergParquet")
+    val ok = IcebergGpuSupport.isSupportedDataFileFormat(fmt)
     if (!ok) {
       setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
     }
@@ -108,13 +116,13 @@ class MergeRowsIcebergParser(
   }
 
   /**
-   * Runtime/config gates shared with AppendData: Spark version, Iceberg toggles,
-   * field IDs. Cascade lives in `IcebergHelper.firstUnsupportedRuntimeReason`.
+   * Plumbs `IcebergGpuSupport.firstUnsupportedWritePrerequisite` to the parser's
+   * `setUnsupportedReason`.
    */
   protected def checkIcebergRuntimeGates: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
     val sparkVer = app.map(_.sparkVersion).getOrElse("")
-    IcebergHelper.firstUnsupportedRuntimeReason(props, sparkVer) match {
+    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer) match {
       case Some(reason) =>
         setUnsupportedReason(reason)
         false
@@ -123,15 +131,12 @@ class MergeRowsIcebergParser(
   }
 
   /**
-   * Catalog allowlist gate, parallel to `AppendDataIcebergParser.checkCatalogSupport`.
-   * Currently a no-op in practice because of a pre-existing regex bug in
-   * `EventUtils.SPARK_CATALOG_REGEX` (locked in by `IcebergHelperSuite`); kept here so
-   * the AppendData and ReplaceData paths cannot drift when the catalog-broadening
-   * follow-up PR fixes the regex and broadens the allowlist.
+   * Plumbs `IcebergGpuSupport.firstUnsupportedCatalogReason` to the parser's
+   * `setUnsupportedReason`.
    */
   protected def checkCatalogSupport: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
-    IcebergHelper.firstUnsupportedCatalogReason(props) match {
+    IcebergGpuSupport.firstUnsupportedCatalogReason(props) match {
       case Some(reason) =>
         setUnsupportedReason(reason)
         false

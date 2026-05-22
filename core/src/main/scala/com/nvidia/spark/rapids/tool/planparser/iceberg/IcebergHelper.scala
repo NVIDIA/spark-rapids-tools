@@ -17,15 +17,19 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.SupportedOpStub
-import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedReasonRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
 import com.nvidia.spark.rapids.tool.plugins.PropConditionOnSparkExtTrait
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
 
 /**
- * Helper object for Iceberg related utilities.
- * This includes methods to check if Iceberg is enabled in the Spark properties,
- * and to extract the catalog type among other static functionalities.
+ * Iceberg detection and Iceberg-specific table/exec metadata.
+ *
+ * Provides Iceberg-app detection (`eval`, `extensionRegxMap`, `isSparkCatalogDefined`,
+ * `getCatalogType`) and carries Iceberg-specific constants
+ * (`ICEBERG_METADATA_TABLE_SUFFIXES`, `EXEC_*`, `DEFINED_EXECS`).
+ *
+ * Per-operation GPU support gates live in `IcebergGpuSupport`.
  */
 object IcebergHelper extends PropConditionOnSparkExtTrait {
   // An Iceberg app is identified using the following properties from spark properties.
@@ -43,24 +47,6 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   private def isSparkCatalogDefined(properties: collection.Map[String, String]): Boolean = {
     properties.keys.exists(key => SPARK_CATALOG_REGEX.pattern.matcher(key).matches())
   }
-
-  // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
-  private val SUPPORTED_CATALOGS = Set("hadoop")
-
-  // Spark profiles where the RAPIDS Iceberg provider is available.
-  // The plugin ships iceberg-1-6-x / iceberg-1-9-x / iceberg-1-10-x for Spark 3.5.x and 4.0.x.
-  // Earlier (3.2/3.3/3.4) and later (4.1+) Spark builds use the iceberg-stub module.
-  private val SUPPORTED_SPARK_VERSION_REGEX = """^(?:3\.5|4\.0)\.\d+.*""".r
-
-  // RAPIDS Iceberg toggles. All default to true on the plugin side, so we only
-  // treat them as disabling when they are explicitly set to "false".
-  val CONF_ICEBERG_ENABLED: String = "spark.rapids.sql.format.iceberg.enabled"
-  val CONF_ICEBERG_WRITE_ENABLED: String = "spark.rapids.sql.format.iceberg.write.enabled"
-
-  // Iceberg writers require Parquet field IDs. Spark's default is "false", but the
-  // Iceberg runtime forces this on for its own writes; we only fail the gate when
-  // the eventlog shows it explicitly disabled.
-  val CONF_PARQUET_FIELD_ID_WRITE: String = "spark.sql.parquet.fieldId.write.enabled"
 
   // Iceberg metadata table suffixes used to identify metadata table scans in BatchScan operations.
   // When querying Iceberg metadata tables through the catalog API, the table name appears with
@@ -170,106 +156,5 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
       .flatMap { catalog =>
         properties.get(s"$catalog.type")
       }
-  }
-
-  /**
-   * Checks if the catalog type is supported by RAPIDS.
-   * If the catalog type is not found, it defaults to true.
-   * @param properties spark properties captured from the eventlog environment details
-   * @return true if the catalog type is supported or not found, false otherwise
-   */
-  def isSparkCatalogSupported(properties: collection.Map[String, String]): Boolean = {
-    getCatalogType(properties) match {
-      case Some(catalog) =>
-        SUPPORTED_CATALOGS.contains(catalog.toLowerCase)
-      case _ =>
-        // we could not extract the catalog, default to True.
-        true
-    }
-  }
-
-  /**
-   * True when the Spark profile is one that ships a real Iceberg provider.
-   * An empty version string is treated as "unknown" and allowed, to preserve the existing
-   * optimistic behavior in older test paths that don't set sparkVersion.
-   */
-  def isSparkVersionSupported(sparkVersion: String): Boolean = {
-    if (sparkVersion == null || sparkVersion.isEmpty) {
-      true
-    } else {
-      SUPPORTED_SPARK_VERSION_REGEX.pattern.matcher(sparkVersion).matches()
-    }
-  }
-
-  /**
-   * Returns false only when the property is explicitly present and set to "false"
-   * (case-insensitive). Mirrors the plugin's default-on toggles.
-   */
-  private def isConfDisabled(
-      properties: collection.Map[String, String], key: String): Boolean = {
-    properties.get(key).exists(_.equalsIgnoreCase("false"))
-  }
-
-  /** True when `spark.rapids.sql.format.iceberg.enabled` is not explicitly disabled. */
-  def isIcebergFormatEnabled(properties: collection.Map[String, String]): Boolean = {
-    !isConfDisabled(properties, CONF_ICEBERG_ENABLED)
-  }
-
-  /** True when `spark.rapids.sql.format.iceberg.write.enabled` is not explicitly disabled. */
-  def isIcebergWriteEnabled(properties: collection.Map[String, String]): Boolean = {
-    !isConfDisabled(properties, CONF_ICEBERG_WRITE_ENABLED)
-  }
-
-  /**
-   * True when Parquet field-ID writes are not explicitly disabled. Iceberg sets this on for
-   * its own writes, so we only fail the gate when the eventlog shows it forced to false.
-   */
-  def isParquetFieldIdWriteEnabled(properties: collection.Map[String, String]): Boolean = {
-    !isConfDisabled(properties, CONF_PARQUET_FIELD_ID_WRITE)
-  }
-
-  /**
-   * Walks the runtime/config gates required for any Iceberg write to run on GPU and
-   * returns the first failing gate's `UnsupportedReasonRef`, or `None` if every gate
-   * passes. Centralizing the cascade here keeps `AppendDataIcebergParser` and
-   * `MergeRowsIcebergParser` consistent so the two parsers cannot drift out of sync.
-   *
-   * Gate order matches the parsers' existing user-facing precedence:
-   *   1. Spark version (3.5.x / 4.0.x)
-   *   2. `spark.rapids.sql.format.iceberg.enabled`
-   *   3. `spark.rapids.sql.format.iceberg.write.enabled`
-   *   4. `spark.sql.parquet.fieldId.write.enabled`
-   */
-  def firstUnsupportedRuntimeReason(
-      properties: collection.Map[String, String],
-      sparkVersion: String): Option[UnsupportedReasonRef] = {
-    if (!isSparkVersionSupported(sparkVersion)) {
-      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
-    } else if (!isIcebergFormatEnabled(properties)) {
-      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
-    } else if (!isIcebergWriteEnabled(properties)) {
-      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
-    } else if (!isParquetFieldIdWriteEnabled(properties)) {
-      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
-    } else {
-      None
-    }
-  }
-
-  /**
-   * Returns the catalog-gate failure reason or `None` when the catalog passes. Currently
-   * driven by the `hadoop`-only allowlist on `SUPPORTED_CATALOGS`; the gate is
-   * effectively a no-op today because of a pre-existing regex bug in `EventUtils`
-   * (covered by `IcebergHelperSuite`). The catalog-broadening follow-up PR will fix
-   * both the regex and broaden the allowlist; centralizing the check here means both
-   * parsers will pick up that fix automatically.
-   */
-  def firstUnsupportedCatalogReason(
-      properties: collection.Map[String, String]): Option[UnsupportedReasonRef] = {
-    if (isSparkCatalogSupported(properties)) {
-      None
-    } else {
-      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_CATALOG)
-    }
   }
 }
