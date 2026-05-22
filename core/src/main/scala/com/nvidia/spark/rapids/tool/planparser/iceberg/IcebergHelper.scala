@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.SupportedOpStub
-import com.nvidia.spark.rapids.tool.planparser.ops.OpTypes
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.plugins.PropConditionOnSparkExtTrait
 
 import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
@@ -226,5 +226,50 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
    */
   def isParquetFieldIdWriteEnabled(properties: collection.Map[String, String]): Boolean = {
     !isConfDisabled(properties, CONF_PARQUET_FIELD_ID_WRITE)
+  }
+
+  /**
+   * Walks the runtime/config gates required for any Iceberg write to run on GPU and
+   * returns the first failing gate's `UnsupportedReasonRef`, or `None` if every gate
+   * passes. Centralizing the cascade here keeps `AppendDataIcebergParser` and
+   * `MergeRowsIcebergParser` consistent so the two parsers cannot drift out of sync.
+   *
+   * Gate order matches the parsers' existing user-facing precedence:
+   *   1. Spark version (3.5.x / 4.0.x)
+   *   2. `spark.rapids.sql.format.iceberg.enabled`
+   *   3. `spark.rapids.sql.format.iceberg.write.enabled`
+   *   4. `spark.sql.parquet.fieldId.write.enabled`
+   */
+  def firstUnsupportedRuntimeReason(
+      properties: collection.Map[String, String],
+      sparkVersion: String): Option[UnsupportedReasonRef] = {
+    if (!isSparkVersionSupported(sparkVersion)) {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
+    } else if (!isIcebergFormatEnabled(properties)) {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
+    } else if (!isIcebergWriteEnabled(properties)) {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
+    } else if (!isParquetFieldIdWriteEnabled(properties)) {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
+    } else {
+      None
+    }
+  }
+
+  /**
+   * Returns the catalog-gate failure reason or `None` when the catalog passes. Currently
+   * driven by the `hadoop`-only allowlist on `SUPPORTED_CATALOGS`; the gate is
+   * effectively a no-op today because of a pre-existing regex bug in `EventUtils`
+   * (covered by `IcebergHelperSuite`). The catalog-broadening follow-up PR will fix
+   * both the regex and broaden the allowlist; centralizing the check here means both
+   * parsers will pick up that fix automatically.
+   */
+  def firstUnsupportedCatalogReason(
+      properties: collection.Map[String, String]): Option[UnsupportedReasonRef] = {
+    if (isSparkCatalogSupported(properties)) {
+      None
+    } else {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_CATALOG)
+    }
   }
 }

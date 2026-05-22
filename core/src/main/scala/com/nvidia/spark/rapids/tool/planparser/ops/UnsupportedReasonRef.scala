@@ -51,6 +51,8 @@ object UnsupportedReasonRef {
     getOrCreate("Iceberg GPU write support disabled by configuration")
   val UNSUPPORTED_ICEBERG_FIELD_IDS: UnsupportedReasonRef =
     getOrCreate("Iceberg write requires spark.sql.parquet.fieldId.write.enabled=true")
+  val UNSUPPORTED_ICEBERG_CATALOG: UnsupportedReasonRef =
+    getOrCreate("Unsupported Iceberg catalog")
   val UNSUPPORTED_COMPRESSION: UnsupportedReasonRef = getOrCreate("Unsupported compression")
   val UNSUPPORTED_CATALOG: UnsupportedReasonRef = getOrCreate("Unsupported catalog")
   val UNSUPPORTED_JOIN_TYPE: UnsupportedReasonRef = getOrCreate("Unsupported join type")

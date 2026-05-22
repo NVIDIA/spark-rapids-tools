@@ -72,12 +72,13 @@ class MergeRowsIcebergParser(
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     // The opStub gates the operator as a whole (MergeRows and WriteDelta stay false here).
-    // For ReplaceData we additionally require the per-write gates: a Parquet underlying
-    // data format and the runtime/config gates from IcebergHelper.
+    // For ReplaceData we additionally require the per-write gates: the runtime/config
+    // cascade and catalog allowlist shared with AppendDataIcebergParser, plus a Parquet
+    // underlying data-file format.
     if (!opStub.isSupported) {
       false
     } else if (node.name == IcebergHelper.EXEC_REPLACE_DATA) {
-      checkIcebergRuntimeGates && isReplaceDataWriteSupported
+      checkIcebergRuntimeGates && checkCatalogSupport && isReplaceDataWriteSupported
     } else {
       true
     }
@@ -107,25 +108,34 @@ class MergeRowsIcebergParser(
   }
 
   /**
-   * Runtime/config gates shared with AppendData: Spark version, Iceberg toggles, field IDs.
+   * Runtime/config gates shared with AppendData: Spark version, Iceberg toggles,
+   * field IDs. Cascade lives in `IcebergHelper.firstUnsupportedRuntimeReason`.
    */
   protected def checkIcebergRuntimeGates: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
     val sparkVer = app.map(_.sparkVersion).getOrElse("")
-    if (!IcebergHelper.isSparkVersionSupported(sparkVer)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
-      false
-    } else if (!IcebergHelper.isIcebergFormatEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
-      false
-    } else if (!IcebergHelper.isIcebergWriteEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
-      false
-    } else if (!IcebergHelper.isParquetFieldIdWriteEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
-      false
-    } else {
-      true
+    IcebergHelper.firstUnsupportedRuntimeReason(props, sparkVer) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
+    }
+  }
+
+  /**
+   * Catalog allowlist gate, parallel to `AppendDataIcebergParser.checkCatalogSupport`.
+   * Currently a no-op in practice because of a pre-existing regex bug in
+   * `EventUtils.SPARK_CATALOG_REGEX` (locked in by `IcebergHelperSuite`); kept here so
+   * the AppendData and ReplaceData paths cannot drift when the catalog-broadening
+   * follow-up PR fixes the regex and broadens the allowlist.
+   */
+  protected def checkCatalogSupport: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    IcebergHelper.firstUnsupportedCatalogReason(props) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
     }
   }
 

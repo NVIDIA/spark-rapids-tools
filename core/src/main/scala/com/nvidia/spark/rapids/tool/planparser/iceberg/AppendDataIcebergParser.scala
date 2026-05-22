@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,16 +98,13 @@ class AppendDataIcebergParser(
   }
 
   protected def checkCatalogSupport(): Boolean = {
-    // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
-    val res = app match {
-      case Some(a) =>
-        IcebergHelper.isSparkCatalogSupported(a.sparkProperties)
-      case _ => true  // we could not extract the catalog, default to True.
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    IcebergHelper.firstUnsupportedCatalogReason(props) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
     }
-    if (!res) {
-      setUnsupportedReason("Unsupported Iceberg catalog")
-    }
-    res
   }
 
   protected def checkCompression: Boolean = {
@@ -145,26 +142,19 @@ class AppendDataIcebergParser(
   }
 
   /**
-   * Runtime and configuration gates that have to pass before any Iceberg write can run on GPU.
-   * Each failed gate sets a specific unsupportedReason so the qualification output explains why.
+   * Runtime and configuration gates that have to pass before any Iceberg write can run
+   * on GPU. The gate cascade itself lives in `IcebergHelper.firstUnsupportedRuntimeReason`
+   * so AppendData and ReplaceData stay consistent; this method just plumbs the
+   * per-parser unsupported-reason setter.
    */
   protected def checkIcebergRuntimeGates: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
     val sparkVer = app.map(_.sparkVersion).getOrElse("")
-    if (!IcebergHelper.isSparkVersionSupported(sparkVer)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
-      false
-    } else if (!IcebergHelper.isIcebergFormatEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
-      false
-    } else if (!IcebergHelper.isIcebergWriteEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
-      false
-    } else if (!IcebergHelper.isParquetFieldIdWriteEnabled(props)) {
-      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
-      false
-    } else {
-      true
+    IcebergHelper.firstUnsupportedRuntimeReason(props, sparkVer) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
     }
   }
 

@@ -19,6 +19,7 @@ package com.nvidia.spark.rapids
 import scala.util.{Failure, Success, Try}
 
 import com.nvidia.spark.rapids.tool.{EventLogPathProcessor, PlatformFactory, PlatformNames}
+import com.nvidia.spark.rapids.tool.planparser.iceberg.IcebergHelper
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.funsuite.AnyFunSuite
@@ -53,9 +54,13 @@ class BaseNoSparkSuite extends AnyFunSuite with BeforeAndAfterEach with Logging 
 
   protected def checkIcebergGpuSupportForSpark(): (Boolean, String) = {
     // RAPIDS provides a real Iceberg GPU provider only for Spark 3.5.x and 4.0.x.
-    // Tests asserting Iceberg writes are GPU-supported should skip on other shims.
-    (ToolUtils.isSpark350OrLater(),
-      "Iceberg GPU write tests require Spark 3.5.x or 4.0.x")
+    // Reuse IcebergHelper.isSparkVersionSupported so the test guard tracks the runtime
+    // gate exactly; using ToolUtils.isSpark350OrLater() here would also enable the
+    // tests on Spark 4.1+ where the runtime gate would (correctly) reject Iceberg
+    // writes, causing the assertions to fail.
+    val ver = ToolUtils.sparkRuntimeVersion
+    (IcebergHelper.isSparkVersionSupported(ver),
+      s"Iceberg GPU write tests require Spark 3.5.x or 4.0.x (got $ver)")
   }
 
   protected def shouldSkipFailedLogsForSpark(): (Boolean, String) = {
