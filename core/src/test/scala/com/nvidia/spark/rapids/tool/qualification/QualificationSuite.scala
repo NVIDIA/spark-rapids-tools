@@ -1479,7 +1479,8 @@ class QualificationSuite extends BaseWithSparkSuite {
       .build()
   }
 
-  test("AppendDataExec is not Supported with Iceberg") {
+  runConditionalTest("AppendDataExec is Supported with Iceberg Parquet writes",
+      checkIcebergGpuSupportForSpark) {
     // This UT configures Spark to use Iceberg.
     // It must use the writeToAPI to generate the AppendDataExec operator. This is the V2 version.
     // Otherwise, it will use the V1 version which is AppendDataExecV1.
@@ -1522,19 +1523,84 @@ class QualificationSuite extends BaseWithSparkSuite {
               }
             ))
         .withChecker(
-          QToolOutFileCheckerImpl("Unsupported operators should contain AppendDataExec")
+          QToolOutFileCheckerImpl(
+            "AppendData should NOT appear as an unsupported operator when all gates pass")
             .withTableLabel("unsupportedOpsCSVReport")
             .withContentVisitor(
-              "AppendData appears in the Unsupported Operator column with correct reason",
+              "Iceberg AppendData with Parquet + hadoop catalog + default configs is GPU",
+              csvF => {
+                csvF.csvRows.count { r =>
+                  expectedWriteExec.equals(r("Unsupported Operator"))
+                } shouldBe 0
+              }))
+        .build()
+    }
+  }
+
+  // Helper for the gate-fallback tests below. Runs an Iceberg INSERT and asserts that
+  // AppendData ends up in the unsupported-ops report with the supplied reason.
+  private def runAppendDataGateFallbackTest(
+      testName: String,
+      extraSparkConfigs: Map[String, String],
+      expectedReason: String): Unit = runConditionalTest(
+      testName, checkIcebergGpuSupportForSpark) {
+    val expectedWriteExec = "AppendData IcebergParquet"
+    TrampolineUtil.withTempDir { warehouseDir =>
+      val baseConfigs = Map(
+        "spark.sql.extensions" ->
+          "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions",
+        "spark.sql.catalog.local" -> "org.apache.iceberg.spark.SparkCatalog",
+        "spark.sql.catalog.local.type" -> "hadoop",
+        "spark.sql.catalog.local.warehouse" -> warehouseDir.getAbsolutePath)
+      QToolTestCtxtBuilder()
+        .withEvLogProvider(
+          EventlogProviderImpl("create an Iceberg INSERT app with a gated config")
+            .withAppName(s"TestAppAppendDataExecIcebergGated_${testName.replaceAll("\\s+", "_")}")
+            .withSparkConfigs(baseConfigs ++ extraSparkConfigs)
+            .withFunc { (_, spark) =>
+              import spark.implicits._
+              spark.sql(
+                "CREATE TABLE local.db.my_iceberg_table (id BIGINT, data STRING) USING iceberg")
+              val df = Seq((3, "iceberg"), (4, "rocks")).toDF("id", "data")
+              df.writeTo("local.db.my_iceberg_table").append()
+              spark.sql("SELECT * FROM local.db.my_iceberg_table")
+            })
+        .withPerSQL()
+        .withChecker(
+          QToolResultCoreChecker("check app count")
+            .withExpectedSize(1)
+            .withSuccessCode())
+        .withChecker(
+          QToolOutFileCheckerImpl(s"AppendData unsupported with reason: $expectedReason")
+            .withTableLabel("unsupportedOpsCSVReport")
+            .withContentVisitor(
+              "AppendData appears as unsupported with the gate-specific reason",
               csvF => {
                 csvF.csvRows.count { r =>
                   expectedWriteExec.equals(r("Unsupported Operator")) &&
-                    r("Details").equals("Unsupported IO format")
+                    r("Details").equals(expectedReason)
                 } shouldBe 1
               }))
         .build()
     }
   }
+
+  runAppendDataGateFallbackTest(
+    testName = "AppendDataExec falls back when spark.rapids.sql.format.iceberg.enabled=false",
+    extraSparkConfigs = Map("spark.rapids.sql.format.iceberg.enabled" -> "false"),
+    expectedReason = "Iceberg GPU support disabled by configuration")
+
+  runAppendDataGateFallbackTest(
+    testName =
+      "AppendDataExec falls back when spark.rapids.sql.format.iceberg.write.enabled=false",
+    extraSparkConfigs = Map("spark.rapids.sql.format.iceberg.write.enabled" -> "false"),
+    expectedReason = "Iceberg GPU write support disabled by configuration")
+
+  runAppendDataGateFallbackTest(
+    testName = "AppendDataExec falls back when spark.sql.parquet.fieldId.write.enabled=false",
+    extraSparkConfigs = Map("spark.sql.parquet.fieldId.write.enabled" -> "false"),
+    expectedReason =
+      "Iceberg write requires spark.sql.parquet.fieldId.write.enabled=true")
 
   runConditionalTest("Iceberg metadata table scans are unsupported",
    checkIcebergSupportForSpark) {
@@ -1662,11 +1728,13 @@ class QualificationSuite extends BaseWithSparkSuite {
     }
   }
 
-runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are marked unsupported",
-    checkIcebergSupportForSpark) {
-    // This test verifies that BOTH MergeRows AND ReplaceData from Iceberg MERGE INTO operations
-    // are correctly parsed and marked as unsupported (opStub.isSupported = false for both).
-    // ReplaceData must be classified as WriteExec (not Exec) in the unsupported operators list.
+runConditionalTest(
+    "Iceberg MERGE INTO: MergeRows stays unsupported, ReplaceData is supported on CoW",
+    checkIcebergGpuSupportForSpark) {
+    // This test verifies the post-PR-1 behavior:
+    //   - MergeRows stays unsupported (chain-aware support is a follow-up PR).
+    //   - ReplaceData (copy-on-write write operator) is now GPU-supported on Spark 3.5.x/4.0.x
+    //     when the IcebergHelper gates pass and the underlying data format is Parquet.
     //
     // DAG structure (copy-on-write mode):
     //   ReplaceData (12)       <- Write operator (OpType: WriteExec)
@@ -1724,9 +1792,9 @@ runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are ma
           QToolOutFileCheckerImpl("Execs should contain both MergeRows and ReplaceData")
             .withTableLabel("execCSVReport")
             .withContentVisitor(
-              "Both MergeRows and ReplaceData should appear in the exec report",
+              "MergeRows stays unsupported; ReplaceData is supported on Spark 3.5.x/4.0.x",
               csvF => {
-                // Check MergeRows (opStub.isSupported = false)
+                // MergeRows: opStub.isSupported = false → stays unsupported.
                 val mergeRowsExecs = csvF.csvRows.filter { r =>
                   r("Exec Name").contains(expectedMergeExec)
                 }
@@ -1735,40 +1803,37 @@ runConditionalTest("Iceberg MERGE INTO operators (MergeRows, ReplaceData) are ma
                   row("Exec Is Supported") shouldBe "false"
                 }
 
-                // Check ReplaceData (the write operator for CoW mode, opStub.isSupported = false)
+                // ReplaceData (CoW write operator): GPU once IcebergHelper gates pass.
                 val replaceDataExecs = csvF.csvRows.filter { r =>
                   r("Exec Name").contains(expectedWriteExec)
                 }
                 replaceDataExecs.size should be >= 1
                 replaceDataExecs.foreach { row =>
-                  row("Exec Is Supported") shouldBe "false"
+                  row("Exec Is Supported") shouldBe "true"
                 }
               }))
         .withChecker(
-          QToolOutFileCheckerImpl("Unsupported operators should contain MergeRows and ReplaceData")
+          QToolOutFileCheckerImpl(
+            "Unsupported operators should contain MergeRows but not ReplaceData")
             .withTableLabel("unsupportedOpsCSVReport")
             .withContentVisitor(
-              "MergeRows (Exec) and ReplaceData (WriteExec) should appear in unsupported operators",
+              "MergeRows (Exec) stays in unsupported list; ReplaceData no longer appears",
               csvF => {
-                // Check MergeRows is listed as unsupported with Exec type
+                // MergeRows still listed as unsupported with Exec type.
                 val mergeRowsUnsupported = csvF.csvRows.filter { r =>
                   r("Unsupported Operator").contains(expectedMergeExec)
                 }
                 mergeRowsUnsupported.size should be >= 1
                 mergeRowsUnsupported.foreach { row =>
-                  // MergeRows is an intermediate Exec, not WriteExec
+                  // MergeRows is an intermediate Exec, not WriteExec.
                   row("Unsupported Type") shouldBe "Exec"
                 }
 
-                // Check ReplaceData is listed as unsupported with WriteExec type
-                // (opType = WriteExec is set via opStub.pullOpType in createExecInfo)
+                // ReplaceData should not be reported as unsupported.
                 val replaceDataUnsupported = csvF.csvRows.filter { r =>
                   r("Unsupported Operator").contains(expectedWriteExec)
                 }
-                replaceDataUnsupported.size should be >= 1
-                replaceDataUnsupported.foreach { row =>
-                  row("Unsupported Type") shouldBe "WriteExec"
-                }
+                replaceDataUnsupported.size shouldBe 0
               }))
         .build()
     }

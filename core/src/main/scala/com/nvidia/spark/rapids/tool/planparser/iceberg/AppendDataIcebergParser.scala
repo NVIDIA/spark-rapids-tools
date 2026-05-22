@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -77,11 +77,10 @@ class AppendDataIcebergParser(
   override def pullSpeedupFactor(registeredName: Option[String] = None): Double = 1.5
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
-    // Check if the operation is supported in the stub,
-    // and if the format and compression are supported.
-    // Also check if the catalog is supported.
-    // Finally, check if the write operation is supported.
-    opStub.isSupported && super.pullSupportedFlag() && isWriteSupported
+    // Order matters: the runtime/config gates are cheaper than the format/catalog/compression
+    // checks and surface clearer reasons when they fail.
+    opStub.isSupported && super.pullSupportedFlag() &&
+      checkIcebergRuntimeGates && isWriteSupported
   }
 
   protected def checkCompressionORC(codec: String): Boolean = {
@@ -119,11 +118,53 @@ class AppendDataIcebergParser(
   }
 
   protected def isWriteSupported: Boolean = {
-    if (checker.isWriteFormatSupported(writeOpMeta.dataFormat())) {
+    if (isIcebergWriteFormatSupported) {
       // check if the compression is supported
       checkCatalogSupport() && checkCompression
     } else {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
       false
+    }
+  }
+
+  /**
+   * Iceberg-aware write-format check.
+   *
+   * `AppendDataIcebergExtract.extractFormat` returns combined names like "IcebergParquet",
+   * "IcebergOrc", or "IcebergAvro". The plugin only supports Parquet data files for Iceberg,
+   * so we accept "IcebergParquet" and reject the other variants explicitly. An unknown format
+   * stays optimistic so we do not regress event logs that fail to expose the format string.
+   */
+  protected def isIcebergWriteFormatSupported: Boolean = {
+    val fmt = writeOpMeta.dataFormat()
+    if (fmt == null || fmt.equals(StringUtils.UNKNOWN_EXTRACT)) {
+      true
+    } else {
+      fmt.equalsIgnoreCase("IcebergParquet")
+    }
+  }
+
+  /**
+   * Runtime and configuration gates that have to pass before any Iceberg write can run on GPU.
+   * Each failed gate sets a specific unsupportedReason so the qualification output explains why.
+   */
+  protected def checkIcebergRuntimeGates: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    val sparkVer = app.map(_.sparkVersion).getOrElse("")
+    if (!IcebergHelper.isSparkVersionSupported(sparkVer)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
+      false
+    } else if (!IcebergHelper.isIcebergFormatEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
+      false
+    } else if (!IcebergHelper.isIcebergWriteEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
+      false
+    } else if (!IcebergHelper.isParquetFieldIdWriteEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
+      false
+    } else {
+      true
     }
   }
 

@@ -47,6 +47,21 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
   private val SUPPORTED_CATALOGS = Set("hadoop")
 
+  // Spark profiles where the RAPIDS Iceberg provider is available.
+  // The plugin ships iceberg-1-6-x / iceberg-1-9-x / iceberg-1-10-x for Spark 3.5.x and 4.0.x.
+  // Earlier (3.2/3.3/3.4) and later (4.1+) Spark builds use the iceberg-stub module.
+  private val SUPPORTED_SPARK_VERSION_REGEX = """^(?:3\.5|4\.0)\.\d+.*""".r
+
+  // RAPIDS Iceberg toggles. All default to true on the plugin side, so we only
+  // treat them as disabling when they are explicitly set to "false".
+  val CONF_ICEBERG_ENABLED: String = "spark.rapids.sql.format.iceberg.enabled"
+  val CONF_ICEBERG_WRITE_ENABLED: String = "spark.rapids.sql.format.iceberg.write.enabled"
+
+  // Iceberg writers require Parquet field IDs. Spark's default is "false", but the
+  // Iceberg runtime forces this on for its own writes; we only fail the gate when
+  // the eventlog shows it explicitly disabled.
+  val CONF_PARQUET_FIELD_ID_WRITE: String = "spark.sql.parquet.fieldId.write.enabled"
+
   // Iceberg metadata table suffixes used to identify metadata table scans in BatchScan operations.
   // When querying Iceberg metadata tables through the catalog API, the table name appears with
   // a metadata table suffix in the BatchScan node description.
@@ -90,7 +105,15 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   val EXEC_WRITE_DELTA: String = "WriteDelta"
 
   // A Map between the spark node name and the SupportedOpStub.
-  // Note that AppendDataExec is not supported for Iceberg.
+  //
+  // Iceberg exec stubs:
+  // - AppendData and ReplaceData are GPU on Spark 3.5.x / 4.0.x when the per-exec gates
+  //   (Iceberg enabled, Parquet write format, field IDs, supported catalog) pass. The
+  //   parsers enforce those gates and downgrade individual events as needed.
+  // - MergeRows GPU support depends on its write parent (CoW=ReplaceData vs MoR=WriteDelta)
+  //   and is left unsupported here until chain-aware detection lands.
+  // - WriteDelta covers merge-on-read DML and is disabled by default in the plugin (rule
+  //   spark.rapids.sql.exec.WriteDeltaExec=false), so it stays unsupported here.
   //
   // MERGE INTO operations use two different strategies:
   // - Copy-on-Write (CoW): MergeRows -> ReplaceData (rewrites data files)
@@ -99,29 +122,24 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
     EXEC_APPEND_DATA ->
       SupportedOpStub(
         EXEC_APPEND_DATA,
-        // The writeOp is not supported in Iceberg
-        isSupported = false,
+        isSupported = true,
         opType = Option(OpTypes.WriteExec)
       ),
     EXEC_MERGE_ROWS ->
       SupportedOpStub(
         EXEC_MERGE_ROWS,
-        // MergeRows is used in Iceberg MERGE INTO operations.
         isSupported = false,
         opType = Option(OpTypes.Exec)
       ),
     EXEC_REPLACE_DATA ->
       SupportedOpStub(
         EXEC_REPLACE_DATA,
-        // ReplaceData is the write operator for copy-on-write MERGE INTO.
-        isSupported = false,
+        isSupported = true,
         opType = Option(OpTypes.WriteExec)
       ),
     EXEC_WRITE_DELTA ->
       SupportedOpStub(
         EXEC_WRITE_DELTA,
-        // WriteDelta is the write operator for merge-on-read MERGE INTO.
-        // Writes "delete files" instead of rewriting data files.
         isSupported = false,
         opType = Option(OpTypes.WriteExec)
       )
@@ -168,5 +186,45 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
         // we could not extract the catalog, default to True.
         true
     }
+  }
+
+  /**
+   * True when the Spark profile is one that ships a real Iceberg provider.
+   * An empty version string is treated as "unknown" and allowed, to preserve the existing
+   * optimistic behavior in older test paths that don't set sparkVersion.
+   */
+  def isSparkVersionSupported(sparkVersion: String): Boolean = {
+    if (sparkVersion == null || sparkVersion.isEmpty) {
+      true
+    } else {
+      SUPPORTED_SPARK_VERSION_REGEX.pattern.matcher(sparkVersion).matches()
+    }
+  }
+
+  /**
+   * Returns false only when the property is explicitly present and set to "false"
+   * (case-insensitive). Mirrors the plugin's default-on toggles.
+   */
+  private def isConfDisabled(
+      properties: collection.Map[String, String], key: String): Boolean = {
+    properties.get(key).exists(_.equalsIgnoreCase("false"))
+  }
+
+  /** True when `spark.rapids.sql.format.iceberg.enabled` is not explicitly disabled. */
+  def isIcebergFormatEnabled(properties: collection.Map[String, String]): Boolean = {
+    !isConfDisabled(properties, CONF_ICEBERG_ENABLED)
+  }
+
+  /** True when `spark.rapids.sql.format.iceberg.write.enabled` is not explicitly disabled. */
+  def isIcebergWriteEnabled(properties: collection.Map[String, String]): Boolean = {
+    !isConfDisabled(properties, CONF_ICEBERG_WRITE_ENABLED)
+  }
+
+  /**
+   * True when Parquet field-ID writes are not explicitly disabled. Iceberg sets this on for
+   * its own writes, so we only fail the gate when the eventlog shows it forced to false.
+   */
+  def isParquetFieldIdWriteEnabled(properties: collection.Map[String, String]): Boolean = {
+    !isConfDisabled(properties, CONF_PARQUET_FIELD_ID_WRITE)
   }
 }

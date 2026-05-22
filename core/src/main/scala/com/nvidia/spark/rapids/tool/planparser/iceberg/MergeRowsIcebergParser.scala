@@ -17,11 +17,13 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.ops.{UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * A parser for Iceberg merge-related operations (MergeRows, ReplaceData).
@@ -69,8 +71,62 @@ class MergeRowsIcebergParser(
   override def pullSpeedupFactor(registeredName: Option[String] = None): Double = 1.0
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
-    // Support is determined by the opStub.isSupported flag.
-    opStub.isSupported
+    // The opStub gates the operator as a whole (MergeRows and WriteDelta stay false here).
+    // For ReplaceData we additionally require the per-write gates: a Parquet underlying
+    // data format and the runtime/config gates from IcebergHelper.
+    if (!opStub.isSupported) {
+      false
+    } else if (node.name == IcebergHelper.EXEC_REPLACE_DATA) {
+      checkIcebergRuntimeGates && isReplaceDataWriteSupported
+    } else {
+      true
+    }
+  }
+
+  /**
+   * Looks up the ReplaceData write metadata in `physicalPlanDescription` (extracted by
+   * IcebergWriteExtract). Returns true when the underlying data file format is Parquet.
+   * If the format string is unavailable we stay optimistic, mirroring AppendData behavior.
+   */
+  protected def isReplaceDataWriteSupported: Boolean = {
+    val meta: Option[WriteOperationMetadataTrait] = for {
+      appInst <- app
+      physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
+      if physPlan.nonEmpty
+      m <- IcebergWriteExtract.buildWriteOp(IcebergHelper.EXEC_REPLACE_DATA, node.desc,
+        Some(physPlan))
+    } yield m
+
+    val fmt = meta.map(_.dataFormat()).getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    val ok = fmt == null || fmt.equals(StringUtils.UNKNOWN_EXTRACT) ||
+      fmt.equalsIgnoreCase("IcebergParquet")
+    if (!ok) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
+    }
+    ok
+  }
+
+  /**
+   * Runtime/config gates shared with AppendData: Spark version, Iceberg toggles, field IDs.
+   */
+  protected def checkIcebergRuntimeGates: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    val sparkVer = app.map(_.sparkVersion).getOrElse("")
+    if (!IcebergHelper.isSparkVersionSupported(sparkVer)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
+      false
+    } else if (!IcebergHelper.isIcebergFormatEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
+      false
+    } else if (!IcebergHelper.isIcebergWriteEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_WRITE_DISABLED)
+      false
+    } else if (!IcebergHelper.isParquetFieldIdWriteEnabled(props)) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_FIELD_IDS)
+      false
+    } else {
+      true
+    }
   }
 
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.

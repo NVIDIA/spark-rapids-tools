@@ -51,6 +51,13 @@ class BaseNoSparkSuite extends AnyFunSuite with BeforeAndAfterEach with Logging 
     (ToolUtils.isSpark330OrLater(), "Iceberg metadata scan tests require Spark 3.3.0+")
   }
 
+  protected def checkIcebergGpuSupportForSpark(): (Boolean, String) = {
+    // RAPIDS provides a real Iceberg GPU provider only for Spark 3.5.x and 4.0.x.
+    // Tests asserting Iceberg writes are GPU-supported should skip on other shims.
+    (ToolUtils.isSpark350OrLater(),
+      "Iceberg GPU write tests require Spark 3.5.x or 4.0.x")
+  }
+
   protected def shouldSkipFailedLogsForSpark(): (Boolean, String) = {
     (!ToolUtils.runtimeIsSparkVersion("3.4.0"),
       "Spark340 does not parse the eventlog correctly")
