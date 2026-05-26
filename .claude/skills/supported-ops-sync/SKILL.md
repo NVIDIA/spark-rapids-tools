@@ -113,6 +113,7 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
    - Pure support/type changes: verify they are plausible from plugin CSVs.
    - New execs/expressions: keep as `TNEW` unless tools parsing and tests prove support.
    - Removed plugin rows: preserve them unless a reviewer explicitly agrees to delete tools coverage.
+   - `SQL Func` changes: preserve tools-side aliases when plugin generated CSVs are blank or contain a shorter alias list; these aliases are parser lookup keys in tools.
    - `TNEW -> S`: require parser coverage or a clear existing parser path.
    - Spark 4-only rows: call out separately and keep gated unless this branch has matching Spark 4 support.
 
@@ -175,6 +176,7 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
 ## Review Rules
 
 - Do not copy plugin root CSVs directly over tools resources. Stage the root plugin CSVs in a temp input directory and run the tools sync utility so it can apply overrides, mark new rows `TNEW`, and preserve removed rows.
+- Do not accept `SQL Func` alias loss from the plugin root CSV without review. The tools parser uses those aliases to recognize expressions whose physical plans print SQL function names instead of expression class names.
 - Do not blindly convert `TNEW` to `S`. `TNEW` means plugin metadata knows about the operator, but tools have not validated parser behavior.
 - When new operators are accepted into tools, update operator score CSVs using `sync_operator_scores.py` or the helper's default score-sync path.
 - If Spark 4-only operators appear, keep them gated as `TNEW` unless the tools branch has the necessary Spark 4 parser/test support.
