@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.04.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.2)
+Generated on 2026-05-26
+### Build and CI/CD
+
+- Bump urllib3 from 2.6.3 to 2.7.0 in /user_tools ([#2092](https://github.com/NVIDIA/spark-rapids-tools/pull/2092))
+
+
+<br/>
+
 ## Release [v26.04.1](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.1)
 Generated on 2026-05-12
 - no changes
