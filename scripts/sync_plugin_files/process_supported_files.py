@@ -83,20 +83,32 @@ def is_greater(elem1, elem2):
     return len(elem1) > len(elem2)
 
 
+def get_sql_func_aliases(sql_func_value):
+    """
+    Return SQL function aliases from a semicolon-separated SQL Func cell.
+    """
+    sql_func_str = str(sql_func_value).strip()
+    if sql_func_str == "" or sql_func_str == "None":
+        return set()
+    return {alias.strip() for alias in sql_func_str.split(";") if alias.strip()}
+
+
 def should_preserve_tools_string(column_name, tools_value, plugin_value):
     """
     Preserve tools-side expression aliases when plugin generated metadata is less informative.
     SQL function aliases are parser lookup keys in tools, and the generated plugin CSV can omit
     aliases for newer Spark versions even though older-version aliases should still be recognized.
+    Preserve only when the plugin aliases are blank or a strict subset of the tools aliases, so an
+    intentional plugin alias rename is accepted instead of being hidden by a string-length heuristic.
     """
     if column_name != "SQL Func":
         return False
 
-    tools_str = str(tools_value).strip()
-    plugin_str = str(plugin_value).strip()
-    if tools_str == "" or tools_str == "None":
+    tools_aliases = get_sql_func_aliases(tools_value)
+    plugin_aliases = get_sql_func_aliases(plugin_value)
+    if not tools_aliases:
         return False
-    return plugin_str == "" or plugin_str == "None" or len(tools_str) > len(plugin_str)
+    return not plugin_aliases or plugin_aliases < tools_aliases
 
 
 def check_df_rows(row1, row2, keys):

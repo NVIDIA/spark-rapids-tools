@@ -105,15 +105,16 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
 5. Read the preview outputs:
 
    ```bash
-   sed -n '1,240p' "$RUN_DIR/operators_plugin_sync_report.txt"
-   sed -n '1,200p' "$RUN_DIR/new_operators.txt"
+   wc -l "$RUN_DIR/operators_plugin_sync_report.txt" "$RUN_DIR/new_operators.txt"
+   cat "$RUN_DIR/operators_plugin_sync_report.txt"
+   cat "$RUN_DIR/new_operators.txt"
    ```
 
 6. Classify changes:
    - Pure support/type changes: verify they are plausible from plugin CSVs.
    - New execs/expressions: keep as `TNEW` unless tools parsing and tests prove support.
    - Removed plugin rows: preserve them unless a reviewer explicitly agrees to delete tools coverage.
-   - `SQL Func` changes: preserve tools-side aliases when plugin generated CSVs are blank or contain a shorter alias list; these aliases are parser lookup keys in tools.
+   - `SQL Func` changes: preserve tools-side aliases when plugin generated CSVs are blank or contain a strict subset of the tools aliases; these aliases are parser lookup keys in tools.
    - `TNEW -> S`: require parser coverage or a clear existing parser path.
    - Spark 4-only rows: call out separately and keep gated unless this branch has matching Spark 4 support.
 
