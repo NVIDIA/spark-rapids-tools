@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, NVIDIA CORPORATION.
+ * Copyright (c) 2025-2026, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef}
+import com.nvidia.spark.rapids.tool.planparser.ops.{OpTypes, UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
@@ -77,11 +77,10 @@ class AppendDataIcebergParser(
   override def pullSpeedupFactor(registeredName: Option[String] = None): Double = 1.5
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
-    // Check if the operation is supported in the stub,
-    // and if the format and compression are supported.
-    // Also check if the catalog is supported.
-    // Finally, check if the write operation is supported.
-    opStub.isSupported && super.pullSupportedFlag() && isWriteSupported
+    // Order matters: the runtime/config gates are cheaper than the format/catalog/compression
+    // checks and surface clearer reasons when they fail.
+    opStub.isSupported && super.pullSupportedFlag() &&
+      checkIcebergRuntimeGates && isWriteSupported
   }
 
   protected def checkCompressionORC(codec: String): Boolean = {
@@ -98,17 +97,14 @@ class AppendDataIcebergParser(
     }
   }
 
-  protected def checkCatalogSupport(): Boolean = {
-    // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
-    val res = app match {
-      case Some(a) =>
-        IcebergHelper.isSparkCatalogSupported(a.sparkProperties)
-      case _ => true  // we could not extract the catalog, default to True.
+  protected def checkCatalogSupport: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    IcebergGpuSupport.firstUnsupportedCatalogReason(props) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
     }
-    if (!res) {
-      setUnsupportedReason("Unsupported Iceberg catalog")
-    }
-    res
   }
 
   protected def checkCompression: Boolean = {
@@ -119,11 +115,35 @@ class AppendDataIcebergParser(
   }
 
   protected def isWriteSupported: Boolean = {
-    if (checker.isWriteFormatSupported(writeOpMeta.dataFormat())) {
+    if (isIcebergWriteFormatSupported) {
       // check if the compression is supported
-      checkCatalogSupport() && checkCompression
+      checkCatalogSupport && checkCompression
     } else {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
       false
+    }
+  }
+
+  /**
+   * Delegates to `IcebergGpuSupport.isSupportedDataFileFormat` against the format
+   * extracted from `node.desc` by `AppendDataIcebergExtract`.
+   */
+  protected def isIcebergWriteFormatSupported: Boolean = {
+    IcebergGpuSupport.isSupportedDataFileFormat(writeOpMeta.dataFormat())
+  }
+
+  /**
+   * Plumbs `IcebergGpuSupport.firstUnsupportedWritePrerequisite` to the parser's
+   * `setUnsupportedReason`.
+   */
+  protected def checkIcebergRuntimeGates: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    val sparkVer = app.map(_.sparkVersion).getOrElse("")
+    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
     }
   }
 
