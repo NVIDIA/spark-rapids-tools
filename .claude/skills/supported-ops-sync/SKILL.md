@@ -19,6 +19,17 @@ You may obtain a copy of the License at
 
 Keep `spark-rapids-tools` aligned with the RAPIDS plugin generated support metadata while preserving tools-side review gates. The plugin source is `NVIDIA/spark-rapids:tools/generated_files`.
 
+## Automation Boundary
+
+The CSV sync mechanics are deterministic and should be automated: stage plugin generated CSVs, run the tools sync helper, preserve tools-only aliases, mark new rows as `TNEW`, update score files, and produce a review report.
+
+Do not treat plugin generated CSVs as the complete source of truth for support promotion. They depend on the plugin change correctly updating generated metadata, and some support depends on plugin code paths, Spark versions, datasource formats, Spark configs, and parser visibility in event logs.
+
+- Expressions are usually easier to validate from parser output, but still need event-log/parser evidence before promotion.
+- Execs and datasources often need manual compatibility review. Iceberg, Delta, merge/write execs, datasource V2 paths, and phased support changes are common high-risk cases.
+- If support depends on specific configs, formats, datatypes, or Spark versions, keep rows gated unless the PR includes evidence and targeted tests for those cases.
+- If the physical plan or node description does not expose enough information, add or verify parser extraction before promoting support.
+
 ## Default Workflow
 
 Use these defaults unless the user says otherwise:
@@ -113,9 +124,11 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
 6. Classify changes:
    - Pure support/type changes: verify they are plausible from plugin CSVs.
    - New execs/expressions: keep as `TNEW` unless tools parsing and tests prove support.
+   - New datasource or exec support: inspect the plugin code path when support depends on format, config, Spark version, or datasource implementation details.
    - Removed plugin rows: preserve them unless a reviewer explicitly agrees to delete tools coverage.
    - `SQL Func` changes: preserve tools-side aliases when plugin generated CSVs are blank or contain a strict subset of the tools aliases; these aliases are parser lookup keys in tools.
    - `TNEW -> S`: require parser coverage or a clear existing parser path.
+   - `NS -> S`, `CO -> S`, or datasource write/read promotions: require evidence from plugin code and event-log/parser behavior, not only the generated CSV row.
    - Spark 4-only rows: call out separately and keep gated unless this branch has matching Spark 4 support.
 
 7. Apply only after preview review by rerunning the existing utility with repo outputs:
@@ -142,6 +155,8 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
    ```
 
 9. Add targeted tests for promoted expressions or parser behavior changes. Prior examples are in `core/src/test/scala/com/nvidia/spark/rapids/tool/planparser/SqlPlanParserSuite.scala`, whose suite class is `SQLPlanParserSuite`.
+
+   For exec and datasource promotions, include or cite event logs that exercise the relevant physical plan path and confirm the qualification/profiling output marks the operator as expected. Do not promote based only on generated CSV drift when plugin support is phased, config-gated, or format-specific.
 
 10. Run targeted validation:
 
@@ -179,6 +194,7 @@ Ask before continuing only if the user wants a non-`main` plugin ref, a non-`dev
 - Do not copy plugin root CSVs directly over tools resources. Stage the root plugin CSVs in a temp input directory and run the tools sync utility so it can apply overrides, mark new rows `TNEW`, and preserve removed rows.
 - Do not accept `SQL Func` alias loss from the plugin root CSV without review. The tools parser uses those aliases to recognize expressions whose physical plans print SQL function names instead of expression class names.
 - Do not blindly convert `TNEW` to `S`. `TNEW` means plugin metadata knows about the operator, but tools have not validated parser behavior.
+- Do not promote exec or datasource support from generated CSVs alone. Check plugin compatibility logic, required Spark configs, supported formats, datatypes, Spark versions, and event-log/parser coverage.
 - When new operators are accepted into tools, update operator score CSVs using `sync_operator_scores.py` or the helper's default score-sync path.
 - If Spark 4-only operators appear, keep them gated as `TNEW` unless the tools branch has the necessary Spark 4 parser/test support.
 
@@ -228,6 +244,7 @@ Always include:
 - Summary of supported CSV changes from `operators_plugin_sync_report.txt`.
 - New operators and their current `TNEW`/tested status.
 - Tests added or explicitly not added, with rationale.
+- Evidence for any exec or datasource support promotion, including plugin code path and event-log/parser validation when applicable.
 - Follow-ups for execs/expressions that remain `TNEW`.
 
 For historical examples, compare PRs:

@@ -16,6 +16,8 @@ You may obtain a copy of the License at
 - List new execs and expressions from `new_operators.txt`.
 - Explain which new rows remain `TNEW` and why.
 - Explain every `TNEW -> S`, `NS -> S`, or `CO -> S` promotion.
+- For exec or datasource promotions, cite plugin code-path review and event-log/parser evidence.
+- Call out config-gated, format-specific, datatype-specific, or Spark-version-specific support.
 - Confirm operator score CSVs were updated when new operators were added.
 - Confirm targeted tests run, or state why a test is not applicable.
 - Call out Spark 4-only rows separately.
