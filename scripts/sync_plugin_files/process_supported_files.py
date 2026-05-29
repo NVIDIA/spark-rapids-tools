@@ -87,10 +87,15 @@ def get_sql_func_aliases(sql_func_value):
     """
     Return SQL function aliases from a semicolon-separated SQL Func cell.
     """
-    sql_func_str = str(sql_func_value).strip()
-    if sql_func_str == "" or sql_func_str == "None":
+    if pd.isna(sql_func_value):
         return set()
-    return {alias.strip() for alias in sql_func_str.split(";") if alias.strip()}
+    sql_func_str = str(sql_func_value).strip()
+    if sql_func_str == "" or sql_func_str.lower() in ("none", "nan"):
+        return set()
+    return {
+        alias.strip() for alias in sql_func_str.split(";")
+        if alias.strip() and alias.strip() not in SupportLevel.__members__
+    }
 
 
 def should_preserve_tools_string(column_name, tools_value, plugin_value):
