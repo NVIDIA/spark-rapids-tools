@@ -81,13 +81,14 @@ class MergeRowsIcebergParser(
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
     // The opStub gates the operator as a whole (MergeRows and WriteDelta stay false here).
-    // For ReplaceData we additionally require the per-write gates: the runtime/config
-    // cascade and catalog allowlist shared with AppendDataIcebergParser, plus a Parquet
-    // underlying data-file format.
+    // For ReplaceData we additionally require the supportedExecs.csv baseline (via
+    // super), then the per-write gates: the runtime/config cascade and catalog
+    // allowlist shared with AppendDataIcebergParser, plus a Parquet data-file format.
     if (!opStub.isSupported) {
       false
     } else if (node.name == IcebergHelper.EXEC_REPLACE_DATA) {
-      checkIcebergRuntimeGates && checkCatalogSupport && isReplaceDataWriteSupported
+      super.pullSupportedFlag() && checkIcebergRuntimeGates && checkCatalogSupport &&
+        isReplaceDataWriteSupported
     } else {
       true
     }
