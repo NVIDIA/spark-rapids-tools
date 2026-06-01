@@ -123,7 +123,8 @@ class MergeRowsIcebergParser(
   protected def checkIcebergRuntimeGates: Boolean = {
     val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
     val sparkVer = app.map(_.sparkVersion).getOrElse("")
-    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer) match {
+    val isDB = app.exists(_.dbPlugin.isEnabled)
+    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer, isDB) match {
       case Some(reason) =>
         setUnsupportedReason(reason)
         false

@@ -17,6 +17,7 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.BaseNoSparkSuite
+import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedReasonRef
 
 /**
  * Pure unit tests for the runtime/config gates on `IcebergGpuSupport`. These do not
@@ -128,6 +129,53 @@ class IcebergGpuSupportSuite extends BaseNoSparkSuite {
     assert(IcebergGpuSupport.isSupportedDataFileFormat(""))
     assert(IcebergGpuSupport.isSupportedDataFileFormat(
       org.apache.spark.sql.rapids.tool.util.StringUtils.UNKNOWN_EXTRACT))
+  }
+
+  // ---------------- Write-prerequisite cascade ----------------
+
+  test("firstUnsupportedWritePrerequisite short-circuits to Databricks reason on DBR") {
+    // Databricks branch fires even when sparkVersion is a valid OSS string and
+    // every other gate would pass. The plugin uses iceberg-stub on DBR today.
+    val result = IcebergGpuSupport.firstUnsupportedWritePrerequisite(
+      properties = Map.empty[String, String],
+      sparkVersion = "3.5.7",
+      isDatabricks = true)
+    assert(result.contains(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DATABRICKS))
+  }
+
+  test("firstUnsupportedWritePrerequisite returns Databricks reason on a DBR label") {
+    // When `app.sparkVersion` resolves to a DBR label (e.g. "13.3.x-..."), the
+    // Databricks branch short-circuits before the version regex is consulted.
+    val result = IcebergGpuSupport.firstUnsupportedWritePrerequisite(
+      properties = Map.empty[String, String],
+      sparkVersion = "13.3.x-aarch64-scala2.12",
+      isDatabricks = true)
+    assert(result.contains(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DATABRICKS))
+  }
+
+  test("firstUnsupportedWritePrerequisite passes on OSS Spark with all gates clear") {
+    val result = IcebergGpuSupport.firstUnsupportedWritePrerequisite(
+      properties = Map.empty[String, String],
+      sparkVersion = "3.5.7",
+      isDatabricks = false)
+    assert(result.isEmpty)
+  }
+
+  test("firstUnsupportedWritePrerequisite returns Spark version reason on OSS Spark 3.4") {
+    val result = IcebergGpuSupport.firstUnsupportedWritePrerequisite(
+      properties = Map.empty[String, String],
+      sparkVersion = "3.4.1",
+      isDatabricks = false)
+    assert(result.contains(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION))
+  }
+
+  test("firstUnsupportedWritePrerequisite returns format-disabled reason when gate fails") {
+    val props = Map(IcebergGpuSupport.CONF_ICEBERG_ENABLED -> "false")
+    val result = IcebergGpuSupport.firstUnsupportedWritePrerequisite(
+      properties = props,
+      sparkVersion = "3.5.7",
+      isDatabricks = false)
+    assert(result.contains(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED))
   }
 
   // ---------------- Catalog allowlist ----------------

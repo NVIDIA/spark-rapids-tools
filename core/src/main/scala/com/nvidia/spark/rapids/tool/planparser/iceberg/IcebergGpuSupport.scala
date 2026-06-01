@@ -120,15 +120,27 @@ object IcebergGpuSupport {
    * or `None` when all gates pass.
    *
    * Gate order:
-   *   1. Spark version (3.5.x / 4.0.x)
-   *   2. `spark.rapids.sql.format.iceberg.enabled`
-   *   3. `spark.rapids.sql.format.iceberg.write.enabled`
-   *   4. `spark.sql.parquet.fieldId.write.enabled`
+   *   1. Databricks platform short-circuit. The RAPIDS plugin ships
+   *      `iceberg-stub` on DBR shims today, so any Databricks Iceberg write is
+   *      reported unsupported regardless of other gates. When DBR Iceberg support
+   *      is added, this branch should consult a DBR-version predicate instead of
+   *      returning unconditionally.
+   *   2. Spark version (3.5.x / 4.0.x), only consulted on non-Databricks platforms.
+   *      `sparkVersion` here is whatever `AppBase.sparkVersion` resolves to (raw
+   *      `SparkListenerLogStart` on OSS Spark, plugin-supplied vendor label on
+   *      platforms that override it), so the predicate is only meaningful when
+   *      the platform-shape is known.
+   *   3. `spark.rapids.sql.format.iceberg.enabled`
+   *   4. `spark.rapids.sql.format.iceberg.write.enabled`
+   *   5. `spark.sql.parquet.fieldId.write.enabled`
    */
   def firstUnsupportedWritePrerequisite(
       properties: collection.Map[String, String],
-      sparkVersion: String): Option[UnsupportedReasonRef] = {
-    if (!isSparkVersionSupported(sparkVersion)) {
+      sparkVersion: String,
+      isDatabricks: Boolean): Option[UnsupportedReasonRef] = {
+    if (isDatabricks) {
+      Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DATABRICKS)
+    } else if (!isSparkVersionSupported(sparkVersion)) {
       Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_SPARK_VERSION)
     } else if (!isIcebergFormatEnabled(properties)) {
       Some(UnsupportedReasonRef.UNSUPPORTED_ICEBERG_DISABLED)
