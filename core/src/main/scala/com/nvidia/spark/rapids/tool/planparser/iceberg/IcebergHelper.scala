@@ -23,9 +23,13 @@ import com.nvidia.spark.rapids.tool.plugins.PropConditionOnSparkExtTrait
 import org.apache.spark.sql.rapids.tool.util.EventUtils.SPARK_CATALOG_REGEX
 
 /**
- * Helper object for Iceberg related utilities.
- * This includes methods to check if Iceberg is enabled in the Spark properties,
- * and to extract the catalog type among other static functionalities.
+ * Iceberg detection and Iceberg-specific table/exec metadata.
+ *
+ * Provides Iceberg-app detection (`eval`, `extensionRegxMap`, `isSparkCatalogDefined`,
+ * `getCatalogType`) and carries Iceberg-specific constants
+ * (`ICEBERG_METADATA_TABLE_SUFFIXES`, `EXEC_*`, `DEFINED_EXECS`).
+ *
+ * Per-operation GPU support gates live in `IcebergGpuSupport`.
  */
 object IcebergHelper extends PropConditionOnSparkExtTrait {
   // An Iceberg app is identified using the following properties from spark properties.
@@ -43,9 +47,6 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   private def isSparkCatalogDefined(properties: collection.Map[String, String]): Boolean = {
     properties.keys.exists(key => SPARK_CATALOG_REGEX.pattern.matcher(key).matches())
   }
-
-  // For Iceberg, RAPIDS only supports running against the Hadoop filesystem catalog.
-  private val SUPPORTED_CATALOGS = Set("hadoop")
 
   // Iceberg metadata table suffixes used to identify metadata table scans in BatchScan operations.
   // When querying Iceberg metadata tables through the catalog API, the table name appears with
@@ -90,7 +91,15 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
   val EXEC_WRITE_DELTA: String = "WriteDelta"
 
   // A Map between the spark node name and the SupportedOpStub.
-  // Note that AppendDataExec is not supported for Iceberg.
+  //
+  // Iceberg exec stubs:
+  // - AppendData and ReplaceData are GPU on Spark 3.5.x / 4.0.x when the per-exec gates
+  //   (Iceberg enabled, Parquet write format, field IDs, supported catalog) pass. The
+  //   parsers enforce those gates and downgrade individual events as needed.
+  // - MergeRows GPU support depends on its write parent (CoW=ReplaceData vs MoR=WriteDelta)
+  //   and is left unsupported here until chain-aware detection lands.
+  // - WriteDelta covers merge-on-read DML and is disabled by default in the plugin (rule
+  //   spark.rapids.sql.exec.WriteDeltaExec=false), so it stays unsupported here.
   //
   // MERGE INTO operations use two different strategies:
   // - Copy-on-Write (CoW): MergeRows -> ReplaceData (rewrites data files)
@@ -99,29 +108,24 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
     EXEC_APPEND_DATA ->
       SupportedOpStub(
         EXEC_APPEND_DATA,
-        // The writeOp is not supported in Iceberg
-        isSupported = false,
+        isSupported = true,
         opType = Option(OpTypes.WriteExec)
       ),
     EXEC_MERGE_ROWS ->
       SupportedOpStub(
         EXEC_MERGE_ROWS,
-        // MergeRows is used in Iceberg MERGE INTO operations.
         isSupported = false,
         opType = Option(OpTypes.Exec)
       ),
     EXEC_REPLACE_DATA ->
       SupportedOpStub(
         EXEC_REPLACE_DATA,
-        // ReplaceData is the write operator for copy-on-write MERGE INTO.
-        isSupported = false,
+        isSupported = true,
         opType = Option(OpTypes.WriteExec)
       ),
     EXEC_WRITE_DELTA ->
       SupportedOpStub(
         EXEC_WRITE_DELTA,
-        // WriteDelta is the write operator for merge-on-read MERGE INTO.
-        // Writes "delete files" instead of rewriting data files.
         isSupported = false,
         opType = Option(OpTypes.WriteExec)
       )
@@ -152,21 +156,5 @@ object IcebergHelper extends PropConditionOnSparkExtTrait {
       .flatMap { catalog =>
         properties.get(s"$catalog.type")
       }
-  }
-
-  /**
-   * Checks if the catalog type is supported by RAPIDS.
-   * If the catalog type is not found, it defaults to true.
-   * @param properties spark properties captured from the eventlog environment details
-   * @return true if the catalog type is supported or not found, false otherwise
-   */
-  def isSparkCatalogSupported(properties: collection.Map[String, String]): Boolean = {
-    getCatalogType(properties) match {
-      case Some(catalog) =>
-        SUPPORTED_CATALOGS.contains(catalog.toLowerCase)
-      case _ =>
-        // we could not extract the catalog, default to True.
-        true
-    }
   }
 }

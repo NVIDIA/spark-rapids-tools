@@ -68,7 +68,14 @@ object IcebergOps extends GroupParserTrait {
 
   /**
    * Checks whether this parserGroup should handle the given node name.
-   * If conf-provider is defined, it checks if the providerImpl is Iceberg.
+   *
+   * When `confProvider` is `Some`, positive Iceberg detection
+   * (`isIcebergEnabled`) is required. This prevents non-Iceberg V2 nodes
+   * (e.g. plain Spark or Delta `AppendData`) from being routed into the
+   * Iceberg-aware parsers and silently passing their optimistic format gate.
+   *
+   * `None` is accepted as a test-only fallback for callers that have no
+   * application context; production dispatch always supplies the app.
    *
    * @param nodeName     name of the node to check
    * @param confProvider optional configuration provider
@@ -77,11 +84,7 @@ object IcebergOps extends GroupParserTrait {
   override def accepts(
       nodeName: String,
       confProvider: Option[CacheablePropsHandler]): Boolean = {
-    confProvider match {
-      case Some(a) if a.isIcebergEnabled =>
-        a.isIcebergEnabled && accepts(nodeName)
-      case _ => accepts(nodeName)
-    }
+    confProvider.forall(_.isIcebergEnabled) && accepts(nodeName)
   }
 
   /**
