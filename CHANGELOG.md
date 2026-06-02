@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.04.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.3)
+Generated on 2026-06-02
+### Core
+
+- Flip Iceberg AppendData and ReplaceData to GPU supported ([#2094](https://github.com/NVIDIA/spark-rapids-tools/pull/2094))
+
+
+<br/>
+
 ## Release [v26.04.2](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.2)
 Generated on 2026-05-26
 ### Build and CI/CD
