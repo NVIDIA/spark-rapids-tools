@@ -17,33 +17,44 @@
 package com.nvidia.spark.rapids.tool.planparser.iceberg
 
 import com.nvidia.spark.rapids.tool.planparser.{ExecInfo, GenericExecParser, SQLPlanParser, SupportedOpStub}
-import com.nvidia.spark.rapids.tool.planparser.ops.UnsupportedExprOpRef
+import com.nvidia.spark.rapids.tool.planparser.ops.{UnsupportedExprOpRef, UnsupportedReasonRef}
 import com.nvidia.spark.rapids.tool.qualification.PluginTypeChecker
 
 import org.apache.spark.sql.rapids.tool.AppBase
 import org.apache.spark.sql.rapids.tool.plangraph.SparkPlanGraphNode
+import org.apache.spark.sql.rapids.tool.store.WriteOperationMetadataTrait
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
- * A parser for Iceberg merge-related operations (MergeRows, ReplaceData).
+ * Parser for three sibling Iceberg execs:
  *
- * This parser handles Iceberg MERGE INTO operations:
- * - MergeRows: The intermediate exec that handles merge logic (keep, discard, split rows)
- * - ReplaceData: The write operator for copy-on-write mode
+ *   - `MergeRows`   — intermediate row classifier used by MERGE INTO. Emits
+ *     `keep` / `discard` / `split` expressions; not a write operator.
+ *   - `ReplaceData` — copy-on-write write exec; rewrites data files for CoW
+ *     DELETE / UPDATE / MERGE.
+ *   - `WriteDelta`  — merge-on-read write exec; writes position-delete files for
+ *     MoR DELETE / UPDATE / MERGE.
  *
- * DAG structure (copy-on-write mode):
+ * The three execs are siblings in Spark's plan tree, not a hierarchy. Each branch
+ * has its own gate set:
+ *
+ *   - MergeRows: parses merge expressions; unsupported.
+ *   - ReplaceData: runtime/config + catalog + Parquet data-file format gates from
+ *     [[IcebergGpuSupport]].
+ *   - WriteDelta: unsupported; controlled at the plugin by
+ *     `spark.rapids.sql.exec.WriteDeltaExec`.
+ *
+ * DAG shapes:
+ *
  * {{{
- *   ReplaceData (12)           <- Write operator (CoW mode)
- *   +- Project (11)
- *      +- MergeRows (10)       <- Merge logic operator
- *         +- SortMergeJoin FullOuter (9)
- *            :- BatchScan (target table)
- *            +- BatchScan (source table)
+ *   Copy-on-write MERGE:        Merge-on-read MERGE:
+ *     ReplaceData                  WriteDelta
+ *     +- Project                   +- Exchange
+ *        +- MergeRows                 +- MergeRows
+ *           +- SortMergeJoin             +- SortMergeJoin
  * }}}
  *
- * GPU support exists when data types are compatible:
- * - GpuMergeRows handles the merge logic
- * - GpuReplaceData handles the write
- *
+ * TODO: split into per-exec parser classes; each branch has independent logic.
  *
  * @param node the Spark plan graph node
  * @param checker the plugin type checker
@@ -69,8 +80,70 @@ class MergeRowsIcebergParser(
   override def pullSpeedupFactor(registeredName: Option[String] = None): Double = 1.0
 
   override def pullSupportedFlag(registeredName: Option[String] = None): Boolean = {
-    // Support is determined by the opStub.isSupported flag.
-    opStub.isSupported
+    // The opStub gates the operator as a whole (MergeRows and WriteDelta stay false here).
+    // For ReplaceData we additionally require the supportedExecs.csv baseline (via
+    // super), then the per-write gates: the runtime/config cascade and catalog
+    // allowlist shared with AppendDataIcebergParser, plus a Parquet data-file format.
+    if (!opStub.isSupported) {
+      false
+    } else if (node.name == IcebergHelper.EXEC_REPLACE_DATA) {
+      super.pullSupportedFlag() && checkIcebergRuntimeGates && checkCatalogSupport &&
+        isReplaceDataWriteSupported
+    } else {
+      true
+    }
+  }
+
+  /**
+   * Extracts the ReplaceData data-file format from `physicalPlanDescription` and
+   * delegates to `IcebergGpuSupport.isSupportedDataFileFormat`. If the format string
+   * is unavailable the helper stays optimistic, mirroring AppendData behavior.
+   */
+  protected def isReplaceDataWriteSupported: Boolean = {
+    val meta: Option[WriteOperationMetadataTrait] = for {
+      appInst <- app
+      physPlan <- appInst.sqlManager.applyToPlanModel(sqlID)(_.plan.physicalPlanDescription)
+      if physPlan.nonEmpty
+      m <- IcebergWriteExtract.buildWriteOp(IcebergHelper.EXEC_REPLACE_DATA, node.desc,
+        Some(physPlan))
+    } yield m
+
+    val fmt = meta.map(_.dataFormat()).getOrElse(StringUtils.UNKNOWN_EXTRACT)
+    val ok = IcebergGpuSupport.isSupportedDataFileFormat(fmt)
+    if (!ok) {
+      setUnsupportedReason(UnsupportedReasonRef.UNSUPPORTED_IO_FORMAT)
+    }
+    ok
+  }
+
+  /**
+   * Plumbs `IcebergGpuSupport.firstUnsupportedWritePrerequisite` to the parser's
+   * `setUnsupportedReason`.
+   */
+  protected def checkIcebergRuntimeGates: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    val sparkVer = app.map(_.sparkVersion).getOrElse("")
+    val isDB = app.exists(_.dbPlugin.isEnabled)
+    IcebergGpuSupport.firstUnsupportedWritePrerequisite(props, sparkVer, isDB) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
+    }
+  }
+
+  /**
+   * Plumbs `IcebergGpuSupport.firstUnsupportedCatalogReason` to the parser's
+   * `setUnsupportedReason`.
+   */
+  protected def checkCatalogSupport: Boolean = {
+    val props = app.map(_.sparkProperties).getOrElse(Map.empty[String, String])
+    IcebergGpuSupport.firstUnsupportedCatalogReason(props) match {
+      case Some(reason) =>
+        setUnsupportedReason(reason)
+        false
+      case None => true
+    }
   }
 
   // The value that will be reported as ExecName in the ExecInfo object created by this parser.
