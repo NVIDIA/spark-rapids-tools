@@ -866,9 +866,9 @@ abstract class AutoTuner(
       // Handle the case when the final executor memory overhead is larger than the
       // available memory left for the executor.
       if (execMemLeft < finalExecutorMemOverhead) {
-        // If there is any user-enforced memory settings, add a warning comment
-        // indicating that the current setup is not optimal and no memory-related
-        // tunings are recommended.
+        // If there are any baseline memory settings (user-enforced or preserved),
+        // add a warning comment indicating that the current setup is not optimal
+        // and no memory-related tunings are recommended.
         if (baselineMemorySettings.hasAnyMemorySettings) {
           return Left(generateInsufficientMemoryComment(executorHeapMB, finalExecutorMemOverhead,
             sparkOffHeapMemMB, pySparkMemMB))
