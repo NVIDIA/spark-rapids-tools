@@ -2328,6 +2328,52 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         s"memoryOverhead with preserve=$overheadWith vs without=$overheadWithout")
   }
 
+  // Issue #2053: host off-heap limit settings affect pinned-memory sizing on on-prem
+  // clusters, so preserved source values must be used as calculation baselines.
+  test("preserved host off-heap limit settings are used as memory sizing baselines") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "20",
+        "spark.executor.memory" -> "6144M",
+        "spark.executor.instances" -> "20",
+        "spark.rapids.memory.host.offHeapLimit.enabled" -> "true",
+        "spark.rapids.memory.host.offHeapLimit.size" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.enabled" -> "true"
+      )
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(20),
+      memoryGB = Some(120L),
+      gpuCount = Some(1),
+      gpuMemory = Some("48g"),
+      gpuDevice = Some("l20"),
+      preserveSparkProperties = List(
+        "spark.rapids.memory.host.offHeapLimit.enabled",
+        "spark.rapids.memory.host.offHeapLimit.size")
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0),
+      Seq(0.0), logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 20,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
+    val (properties, _) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps = false)
+    val recommendedProps = properties.map(p => p.name -> p.getTuneValue()).toMap
+
+    assert(recommendedProps.get("spark.rapids.memory.host.offHeapLimit.enabled").contains("true"))
+    assert(recommendedProps.get("spark.rapids.memory.host.offHeapLimit.size").contains("80g"))
+    assert(recommendedProps.get("spark.rapids.memory.pinnedPool.size").contains("40g"),
+      s"Expected pinned memory to use preserved host off-heap limit size, " +
+        s"got ${recommendedProps.get("spark.rapids.memory.pinnedPool.size")}")
+  }
+
   // Test for https://github.com/NVIDIA/spark-rapids-tools/issues/2074
   // When HEAP_PER_CORE caps executor heap (48g -> 16g with 8 cores), the freed memory
   // should be redistributed into overhead to preserve the total memory budget (~66g).

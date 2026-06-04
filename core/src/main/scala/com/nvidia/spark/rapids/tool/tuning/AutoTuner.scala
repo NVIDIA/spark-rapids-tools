@@ -287,7 +287,7 @@ abstract class AutoTuner(
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
   private lazy val isOffHeapLimitUserEnabled: Boolean = {
-    platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
+    getBaselineSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
       .exists(_.trim.equalsIgnoreCase("true"))
   }
 
@@ -508,8 +508,11 @@ abstract class AutoTuner(
    * Criteria:
    * - The property is in the skipped recommendations list
    * - The property is in the limited logic recommendations list
-   * - The property is enforced by the user (since we have already handled it during
-   *   initRecommendations() and initialization of finalTuningTable)
+   * - The property is preserved from source values or otherwise marked for limited logic
+   * - The property is enforced by the user
+   *
+   * Preserved and enforced properties are handled during initRecommendations() and
+   * initialization of finalTuningTable, so later recommendation logic should not overwrite them.
    * @param key the property to check
    * @return true if the recommendation should be ignored, false otherwise
    */
@@ -651,6 +654,14 @@ abstract class AutoTuner(
   }
 
   /**
+   * Spark property value to use as an input baseline for recommendation calculations.
+   * User-enforced values take precedence over preserved source values.
+   */
+  private def getBaselineSparkProperty(key: String): Option[String] = {
+    platform.getEnforcedOrPreservedSparkProperty(key, getPropertyValueFromSource)
+  }
+
+  /**
    * Note: All memory values are in MB.
    */
   private case class MemorySettings(
@@ -670,8 +681,7 @@ abstract class AutoTuner(
 
   private lazy val baselineMemorySettings: MemorySettings = {
     def baseline(key: String): Option[Long] =
-      platform.getEnforcedOrPreservedSparkProperty(key, getPropertyValueFromSource)
-        .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
+      getBaselineSparkProperty(key).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
     val executorHeap = baseline("spark.executor.memory")
     val executorMemOverhead = baseline("spark.executor.memoryOverhead")
     val pinnedMem = baseline("spark.rapids.memory.pinnedPool.size")
@@ -823,8 +833,8 @@ abstract class AutoTuner(
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
         isOffHeapLimitUserEnabled) {
-        val userOffHeapLimitOpt = platform
-          .getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.size")
+        val userOffHeapLimitOpt =
+          getBaselineSparkProperty("spark.rapids.memory.host.offHeapLimit.size")
         if (userOffHeapLimitOpt.isDefined) {
           StringUtils.convertToMB(
             userOffHeapLimitOpt.get,
