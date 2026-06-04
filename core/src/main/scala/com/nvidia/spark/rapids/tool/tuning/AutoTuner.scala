@@ -771,7 +771,8 @@ abstract class AutoTuner(
       numExecutorCores: Int,
       totalMemForExecExpr: () => Double): Either[String, (MemorySettings, Boolean)] = {
 
-    // Set executor heap using user enforced value or max of calculator result and 2GB/core
+    // Set executor heap using a baseline value, if present, otherwise max of
+    // calculator result and 2GB/core.
     val executorHeapMB = baselineMemorySettings.executorHeap.getOrElse {
       Math.max(
         execHeapCalculator(),
