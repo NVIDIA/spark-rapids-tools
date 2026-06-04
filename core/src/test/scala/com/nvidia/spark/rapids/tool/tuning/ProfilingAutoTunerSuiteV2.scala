@@ -22,8 +22,10 @@ import com.nvidia.spark.rapids.tool.{DynamicAllocationInfo, GpuTypes, NodeInstan
 import com.nvidia.spark.rapids.tool.profiling.Profiler
 import com.nvidia.spark.rapids.tool.tuning.config.{ConfTypeEnum, TuningConfigEntry, TuningEntryDefinition}
 
+import org.apache.spark.network.util.ByteUnit
 import org.apache.spark.sql.{SparkSession, TrampolineUtil}
 import org.apache.spark.sql.rapids.tool.annotation.Since
+import org.apache.spark.sql.rapids.tool.util.StringUtils
 
 /**
  * Test suite for the Profiling AutoTuner that uses the new target cluster properties format.
@@ -2202,6 +2204,174 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       DynamicAllocationInfo(
         enabled = true, max = "9", min = "2",
         initial = "9"))
+  }
+
+  // Issue #2053: when spark.executor.cores is in the target cluster `preserve` list,
+  // the preserved source value (8) must be the sizing baseline, NOT re-sliced to the
+  // platform default (16). Same scenario as "dynamic allocation enforces invariant with
+  // target cluster" above, but with preserve. Core ratio = 8/8 = 1.0, so source DA is not
+  // scaled; initialExecutors is still boosted to match executor.instances=18.
+  // Expected: cores=8, instances=18, DA min=4 / initial=18 / max=18.
+  test("preserved spark.executor.cores is respected by cluster sizing and dynamic allocation") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "8",
+        "spark.executor.memory" -> "16g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.dynamicAllocation.enabled" -> "true",
+        "spark.dynamicAllocation.initialExecutors" -> "8",
+        "spark.dynamicAllocation.minExecutors" -> "4",
+        "spark.dynamicAllocation.maxExecutors" -> "18",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.enabled" -> "true"
+      )
+
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(16),
+      memoryGB = Some(64),
+      gpuCount = Some(1),
+      gpuDevice = Some(GpuTypes.L4.toString),
+      preserveSparkProperties = List("spark.executor.cores")
+    )
+
+    val infoProvider = getMockInfoProvider(0, Seq(0),
+      Seq(0.0), logEventsProps, Some(testSparkVersion))
+    val platform =
+      PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 8,
+      numWorkers = 18,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Yarn))
+    // Use showOnlyUpdatedProps = false so that DA values left unchanged from source
+    // (min/max, since the core ratio is now 1.0) are still present to assert on.
+    val (properties, _) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps = false)
+    val recommendedProps = properties.map(p => p.name -> p.getTuneValue()).toMap
+
+    def assertProp(name: String, expected: String): Unit =
+      assert(recommendedProps.get(name).contains(expected),
+        s"$name: expected $expected, got ${recommendedProps.get(name)}")
+
+    assertProp("spark.executor.cores", "8")
+    assertProp("spark.executor.instances", "18")
+    assertProp("spark.dynamicAllocation.minExecutors", "4")
+    assertProp("spark.dynamicAllocation.initialExecutors", "18")
+    assertProp("spark.dynamicAllocation.maxExecutors", "18")
+  }
+
+  // Issue #2053: when spark.executor.memory is preserved, the source heap value (8g)
+  // must be used as the memory sizing BASELINE that drives dependent memory sizing
+  // (e.g. executor.memoryOverhead), not merely echoed to the output. Asserting only the
+  // final executor.memory value is insufficient: the final preserve override already
+  // forces that value regardless of whether the baseline reads preserve. We therefore
+  // assert that a dependent value (memoryOverhead) actually changes when the heap
+  // baseline is the preserved 8g versus the larger computed default.
+  test("preserved spark.executor.memory is used as the memory sizing baseline") {
+    def runWith(preserve: List[String]): Map[String, String] = {
+      val logEventsProps: mutable.Map[String, String] =
+        mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> "8",
+          "spark.executor.instances" -> "2",
+          "spark.executor.memory" -> "8g",
+          "spark.executor.resource.gpu.amount" -> "1",
+          "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+          "spark.rapids.sql.enabled" -> "true"
+        )
+      val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+        cpuCores = Some(16),
+        memoryGB = Some(64),
+        gpuCount = Some(1),
+        gpuDevice = Some(GpuTypes.L4.toString),
+        preserveSparkProperties = preserve
+      )
+      val infoProvider = getMockInfoProvider(0, Seq(0),
+        Seq(0.0), logEventsProps, Some(testSparkVersion))
+      val platform =
+        PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+      configureEventLogClusterInfoForTest(
+        platform,
+        numCores = 8,
+        numWorkers = 2,
+        gpuCount = 1,
+        sparkProperties = logEventsProps.toMap
+      )
+      val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
+      val (properties, _) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps = false)
+      properties.map(p => p.name -> p.getTuneValue()).toMap
+    }
+
+    val withPreserve = runWith(List("spark.executor.memory"))
+    val withoutPreserve = runWith(List.empty)
+
+    // Sanity: the preserved heap is echoed to the output.
+    val heapMB = withPreserve.get("spark.executor.memory")
+      .map(v => StringUtils.convertToMB(v, Some(ByteUnit.BYTE)))
+      .getOrElse(fail("spark.executor.memory not found in recommendations"))
+    assert(heapMB == StringUtils.convertToMB("8g", Some(ByteUnit.BYTE)),
+      s"Expected preserved heap 8g, got ${heapMB}MB")
+
+    // The real proof: preserving the 8g heap as the baseline changes dependent memory
+    // sizing. Without preserve, the baseline is the larger computed default, so the
+    // recommended executor.memoryOverhead differs.
+    val overheadWith = withPreserve.get("spark.executor.memoryOverhead")
+    val overheadWithout = withoutPreserve.get("spark.executor.memoryOverhead")
+    assert(overheadWith.isDefined && overheadWithout.isDefined,
+      s"Expected executor.memoryOverhead in both runs, " +
+        s"got with=$overheadWith without=$overheadWithout")
+    assert(overheadWith != overheadWithout,
+      s"Preserving spark.executor.memory should change dependent memory sizing; " +
+        s"memoryOverhead with preserve=$overheadWith vs without=$overheadWithout")
+  }
+
+  // Issue #2053: host off-heap limit settings affect pinned-memory sizing on on-prem
+  // clusters, so preserved source values must be used as calculation baselines.
+  test("preserved host off-heap limit settings are used as memory sizing baselines") {
+    val logEventsProps: mutable.Map[String, String] =
+      mutable.LinkedHashMap[String, String](
+        "spark.executor.cores" -> "20",
+        "spark.executor.memory" -> "6144M",
+        "spark.executor.instances" -> "20",
+        "spark.rapids.memory.host.offHeapLimit.enabled" -> "true",
+        "spark.rapids.memory.host.offHeapLimit.size" -> "80g",
+        "spark.executor.resource.gpu.amount" -> "1",
+        "spark.plugins" -> "com.nvidia.spark.SQLPlugin",
+        "spark.rapids.sql.enabled" -> "true"
+      )
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      cpuCores = Some(20),
+      memoryGB = Some(120L),
+      gpuCount = Some(1),
+      gpuMemory = Some("48g"),
+      gpuDevice = Some("l20"),
+      preserveSparkProperties = List(
+        "spark.rapids.memory.host.offHeapLimit.enabled",
+        "spark.rapids.memory.host.offHeapLimit.size")
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0),
+      Seq(0.0), logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM, Some(targetClusterInfo))
+    configureEventLogClusterInfoForTest(
+      platform,
+      numCores = 20,
+      numWorkers = 4,
+      gpuCount = 1,
+      sparkProperties = logEventsProps.toMap
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform, Some(Kubernetes))
+    val (properties, _) = autoTuner.getRecommendedProperties(showOnlyUpdatedProps = false)
+    val recommendedProps = properties.map(p => p.name -> p.getTuneValue()).toMap
+
+    assert(recommendedProps.get("spark.rapids.memory.host.offHeapLimit.enabled").contains("true"))
+    assert(recommendedProps.get("spark.rapids.memory.host.offHeapLimit.size").contains("80g"))
+    assert(recommendedProps.get("spark.rapids.memory.pinnedPool.size").contains("40g"),
+      s"Expected pinned memory to use preserved host off-heap limit size, " +
+        s"got ${recommendedProps.get("spark.rapids.memory.pinnedPool.size")}")
   }
 
   // Test for https://github.com/NVIDIA/spark-rapids-tools/issues/2074

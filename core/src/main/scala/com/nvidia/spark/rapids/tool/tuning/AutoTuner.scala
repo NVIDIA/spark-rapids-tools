@@ -287,7 +287,7 @@ abstract class AutoTuner(
 
   // Check if off-heap limit is enabled - centralized to avoid repeated property lookups
   private lazy val isOffHeapLimitUserEnabled: Boolean = {
-    platform.getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
+    getBaselineSparkProperty("spark.rapids.memory.host.offHeapLimit.enabled")
       .exists(_.trim.equalsIgnoreCase("true"))
   }
 
@@ -508,8 +508,11 @@ abstract class AutoTuner(
    * Criteria:
    * - The property is in the skipped recommendations list
    * - The property is in the limited logic recommendations list
-   * - The property is enforced by the user (since we have already handled it during
-   *   initRecommendations() and initialization of finalTuningTable)
+   * - The property is preserved from source values or otherwise marked for limited logic
+   * - The property is enforced by the user
+   *
+   * Preserved and enforced properties are handled during initRecommendations() and
+   * initialization of finalTuningTable, so later recommendation logic should not overwrite them.
    * @param key the property to check
    * @return true if the recommendation should be ignored, false otherwise
    */
@@ -677,6 +680,14 @@ abstract class AutoTuner(
   }
 
   /**
+   * Spark property value to use as an input baseline for recommendation calculations.
+   * User-enforced values take precedence over preserved source values.
+   */
+  private def getBaselineSparkProperty(key: String): Option[String] = {
+    platform.getEnforcedOrPreservedSparkProperty(key, getPropertyValueFromSource)
+  }
+
+  /**
    * Note: All memory values are in MB.
    */
   private case class MemorySettings(
@@ -694,17 +705,14 @@ abstract class AutoTuner(
     }
   }
 
-  private lazy val userEnforcedMemorySettings: MemorySettings = {
-    val executorHeap = platform.getUserEnforcedSparkProperty("spark.executor.memory")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-    val executorMemOverhead = platform.getUserEnforcedSparkProperty("spark.executor.memoryOverhead")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-    val pinnedMem = platform.getUserEnforcedSparkProperty("spark.rapids.memory.pinnedPool.size")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-    val spillMem = platform.getUserEnforcedSparkProperty("spark.rapids.memory.spillPool.size")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
-    val sparkOffHeapMem = platform.getUserEnforcedSparkProperty("spark.memory.offHeap.size")
-      .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
+  private lazy val baselineMemorySettings: MemorySettings = {
+    def baseline(key: String): Option[Long] =
+      getBaselineSparkProperty(key).map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
+    val executorHeap = baseline("spark.executor.memory")
+    val executorMemOverhead = baseline("spark.executor.memoryOverhead")
+    val pinnedMem = baseline("spark.rapids.memory.pinnedPool.size")
+    val spillMem = baseline("spark.rapids.memory.spillPool.size")
+    val sparkOffHeapMem = baseline("spark.memory.offHeap.size")
     MemorySettings(executorHeap, executorMemOverhead, pinnedMem, spillMem, sparkOffHeapMem)
   }
 
@@ -789,8 +797,9 @@ abstract class AutoTuner(
       numExecutorCores: Int,
       totalMemForExecExpr: () => Double): Either[String, (MemorySettings, Boolean)] = {
 
-    // Set executor heap using user enforced value or max of calculator result and 2GB/core
-    val executorHeapMB = userEnforcedMemorySettings.executorHeap.getOrElse {
+    // Set executor heap using a baseline value, if present, otherwise max of
+    // calculator result and 2GB/core.
+    val executorHeapMB = baselineMemorySettings.executorHeap.getOrElse {
       Math.max(
         execHeapCalculator(),
         configProvider
@@ -810,7 +819,7 @@ abstract class AutoTuner(
       totalMemForExecutors * executorAvailableMemFraction
     }.toLong
     // Calculate off-heap memory size using new hybrid scan detection logic
-    val sparkOffHeapMemMB: Long = userEnforcedMemorySettings.sparkOffHeapMem.getOrElse(
+    val sparkOffHeapMemMB: Long = baselineMemorySettings.sparkOffHeapMem.getOrElse(
       calculateOffHeapMemorySize(numExecutorCores)
     )
     val pySparkMemMB = platform.getPySparkMemoryMB(getPropertyValue).getOrElse(0L)
@@ -826,7 +835,7 @@ abstract class AutoTuner(
     var setMaxBytesInFlight = false
     val defaultPinnedMem = configProvider.getEntry("PINNED_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
     val defaultSpillMem = configProvider.getEntry("SPILL_MEMORY").getDefaultAsMemory(ByteUnit.MiB)
-    val minOverhead: Long = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
+    val minOverhead: Long = baselineMemorySettings.executorMemOverhead.getOrElse {
       if (isOffHeapLimitUserEnabled) {
         executorMemOverhead
       } else {
@@ -851,8 +860,8 @@ abstract class AutoTuner(
       // (only for onPrem when offHeapLimit is enabled)
       val hostOffHeapLimitSizeMB = if (!platform.isPlatformCSP &&
         isOffHeapLimitUserEnabled) {
-        val userOffHeapLimitOpt = platform
-          .getUserEnforcedSparkProperty("spark.rapids.memory.host.offHeapLimit.size")
+        val userOffHeapLimitOpt =
+          getBaselineSparkProperty("spark.rapids.memory.host.offHeapLimit.size")
         if (userOffHeapLimitOpt.isDefined) {
           StringUtils.convertToMB(
             userOffHeapLimitOpt.get,
@@ -865,7 +874,7 @@ abstract class AutoTuner(
       }
 
       // Pinned memory calculation - use new formula for onPrem, original logic for CSP
-      var pinnedMem = userEnforcedMemorySettings.pinnedMem.getOrElse {
+      var pinnedMem = baselineMemorySettings.pinnedMem.getOrElse {
         if (!platform.isPlatformCSP && hostOffHeapLimitSizeMB > 0) {
           // Use new formula for onPrem platform
           calculatePinnedMemorySize(numExecutorCores, hostOffHeapLimitSizeMB)
@@ -878,8 +887,8 @@ abstract class AutoTuner(
       // Spill storage is set to the pinned size by default. Its not guaranteed to use just pinned
       // memory though so the size worst case would be doesn't use any pinned memory and uses
       // all off heap memory.
-      var spillMem = userEnforcedMemorySettings.spillMem.getOrElse(pinnedMem)
-      var finalExecutorMemOverhead = userEnforcedMemorySettings.executorMemOverhead.getOrElse {
+      var spillMem = baselineMemorySettings.spillMem.getOrElse(pinnedMem)
+      var finalExecutorMemOverhead = baselineMemorySettings.executorMemOverhead.getOrElse {
         if (isOffHeapLimitUserEnabled) {
           executorMemOverhead
         } else {
@@ -894,10 +903,10 @@ abstract class AutoTuner(
       // Handle the case when the final executor memory overhead is larger than the
       // available memory left for the executor.
       if (execMemLeft < finalExecutorMemOverhead) {
-        // If there is any user-enforced memory settings, add a warning comment
-        // indicating that the current setup is not optimal and no memory-related
-        // tunings are recommended.
-        if (userEnforcedMemorySettings.hasAnyMemorySettings) {
+        // If there are any baseline memory settings (user-enforced or preserved),
+        // add a warning comment indicating that the current setup is not optimal
+        // and no memory-related tunings are recommended.
+        if (baselineMemorySettings.hasAnyMemorySettings) {
           return Left(generateInsufficientMemoryComment(executorHeapMB, finalExecutorMemOverhead,
             sparkOffHeapMemMB, pySparkMemMB))
         }

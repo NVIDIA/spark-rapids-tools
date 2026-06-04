@@ -48,29 +48,49 @@ case class RecommendedClusterConfig(
  */
 trait ClusterSizingStrategy {
 
-  /** Utility method to compute recommended cores per executor. */
-  final def computeRecommendedCoresPerExec(platform: Platform, totalCoresCount: Int): Int = {
-    platform.getUserEnforcedSparkProperty("spark.executor.cores").map(_.toInt).getOrElse {
-      if (platform.isPlatformCSP) {
-        // For CSPs, we already have the recommended cores per executor based on the instance type
-        platform.recommendedCoresPerExec
-      } else {
-        // For onprem, we do want to limit to the total cores count
-        // Sanity check to avoid returning 0 cores per executor in case
-        // set wrongly by the user
-        if (totalCoresCount > 0) {
-          math.min(platform.recommendedCoresPerExec, totalCoresCount)
-        } else {
+  /**
+   * Utility method to compute recommended cores per executor.
+   *
+   * Precedence: user-enforced spark.executor.cores, then (if preserved) the
+   * source value, then the platform default. Non-numeric / non-positive values
+   * fall through to the default. `sourceLookup` reads the source-application
+   * properties (NOT event-log-derived initial values).
+   *
+   * TODO(#2053): only non-positive values are rejected here; a value exceeding the
+   * worker's core count is validated separately in Platform, so the two can diverge
+   * on invalid input. Centralizing the validation is a deferred follow-up.
+   */
+  final def computeRecommendedCoresPerExec(
+      platform: Platform,
+      totalCoresCount: Int,
+      sourceLookup: String => Option[String]): Int = {
+    platform.getEnforcedOrPreservedSparkProperty("spark.executor.cores", sourceLookup)
+      .flatMap(v => scala.util.Try(v.toInt).toOption)
+      .filter(_ > 0)
+      .getOrElse {
+        if (platform.isPlatformCSP) {
+          // For CSPs, we already have the recommended cores per executor based on the instance type
           platform.recommendedCoresPerExec
+        } else {
+          // For onprem, we do want to limit to the total cores count
+          // Sanity check to avoid returning 0 cores per executor in case
+          // set wrongly by the user
+          if (totalCoresCount > 0) {
+            math.min(platform.recommendedCoresPerExec, totalCoresCount)
+          } else {
+            platform.recommendedCoresPerExec
+          }
         }
       }
-    }
   }
 
   final def computeRecommendedInstances(
       platform: Platform,
+      sourceLookup: String => Option[String],
       computeRecommendedInstancesExpr: () => Int): Int = {
-    platform.getUserEnforcedSparkProperty("spark.executor.instances").map(_.toInt)
+    platform.getEnforcedOrPreservedSparkProperty("spark.executor.instances", sourceLookup)
+      .flatMap(v => scala.util.Try(v.toInt).toOption)
+      .filter(_ > 0)
       .getOrElse(computeRecommendedInstancesExpr())
   }
 
@@ -79,6 +99,7 @@ trait ClusterSizingStrategy {
     platform: Platform,
     initialNumExecutors: Int,
     initialCoresPerExec: Int,
+    sourceSparkProperties: Map[String, String],
     getMemoryPerNodeMb: => Long,
     getRecommendedGpuDevice: => GpuDevice,
     getRecommendedNumGpus: => Int): RecommendedClusterConfig
@@ -94,12 +115,14 @@ object ConstantTotalCoresStrategy extends ClusterSizingStrategy {
       platform: Platform,
       initialNumExecutors: Int,
       initialCoresPerExec: Int,
+      sourceSparkProperties: Map[String, String],
       getMemoryPerNodeMb: => Long,
       getRecommendedGpuDevice: => GpuDevice,
       getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
-    val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
-    val recommendedNumExecutors = computeRecommendedInstances(platform,
+    val recommendedCoresPerExec =
+      computeRecommendedCoresPerExec(platform, totalCoresCount, sourceSparkProperties.get)
+    val recommendedNumExecutors = computeRecommendedInstances(platform, sourceSparkProperties.get,
       () => math.ceil(totalCoresCount.toDouble / recommendedCoresPerExec).toInt)
     RecommendedClusterConfig(recommendedNumExecutors, recommendedCoresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
@@ -115,12 +138,14 @@ object ConstantGpuCountStrategy extends ClusterSizingStrategy {
       platform: Platform,
       initialNumExecutors: Int,
       initialCoresPerExec: Int,
+      sourceSparkProperties: Map[String, String],
       getMemoryPerNodeMb: => Long,
       getRecommendedGpuDevice: => GpuDevice,
       getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
     val totalCoresCount = initialCoresPerExec * initialNumExecutors
-    val recommendedCoresPerExec = computeRecommendedCoresPerExec(platform, totalCoresCount)
-    val recommendNumExecutors = computeRecommendedInstances(platform,
+    val recommendedCoresPerExec =
+      computeRecommendedCoresPerExec(platform, totalCoresCount, sourceSparkProperties.get)
+    val recommendNumExecutors = computeRecommendedInstances(platform, sourceSparkProperties.get,
       () => initialNumExecutors)
     RecommendedClusterConfig(recommendNumExecutors, recommendedCoresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
@@ -137,12 +162,18 @@ object SourceCoresPreservingStrategy extends ClusterSizingStrategy {
       platform: Platform,
       initialNumExecutors: Int,
       initialCoresPerExec: Int,
+      sourceSparkProperties: Map[String, String],
       getMemoryPerNodeMb: => Long,
       getRecommendedGpuDevice: => GpuDevice,
       getRecommendedNumGpus: => Int): RecommendedClusterConfig = {
-    val coresPerExec = platform.getUserEnforcedSparkProperty("spark.executor.cores")
-      .map(_.toInt).getOrElse(initialCoresPerExec)
-    val numExecutors = computeRecommendedInstances(platform, () => initialNumExecutors)
+    val coresPerExec =
+      platform.getEnforcedOrPreservedSparkProperty(
+          "spark.executor.cores", sourceSparkProperties.get)
+        .flatMap(v => scala.util.Try(v.toInt).toOption)
+        .filter(_ > 0)
+        .getOrElse(initialCoresPerExec)
+    val numExecutors =
+      computeRecommendedInstances(platform, sourceSparkProperties.get, () => initialNumExecutors)
     RecommendedClusterConfig(numExecutors, coresPerExec,
       getMemoryPerNodeMb, getRecommendedGpuDevice, getRecommendedNumGpus)
   }
@@ -223,6 +254,7 @@ abstract class ClusterConfigurationStrategy(
         platform,
         initialNumExecutors,
         getInitialCoresPerExec,
+        sourceSparkProperties,
         getRecommendedMemoryPerNodeMb,
         getRecommendedGpuDevice,
         getRecommendedNumGpus
@@ -257,7 +289,8 @@ class EventLogBasedStrategy(
    */
   // scalastyle:on line.size.limit
   override def getRecommendedMemoryPerNodeMb: Long = {
-    val heapMemMB = platform.getUserEnforcedSparkProperty("spark.executor.memory")
+    val heapMemMB = platform.getEnforcedOrPreservedSparkProperty("spark.executor.memory",
+        sourceSparkProperties.get)
       .map(StringUtils.convertToMB(_, Some(ByteUnit.BYTE)))
       .getOrElse(clusterInfoFromEventLog.executorHeapMemory)
     // Get a combined spark properties function that includes user enforced properties

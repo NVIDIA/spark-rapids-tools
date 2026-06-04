@@ -1423,12 +1423,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |--conf spark.executor.cores=16
             |--conf spark.executor.instances=8
             |--conf spark.executor.memory=40g
-            |--conf spark.executor.memoryOverhead=19660m
+            |--conf spark.executor.memoryOverhead=11468m
             |--conf spark.executor.resource.gpu.amount=1
             |--conf spark.locality.wait=0
             |--conf spark.plugins=com.nvidia.spark.SQLPlugin
-            |--conf spark.rapids.memory.pinnedPool.size=6g
-            |--conf spark.rapids.shuffle.multiThreaded.maxBytesInFlight=4g
+            |--conf spark.rapids.memory.pinnedPool.size=3686m
             |--conf spark.rapids.shuffle.multiThreaded.reader.threads=28
             |--conf spark.rapids.shuffle.multiThreaded.writer.threads=28
             |--conf spark.rapids.sql.batchSizeBytes=1g
@@ -1453,7 +1452,6 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
             |- 'spark.plugins' should be set to the class name required for the RAPIDS Accelerator for Apache Spark.
             |  Refer to: https://docs.nvidia.com/spark-rapids/user-guide/latest/getting-started/overview.html
             |- 'spark.rapids.memory.pinnedPool.size' was not set.
-            |- 'spark.rapids.shuffle.multiThreaded.maxBytesInFlight' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.reader.threads' was not set.
             |- 'spark.rapids.shuffle.multiThreaded.writer.threads' was not set.
             |- 'spark.rapids.sql.batchSizeBytes' was not set.
