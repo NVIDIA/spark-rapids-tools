@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Tests for Maven URL overrides and Maven metadata authentication."""
+
 import base64
 from unittest.mock import patch
 
@@ -54,7 +56,8 @@ class _FakeMetadataResponse:
     def __enter__(self):
         return self
 
-    def __exit__(self, _exc_type, _exc_value, _traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
+        del exc_type, exc_value, traceback
         return False
 
     def read(self):
