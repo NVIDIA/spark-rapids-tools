@@ -702,18 +702,20 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
                 _recommendedWorkerNode.numGpus).toInt
             }
 
-            // Calculate cores per executor: use user-enforced value if specified and valid,
-            // otherwise divide total cores in the instance by the number of GPUs
+            // Calculate cores per executor: use the user-specified value (enforced, or
+            // preserved from the source application) if valid, otherwise divide total
+            // cores in the instance by the number of GPUs.
             val defaultCoresPerExecutor = math.ceil(
               _recommendedWorkerNode.cores.toDouble / _recommendedWorkerNode.numGpus
             ).toInt
-            val recommendedCoresPerExecutor = getUserEnforcedSparkProperty("spark.executor.cores")
+            val recommendedCoresPerExecutor =
+              getEnforcedOrPreservedSparkProperty("spark.executor.cores", sourceSparkProperties.get)
               .flatMap(v => scala.util.Try(v.toInt).toOption)
-              .filter { enforcedCores =>
+              .filter { specifiedCores =>
                 val maxCores = _recommendedWorkerNode.cores
-                val isValid = enforcedCores > 0 && enforcedCores <= maxCores
+                val isValid = specifiedCores > 0 && specifiedCores <= maxCores
                 if (!isValid) {
-                  logWarning(s"User-enforced spark.executor.cores=$enforcedCores is invalid " +
+                  logWarning(s"User-specified spark.executor.cores=$specifiedCores is invalid " +
                     s"(must be > 0 and <= $maxCores cores on instance " +
                     s"${_recommendedWorkerNode.name}). " +
                     s"Using default value: $defaultCoresPerExecutor")
@@ -764,6 +766,22 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
    */
   final def getUserEnforcedSparkProperty(propertyKey: String): Option[String] = {
     userEnforcedRecommendations.get(propertyKey)
+  }
+
+  /**
+   * Resolve the baseline value to use for a Spark property during recommendation
+   * calculations. Precedence: user-enforced value first, then (if the property is
+   * in the target cluster's `preserve` list) its source-application value. Returns
+   * None if neither applies (caller falls back to its computed default).
+   *
+   * @param propertyKey  the Spark property name
+   * @param sourceLookup accessor for the source-application property value
+   */
+  final def getEnforcedOrPreservedSparkProperty(
+      propertyKey: String,
+      sourceLookup: String => Option[String]): Option[String] = {
+    getUserEnforcedSparkProperty(propertyKey)
+      .orElse(if (isPropertyPreserved(propertyKey)) sourceLookup(propertyKey) else None)
   }
 
   /**
