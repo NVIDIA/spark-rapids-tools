@@ -1,6 +1,15 @@
 
 <br/>
 
+## Release [v26.04.4](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.4)
+Generated on 2026-06-05
+### Autotuner
+
+- Honor preserved Spark properties in AutoTuner cluster sizing and memory ([#2097](https://github.com/NVIDIA/spark-rapids-tools/pull/2097))
+
+
+<br/>
+
 ## Release [v26.04.3](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.3)
 Generated on 2026-06-02
 ### Core
