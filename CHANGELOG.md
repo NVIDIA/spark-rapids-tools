@@ -1,6 +1,11 @@
 
 <br/>
 
+## Release [v26.04.6](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.6)
+Generated on 2026-06-16
+- no changes
+<br/>
+
 ## Release [v26.04.5](https://github.com/NVIDIA/spark-rapids-tools/tree/v26.04.5)
 Generated on 2026-06-09
 - no changes
