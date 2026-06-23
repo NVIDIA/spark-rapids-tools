@@ -16,6 +16,7 @@
 
 # pylint: disable=protected-access,too-few-public-methods,wrong-import-position
 
+import json
 import logging
 import warnings
 
@@ -27,6 +28,7 @@ DEPRECATED_PROP_CONTAINER_MESSAGE = 'Deprecated: use AbstractPropContainer inste
 
 with warnings.catch_warnings():
     warnings.filterwarnings('ignore', message=DEPRECATED_PROP_CONTAINER_MESSAGE, category=DeprecationWarning)
+    from spark_rapids_pytools.cloud_api import dataproc as dataproc_mod
     from spark_rapids_pytools.cloud_api.dataproc import DataprocCluster, DataprocNode
     from spark_rapids_pytools.cloud_api.sp_types import SparkNodeType
     from spark_rapids_pytools.common.cluster_inference import ClusterInference
@@ -85,6 +87,26 @@ class _DataprocPlatform:
 
     def __init__(self):
         self.cli = _DataprocCli()
+
+
+class _DataprocConfigs:
+    """Minimal Dataproc configs implementation for pricing tests."""
+
+    def __init__(self, pricing):
+        self.pricing = pricing
+
+    def get_value_silent(self, *keys):
+        if keys == ('pricing',):
+            return self.pricing
+        return None
+
+
+class _DataprocPricingPlatform(_DataprocPlatform):
+    """Minimal Dataproc platform implementation for savings estimator tests."""
+
+    def __init__(self, pricing):
+        super().__init__()
+        self.configs = _DataprocConfigs(pricing)
 
 
 def _deprecated_prop_container_warnings(caught_warnings):
@@ -147,4 +169,83 @@ def test_dataproc_init_nodes_uses_abstract_prop_container(monkeypatch):
     assert isinstance(worker_node.props, AbstractPropContainer)
     assert master_node.instance_type == 'n1-standard-4'
     assert worker_node.instance_type == 'n1-standard-8'
+    assert not _deprecated_prop_container_warnings(caught_warnings)
+
+
+def test_dataproc_pricing_config_uses_abstract_prop_container(monkeypatch):
+    pricing_props = {
+        'catalog': {
+            'onlineResources': [{
+                'resourceKey': 'gcloud-catalog',
+                'localFile': 'gcloud-catalog.json',
+                'onlineURL': 'https://example.com/gcloud-catalog.json'
+            }]
+        }
+    }
+
+    class RecordingDataprocPriceProvider:
+        def __init__(self, region, pricing_configs):
+            self.region = region
+            self.pricing_configs = pricing_configs
+
+    class RecordingDataprocSavingsEstimator:
+        def __init__(self, price_provider, reshaped_cluster, source_cluster,
+                     target_cost=None, source_cost=None):
+            self.price_provider = price_provider
+            self.reshaped_cluster = reshaped_cluster
+            self.source_cluster = source_cluster
+            self.target_cost = target_cost
+            self.source_cost = source_cost
+
+    monkeypatch.setattr(dataproc_mod, 'DataprocPriceProvider', RecordingDataprocPriceProvider)
+    monkeypatch.setattr(dataproc_mod, 'DataprocSavingsEstimator', RecordingDataprocSavingsEstimator)
+    platform = _DataprocPricingPlatform(json.dumps(pricing_props))
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter('always', DeprecationWarning)
+        estimator = dataproc_mod.DataprocPlatform.create_saving_estimator(
+            platform,
+            source_cluster=object(),
+            reshaped_cluster=object()
+        )
+
+    pricing_config = estimator.price_provider.pricing_configs['gcloud']
+    assert estimator.price_provider.region == 'us-central1'
+    assert isinstance(pricing_config, AbstractPropContainer)
+    assert pricing_config.props == pricing_props
+    assert not _deprecated_prop_container_warnings(caught_warnings)
+
+
+def test_dataproc_instance_description_uses_abstract_prop_container(monkeypatch):
+    instance_descriptions = [{
+        'name': 'a2-highgpu-1g',
+        'guestCpus': 12,
+        'memoryMb': 87296,
+        'accelerators': [{
+            'guestAcceleratorType': 'nvidia-tesla-a100',
+            'guestAcceleratorCount': 1
+        }]
+    }]
+    captured_props = []
+
+    class RecordingPropContainer(AbstractPropContainer):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            captured_props.append(self.props)
+
+    monkeypatch.setattr(dataproc_mod, 'AbstractPropContainer', RecordingPropContainer)
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter('always', DeprecationWarning)
+        processed_instances = dataproc_mod.DataprocCMDDriver._process_instance_description(
+            None,
+            json.dumps(instance_descriptions)
+        )
+
+    assert captured_props == [instance_descriptions]
+    assert processed_instances['a2-highgpu-1g'] == {
+        'VCpuCount': 12,
+        'MemoryInMB': 87296,
+        'GpuInfo': [{'Name': 'A100', 'Count': [1]}]
+    }
     assert not _deprecated_prop_container_warnings(caught_warnings)
