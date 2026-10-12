@@ -1913,6 +1913,9 @@ abstract class AutoTuner(
    * Enforces Spark's dynamic allocation invariant:
    *   minExecutors <= initialExecutors <= maxExecutors
    *
+   * Also bounds the recommended executor.instances to [minExecutors, maxExecutors], even when
+   * no initialExecutors is recommended.
+   *
    * This is necessary because initialExecutors may be boosted to match executor.instances
    * (from cluster sizing), while maxExecutors is independently scaled by the core ratio,
    * potentially resulting in initialExecutors > maxExecutors.
@@ -1981,6 +1984,17 @@ abstract class AutoTuner(
         trackAdjustment(
           "spark.executor.instances", initial, min)
       case _ =>
+    }
+
+    // The blocks above only touch executor.instances when initialExecutors is recommended.
+    // Bound it by min/max regardless, as Spark derives the initial executor count from it.
+    getRecValue("spark.executor.instances").foreach { instances =>
+      val atLeastMin = adjustedMinOpt.fold(instances)(math.max(instances, _))
+      val bounded = maxOpt.fold(atLeastMin)(math.min(atLeastMin, _))
+      if (bounded != instances) {
+        appendRecommendation("spark.executor.instances", bounded.toLong)
+        trackAdjustment("spark.executor.instances", instances, bounded)
+      }
     }
 
     if (adjusted.nonEmpty) {

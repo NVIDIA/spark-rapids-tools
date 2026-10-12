@@ -2287,6 +2287,55 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         initial = "4"))
   }
 
+  // Recommends for an ONPREM source cluster of `numExecs` executors x 8 cores with dynamic
+  // allocation bounds [minExecutors, maxExecutors] and no initialExecutors.
+  private def recommendDynamicAllocationWithoutInitial(
+      numExecs: Int, minExecutors: Int, maxExecutors: Int): Map[String, String] = {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> numExecs.toString,
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.minExecutors" -> minExecutors.toString,
+      "spark.dynamicAllocation.maxExecutors" -> maxExecutors.toString
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.ONPREM)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 2,
+      numExecs = numExecs,
+      numExecutorNodes = numExecs / 2,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+    val (properties, _) = buildAutoTunerForTests(infoProvider, platform).getRecommendedProperties()
+    properties.map(p => p.name -> p.getTuneValue()).toMap
+  }
+
+  // Same fixture as the ConstantTotalCoresStrategy test above, without initialExecutors:
+  // executor.instances = ceil(8*18/16) = 9 must still be capped to max = floor(9*0.5) = 4.
+  test("dynamic allocation caps executor.instances to maxExecutors " +
+      "without initialExecutors") {
+    val rec = recommendDynamicAllocationWithoutInitial(numExecs = 18, minExecutors = 4,
+      maxExecutors = 9)
+    assert(rec("spark.dynamicAllocation.minExecutors") == "2")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "4")
+    assert(rec("spark.executor.instances") == "4")
+  }
+
+  // 2 source executors x 8 cores -> ceil(8*2/16) = 1 executor instance, below the scaled
+  // minExecutors = floor(8*0.5) = 4.
+  test("dynamic allocation raises executor.instances to minExecutors " +
+      "without initialExecutors") {
+    val rec = recommendDynamicAllocationWithoutInitial(numExecs = 2, minExecutors = 8,
+      maxExecutors = 20)
+    assert(rec("spark.dynamicAllocation.minExecutors") == "4")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "10")
+    assert(rec("spark.executor.instances") == "4")
+  }
+
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
