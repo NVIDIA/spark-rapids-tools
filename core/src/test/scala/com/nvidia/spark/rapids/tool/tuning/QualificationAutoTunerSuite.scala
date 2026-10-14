@@ -2336,6 +2336,91 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     assert(rec("spark.executor.instances") == "4")
   }
 
+  // EMR source cluster of `numExecs` executors x 8 cores (target: 16 cores) with the given
+  // target-cluster dynamic allocation properties. Returns recommended values and the rendered
+  // AutoTuner output.
+  private def recommendWithTargetDynamicAllocation(
+      numExecs: Int,
+      enforced: Map[String, String],
+      preserved: List[String] = List.empty): (Map[String, String], String) = {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.instances" -> numExecs.toString,
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true"
+    )
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = enforced, preserveSparkProperties = preserved)
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 2,
+      numExecs = numExecs,
+      numExecutorNodes = numExecs / 2,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+    val (properties, comments) =
+      buildAutoTunerForTests(infoProvider, platform).getRecommendedProperties()
+    (properties.map(p => p.name -> p.getTuneValue()).toMap,
+      Profiler.getAutoTunerResultsAsString(properties, comments))
+  }
+
+  // Sizing recommends ceil(8*18/16) = 9 executor instances, above the enforced maxExecutors = 6.
+  // The enforced initialExecutors = 4 is inside [2, 6], so only the new clamp moves instances.
+  test("dynamic allocation caps executor.instances to enforced target-cluster maxExecutors") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18, enforced = Map(
+      "spark.dynamicAllocation.minExecutors" -> "2",
+      "spark.dynamicAllocation.initialExecutors" -> "4",
+      "spark.dynamicAllocation.maxExecutors" -> "6"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "2")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "4")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
+    assert(rec("spark.executor.instances") == "6")
+    output should include("'spark.executor.instances' adjusted from 9 to 6")
+  }
+
+  // Sizing recommends ceil(8*2/16) = 1 executor instance, below the enforced minExecutors = 4.
+  test("dynamic allocation raises executor.instances to enforced target-cluster minExecutors") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 2, enforced = Map(
+      "spark.dynamicAllocation.minExecutors" -> "4",
+      "spark.dynamicAllocation.initialExecutors" -> "5",
+      "spark.dynamicAllocation.maxExecutors" -> "10"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "4")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "5")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "10")
+    assert(rec("spark.executor.instances") == "4")
+    output should include("'spark.executor.instances' adjusted from 1 to 4")
+  }
+
+  // A target-cluster value for executor.instances is protected: the clamp must neither change
+  // it nor claim that it did.
+  test("dynamic allocation leaves enforced executor.instances unchanged " +
+      "without an adjustment comment") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18, enforced = Map(
+      "spark.executor.instances" -> "20",
+      "spark.dynamicAllocation.minExecutors" -> "2",
+      "spark.dynamicAllocation.maxExecutors" -> "6"))
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
+    assert(rec("spark.executor.instances") == "20")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
+  // Same as above for a property preserved from the source (18 executors) instead of enforced.
+  test("dynamic allocation leaves preserved executor.instances unchanged " +
+      "without an adjustment comment") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18,
+      enforced = Map(
+        "spark.dynamicAllocation.minExecutors" -> "2",
+        "spark.dynamicAllocation.maxExecutors" -> "6"),
+      preserved = List("spark.executor.instances"))
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
+    assert(rec("spark.executor.instances") == "18")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
