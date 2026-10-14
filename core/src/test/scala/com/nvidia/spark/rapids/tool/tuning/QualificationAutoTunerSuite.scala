@@ -1713,9 +1713,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     val expectedAdjustedProperties = List(
-      // 'spark.dynamicAllocation.initialExecutors' is excluded from this list since in this
-      // case its final value is not determined by the formula but by the recommended value
-      // from 'executor.instances'.
+      "spark.dynamicAllocation.initialExecutors",
+      "spark.executor.instances",
       "spark.dynamicAllocation.minExecutors",
       "spark.dynamicAllocation.maxExecutors"
     )
@@ -1741,7 +1740,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       s"""|
           |Spark Properties:
           |--conf spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages
-          |--conf spark.dynamicAllocation.initialExecutors=10
+          |--conf spark.dynamicAllocation.initialExecutors=6
           |--conf spark.dynamicAllocation.maxExecutors=15
           |--conf spark.dynamicAllocation.minExecutors=6
           |--conf spark.executor.cores=16
@@ -1829,12 +1828,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     // ratio = 8 source cores / 16 GPU cores = 0.5
     tunedValue("spark.dynamicAllocation.minExecutors") shouldBe Some("6")
     tunedValue("spark.dynamicAllocation.maxExecutors") shouldBe Some("15")
-    tunedValue("spark.dynamicAllocation.initialExecutors") shouldBe Some("10")
+    tunedValue("spark.dynamicAllocation.initialExecutors") shouldBe Some("6")
     tunedValue("spark.executor.instances") shouldBe Some("10")
     comments.map(_.comment) should contain(commentForDynamicAllocationAdjustment(
-      List("spark.dynamicAllocation.minExecutors", "spark.dynamicAllocation.maxExecutors"),
+      List("spark.dynamicAllocation.initialExecutors", "spark.executor.instances",
+        "spark.dynamicAllocation.minExecutors", "spark.dynamicAllocation.maxExecutors"),
       8, 16))
-    // The recommended cluster info reports the tuned values, not the source CPU values
+    // The recommended cluster info reports the tuned values, not the source CPU values.
+    // Initial executors is what Spark starts with: max(min, initial, executor.instances).
     val recClusterInfo = platform.recommendedClusterInfo.get
     recClusterInfo.dynamicAllocationMinExecutors shouldBe "6"
     recClusterInfo.dynamicAllocationMaxExecutors shouldBe "15"
@@ -2014,12 +2015,15 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
+          |- ${commentForDynamicAllocationAdjustment(List("spark.executor.instances"), 8, 16)}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Test AutoTuner bumps executor instances when dynamic allocation minExecutors is enforced
+  // Test AutoTuner bumps executor instances when dynamic allocation minExecutors is enforced:
+  // initialExecutors (12 -> 6) and executor.instances (20 -> 10) are scaled from the source,
+  // then raised to the enforced minExecutors (14).
   test("test AutoTuner bumps executor instances when dynamic allocation minExecutor is enforced") {
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
@@ -2102,10 +2106,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
           |- 'spark.sql.adaptive.coalescePartitions.initialPartitionNum' was not set.
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
+          |- Adjusted dynamic allocation properties to enforce
+          |  minExecutors <= initialExecutors <= maxExecutors:
+          |  'spark.dynamicAllocation.initialExecutors' adjusted from 6 to 14; 'spark.executor.instances' adjusted from 10 to 14.
           |- Set 'spark.driver.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing driver JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- Set 'spark.executor.extraJavaOptions=-XX:-UseTransparentHugePages' to disable Transparent Huge Pages (THP) for EMR. This recommendation does not preserve existing executor JVM options; append any additional options manually. To view the source extraJavaOptions, please refer to spark_properties.csv in the tool output.
           |- ${classPathComments("rapids.shuffle.jars")}
           |- $additionalSparkPluginsComment
+          |- ${commentForDynamicAllocationAdjustment(List("spark.dynamicAllocation.initialExecutors", "spark.executor.instances"), 8, 16)}
           |""".stripMargin
     // scalastyle:on line.size.limit
     compareOutput(expectedResults, autoTunerOutput)
@@ -2183,8 +2191,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
         gpuInfoOpt match {
           case Some(gpuInfo) =>
             val autoTunerOutput = Profiler.getAutoTunerResultsAsString(properties, comments)
+            // executor.instances is set to initial in the source, so it is scaled the same way
             val expectedProperties = Seq(
               ("spark.dynamicAllocation.initialExecutors", gpuInfo.initial),
+              ("spark.executor.instances", gpuInfo.initial),
               ("spark.dynamicAllocation.minExecutors", gpuInfo.min),
               ("spark.dynamicAllocation.maxExecutors", gpuInfo.max)
             )
@@ -2213,8 +2223,9 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     )
 
     val adjustedProperties = List(
-      // Only 'spark.dynamicAllocation.maxExecutors' will be adjusted
-      // based on the ratio calculation since the other values are zero or negative.
+      // initialExecutors and minExecutors are not listed since their source values are
+      // zero or negative (clamped to 1).
+      "spark.executor.instances",
       "spark.dynamicAllocation.maxExecutors"
     )
 
@@ -2237,11 +2248,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val expectedResults =
       s"""
          |Spark Properties:
-         |--conf spark.dynamicAllocation.initialExecutors=2
+         |--conf spark.dynamicAllocation.initialExecutors=1
          |--conf spark.dynamicAllocation.maxExecutors=2
          |--conf spark.dynamicAllocation.minExecutors=1
          |--conf spark.executor.cores=16
-         |--conf spark.executor.instances=2
+         |--conf spark.executor.instances=1
          |--conf spark.executor.memory=[FILL_IN_VALUE]
          |--conf spark.executor.resource.gpu.amount=1
          |--conf spark.locality.wait=0
@@ -2287,15 +2298,10 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // Source: 8 cores, 18 executors (from event log),
-  // target: 16 cores (ONPREM default).
-  // ConstantTotalCoresStrategy preserves total core count:
-  //   ceil(8*18/16) = 9 executor instances.
-  // initialExecutors is boosted to match executor.instances
-  //   max(floor(8*0.5),9)=9.
-  // maxExecutors is independently scaled by core ratio
-  //   floor(9*0.5)=4.
-  // Violation: initial(9) > max(4). Enforcement caps to 4.
+  // Source: 8 cores, 18 executors, target: 16 cores (ONPREM default), so the core ratio is 0.5.
+  // Scaled from the source: initialExecutors floor(8*0.5)=4, executor.instances
+  //   floor(18*0.5)=9, minExecutors floor(4*0.5)=2, maxExecutors floor(9*0.5)=4.
+  // Violation: executor.instances(9) > max(4). Enforcement caps it to 4.
   test("dynamic allocation enforces invariant " +
       "with ConstantTotalCoresStrategy") {
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
@@ -2323,8 +2329,7 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     val autoTuner = buildAutoTunerForTests(infoProvider, platform)
     val (properties, comments) =
       autoTuner.getRecommendedProperties()
-    // After enforcement: initial capped from 9 to 4,
-    // max=floor(9*0.5)=4, min=max(1,floor(4*0.5))=2
+    // After enforcement: executor.instances capped from 9 to 4
     assertDynamicAllocationRecommendations(properties, comments,
       DynamicAllocationInfo(
         enabled = true, max = "4", min = "2",
