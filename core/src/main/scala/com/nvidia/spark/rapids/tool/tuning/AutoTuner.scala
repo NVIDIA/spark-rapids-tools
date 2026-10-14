@@ -1799,10 +1799,11 @@ abstract class AutoTuner(
 
   /**
    * Recommend dynamic allocation configurations for GPU runs.
-   * Adjusts initialExecutors, minExecutors, and maxExecutors based on the ratio
-   * of source cores to target cores.
+   * Adjusts initialExecutors, minExecutors, and maxExecutors using the cluster sizing
+   * strategy's executor count scale (the source/target cores ratio for constant total cores,
+   * 1.0 for strategies that keep the executor count).
    *
-   * Formula: adjusted_value = max(1, floor(original_value × source_cores / target_cores))
+   * Formula: adjusted_value = max(1, floor(original_value × scale))
    *
    * Note: It also updates the executor instances to match the initial executors.
    *
@@ -1835,13 +1836,15 @@ abstract class AutoTuner(
       return
     }
 
-    // Scale factor to adjust executor counts based on core ratio.
-    // Example: source=8 cores, target=16 cores → ratio=0.5 → need fewer executors
-    // Example: source=16 cores, target=8 cores → ratio=2.0 → need more executors
-    val adjustRatio = sourceExecCores.toDouble / gpuExecCores
+    // Scale factor to adjust executor counts, taken from the cluster sizing strategy so the
+    // dynamic allocation settings follow the same rule as 'spark.executor.instances'.
+    // Example (constant total cores): source=8 cores, target=16 cores → ratio=0.5
+    // Example (constant GPU count): ratio=1.0 → executor counts are kept
+    val adjustRatio = autoTunerHelper.recommendedClusterSizingStrategy(platform)
+      .executorCountScale(sourceExecCores, gpuExecCores)
 
     // Helper function to get the adjusted value for a property
-    // Formula: adjusted_value = max(1, floor(original_value × source_cores / target_cores))
+    // Formula: adjusted_value = max(1, floor(original_value × adjustRatio))
     def adjustedValue(property: String): Option[Int] = {
       if (ignoreRecommendation(property)) {
         None

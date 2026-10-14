@@ -2305,11 +2305,10 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
-  // With a target cluster, ConstantGpuCountStrategy re-slices cores (8 -> 16).
-  // Core ratio = 8/16 = 0.5, so DA values are halved.
-  // initialExecutors is boosted to max(floor(8*0.5), executor.instances=18) = 18.
-  // maxExecutors = floor(18*0.5) = 9. Violation: initial(18) > max(9), capped to 9.
-  test("dynamic allocation enforces invariant with target cluster") {
+  // With a target cluster, ConstantGpuCountStrategy re-slices cores (8 -> 16) but keeps the
+  // executor (GPU) count, so the DA values are not scaled by the core ratio (scale = 1.0).
+  // initialExecutors is boosted to match executor.instances=18; min/max keep the source values.
+  test("dynamic allocation keeps executor counts with constant GPU count strategy") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
@@ -2345,19 +2344,30 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     val autoTuner = buildAutoTunerForTests(
       infoProvider, platform, Some(Yarn))
+    // Use showOnlyUpdatedProps = false so that DA values left unchanged from source
+    // (min/max) are still present to assert on.
     val (properties, comments) =
-      autoTuner.getRecommendedProperties()
-    assertDynamicAllocationRecommendations(properties, comments,
-      DynamicAllocationInfo(
-        enabled = true, max = "9", min = "2",
-        initial = "9"))
+      autoTuner.getRecommendedProperties(showOnlyUpdatedProps = false)
+    val recommendedProps = properties.map(p => p.name -> p.getTuneValue()).toMap
+
+    def assertProp(name: String, expected: String): Unit =
+      assert(recommendedProps.get(name).contains(expected),
+        s"$name: expected $expected, got ${recommendedProps.get(name)}")
+
+    assertProp("spark.executor.cores", "16")
+    assertProp("spark.executor.instances", "18")
+    assertProp("spark.dynamicAllocation.minExecutors", "4")
+    assertProp("spark.dynamicAllocation.initialExecutors", "18")
+    assertProp("spark.dynamicAllocation.maxExecutors", "18")
+    assert(!comments.exists(_.comment.contains("based on cores ratio")),
+      "DA properties should not be scaled by the core ratio with ConstantGpuCountStrategy")
   }
 
   // Issue #2053: when spark.executor.cores is in the target cluster `preserve` list,
   // the preserved source value (8) must be the sizing baseline, NOT re-sliced to the
-  // platform default (16). Same scenario as "dynamic allocation enforces invariant with
-  // target cluster" above, but with preserve. Core ratio = 8/8 = 1.0, so source DA is not
-  // scaled; initialExecutors is still boosted to match executor.instances=18.
+  // platform default (16). Same scenario as "dynamic allocation keeps executor counts with
+  // constant GPU count strategy" above, but with preserve. Source DA is not scaled;
+  // initialExecutors is still boosted to match executor.instances=18.
   // Expected: cores=8, instances=18, DA min=4 / initial=18 / max=18.
   test("preserved spark.executor.cores is respected by cluster sizing and dynamic allocation") {
     val logEventsProps: mutable.Map[String, String] =
