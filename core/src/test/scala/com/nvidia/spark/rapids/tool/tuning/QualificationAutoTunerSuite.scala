@@ -1834,6 +1834,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     comments.map(_.comment) should contain(commentForDynamicAllocationAdjustment(
       List("spark.dynamicAllocation.minExecutors", "spark.dynamicAllocation.maxExecutors"),
       8, 16))
+    // The recommended cluster info reports the tuned values, not the source CPU values
+    val recClusterInfo = platform.recommendedClusterInfo.get
+    recClusterInfo.dynamicAllocationMinExecutors shouldBe "6"
+    recClusterInfo.dynamicAllocationMaxExecutors shouldBe "15"
+    recClusterInfo.dynamicAllocationInitialExecutors shouldBe "10"
   }
 
   test("test AutoTuner does not recommend dynamic allocation properties when disabled") {

@@ -1906,10 +1906,31 @@ abstract class AutoTuner(
     // This is needed because initialExecutors may have been boosted by executor.instances
     // while maxExecutors was independently scaled down by the core ratio.
     enforceDynamicAllocationInvariants()
+    syncDynamicAllocationToRecommendedCluster()
 
     if (adjustedProperties.nonEmpty) {
       appendComment(commentForDynamicAllocationAdjustment(adjustedProperties.toList,
         sourceExecCores, gpuExecCores))
+    }
+  }
+
+  /**
+   * Updates the dynamic allocation fields of the recommended cluster info with the tuned values,
+   * so the cluster summary reports the GPU settings rather than the source CPU ones. Properties
+   * without a recommendation (e.g. preserved or excluded) keep the source value.
+   */
+  private def syncDynamicAllocationToRecommendedCluster(): Unit = {
+    def tunedOrElse(property: String, sourceValue: String): String =
+      recommendedIntValue(property).map(_.toString).getOrElse(sourceValue)
+
+    platform.recommendedClusterInfo = platform.recommendedClusterInfo.map { info =>
+      info.copy(
+        dynamicAllocationMaxExecutors = tunedOrElse(
+          "spark.dynamicAllocation.maxExecutors", info.dynamicAllocationMaxExecutors),
+        dynamicAllocationMinExecutors = tunedOrElse(
+          "spark.dynamicAllocation.minExecutors", info.dynamicAllocationMinExecutors),
+        dynamicAllocationInitialExecutors = tunedOrElse(
+          "spark.dynamicAllocation.initialExecutors", info.dynamicAllocationInitialExecutors))
     }
   }
 
