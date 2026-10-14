@@ -1821,11 +1821,15 @@ abstract class AutoTuner(
       return
     }
 
-    // Get the original executor cores from the event log
+    // Get the original executor cores: prefer the source property, else the cores the
+    // executors registered with in the event log (e.g. Databricks or standalone, where
+    // spark.executor.cores is often unset). Skip scaling if neither is known.
     val sourceExecCores =
       getPropertyValueFromSource(SparkTaskSlotModel.Properties.ExecutorCores)
-      .map(_.toInt)
-      .getOrElse(1)
+        .flatMap(v => scala.util.Try(v.trim.toInt).toOption)
+        .filter(_ > 0)
+        .orElse(platform.clusterInfoFromEventLog.map(_.coresPerExecutor).filter(_ > 0))
+        .getOrElse(0)
 
     if (sourceExecCores <= 0 || gpuExecCores <= 0) {
       return

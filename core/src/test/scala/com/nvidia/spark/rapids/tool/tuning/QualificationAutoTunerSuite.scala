@@ -1797,6 +1797,45 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     compareOutput(expectedResults, autoTunerOutput)
   }
 
+  // When 'spark.executor.cores' is unset (e.g. Databricks or standalone), the source cores used in
+  // the dynamic allocation ratio fall back to the cores the executors registered with in the
+  // event log rather than 1, which would collapse the executor counts to 1.
+  test("test AutoTuner scales dynamic allocation using event log cores when executor cores unset") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.instances" -> "20",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "12",
+      "spark.dynamicAllocation.minExecutors" -> "12",
+      "spark.dynamicAllocation.maxExecutors" -> "30"
+    )
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR)
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 4,
+      numExecs = 20,
+      numExecutorNodes = 5,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    def tunedValue(name: String): Option[String] =
+      properties.find(_.name == name).map(_.getTuneValue())
+
+    // ratio = 8 source cores / 16 GPU cores = 0.5
+    tunedValue("spark.dynamicAllocation.minExecutors") shouldBe Some("6")
+    tunedValue("spark.dynamicAllocation.maxExecutors") shouldBe Some("15")
+    tunedValue("spark.dynamicAllocation.initialExecutors") shouldBe Some("10")
+    tunedValue("spark.executor.instances") shouldBe Some("10")
+    comments.map(_.comment) should contain(commentForDynamicAllocationAdjustment(
+      List("spark.dynamicAllocation.minExecutors", "spark.dynamicAllocation.maxExecutors"),
+      8, 16))
+  }
+
   test("test AutoTuner does not recommend dynamic allocation properties when disabled") {
     val logEventsProps = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
