@@ -1969,11 +1969,12 @@ abstract class AutoTuner(
       case _ =>
     }
 
-    // Keep initialExecutors and executor.instances within [minExecutors, maxExecutors]
+    // Keep initialExecutors and executor.instances within [minExecutors, maxExecutors]. A missing
+    // minExecutors uses Spark's default of 0, so it does not block the cap to maxExecutors.
     val minOpt = getRecValue("spark.dynamicAllocation.minExecutors")
     Seq("spark.dynamicAllocation.initialExecutors", "spark.executor.instances").foreach { prop =>
       getRecValue(prop).foreach { value =>
-        val bounded = math.max(minOpt.getOrElse(value), math.min(maxOpt.getOrElse(value), value))
+        val bounded = math.max(minOpt.getOrElse(0), math.min(maxOpt.getOrElse(value), value))
         if (bounded != value) {
           adjust(prop, value, bounded)
         }

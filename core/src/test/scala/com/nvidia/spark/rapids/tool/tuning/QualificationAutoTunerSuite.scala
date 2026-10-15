@@ -1906,6 +1906,42 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       }
   }
 
+  // When minExecutors is unset, the scaled initialExecutors must still be capped to an enforced
+  // maxExecutors: initialExecutors 20 -> 10 (ratio 8/16), then capped to the enforced max of 5.
+  test("dynamic allocation caps initialExecutors to enforced maxExecutors when min is unset") {
+    val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+      "spark.executor.cores" -> "8",
+      "spark.executor.memory" -> "16g",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "20"
+    )
+    val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
+      enforcedSparkProperties = Map("spark.dynamicAllocation.maxExecutors" -> "5"))
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      logEventsProps, Some(testSparkVersion))
+    val platform = PlatformFactory.createInstance(PlatformNames.EMR, Some(targetClusterInfo))
+    platform.configureClusterInfoFromEventLog(
+      coresPerExecutor = 8,
+      execsPerNode = 4,
+      numExecs = 20,
+      numExecutorNodes = 5,
+      sparkProperties = logEventsProps.toMap,
+      systemProperties = Map.empty
+    )
+
+    val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+    val (properties, comments) = autoTuner.getRecommendedProperties()
+    def tunedValue(name: String): Option[String] =
+      properties.find(_.name == name).map(_.getTuneValue())
+
+    tunedValue("spark.dynamicAllocation.maxExecutors") shouldBe Some("5")
+    tunedValue("spark.dynamicAllocation.initialExecutors") shouldBe Some("5")
+    tunedValue("spark.dynamicAllocation.minExecutors") shouldBe None
+    comments.map(_.comment).mkString("\n") should include(
+      "'spark.dynamicAllocation.initialExecutors' adjusted from 10 to 5")
+    platform.recommendedClusterInfo.get.dynamicAllocationInitialExecutors shouldBe "5"
+  }
+
   test("test AutoTuner does not recommend dynamic allocation properties when disabled") {
     val logEventsProps = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
