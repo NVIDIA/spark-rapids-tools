@@ -2536,6 +2536,18 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     assert(rec("spark.executor.instances") == "1")
   }
 
+  // A zero startup cannot be written (zero recommendations are skipped), so the cap must not
+  // leave the source min 12 above the scaled max floor(12*0.5) = 6.
+  test("adjustable minExecutors stays within maxExecutors for a protected zero initialExecutors") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map("spark.dynamicAllocation.initialExecutors" -> "0"),
+      sourceProps = Map(
+        "spark.dynamicAllocation.minExecutors" -> "12",
+        "spark.dynamicAllocation.maxExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "6")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
+  }
+
   // A protected minExecutors above the protected initialExecutors is not lowered. Spark then
   // starts with minExecutors, so executor.instances follows it and the output says so.
   test("enforced minExecutors above the enforced initialExecutors is unchanged and explained") {

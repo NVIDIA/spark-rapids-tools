@@ -1900,9 +1900,10 @@ abstract class AutoTuner(
     }
 
     // Simpler logic for min and max executors. An adjustable minExecutors is capped to the
-    // protected startup values, otherwise it would raise the startup they set.
+    // protected startup values, otherwise it would raise the startup they set. A zero startup
+    // is ignored: zero recommendations are skipped, which would keep the unscaled source min.
     val protectedStartup = Seq("spark.dynamicAllocation.initialExecutors",
-      "spark.executor.instances").flatMap(protectedValue)
+      "spark.executor.instances").flatMap(protectedValue).filter(_ > 0)
     adjustedValue("spark.dynamicAllocation.minExecutors").foreach { scaled =>
       val v = if (protectedStartup.isEmpty) scaled else math.min(scaled, protectedStartup.max)
       markAsAdjustedProperty("spark.dynamicAllocation.minExecutors", v)
