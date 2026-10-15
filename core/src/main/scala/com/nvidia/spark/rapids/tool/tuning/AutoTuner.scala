@@ -1859,28 +1859,40 @@ abstract class AutoTuner(
       }
     }
 
-    // Handle initialExecutors and executor.instances together
+    // Spark starts with max(minExecutors, initialExecutors, executor.instances), so
+    // initialExecutors and executor.instances are coordinated. A protected (enforced or
+    // preserved) value of one property wins over the adjustable value of the other.
     // Ref: https://spark.apache.org/docs/3.5.7/configuration.html#dynamic-allocation
+    def protectedValue(property: String): Option[Int] = {
+      if (ignoreRecommendation(property)) {
+        recommendations.get(property).flatMap(_.tunedValue).map(_.toInt)
+      } else {
+        None
+      }
+    }
+    protectedValue("spark.dynamicAllocation.initialExecutors").foreach { initial =>
+      appendRecommendation("spark.executor.instances", initial.toLong)
+    }
     adjustedValue("spark.dynamicAllocation.initialExecutors").foreach { v =>
-      // First, find the max recommended value for executor instances
-      // as max of executor.instances, initialExecutors, and minExecutors
-      // This handles if there are any enforced values for either of the
-      // above properties.
-      val recInstanceValues: Seq[Int] = Seq(
-        recommendations.get("spark.executor.instances"),
-        recommendations.get("spark.dynamicAllocation.initialExecutors"),
-        recommendations.get("spark.dynamicAllocation.minExecutors")
-      ).flatMap(_.flatMap(_.tunedValue).map(_.toInt))
-      val recInstancesOpt = if (recInstanceValues.nonEmpty) Some(recInstanceValues.max) else None
-      // Use the max of the adjusted value and the recommended value
-      // of executor instances to avoid reducing the number of executors.
-      val valueToUse = recInstancesOpt match {
-        case Some(recInst) if recInst > v =>
-          recInst
-        case _ =>
+      val valueToUse = protectedValue("spark.executor.instances").getOrElse {
+        // First, find the max recommended value for executor instances
+        // as max of executor.instances, initialExecutors, and minExecutors
+        // This handles if there are any enforced values for either of the
+        // above properties.
+        val recInstanceValues: Seq[Int] = Seq(
+          recommendations.get("spark.executor.instances"),
+          recommendations.get("spark.dynamicAllocation.initialExecutors"),
+          recommendations.get("spark.dynamicAllocation.minExecutors")
+        ).flatMap(_.flatMap(_.tunedValue).map(_.toInt))
+        // Use the max of the adjusted value and the recommended value
+        // of executor instances to avoid reducing the number of executors.
+        if (recInstanceValues.nonEmpty && recInstanceValues.max > v) {
+          recInstanceValues.max
+        } else {
           // Track this only if the selected value is the adjusted value.
           markAsAdjustedProperty("spark.dynamicAllocation.initialExecutors", v)
           v
+        }
       }
       appendRecommendation("spark.dynamicAllocation.initialExecutors", valueToUse.toLong)
       // Set spark.executor.instances to match initialExecutors to maintain consistency.
@@ -1902,6 +1914,20 @@ abstract class AutoTuner(
     // This is needed because initialExecutors may have been boosted by executor.instances
     // while maxExecutors was independently scaled down by the core ratio.
     enforceDynamicAllocationInvariants()
+
+    // Both protected values are kept as given, so explain which one determines the startup.
+    for (initial <- protectedValue("spark.dynamicAllocation.initialExecutors");
+         instances <- protectedValue("spark.executor.instances") if initial != instances) {
+      val startupProps = Seq("spark.dynamicAllocation.minExecutors",
+        "spark.dynamicAllocation.initialExecutors", "spark.executor.instances")
+        .flatMap(p => getPropertyValue(p).map(v => p -> v.toInt))
+      val (startupProp, startup) = startupProps.maxBy(_._2)
+      appendComment(
+        s"""Protected 'spark.dynamicAllocation.initialExecutors' ($initial) and
+           |'spark.executor.instances' ($instances) conflict and were left unchanged.
+           |Spark starts with max(minExecutors, initialExecutors, executor.instances) = $startup,
+           |determined by '$startupProp'.""".stripMargin.replaceAll("\n", "\n  "))
+    }
 
     if (adjustedProperties.nonEmpty) {
       appendComment(commentForDynamicAllocationAdjustment(adjustedProperties.toList,

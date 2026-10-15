@@ -2342,13 +2342,14 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   private def recommendWithTargetDynamicAllocation(
       numExecs: Int,
       enforced: Map[String, String],
-      preserved: List[String] = List.empty): (Map[String, String], String) = {
+      preserved: List[String] = List.empty,
+      sourceProps: Map[String, String] = Map.empty): (Map[String, String], String) = {
     val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
       "spark.executor.instances" -> numExecs.toString,
       "spark.executor.memory" -> "16g",
       "spark.dynamicAllocation.enabled" -> "true"
-    )
+    ) ++= sourceProps
     val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
       enforcedSparkProperties = enforced, preserveSparkProperties = preserved)
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
@@ -2369,14 +2370,11 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   }
 
   // Sizing recommends ceil(8*18/16) = 9 executor instances, above the enforced maxExecutors = 6.
-  // The enforced initialExecutors = 4 is inside [2, 6], so only the new clamp moves instances.
   test("dynamic allocation caps executor.instances to enforced target-cluster maxExecutors") {
     val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18, enforced = Map(
       "spark.dynamicAllocation.minExecutors" -> "2",
-      "spark.dynamicAllocation.initialExecutors" -> "4",
       "spark.dynamicAllocation.maxExecutors" -> "6"))
     assert(rec("spark.dynamicAllocation.minExecutors") == "2")
-    assert(rec("spark.dynamicAllocation.initialExecutors") == "4")
     assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
     assert(rec("spark.executor.instances") == "6")
     output should include("'spark.executor.instances' adjusted from 9 to 6")
@@ -2386,10 +2384,8 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
   test("dynamic allocation raises executor.instances to enforced target-cluster minExecutors") {
     val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 2, enforced = Map(
       "spark.dynamicAllocation.minExecutors" -> "4",
-      "spark.dynamicAllocation.initialExecutors" -> "5",
       "spark.dynamicAllocation.maxExecutors" -> "10"))
     assert(rec("spark.dynamicAllocation.minExecutors") == "4")
-    assert(rec("spark.dynamicAllocation.initialExecutors") == "5")
     assert(rec("spark.dynamicAllocation.maxExecutors") == "10")
     assert(rec("spark.executor.instances") == "4")
     output should include("'spark.executor.instances' adjusted from 1 to 4")
@@ -2418,6 +2414,98 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
       preserved = List("spark.executor.instances"))
     assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
     assert(rec("spark.executor.instances") == "18")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
+  // Spark starts with max(minExecutors, initialExecutors, executor.instances). With initial
+  // protected, executor.instances must follow it in both directions of the heuristic count.
+  // Sizing recommends ceil(8*24/16) = 12 instances, within [1, 12] but above the startup of 1.
+  test("enforced initialExecutors lowers executor.instances below the heuristic count") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 24, enforced = Map(
+      "spark.dynamicAllocation.initialExecutors" -> "1",
+      "spark.dynamicAllocation.minExecutors" -> "1",
+      "spark.dynamicAllocation.maxExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "1")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
+  // Sizing recommends ceil(8*2/16) = 1 instance, below the enforced startup of 5.
+  test("enforced initialExecutors raises executor.instances above the heuristic count") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 2, enforced = Map(
+      "spark.dynamicAllocation.initialExecutors" -> "5",
+      "spark.dynamicAllocation.minExecutors" -> "1",
+      "spark.dynamicAllocation.maxExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "5")
+    assert(rec("spark.executor.instances") == "5")
+  }
+
+  test("preserved initialExecutors lowers executor.instances below the heuristic count") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map(
+        "spark.dynamicAllocation.minExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "12"),
+      preserved = List("spark.dynamicAllocation.initialExecutors"),
+      sourceProps = Map("spark.dynamicAllocation.initialExecutors" -> "1"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "1")
+  }
+
+  test("preserved initialExecutors raises executor.instances above the heuristic count") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 2,
+      enforced = Map(
+        "spark.dynamicAllocation.minExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "12"),
+      preserved = List("spark.dynamicAllocation.initialExecutors"),
+      sourceProps = Map("spark.dynamicAllocation.initialExecutors" -> "5"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "5")
+    assert(rec("spark.executor.instances") == "5")
+  }
+
+  // Sizing recommends 9 instances, above the enforced maxExecutors = 6. The enforced initial
+  // of 4 is inside [2, 6] and determines startup, so instances follows it instead of the clamp.
+  test("enforced initialExecutors inside the enforced bounds determines executor.instances") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18, enforced = Map(
+      "spark.dynamicAllocation.initialExecutors" -> "4",
+      "spark.dynamicAllocation.minExecutors" -> "2",
+      "spark.dynamicAllocation.maxExecutors" -> "6"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "4")
+    assert(rec("spark.executor.instances") == "4")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
+  // Reverse direction: protected executor.instances must not be defeated by the adjustable
+  // initialExecutors, which scales the source value 8 to floor(8*0.5) = 4.
+  test("enforced executor.instances lowers the adjustable initialExecutors") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map("spark.executor.instances" -> "1"),
+      sourceProps = Map("spark.dynamicAllocation.initialExecutors" -> "8"))
+    assert(rec("spark.executor.instances") == "1")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+  }
+
+  // The preserved executor.instances is the source value 2.
+  test("preserved executor.instances lowers the adjustable initialExecutors") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 2,
+      preserved = List("spark.executor.instances"),
+      enforced = Map.empty,
+      sourceProps = Map("spark.dynamicAllocation.initialExecutors" -> "8"))
+    assert(rec("spark.executor.instances") == "2")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "2")
+  }
+
+  // Both values are protected and conflict: neither is overwritten, the comment names the
+  // setting that determines the startup, and no value is reported as adjusted.
+  test("conflicting enforced initialExecutors and executor.instances are left unchanged") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 24, enforced = Map(
+      "spark.dynamicAllocation.initialExecutors" -> "1",
+      "spark.executor.instances" -> "8",
+      "spark.dynamicAllocation.minExecutors" -> "1",
+      "spark.dynamicAllocation.maxExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "8")
+    output should include("= 8,")
+    output should include("determined by 'spark.executor.instances'")
     output should not include "'spark.executor.instances' adjusted"
   }
 
