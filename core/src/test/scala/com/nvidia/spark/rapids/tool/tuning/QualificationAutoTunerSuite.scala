@@ -1842,6 +1842,70 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     recClusterInfo.dynamicAllocationInitialExecutors shouldBe "10"
   }
 
+  // When the source does not set 'spark.dynamicAllocation.initialExecutors' or
+  // 'spark.executor.instances', they are not recommended (including the executor.instances from
+  // the cluster sizing), so that the application starts at minExecutors. The recommended cluster
+  // info reports the starting executor count as max(min, initial, executor.instances).
+  // ratio = 8 source cores / 16 GPU cores = 0.5: min 12 -> 6, max 30 -> 15, initial 16 -> 8,
+  // executor.instances 20 -> 10.
+  // Columns: (testName, sourceInitial, sourceInstances, expectedInitial, expectedInstances,
+  //   expectedClusterInitial)
+  private val unsetExecutorCountTestCases = Seq(
+    ("executor instances unset", Some("16"), None, Some("8"), None, "8"),
+    ("initial executors unset", None, Some("20"), None, Some("10"), "10"),
+    ("initial executors and executor instances unset", None, None, None, None, "6")
+  )
+
+  unsetExecutorCountTestCases.foreach {
+    case (testName, sourceInitial, sourceInstances, expectedInitial, expectedInstances,
+        expectedClusterInitial) =>
+      test(s"test dynamic allocation with ConstantTotalCoresStrategy when $testName") {
+        val logEventsProps: mutable.Map[String, String] = mutable.LinkedHashMap[String, String](
+          "spark.executor.cores" -> "8",
+          "spark.executor.memory" -> "16g",
+          "spark.dynamicAllocation.enabled" -> "true",
+          "spark.dynamicAllocation.minExecutors" -> "12",
+          "spark.dynamicAllocation.maxExecutors" -> "30"
+        )
+        sourceInitial.foreach(logEventsProps("spark.dynamicAllocation.initialExecutors") = _)
+        sourceInstances.foreach(logEventsProps("spark.executor.instances") = _)
+        val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+          logEventsProps, Some(testSparkVersion))
+        val platform = PlatformFactory.createInstance(PlatformNames.EMR)
+        platform.configureClusterInfoFromEventLog(
+          coresPerExecutor = 8,
+          execsPerNode = 4,
+          numExecs = 20,
+          numExecutorNodes = 5,
+          sparkProperties = logEventsProps.toMap,
+          systemProperties = Map.empty
+        )
+
+        val autoTuner = buildAutoTunerForTests(infoProvider, platform)
+        val (properties, comments) = autoTuner.getRecommendedProperties()
+        def tunedValue(name: String): Option[String] =
+          properties.find(_.name == name).map(_.getTuneValue())
+
+        tunedValue("spark.dynamicAllocation.minExecutors") shouldBe Some("6")
+        tunedValue("spark.dynamicAllocation.maxExecutors") shouldBe Some("15")
+        tunedValue("spark.dynamicAllocation.initialExecutors") shouldBe expectedInitial
+        tunedValue("spark.executor.instances") shouldBe expectedInstances
+        val expectedAdjusted =
+          sourceInitial.map(_ => "spark.dynamicAllocation.initialExecutors").toList ++
+          sourceInstances.map(_ => "spark.executor.instances").toList ++
+          List("spark.dynamicAllocation.minExecutors", "spark.dynamicAllocation.maxExecutors")
+        comments.map(_.comment) should contain(
+          commentForDynamicAllocationAdjustment(expectedAdjusted, 8, 16))
+        // No invariant enforcement is needed since only source values are scaled.
+        comments.map(_.comment).mkString("\n") should not include "to enforce"
+
+        val recClusterInfo = platform.recommendedClusterInfo.get
+        recClusterInfo.dynamicAllocationMinExecutors shouldBe "6"
+        recClusterInfo.dynamicAllocationMaxExecutors shouldBe "15"
+        recClusterInfo.dynamicAllocationInitialExecutors shouldBe expectedClusterInitial
+      }
+  }
+
   test("test AutoTuner does not recommend dynamic allocation properties when disabled") {
     val logEventsProps = mutable.LinkedHashMap[String, String](
       "spark.executor.cores" -> "8",
