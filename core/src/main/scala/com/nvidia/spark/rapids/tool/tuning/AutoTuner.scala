@@ -1899,8 +1899,12 @@ abstract class AutoTuner(
       appendRecommendation("spark.executor.instances", valueToUse.toLong)
     }
 
-    // Simpler logic for min and max executors
-    adjustedValue("spark.dynamicAllocation.minExecutors").foreach { v =>
+    // Simpler logic for min and max executors. An adjustable minExecutors is capped to the
+    // protected startup values, otherwise it would raise the startup they set.
+    val protectedStartup = Seq("spark.dynamicAllocation.initialExecutors",
+      "spark.executor.instances").flatMap(protectedValue)
+    adjustedValue("spark.dynamicAllocation.minExecutors").foreach { scaled =>
+      val v = if (protectedStartup.isEmpty) scaled else math.min(scaled, protectedStartup.max)
       markAsAdjustedProperty("spark.dynamicAllocation.minExecutors", v)
       appendRecommendation("spark.dynamicAllocation.minExecutors", v)
     }
@@ -1915,18 +1919,22 @@ abstract class AutoTuner(
     // while maxExecutors was independently scaled down by the core ratio.
     enforceDynamicAllocationInvariants()
 
-    // Both protected values are kept as given, so explain which one determines the startup.
-    for (initial <- protectedValue("spark.dynamicAllocation.initialExecutors");
-         instances <- protectedValue("spark.executor.instances") if initial != instances) {
-      val startupProps = Seq("spark.dynamicAllocation.minExecutors",
-        "spark.dynamicAllocation.initialExecutors", "spark.executor.instances")
-        .flatMap(p => getPropertyValue(p).map(v => p -> v.toInt))
-      val (startupProp, startup) = startupProps.maxBy(_._2)
-      appendComment(
-        s"""Protected 'spark.dynamicAllocation.initialExecutors' ($initial) and
-           |'spark.executor.instances' ($instances) conflict and were left unchanged.
-           |Spark starts with max(minExecutors, initialExecutors, executor.instances) = $startup,
-           |determined by '$startupProp'.""".stripMargin.replaceAll("\n", "\n  "))
+    // Protected values are kept as given. If one of them is below the resulting startup,
+    // explain which property determines it (a protected minExecutors can be that property).
+    val minProp = "spark.dynamicAllocation.minExecutors"
+    val startupProps = Seq(minProp, "spark.dynamicAllocation.initialExecutors",
+      "spark.executor.instances")
+    val protectedProps = startupProps.flatMap(p => protectedValue(p).map(p -> _))
+    val startupValues = startupProps.flatMap(p => getPropertyValue(p).map(v => p -> v.toInt))
+    if (protectedProps.nonEmpty) {
+      val (startupProp, startup) = startupValues.maxBy(_._2)
+      if (protectedProps.exists { case (p, v) => p != minProp && v < startup }) {
+        val listed = protectedProps.map { case (p, v) => s"'$p' ($v)" }.mkString(", ")
+        appendComment(
+          s"""Protected $listed were left unchanged.
+             |Spark starts with max(minExecutors, initialExecutors, executor.instances) = $startup,
+             |determined by '$startupProp'.""".stripMargin.replaceAll("\n", "\n  "))
+      }
     }
 
     if (adjustedProperties.nonEmpty) {

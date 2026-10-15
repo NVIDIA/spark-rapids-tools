@@ -2509,6 +2509,91 @@ class QualificationAutoTunerSuite extends BaseAutoTunerSuite {
     output should not include "'spark.executor.instances' adjusted"
   }
 
+  // The adjustable minExecutors scales the source value 12 to floor(12*0.5) = 6, above the
+  // enforced initialExecutors = 1. It must not raise the startup that the enforced value sets.
+  test("adjustable minExecutors is capped to the enforced initialExecutors") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map(
+        "spark.dynamicAllocation.initialExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "12"),
+      sourceProps = Map("spark.dynamicAllocation.minExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "1")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "12")
+    assert(rec("spark.executor.instances") == "1")
+    output should not include "'spark.executor.instances' adjusted"
+  }
+
+  test("adjustable minExecutors is capped to the preserved initialExecutors") {
+    val (rec, _) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map("spark.dynamicAllocation.maxExecutors" -> "12"),
+      preserved = List("spark.dynamicAllocation.initialExecutors"),
+      sourceProps = Map(
+        "spark.dynamicAllocation.initialExecutors" -> "1",
+        "spark.dynamicAllocation.minExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "1")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "1")
+  }
+
+  // A protected minExecutors above the protected initialExecutors is not lowered. Spark then
+  // starts with minExecutors, so executor.instances follows it and the output says so.
+  test("enforced minExecutors above the enforced initialExecutors is unchanged and explained") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 24, enforced = Map(
+      "spark.dynamicAllocation.initialExecutors" -> "1",
+      "spark.dynamicAllocation.minExecutors" -> "6",
+      "spark.dynamicAllocation.maxExecutors" -> "12"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "6")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "6")
+    output should include("= 6,")
+    output should include("determined by 'spark.dynamicAllocation.minExecutors'")
+  }
+
+  test("preserved minExecutors above the enforced initialExecutors is unchanged and explained") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 24,
+      enforced = Map(
+        "spark.dynamicAllocation.initialExecutors" -> "1",
+        "spark.dynamicAllocation.maxExecutors" -> "12"),
+      preserved = List("spark.dynamicAllocation.minExecutors"),
+      sourceProps = Map("spark.dynamicAllocation.minExecutors" -> "6"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "6")
+    assert(rec("spark.dynamicAllocation.initialExecutors") == "1")
+    assert(rec("spark.executor.instances") == "6")
+    output should include("determined by 'spark.dynamicAllocation.minExecutors'")
+  }
+
+  // The source bounds [4, 6] are preserved, so the 0.5 core ratio does not scale them.
+  // Sizing recommends ceil(8*18/16) = 9 instances, above the preserved maxExecutors = 6.
+  test("dynamic allocation caps executor.instances to preserved maxExecutors") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 18,
+      enforced = Map.empty,
+      preserved = List("spark.dynamicAllocation.minExecutors",
+        "spark.dynamicAllocation.maxExecutors"),
+      sourceProps = Map(
+        "spark.dynamicAllocation.minExecutors" -> "4",
+        "spark.dynamicAllocation.maxExecutors" -> "6"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "4")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "6")
+    assert(rec("spark.executor.instances") == "6")
+    output should include("'spark.executor.instances' adjusted from 9 to 6")
+  }
+
+  // Sizing recommends ceil(8*2/16) = 1 instance, below the preserved minExecutors = 8.
+  test("dynamic allocation raises executor.instances to preserved minExecutors") {
+    val (rec, output) = recommendWithTargetDynamicAllocation(numExecs = 2,
+      enforced = Map.empty,
+      preserved = List("spark.dynamicAllocation.minExecutors",
+        "spark.dynamicAllocation.maxExecutors"),
+      sourceProps = Map(
+        "spark.dynamicAllocation.minExecutors" -> "8",
+        "spark.dynamicAllocation.maxExecutors" -> "20"))
+    assert(rec("spark.dynamicAllocation.minExecutors") == "8")
+    assert(rec("spark.dynamicAllocation.maxExecutors") == "20")
+    assert(rec("spark.executor.instances") == "8")
+    output should include("'spark.executor.instances' adjusted from 1 to 8")
+  }
+
   test("test CSP platform with OnPrem-style target cluster specs") {
     // Verify that CSP platforms can accept OnPrem-style target cluster specifications
     // (cpuCores/memoryGB/GPU) as a fallback when instanceType is not provided.
