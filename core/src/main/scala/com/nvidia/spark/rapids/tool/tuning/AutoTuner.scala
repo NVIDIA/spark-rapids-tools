@@ -731,7 +731,7 @@ abstract class AutoTuner(
       appendRecommendation(
         SparkTaskSlotModel.Properties.ExecutorCores, gpuClusterRec.coresPerExecutor)
       if (gpuClusterRec.numExecutors > 0) {
-        // Note: This is rescaled from the source or dropped if dynamic allocation is enabled.
+        // Note: This is replaced by the starting executor count if dynamic allocation is enabled.
         appendRecommendation("spark.executor.instances", gpuClusterRec.numExecutors)
       }
     }
@@ -1805,10 +1805,10 @@ abstract class AutoTuner(
    *
    * Formula: adjusted_value = max(1, floor(original_value × scale))
    *
-   * Spark starts with max(minExecutors, initialExecutors, executor.instances) executors, so
-   * initialExecutors and executor.instances are only recommended when set in the source (scaled
-   * as above). Otherwise they are left unset and the application starts at minExecutors, rather
-   * than at the executor count of the recommended cluster shape.
+   * Spark starts with max(minExecutors, initialExecutors, executor.instances) executors. The
+   * starting count is computed from the source values (scaled as above), not from the executor
+   * count of the recommended cluster shape, and initialExecutors and executor.instances are both
+   * set to it (0 when none is set, Spark's default minExecutors).
    *
    * @param gpuExecCores Number of cores per executor for GPU runs
    */
@@ -1872,8 +1872,8 @@ abstract class AutoTuner(
     // Spark starts with max(minExecutors, initialExecutors, executor.instances) executors.
     // Ref: https://spark.apache.org/docs/3.5.7/configuration.html#dynamic-allocation
     // Scale initialExecutors and executor.instances only when set in the source. Otherwise drop
-    // them, including the executor.instances from the cluster sizing, so that the application
-    // starts at minExecutors and scales up as needed.
+    // them, including the executor.instances from the cluster sizing, so that the starting count
+    // set by recommendStartingExecutorCount does not include the size of the recommended cluster.
     Seq("spark.dynamicAllocation.initialExecutors", "spark.executor.instances").foreach { prop =>
       if (!ignoreRecommendation(prop)) {
         adjustedValue(prop) match {
@@ -1900,11 +1900,40 @@ abstract class AutoTuner(
     // This is needed because user-enforced values are not scaled, and rounding each value
     // separately can break the ordering.
     enforceDynamicAllocationInvariants()
+    recommendStartingExecutorCount()
     syncDynamicAllocationToRecommendedCluster()
 
     if (adjustedProperties.nonEmpty) {
       appendComment(commentForDynamicAllocationAdjustment(adjustedProperties.toList,
         sourceExecCores, gpuExecCores))
+    }
+  }
+
+  /**
+   * Sets initialExecutors and executor.instances to the number of executors Spark starts with
+   * under dynamic allocation: max(minExecutors, initialExecutors, executor.instances), or 0 (the
+   * default minExecutors) when none is set. Recommending them explicitly keeps callers that merge
+   * the recommendations over the source configuration (e.g. a spark-submit with --num-executors)
+   * from falling back to the source CPU executor count.
+   *
+   * An enforced or preserved executor.instances is left as is and is not part of the starting
+   * count, since it typically describes the size of the target cluster.
+   */
+  private def recommendStartingExecutorCount(): Unit = {
+    val initialProp = "spark.dynamicAllocation.initialExecutors"
+    val instancesProp = "spark.executor.instances"
+    val instancesOpt =
+      if (ignoreRecommendation(instancesProp)) None else recommendedIntValue(instancesProp)
+    val startingCount = (Seq("spark.dynamicAllocation.minExecutors", initialProp)
+      .flatMap(recommendedIntValue) ++ instancesOpt :+ 0).max
+
+    val setProperties = Seq(initialProp, instancesProp).filter { prop =>
+      !ignoreRecommendation(prop) && !recommendedIntValue(prop).contains(startingCount)
+    }
+    // Use the String overload, since the numeric one skips a value of 0
+    setProperties.foreach(appendRecommendation(_, startingCount.toString))
+    if (setProperties.nonEmpty) {
+      appendComment(commentForStartingExecutorCount(setProperties, startingCount))
     }
   }
 
@@ -3628,6 +3657,14 @@ trait AutoTunerStaticComments {
     s"""
        |Tuned dynamic allocation properties (${properties.mkString(", ")})
        |based on cores ratio (source: $sourceExecCores cores, target: $targetExecCores cores).
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
+
+  def commentForStartingExecutorCount(properties: Seq[String], startingCount: Int): String = {
+    s"""
+       |Set ${properties.map(p => s"'$p'").mkString(" and ")} to $startingCount,
+       |the number of executors Spark starts with under dynamic allocation:
+       |max(minExecutors, initialExecutors, executor.instances).
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
 }

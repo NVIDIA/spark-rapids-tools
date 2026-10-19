@@ -2147,12 +2147,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     // Recommended executors = 1628 / 11 = 148
     // Without the fix (using default 12 cores), it would be 1628 / 12 = 135
     // This is the key assertion - 148 executors proves cores=11 was used. It is checked on the
-    // recommended cluster since executor.instances is not recommended with dynamic allocation
-    // when the source does not set it.
+    // recommended cluster since, with dynamic allocation, executor.instances is set to the
+    // starting executor count (max(min=1, initial, instances) = 1) instead of the cluster size.
     assert(platform.recommendedClusterInfo.map(_.numExecutors).contains(148),
       s"Expected 148 recommended executors with enforced cores=11, but got:\n$autoTunerOutput")
-    assert(!autoTunerOutput.contains("spark.executor.instances="),
-      s"Expected no spark.executor.instances with dynamic allocation, but got:\n$autoTunerOutput")
+    assert(autoTunerOutput.contains("spark.executor.instances=1\n"),
+      s"Expected spark.executor.instances=1 with dynamic allocation, but got:\n$autoTunerOutput")
+    assert(autoTunerOutput.contains("spark.dynamicAllocation.initialExecutors=1\n"),
+      s"Expected initialExecutors=1 with dynamic allocation, but got:\n$autoTunerOutput")
     // Note: spark.executor.cores may not appear in output if source already has same value
   }
 
@@ -2362,7 +2364,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     assertProp("spark.dynamicAllocation.minExecutors", "4")
     assertProp("spark.dynamicAllocation.initialExecutors", "8")
     assertProp("spark.dynamicAllocation.maxExecutors", "18")
-    assert(!recommendedProps.contains("spark.executor.instances"))
+    // Set to the starting executor count, max(min=4, initial=8), not the cluster size (18)
+    assertProp("spark.executor.instances", "8")
     assert(platform.recommendedClusterInfo.map(_.numExecutors).contains(18))
     assert(!comments.exists(_.comment.contains("based on cores ratio")),
       "DA properties should not be scaled by the core ratio with ConstantGpuCountStrategy")
@@ -2372,8 +2375,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   // the preserved source value (8) must be the sizing baseline, NOT re-sliced to the
   // platform default (16). Same scenario as "dynamic allocation keeps executor counts with
   // constant GPU count strategy" above, but with preserve. Source DA is not scaled and
-  // executor.instances is not recommended since the source does not set it.
-  // Expected: cores=8, 18 recommended executors, DA min=4 / initial=8 / max=18.
+  // executor.instances is set to the starting executor count, max(min=4, initial=8) = 8.
+  // Expected: cores=8, 18 recommended executors, DA min=4 / initial=8 / max=18, instances=8.
   test("preserved spark.executor.cores is respected by cluster sizing and dynamic allocation") {
     val logEventsProps: mutable.Map[String, String] =
       mutable.LinkedHashMap[String, String](
@@ -2424,6 +2427,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     assertProp("spark.dynamicAllocation.minExecutors", "4")
     assertProp("spark.dynamicAllocation.initialExecutors", "8")
     assertProp("spark.dynamicAllocation.maxExecutors", "18")
+    assertProp("spark.executor.instances", "8")
   }
 
   // Issue #2053: when spark.executor.memory is preserved, the source heap value (8g)
@@ -2609,6 +2613,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     val expectedResults =
       s"""|
           |Spark Properties:
+          |--conf spark.dynamicAllocation.initialExecutors=18
           |--conf spark.executor.memory=16g
           |--conf spark.executor.memoryOverhead=50g
           |--conf spark.executor.resource.gpu.vendor=nvidia.com
@@ -2643,6 +2648,7 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
           |- 'spark.sql.files.maxPartitionBytes' was not set.
           |- 'spark.task.resource.gpu.amount' was not set.
           |- ${classPathComments("rapids.jars.missing")}
+          |- ${commentForStartingExecutorCount(Seq("spark.dynamicAllocation.initialExecutors"), 18)}
           |- ${classPathComments("rapids.shuffle.jars")}
           |""".stripMargin
     // scalastyle:on line.size.limit
