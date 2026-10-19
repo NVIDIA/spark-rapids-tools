@@ -57,8 +57,7 @@ class AppInfoProviderMockTest(val maxInput: Double,
     val hasSqlCache: Boolean = false,
     val shuffleStageInputAnalysis: ShuffleStageInputAnalysis =
       ShuffleStageInputAnalysis.empty(ShuffleInputProvenance.Measured),
-    val gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
-    val apacheSparkVersion: Option[String] = None)
+    val gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty)
     extends BaseProfilingAppSummaryInfoProvider {
   override def isAppInfoAvailable = true
   override def getMaxFileScanInput: Option[Double] =
@@ -72,7 +71,6 @@ class AppInfoProviderMockTest(val maxInput: Double,
   override def getSparkProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSystemProperty(propKey: String): Option[String] = propsFromLog.get(propKey)
   override def getSparkVersion: Option[String] = sparkVersion
-  override def getApacheSparkVersion: Option[String] = apacheSparkVersion.orElse(sparkVersion)
   override def getRapidsJars: Seq[String] = rapidsJars
   override def getDistinctLocationPct: Double = distinctLocationPct
   override def getRedundantReadSize: Long = redundantReadSize
@@ -158,15 +156,14 @@ abstract class BaseAutoTunerSuite extends AnyFunSuite with BeforeAndAfterEach
       hasSqlCache: Boolean = false,
       shuffleStageInputAnalysis: ShuffleStageInputAnalysis =
         ShuffleStageInputAnalysis.empty(ShuffleInputProvenance.Measured),
-      gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty,
-      apacheSparkVersion: Option[String] = None
+      gpuStageAggMetrics: Seq[StageAggGpuMetricsProfileResult] = Seq.empty
   ): AppInfoProviderMockTest = {
     new AppInfoProviderMockTest(maxInput, spilledMetrics, jvmGCFractions, propsFromLog,
       sparkVersion, rapidsJars, distinctLocationPct, redundantReadSize, meanInput, meanShuffleRead,
       shuffleStagesWithPosSpilling, shuffleSkewStages, scanStagesWithGpuOom,
       gpuShuffleStagesWithContainerOom, maxColumnarExchangeDataSizeBytes,
       maxFileScanInputOverride, pySparkMemoryEvidence, hasSqlCache, shuffleStageInputAnalysis,
-      gpuStageAggMetrics, apacheSparkVersion)
+      gpuStageAggMetrics)
   }
 
   /**

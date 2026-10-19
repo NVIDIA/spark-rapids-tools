@@ -173,9 +173,8 @@ class ApplicationInfoSuite extends BaseNoSparkSuite {
       eventLogInfo.head._1,
       PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE))
 
-    assert(app.sparkVersion == "17.3.x-gpu-ml-scala2.13")
     // From DBCEventLoggingListenerMetadata, as Databricks logs have no SparkListenerLogStart.
-    assert(app.apacheSparkVersion == "4.0.0")
+    assert(app.sparkVersion == "4.0.0")
     assert(app.gpuMode, "expected the RAPIDS plugin to be detected")
     assert(!app.dbPlugin.isPhotonEnabled, "expected the GPU capture to use STANDARD runtime")
     assert(app.getSparkRuntime == SparkRuntime.SPARK_RAPIDS)

@@ -18,7 +18,8 @@ package com.nvidia.spark.rapids.tool
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-import com.nvidia.spark.rapids.tool.planparser.db.DatabricksParseHelper
+import com.nvidia.spark.rapids.tool.planparser.db.{DatabricksParseHelper, DBVersionExtractor}
+import com.nvidia.spark.rapids.tool.profiling.AppInfoPropertyGetter
 import com.nvidia.spark.rapids.tool.tuning.{SparkMaster, TargetClusterProps, TuningEntryTrait, WorkerInfo}
 
 import org.apache.spark.internal.Logging
@@ -449,6 +450,13 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
     supportedShuffleManagerVersionMap.collectFirst {
       case (supportedVersion, smVersion) if sparkVersion.contains(supportedVersion) => smVersion
     }
+  }
+
+  /**
+   * The version that supportedShuffleManagerVersionMap is keyed by: the app's Spark version.
+   */
+  def getShuffleManagerLookupVersion(appInfoProvider: AppInfoPropertyGetter): Option[String] = {
+    appInfoProvider.getSparkVersion
   }
 
   /**
@@ -899,6 +907,14 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     "14.3" -> "350db143",
     "17.3" -> "400db173"
   )
+
+  // The map is keyed by the Databricks runtime (for example, 17.3.x-gpu-ml-scala2.13), not the
+  // Spark version. Fall back to the Spark version when the event log records no runtime.
+  override def getShuffleManagerLookupVersion(
+      appInfoProvider: AppInfoPropertyGetter): Option[String] = {
+    appInfoProvider.getProperty(DBVersionExtractor.DB_SPARK_VERSION_KEY)
+      .orElse(appInfoProvider.getSparkVersion)
+  }
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,

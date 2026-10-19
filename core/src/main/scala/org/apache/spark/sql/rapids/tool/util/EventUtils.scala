@@ -60,7 +60,7 @@ object EventUtils extends Logging {
   val DB_LOG_METADATA_EVENT_PREFIX = "{\"Event\":\"DBCEventLoggingListenerMetadata\","
 
   /**
-   * Reads the Apache Spark version from Databricks' DBCEventLoggingListenerMetadata event,
+   * Reads the Spark version from Databricks' DBCEventLoggingListenerMetadata event,
    * for example {"Event":"DBCEventLoggingListenerMetadata","Spark Version":"4.0.0",...}.
    */
   def readDBLogMetadataSparkVersion(line: String): Option[String] = {

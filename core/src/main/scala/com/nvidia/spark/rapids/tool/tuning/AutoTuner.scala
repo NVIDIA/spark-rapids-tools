@@ -1234,7 +1234,7 @@ abstract class AutoTuner(
     "PySpark memory autotuning needs a telemetry-enabled retry."
 
   private def hasReliableProcessTreePythonVMemory: Boolean = {
-    appInfoProvider.getApacheSparkVersion.exists { sparkVersion =>
+    appInfoProvider.getSparkVersion.exists { sparkVersion =>
       val isFixedSpark3 =
         ToolUtils.compareVersions(sparkVersion, "3.5.7").exists(_ >= 0) &&
           ToolUtils.compareVersions(sparkVersion, "4.0.0").exists(_ < 0)
@@ -1357,7 +1357,7 @@ abstract class AutoTuner(
         None
       }
       val versionGuidance = if (!processTreeEvidenceIsReliable) {
-        val sparkVersion = appInfoProvider.getApacheSparkVersion.getOrElse("unknown")
+        val sparkVersion = appInfoProvider.getSparkVersion.getOrElse("unknown")
         Some("ProcessTreePythonVMemory evidence was not used because Spark version " +
           s"$sparkVersion can report unreliable procfs metrics.")
       } else {
@@ -2175,7 +2175,7 @@ abstract class AutoTuner(
               appendRecommendation(propertyKey, recommendedSerializer)
           }
 
-          if (appInfoProvider.getApacheSparkVersion.exists(AutoTuner.hasAqeCacheScanFallback)) {
+          if (appInfoProvider.getSparkVersion.exists(AutoTuner.hasAqeCacheScanFallback)) {
             appendComment(propertyKey,
               "remains compatible, but Spark 3.5.0 and 3.5.1 disable GPU InMemoryTableScan " +
                 "under AQE, so cached scans may remain on the CPU.")
@@ -2206,7 +2206,8 @@ abstract class AutoTuner(
   }
 
   /**
-   * Resolves the RapidsShuffleManager class name based on the Spark version.
+   * Resolves the RapidsShuffleManager class name based on the Spark version, or the runtime on
+   * Databricks (see Platform.getShuffleManagerLookupVersion).
    * If a valid class name is not found, an error message is returned.
    *
    * Example:
@@ -2219,7 +2220,7 @@ abstract class AutoTuner(
    * @return Either an error message (Left) or the RapidsShuffleManager class name (Right)
    */
   def getShuffleManagerClassName: Either[String, String] = {
-    appInfoProvider.getSparkVersion match {
+    platform.getShuffleManagerLookupVersion(appInfoProvider) match {
       case Some(sparkVersion) =>
         platform.getShuffleManagerVersion(sparkVersion) match {
           case Some(smVersion) =>
@@ -2253,7 +2254,7 @@ abstract class AutoTuner(
       // TODO: Should we recommend enabling AQE if not set?
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
-    appInfoProvider.getApacheSparkVersion match {
+    appInfoProvider.getSparkVersion match {
       case Some(version) =>
         if (ToolUtils.isSpark320OrLater(version)) {
           // AQE configs changed in 3.2.0

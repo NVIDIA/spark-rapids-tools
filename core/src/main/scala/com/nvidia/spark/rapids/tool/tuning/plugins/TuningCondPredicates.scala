@@ -123,7 +123,7 @@ object TuningCondPredicates {
    */
   def sparkVersionAtLeast(tuner: AutoTuner, minSparkVersion: String): Boolean = {
     val minVersion = new ComparableVersion(minSparkVersion)
-    tuner.appInfoProvider.getApacheSparkVersion
+    tuner.appInfoProvider.getSparkVersion
       .map(new ComparableVersion(_))
       .exists(_.compareTo(minVersion) >= 0)
   }

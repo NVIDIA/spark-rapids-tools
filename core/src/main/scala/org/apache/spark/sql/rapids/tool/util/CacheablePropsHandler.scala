@@ -113,29 +113,23 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   // caches the spark-version from the eventlogs
   private var _sparkVersion: String = ""
 
-  /** Getter for Spark version */
+  /**
+   * Getter for Spark version: the version the event log records, from SparkListenerLogStart or,
+   * on Databricks, DBCEventLoggingListenerMetadata.
+   */
   def sparkVersion: String = {
-    // get the spark version from the plugins if any.
-    // If None is defined, fall back to the cached one.
-    getSparkVersionPlugins match {
-      case Some(ver) => ver
-      case None => _sparkVersion
+    if (_sparkVersion.nonEmpty) {
+      _sparkVersion
+    } else {
+      // The event log records no version. Fall back to the plugins' version, such as the
+      // Databricks runtime (for example, 17.3.x-photon-scala2.13).
+      getSparkVersionPlugins.getOrElse(_sparkVersion)
     }
   }
 
   /** Setter for Spark version */
   def sparkVersion_=(value: String): Unit = {
     _sparkVersion = value
-  }
-
-  /**
-   * The Apache Spark version, for comparisons with Apache releases. It differs from
-   * sparkVersion on Databricks, where sparkVersion is the runtime (for example,
-   * 17.3.x-photon-scala2.13) and the event log records the Apache version (4.0.0).
-   * Falls back to sparkVersion when the event log records no version.
-   */
-  def apacheSparkVersion: String = {
-    if (_sparkVersion.nonEmpty) _sparkVersion else sparkVersion
   }
 
   // A flag to indicate whether the eventlog is an eventlog with the cuDF plugin runtime.
@@ -209,9 +203,9 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   }
 
   /**
-   * Databricks event logs have no SparkListenerLogStart. They record the Apache Spark version
-   * only in DBCEventLoggingListenerMetadata, which Spark has no class for, so the version is
-   * read from the event's raw JSON.
+   * Databricks event logs have no SparkListenerLogStart. They record the Spark version only in
+   * DBCEventLoggingListenerMetadata, which Spark has no class for, so the version is read from
+   * the event's raw JSON.
    */
   def handleDBLogMetadataForCachedProps(line: String): Unit = {
     EventUtils.readDBLogMetadataSparkVersion(line).foreach(sparkVersion = _)
