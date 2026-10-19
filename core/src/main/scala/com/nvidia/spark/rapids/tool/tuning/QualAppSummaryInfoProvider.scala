@@ -73,6 +73,10 @@ class QualAppSummaryInfoProvider(
     Option(appInfo.sparkVersion)
   }
 
+  override def getApacheSparkVersion: Option[String] = {
+    Option(appInfo.apacheSparkVersion)
+  }
+
   override def hasSqlCacheEvidence: Boolean = appInfo.hasSqlCacheEvidence
 
   def getAppID: String = appInfo.appId

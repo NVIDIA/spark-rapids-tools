@@ -27,10 +27,12 @@ import com.nvidia.spark.rapids.tool.profiling.{AppInfoProfileResults, Applicatio
   RapidsPropertyProfileResult, SingleAppSummaryInfoProvider, SQLPlanInfoProfileResult,
   StageAggGpuMetricsProfileResult}
 import com.nvidia.spark.rapids.tool.tuning.config.{ProfTuningConfigProvider, TuningConfigProvider}
+import com.nvidia.spark.rapids.tool.views.ProfInformationView
 import org.scalatest.matchers.should.Matchers._
 
 import org.apache.spark.sql.TrampolineUtil
 import org.apache.spark.sql.execution.{SparkPlanInfo => UpstreamSparkPlanInfo}
+import org.apache.spark.sql.rapids.tool.ToolUtils
 import org.apache.spark.sql.rapids.tool.profiling.ApplicationInfo
 import org.apache.spark.sql.rapids.tool.store.SparkPlanInfoTruncated
 import org.apache.spark.sql.rapids.tool.util.{RapidsToolsConfUtil, SparkRuntime}
@@ -325,6 +327,39 @@ class AppSummaryInfoProviderSuite extends BaseNoSparkSuite {
         Some(configuredCacheSerializer)
       cacheSerializerRecommendation(profProvider, ProfilingAutoTunerHelper) shouldBe
         Some(configuredCacheSerializer)
+    }
+  }
+
+  runConditionalTest(
+    "providers expose the Apache Spark version of Databricks apps",
+    () => (ToolUtils.isSpark340OrLater(),
+      "DBR 17.3 event-log coverage requires Spark 3.4+")) {
+    // Databricks logs have no SparkListenerLogStart. getSparkVersion is the runtime, from
+    // spark.databricks.clusterUsageTags.sparkVersion, and the Apache Spark version comes from
+    // DBCEventLoggingListenerMetadata.
+    val qualLogDir = ToolTestUtils.getTestResourcePath("spark-events-qualification")
+    Seq(
+      ("nds_q88_photon_db_13_3.zstd", "13.3.x-aarch64-photon-scala2.12", "3.4.1"),
+      ("nds_merge_q4_photon_db_17_3.zstd", "17.3.x-photon-scala2.13", "4.0.0")
+    ).foreach { case (fileName, runtime, apacheVersion) =>
+      val eventLog = s"$qualLogDir/$fileName"
+      val qualApp = createAppFromEventlog(eventLog, PlatformNames.DATABRICKS_AZURE)
+      val qualProvider = new QualAppSummaryInfoProvider(
+        qualApp, None, emptyAggMetrics, Seq.empty)
+
+      val hadoopConf = RapidsToolsConfUtil.newHadoopConf()
+      val eventLogInfo = EventLogPathProcessor.getEventLogInfo(eventLog, hadoopConf).head._1
+      val profApp = new ApplicationInfo(hadoopConf, eventLogInfo,
+        PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE))
+      val profProvider = new SingleAppSummaryInfoProvider(profApp,
+        emptySummary().copy(appInfo = ProfInformationView.getRawView(profApp, 0)))
+
+      Seq(qualProvider, profProvider).foreach { provider =>
+        withClue(s"$fileName, ${provider.getClass.getSimpleName}: ") {
+          provider.getSparkVersion shouldBe Some(runtime)
+          provider.getApacheSparkVersion shouldBe Some(apacheVersion)
+        }
+      }
     }
   }
 }

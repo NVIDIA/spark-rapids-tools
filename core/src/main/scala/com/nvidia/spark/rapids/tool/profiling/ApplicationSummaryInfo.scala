@@ -68,6 +68,9 @@ trait AppInfoPropertyGetter {
   def getSystemProperty(propKey: String): Option[String]
   def getProperty(propKey: String): Option[String]
   def getSparkVersion: Option[String]
+  // The Apache Spark version, for comparisons with Apache releases. On Databricks,
+  // getSparkVersion is the runtime (for example, 17.3.x-photon-scala2.13) instead.
+  def getApacheSparkVersion: Option[String] = getSparkVersion
   def getRapidsJars: Seq[String]
   def getClassPathEntries: Map[String, String] = Map[String, String]()
 }
@@ -181,6 +184,10 @@ class SingleAppSummaryInfoProvider(
 
   override def getSparkVersion: Option[String] = {
     Option(app.appInfo.head.sparkVersion)
+  }
+
+  override def getApacheSparkVersion: Option[String] = {
+    Option(appInfo.apacheSparkVersion)
   }
 
   override def getJvmGCFractions: Seq[Double] = {

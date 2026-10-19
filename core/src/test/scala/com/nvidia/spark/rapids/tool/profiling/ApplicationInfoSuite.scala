@@ -174,13 +174,15 @@ class ApplicationInfoSuite extends BaseNoSparkSuite {
       PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE))
 
     assert(app.sparkVersion == "17.3.x-gpu-ml-scala2.13")
+    // From DBCEventLoggingListenerMetadata, as Databricks logs have no SparkListenerLogStart.
+    assert(app.apacheSparkVersion == "4.0.0")
     assert(app.gpuMode, "expected the RAPIDS plugin to be detected")
     assert(!app.dbPlugin.isPhotonEnabled, "expected the GPU capture to use STANDARD runtime")
     assert(app.getSparkRuntime == SparkRuntime.SPARK_RAPIDS)
     assert(app.sparkRapidsBuildInfo.sparkRapidsBuildInfo.nonEmpty)
     assert(app.getTotalLines == 7022L)
-    assert(app.getProcessedLinesCount == 3689L)
-    assert(app.getSkippedLinesCount == 3333L)
+    assert(app.getProcessedLinesCount == 3690L)
+    assert(app.getSkippedLinesCount == 3332L)
     assert(app.sqlIdToInfo.size == 25)
     assert(app.jobIdToInfo.size == 57)
   }

@@ -128,6 +128,16 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
     _sparkVersion = value
   }
 
+  /**
+   * The Apache Spark version, for comparisons with Apache releases. It differs from
+   * sparkVersion on Databricks, where sparkVersion is the runtime (for example,
+   * 17.3.x-photon-scala2.13) and the event log records the Apache version (4.0.0).
+   * Falls back to sparkVersion when the event log records no version.
+   */
+  def apacheSparkVersion: String = {
+    if (_sparkVersion.nonEmpty) _sparkVersion else sparkVersion
+  }
+
   // A flag to indicate whether the eventlog is an eventlog with the cuDF plugin runtime.
   var gpuMode = false
   // Indicates the ML eventlogType (i.e., Scala or pyspark). It is set only when MLOps are detected.
@@ -196,6 +206,15 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
 
   def handleLogStartForCachedProps(event: SparkListenerLogStart): Unit = {
     sparkVersion = event.sparkVersion
+  }
+
+  /**
+   * Databricks event logs have no SparkListenerLogStart. They record the Apache Spark version
+   * only in DBCEventLoggingListenerMetadata, which Spark has no class for, so the version is
+   * read from the event's raw JSON.
+   */
+  def handleDBLogMetadataForCachedProps(line: String): Unit = {
+    EventUtils.readDBLogMetadataSparkVersion(line).foreach(sparkVersion = _)
   }
 
   def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {

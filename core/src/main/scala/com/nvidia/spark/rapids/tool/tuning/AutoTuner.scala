@@ -1234,7 +1234,7 @@ abstract class AutoTuner(
     "PySpark memory autotuning needs a telemetry-enabled retry."
 
   private def hasReliableProcessTreePythonVMemory: Boolean = {
-    appInfoProvider.getSparkVersion.exists { sparkVersion =>
+    appInfoProvider.getApacheSparkVersion.exists { sparkVersion =>
       val isFixedSpark3 =
         ToolUtils.compareVersions(sparkVersion, "3.5.7").exists(_ >= 0) &&
           ToolUtils.compareVersions(sparkVersion, "4.0.0").exists(_ < 0)
@@ -1357,7 +1357,7 @@ abstract class AutoTuner(
         None
       }
       val versionGuidance = if (!processTreeEvidenceIsReliable) {
-        val sparkVersion = appInfoProvider.getSparkVersion.getOrElse("unknown")
+        val sparkVersion = appInfoProvider.getApacheSparkVersion.getOrElse("unknown")
         Some("ProcessTreePythonVMemory evidence was not used because Spark version " +
           s"$sparkVersion can report unreliable procfs metrics.")
       } else {
@@ -2175,7 +2175,7 @@ abstract class AutoTuner(
               appendRecommendation(propertyKey, recommendedSerializer)
           }
 
-          if (appInfoProvider.getSparkVersion.exists(AutoTuner.hasAqeCacheScanFallback)) {
+          if (appInfoProvider.getApacheSparkVersion.exists(AutoTuner.hasAqeCacheScanFallback)) {
             appendComment(propertyKey,
               "remains compatible, but Spark 3.5.0 and 3.5.1 disable GPU InMemoryTableScan " +
                 "under AQE, so cached scans may remain on the CPU.")
@@ -2253,7 +2253,7 @@ abstract class AutoTuner(
       // TODO: Should we recommend enabling AQE if not set?
       appendComment(commentsForMissingProps("spark.sql.adaptive.enabled"))
     }
-    appInfoProvider.getSparkVersion match {
+    appInfoProvider.getApacheSparkVersion match {
       case Some(version) =>
         if (ToolUtils.isSpark320OrLater(version)) {
           // AQE configs changed in 3.2.0

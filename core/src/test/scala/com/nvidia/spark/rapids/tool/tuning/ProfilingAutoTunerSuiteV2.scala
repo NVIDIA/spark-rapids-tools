@@ -58,13 +58,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       targetClusterInfo: Option[TargetClusterProps] = None,
       sourceProperties: Map[String, String] = Map.empty,
       showOnlyUpdatedProps: Boolean = true,
-      sparkVersion: String = testSparkVersion):
+      sparkVersion: String = testSparkVersion,
+      apacheSparkVersion: Option[String] = None):
       (Seq[TuningEntryTrait], Seq[RecommendedCommentResult]) = {
     val logEventsProps = mutable.LinkedHashMap(defaultDataprocProps.toSeq: _*)
     logEventsProps ++= sourceProperties
     sourceSerializer.foreach(logEventsProps.put(cacheSerializerProperty, _))
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0), logEventsProps,
-      Some(sparkVersion), hasSqlCache = hasSqlCache)
+      Some(sparkVersion), hasSqlCache = hasSqlCache, apacheSparkVersion = apacheSparkVersion)
     val platform = PlatformFactory.createInstance(PlatformNames.DATAPROC, targetClusterInfo)
     configureEventLogClusterInfoForTest(platform, sparkProperties = logEventsProps.toMap)
     buildAutoTunerForTests(infoProvider, platform,
@@ -249,6 +250,17 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
 
     comments.map(_.comment).mkString("\n") should not include
       "disable GPU InMemoryTableScan under AQE"
+  }
+
+  test("Databricks 14.3 cache serializer recommendation includes the AQE fallback advisory") {
+    // DBR 14.3 runs Apache Spark 3.5.0. Its runtime string sorts above every 3.5.x version.
+    val (_, comments) = runCacheSerializerAutoTuner(
+      hasSqlCache = true,
+      sparkVersion = "14.3.x-scala2.12",
+      apacheSparkVersion = Some("3.5.0"))
+
+    comments.map(_.comment).mkString("\n") should include(
+      "disable GPU InMemoryTableScan under AQE")
   }
 
   // Test that the properties from the custom target cluster props will be enforced.
@@ -3660,12 +3672,14 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
   }
 
   forAll(Table(
-    ("sparkVersion", "expectedPySparkMemory", "expectsVersionWarning"),
-    ("3.5.6", "6g", true),
-    ("3.5.7", "7g", false),
-    ("4.0.0", "6g", true),
-    ("4.0.1", "7g", false)
-  )) { (sparkVersion, expectedPySparkMemory, expectsVersionWarning) =>
+    ("sparkVersion", "apacheSparkVersion", "expectedPySparkMemory", "expectsVersionWarning"),
+    ("3.5.6", None, "6g", true),
+    ("3.5.7", None, "7g", false),
+    ("4.0.0", None, "6g", true),
+    ("4.0.1", None, "7g", false),
+    // DBR 17.3 runs Apache Spark 4.0.0. Its runtime string sorts above every 4.x version.
+    ("17.3.x-photon-scala2.13", Some("4.0.0"), "6g", true)
+  )) { (sparkVersion, apacheSparkVersion, expectedPySparkMemory, expectsVersionWarning) =>
     test(s"PySpark memory evidence reliability for Spark $sparkVersion") {
       val sourceProps = mutable.LinkedHashMap[String, String](
         "spark.executor.cores" -> "8",
@@ -3677,7 +3691,8 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
       val peakBytes = (BigDecimal("5.5") * BigDecimal(1024L * 1024L * 1024L)).toLong
       val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0), sourceProps,
         Some(sparkVersion),
-        pySparkMemoryEvidence = Seq(PySparkMemoryEvidence(1, 0, Seq(peakBytes))))
+        pySparkMemoryEvidence = Seq(PySparkMemoryEvidence(1, 0, Seq(peakBytes))),
+        apacheSparkVersion = apacheSparkVersion)
       val targetClusterInfo = ToolTestUtils.buildTargetClusterInfo(
         cpuCores = Some(8), memoryGB = Some(128), gpuCount = Some(1),
         gpuDevice = Some(GpuTypes.L4.toString))
