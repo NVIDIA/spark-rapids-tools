@@ -3531,7 +3531,8 @@ trait AutoTunerStaticComments {
   def shuffleManagerCommentForDatabricksRuntime(runtime: String, platform: Platform): String = {
     s"""
        |Cannot recommend RAPIDS Shuffle Manager for Databricks runtime '$runtime' on platform '${platform.platformName}'.
-       |To get a recommendation, rerun with '--platform ${PlatformNames.DATABRICKS_AWS}' or '--platform ${PlatformNames.DATABRICKS_AZURE}'.
+       |If the runtime is supported, rerun with '--platform ${PlatformNames.DATABRICKS_AWS}' or '--platform ${PlatformNames.DATABRICKS_AZURE}' to get a recommendation.
+       |See supported versions: $shuffleManagerDocUrl.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
   // scalastyle:on line.size.limit
