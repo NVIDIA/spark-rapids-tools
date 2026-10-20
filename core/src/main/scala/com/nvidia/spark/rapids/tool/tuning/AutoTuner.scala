@@ -25,6 +25,7 @@ import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 import com.nvidia.spark.rapids.tool._
+import com.nvidia.spark.rapids.tool.planparser.db.DBVersionExtractor
 import com.nvidia.spark.rapids.tool.profiling._
 import com.nvidia.spark.rapids.tool.tuning.config.{CategoryEnum, MissingCommentPolicy,
   ProfTuningConfigProvider, PySparkMemoryRebalanceSource, PySparkMemoryTuningPolicy,
@@ -2225,6 +2226,10 @@ abstract class AutoTuner(
         platform.getShuffleManagerVersion(sparkVersion) match {
           case Some(smVersion) =>
             Right(autoTunerHelper.buildShuffleManagerClassName(smVersion))
+          case None if isDatabricksAppOnOtherPlatform =>
+            // The lookup version is the app's Databricks runtime, which only a Databricks
+            // platform maps to a shim
+            Left(shuffleManagerCommentForDatabricksRuntime(sparkVersion, platform))
           case None =>
             Left(shuffleManagerCommentForUnsupportedVersion(
               sparkVersion, platform))
@@ -2232,6 +2237,12 @@ abstract class AutoTuner(
       case None =>
         Left(shuffleManagerCommentForMissingVersion)
     }
+  }
+
+  /** Whether the event log records a Databricks runtime but the platform isn't Databricks. */
+  private def isDatabricksAppOnOtherPlatform: Boolean = {
+    appInfoProvider.getProperty(DBVersionExtractor.DB_SPARK_VERSION_KEY).isDefined &&
+      !platform.isInstanceOf[DatabricksPlatform]
   }
 
   private def recommendGCProperty(): Unit = {
@@ -3514,6 +3525,13 @@ trait AutoTunerStaticComments {
        |To enable RAPIDS Shuffle Manager, use a supported ${platform.sparkVersionLabel} (e.g., '$latestSparkVersion')
        |and set: '--conf spark.shuffle.manager=com.nvidia.spark.rapids.spark$latestSmVersion.RapidsShuffleManager'.
        |See supported versions: $shuffleManagerDocUrl.
+       |""".stripMargin.trim.replaceAll("\n", "\n  ")
+  }
+
+  def shuffleManagerCommentForDatabricksRuntime(runtime: String, platform: Platform): String = {
+    s"""
+       |Cannot recommend RAPIDS Shuffle Manager for Databricks runtime '$runtime' on platform '${platform.platformName}'.
+       |To get a recommendation, rerun with '--platform ${PlatformNames.DATABRICKS_AWS}' or '--platform ${PlatformNames.DATABRICKS_AZURE}'.
        |""".stripMargin.trim.replaceAll("\n", "\n  ")
   }
   // scalastyle:on line.size.limit

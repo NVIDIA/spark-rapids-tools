@@ -215,8 +215,8 @@ class ApplicationInfoSuite extends BaseNoSparkSuite {
         assert(recommended == expectedShuffleManager.toSeq)
         if (expectedShuffleManager.isEmpty) {
           assert(outputLines.exists(_.contains(
-            "Cannot recommend RAPIDS Shuffle Manager for unsupported Spark version: " +
-              "'17.3.x-gpu-ml-scala2.13'")))
+            "Cannot recommend RAPIDS Shuffle Manager for Databricks runtime " +
+              "'17.3.x-gpu-ml-scala2.13' on platform 'onprem'.")))
         }
       }
     }

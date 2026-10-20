@@ -3769,7 +3769,13 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
         DBVersionExtractor.DB_SPARK_VERSION_KEY -> databricksVersion),
       Some("4.0.0"), Seq())
     val autoTuner = buildAutoTunerForTests(infoProvider, PlatformFactory.createInstance())
-    verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
+    autoTuner.getShuffleManagerClassName match {
+      case Right(smClassName) =>
+        fail(s"Expected error comment but got valid RapidsShuffleManager: $smClassName")
+      case Left(comment) =>
+        assert(comment ==
+          shuffleManagerCommentForDatabricksRuntime(databricksVersion, autoTuner.platform))
+    }
   }
 
   test("test shuffle manager version for databricks 15.4 without a plugin shim") {
