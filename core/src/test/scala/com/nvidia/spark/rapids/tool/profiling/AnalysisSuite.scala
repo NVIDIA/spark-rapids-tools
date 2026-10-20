@@ -20,6 +20,7 @@ import java.io.File
 
 import com.nvidia.spark.rapids.tool.{PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.analysis.MetricCatalog
+import com.nvidia.spark.rapids.tool.planparser.db.PhotonParseHelper
 import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
 import org.scalatest.funsuite.AnyFunSuite
 
@@ -251,14 +252,66 @@ class AnalysisSuite extends AnyFunSuite {
       expectFile("sql"), expectFile("job"), expectFile("stage"))
   }
 
-  test("test photon sql metrics aggregation") {
-    val fileName = "nds_q88_photon_db_13_3"
-    val expectFile = (metric: String) => {
-      s"${fileName}_${metric}_metrics_agg_expectation.csv"
+  Seq("nds_q88_photon_db_13_3", "nds_merge_q4_photon_db_17_3").foreach { fileName =>
+    test(s"test photon sql metrics aggregation: $fileName") {
+      val expectFile = (metric: String) => {
+        s"${fileName}_${metric}_metrics_agg_expectation.csv"
+      }
+      testSqlMetricsAggregation(Array(s"${qualLogDir}/${fileName}.zstd"),
+        expectFile("sql"), expectFile("job"), expectFile("stage"),
+        platformName = PlatformNames.DATABRICKS_AWS)
     }
-    testSqlMetricsAggregation(Array(s"${qualLogDir}/${fileName}.zstd"),
-      expectFile("sql"), expectFile("job"), expectFile("stage"),
-      platformName = PlatformNames.DATABRICKS_AWS)
+  }
+
+  test("photon peak memory matches only its own label") {
+    assert(PhotonParseHelper.isPhotonPeakMemoryMetric("peak memory usage"))
+    // Databricks 17.3 Parquet writers also report this, for their dictionary ids only
+    assert(!PhotonParseHelper.isPhotonPeakMemoryMetric(
+      "dictionary encoding - peak memory usage for dictionary ids"))
+  }
+
+  // The parts of Photon's shuffle write time. 13.3's "convert columns to rows" part is
+  // "convert rows to columns" in 17.3.
+  private val photonShuffleWriteParts = Seq(
+    "time taken to sort rows by partition ID (part of shuffle file write)",
+    "time taken waiting on file write IO (part of shuffle file write)")
+  Seq(
+    "nds_q88_photon_db_13_3" ->
+      "time taken to convert columns to rows (part of shuffle file write)",
+    "nds_merge_q4_photon_db_17_3" ->
+      "time taken to convert rows to columns (part of shuffle file write)"
+  ).foreach { case (fileName, convertPart) =>
+    test(s"photon metrics the tools read keep their names and types: $fileName") {
+      val args = Array("--platform", PlatformNames.DATABRICKS_AWS, s"$qualLogDir/$fileName.zstd")
+      val apps = ToolTestUtils.processProfileApps(args, sparkSession)
+      val metrics = apps.head.planMetricProcessor.allSQLMetrics
+      val shuffleWrite =
+        metrics.filter(m => PhotonParseHelper.isPhotonShuffleWriteTimeMetric(m.name))
+      assert(shuffleWrite.map(_.name).toSet == (photonShuffleWriteParts :+ convertPart).toSet)
+      // The tools convert scan time and shuffle write time from nanoseconds, and read peak
+      // memory as bytes
+      val scanTime = metrics.filter { m =>
+        m.name == PhotonParseHelper.PHOTON_METRIC_CUMULATIVE_TIME_LABEL &&
+          m.nodeName.contains("Scan")
+      }
+      val peakMemory = metrics.filter(m => PhotonParseHelper.isPhotonPeakMemoryMetric(m.name))
+      assert(scanTime.map(_.metricType).toSet == Set("nsTiming"))
+      assert(shuffleWrite.map(_.metricType).toSet == Set("nsTiming"))
+      assert(peakMemory.map(_.metricType).toSet == Set("size"))
+    }
+  }
+
+  test("photon stages that shuffle through a CPU Exchange keep the task shuffle write time") {
+    // These stages of the 17.3 fixture have no Photon shuffle write metric. The values are the
+    // sums of their tasks' Shuffle Write Time.
+    val args = Array("--platform", PlatformNames.DATABRICKS_AWS,
+      s"$qualLogDir/nds_merge_q4_photon_db_17_3.zstd")
+    val apps = ToolTestUtils.processProfileApps(args, sparkSession)
+    val swWriteTimes = RawMetricProfilerView.getAggMetrics(apps.toSeq).stageAggs
+      .map(stage => stage.id -> stage.swWriteTimeSum).toMap
+    assert(swWriteTimes(57) == 19330)
+    assert(swWriteTimes(81) == 3)
+    assert(swWriteTimes(86) == 2)
   }
 
   test("test stage-level diagnostic metrics with diagnostic views enabled") {
