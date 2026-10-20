@@ -369,7 +369,7 @@ class AppSummaryInfoProviderSuite extends BaseNoSparkSuite {
     }
   }
 
-  test("Databricks apps fall back to the runtime only when the log records no Spark version") {
+  test("Databricks apps take the Spark version only from the event log") {
     val runtime = "17.3.x-photon-scala2.13"
     val dbProperties = Seq(
       DatabricksParseHelper.PROP_ALL_TAGS_KEY -> "[]",
@@ -382,13 +382,15 @@ class AppSummaryInfoProviderSuite extends BaseNoSparkSuite {
         s""""Spark Properties":{$dbProperties},"Hadoop Properties":{},""" +
         """"System Properties":{},"Classpath Entries":{}}"""
     val logMetadata =
-      """{"Event":"DBCEventLoggingListenerMetadata","Spark Version":"4.0.0"}"""
+      """{"Event":"DBCEventLoggingListenerMetadata","Spark Version":"4.0.0",""" +
+        """"Timestamp":100000,"Rollover Number":0,"SparkContext Id":0}"""
     val logStart = """{"Event":"SparkListenerLogStart","Spark Version":"3.5.0"}"""
     val platform = PlatformFactory.createInstance(PlatformNames.DATABRICKS_AZURE)
     Seq(
       ("DBCEventLoggingListenerMetadata", Seq(logMetadata), "4.0.0"),
       ("SparkListenerLogStart", Seq(logStart), "3.5.0"),
-      ("no version event", Seq.empty, runtime)
+      // The runtime is not a Spark version, so it never becomes sparkVersion.
+      ("no version event", Seq.empty, "")
     ).foreach { case (label, versionEvents, expectedVersion) =>
       val events = versionEvents ++ Seq(
         """{"Event":"SparkListenerApplicationStart","App Name":"ProviderTest",""" +
@@ -400,7 +402,7 @@ class AppSummaryInfoProviderSuite extends BaseNoSparkSuite {
         val provider = new QualAppSummaryInfoProvider(app, None, emptyAggMetrics, Seq.empty)
         withClue(s"$label: ") {
           assert(app.dbPlugin.isEnabled, "expected the Databricks plugin to be enabled")
-          provider.getSparkVersion shouldBe Some(expectedVersion)
+          app.sparkVersion shouldBe expectedVersion
           platform.getShuffleManagerLookupVersion(provider) shouldBe Some(runtime)
         }
       }

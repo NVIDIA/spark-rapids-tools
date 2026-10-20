@@ -18,6 +18,7 @@ package org.apache.spark.sql.rapids.tool.util
 
 import scala.jdk.CollectionConverters._
 
+import com.nvidia.spark.rapids.tool.planparser.db.DBLogMetadataEvent
 import com.nvidia.spark.rapids.tool.plugins.AppPropPlugContainerTrait
 import com.nvidia.spark.rapids.tool.profiling.ProfileUtils
 
@@ -117,15 +118,7 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
    * Getter for Spark version: the version the event log records, from SparkListenerLogStart or,
    * on Databricks, DBCEventLoggingListenerMetadata.
    */
-  def sparkVersion: String = {
-    if (_sparkVersion.nonEmpty) {
-      _sparkVersion
-    } else {
-      // The event log records no version. Fall back to the plugins' version, such as the
-      // Databricks runtime (for example, 17.3.x-photon-scala2.13).
-      getSparkVersionPlugins.getOrElse(_sparkVersion)
-    }
-  }
+  def sparkVersion: String = _sparkVersion
 
   /** Setter for Spark version */
   def sparkVersion_=(value: String): Unit = {
@@ -203,12 +196,11 @@ trait CacheablePropsHandler extends AppPropPlugContainerTrait {
   }
 
   /**
-   * Databricks event logs have no SparkListenerLogStart. They record the Spark version only in
-   * DBCEventLoggingListenerMetadata, which Spark has no class for, so the version is read from
-   * the event's raw JSON.
+   * Databricks event logs have no SparkListenerLogStart. They record the Spark version in
+   * DBCEventLoggingListenerMetadata instead.
    */
-  def handleDBLogMetadataForCachedProps(line: String): Unit = {
-    EventUtils.readDBLogMetadataSparkVersion(line).foreach(sparkVersion = _)
+  def handleDBLogMetadataForCachedProps(event: DBLogMetadataEvent): Unit = {
+    Option(event.sparkVersion).filter(_.nonEmpty).foreach(sparkVersion = _)
   }
 
   def isGPUModeEnabledForJob(event: SparkListenerJobStart): Boolean = {

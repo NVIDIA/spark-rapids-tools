@@ -23,7 +23,7 @@ import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
-import org.json4s.{JInt, JString}
+import org.json4s.JInt
 import org.json4s.jackson.JsonMethods.parse
 
 import org.apache.spark.internal.Logging
@@ -53,19 +53,6 @@ object EventUtils extends Logging {
   def readApplicationExitCode(line: String): Option[Int] = {
     Try(parse(line) \ "ExitCode").toOption.collect {
       case JInt(value) if value.isValidInt => value.toInt
-    }
-  }
-
-  // Databricks writes this event at the start of each rolled event-log file.
-  val DB_LOG_METADATA_EVENT_PREFIX = "{\"Event\":\"DBCEventLoggingListenerMetadata\","
-
-  /**
-   * Reads the Spark version from Databricks' DBCEventLoggingListenerMetadata event,
-   * for example {"Event":"DBCEventLoggingListenerMetadata","Spark Version":"4.0.0",...}.
-   */
-  def readDBLogMetadataSparkVersion(line: String): Option[String] = {
-    Try(parse(line) \ "Spark Version").toOption.collect {
-      case JString(value) if value.nonEmpty => value
     }
   }
 

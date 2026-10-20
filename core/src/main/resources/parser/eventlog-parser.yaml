@@ -63,7 +63,7 @@ eventsTable:
   connectOpFailed: org.apache.spark.sql.connect.service.SparkListenerConnectOperationFailed
   connectOpCanceled: org.apache.spark.sql.connect.service.SparkListenerConnectOperationCanceled
   # List of Databricks events.
-  # Spark has no class for this event; AppBase reads it from the raw JSON.
+  # Spark has no class for this event; the tools define it in the empty package.
   dbcEventLogMetadata: DBCEventLoggingListenerMetadata
 # List of events that can be supported by each tool
 toolsConfig:

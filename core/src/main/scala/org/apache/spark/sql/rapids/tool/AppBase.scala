@@ -373,25 +373,18 @@ abstract class AppBase(
                 // Using find as foreach with conditional to exit early if we are done.
                 // Do NOT use a while loop as it is much much slower.
                 totalNumEvents += 1
-                if (line.startsWith(EventUtils.DB_LOG_METADATA_EVENT_PREFIX)) {
-                  // Spark has no class for this Databricks event, so read it from the raw JSON.
-                  handleDBLogMetadataForCachedProps(line)
-                  false
-                } else {
-                  runtimeGetFromJsonMethod.apply(line) match {
-                    case Some(e) =>
-                      val stopProcessing = processEvent(e)
-                      // Spark 4 adds ExitCode to SparkListenerApplicationEnd. Read it from the
-                      // raw JSON so Spark 3 runtimes can also retain it when parsing Spark 4
-                      // event logs.
-                      e match {
-                        case _: SparkListenerApplicationEnd =>
-                          EventUtils.readApplicationExitCode(line).foreach(updateExitCode)
-                        case _ =>
-                      }
-                      stopProcessing
-                    case None => false
-                  }
+                runtimeGetFromJsonMethod.apply(line) match {
+                  case Some(e) =>
+                    val stopProcessing = processEvent(e)
+                    // Spark 4 adds ExitCode to SparkListenerApplicationEnd. Read it from the raw
+                    // JSON so Spark 3 runtimes can also retain it when parsing Spark 4 event logs.
+                    e match {
+                      case _: SparkListenerApplicationEnd =>
+                        EventUtils.readApplicationExitCode(line).foreach(updateExitCode)
+                      case _ =>
+                    }
+                    stopProcessing
+                  case None => false
                 }
               }
             }
