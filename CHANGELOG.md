@@ -1,6 +1,37 @@
 
 <br/>
 
+## Release [v26.08.3](https://github.com/NVIDIA/cudf-spark-tools/tree/v26.08.3)
+Generated on 2026-10-20
+### Autotuner
+
+- Seed AutoTuner GPU concurrency from task footprints ([#2165](https://github.com/NVIDIA/cudf-spark-tools/pull/2165))
+
+### Bug Fixes
+
+- Keep Photon shuffle sources outside stage clusters ([#2168](https://github.com/NVIDIA/cudf-spark-tools/pull/2168))
+
+### Build and CI/CD
+
+- Bump urllib3 from 2.7.0 to 2.8.0 in /user_tools ([#2183](https://github.com/NVIDIA/cudf-spark-tools/pull/2183))
+- Use Temurin for Maven verification [skip ci] ([#2171](https://github.com/NVIDIA/cudf-spark-tools/pull/2171))
+
+### Core
+
+- Check the Photon topology invariants on the 17.3 fixture ([#2196](https://github.com/NVIDIA/cudf-spark-tools/pull/2196))
+- Map the Photon nodes Databricks 15.4 and 17.3 added to their Spark equivalents ([#2159](https://github.com/NVIDIA/cudf-spark-tools/pull/2159))
+- Detect Delta CTAS and RTAS from the TableSpec provider ([#2181](https://github.com/NVIDIA/cudf-spark-tools/pull/2181))
+- Refresh DBR 17.3 GPU fixture with the current sanitizer ([#2180](https://github.com/NVIDIA/cudf-spark-tools/pull/2180))
+- Add Databricks 17.3 Photon and RAPIDS event-log coverage ([#2173](https://github.com/NVIDIA/cudf-spark-tools/pull/2173))
+- Use plugin default for multithreaded combine size ([#2164](https://github.com/NVIDIA/cudf-spark-tools/pull/2164))
+
+### Miscellaneous
+
+- Ignore rate-limited DeepWiki links ([#2195](https://github.com/NVIDIA/cudf-spark-tools/pull/2195))
+
+
+<br/>
+
 ## Release [v26.08.2](https://github.com/NVIDIA/cudf-spark-tools/tree/v26.08.2)
 Generated on 2026-09-15
 ### Autotuner
