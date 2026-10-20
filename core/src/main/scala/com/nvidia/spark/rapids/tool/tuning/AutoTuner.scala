@@ -2206,8 +2206,8 @@ abstract class AutoTuner(
   }
 
   /**
-   * Resolves the RapidsShuffleManager class name based on the Spark version, or the runtime on
-   * Databricks (see Platform.getShuffleManagerLookupVersion).
+   * Resolves the RapidsShuffleManager class name based on the Spark version, or the runtime of
+   * a Databricks app (see Platform.getShuffleManagerLookupVersion).
    * If a valid class name is not found, an error message is returned.
    *
    * Example:

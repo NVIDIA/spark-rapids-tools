@@ -453,10 +453,14 @@ abstract class Platform(var gpuDevice: Option[GpuDevice],
   }
 
   /**
-   * The version that supportedShuffleManagerVersionMap is keyed by: the app's Spark version.
+   * The version to look up in supportedShuffleManagerVersionMap. A Databricks app needs the shim
+   * for its runtime (for example, 14.3 and 15.4 both run Spark 3.5.0), so use the runtime the
+   * event log records, if any, and otherwise the Spark version. On a platform whose map is keyed
+   * by Spark versions, a runtime matches nothing, so a Databricks app never gets an Apache shim.
    */
   def getShuffleManagerLookupVersion(appInfoProvider: AppInfoPropertyGetter): Option[String] = {
-    appInfoProvider.getSparkVersion
+    appInfoProvider.getProperty(DBVersionExtractor.DB_SPARK_VERSION_KEY)
+      .orElse(appInfoProvider.getSparkVersion)
   }
 
   /**
@@ -907,14 +911,6 @@ abstract class DatabricksPlatform(gpuDevice: Option[GpuDevice],
     "14.3" -> "350db143",
     "17.3" -> "400db173"
   )
-
-  // The map is keyed by the Databricks runtime (for example, 17.3.x-gpu-ml-scala2.13), not the
-  // Spark version. Fall back to the Spark version when the event log records no runtime.
-  override def getShuffleManagerLookupVersion(
-      appInfoProvider: AppInfoPropertyGetter): Option[String] = {
-    appInfoProvider.getProperty(DBVersionExtractor.DB_SPARK_VERSION_KEY)
-      .orElse(appInfoProvider.getSparkVersion)
-  }
 
   override def createClusterInfo(coresPerExecutor: Int,
       numExecsPerNode: Int,

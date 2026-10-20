@@ -3759,6 +3759,19 @@ class ProfilingAutoTunerSuiteV2 extends ProfilingAutoTunerSuiteBase {
     verifyRecommendedShuffleManagerVersion(autoTuner, expectedSmVersion = "400db173")
   }
 
+  test("test shuffle manager is not recommended for a databricks log on the default platform") {
+    // The default (onprem) map is keyed by Spark versions. A Databricks app needs its runtime's
+    // shim (17.3 -> 400db173), so the onprem 400 shim for its Spark version must not be used.
+    val databricksVersion = "17.3.x-gpu-ml-scala2.13"
+    val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
+      mutable.Map("spark.rapids.sql.enabled" -> "true",
+        "spark.plugins" -> "com.nvidia.spark.AnotherPlugin, com.nvidia.spark.SQLPlugin",
+        DBVersionExtractor.DB_SPARK_VERSION_KEY -> databricksVersion),
+      Some("4.0.0"), Seq())
+    val autoTuner = buildAutoTunerForTests(infoProvider, PlatformFactory.createInstance())
+    verifyUnsupportedSparkVersionForShuffleManager(autoTuner, databricksVersion)
+  }
+
   test("test shuffle manager version for databricks 15.4 without a plugin shim") {
     val databricksVersion = "15.4.x-gpu-ml-scala2.12"
     val infoProvider = getMockInfoProvider(0, Seq(0), Seq(0.0),
