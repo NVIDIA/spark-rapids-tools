@@ -1803,7 +1803,10 @@ abstract class AutoTuner(
    * strategy's executor count scale (the source/target cores ratio for constant total cores,
    * 1.0 for strategies that keep the executor count).
    *
-   * Formula: adjusted_value = max(1, floor(original_value × scale))
+   * Formula: initialExecutors, executor.instances and maxExecutors use
+   * max(1, ceil(original_value × scale)), so the GPU cluster can start with and grow to at least
+   * the source cores (matching the executor count of the cluster sizing). minExecutors uses
+   * max(1, floor(original_value × scale)) so the idle footprint stays within the source.
    *
    * If the source or target executor cores are unknown, the source values are kept as is.
    *
@@ -1858,14 +1861,20 @@ abstract class AutoTuner(
     }
 
     // Helper function to get the adjusted value for a property
-    // Formula: adjusted_value = max(1, floor(original_value × adjustRatio))
-    def adjustedValue(property: String): Option[Int] = {
+    // Formula: adjusted_value = max(1, round(original_value × adjustRatio)), where round is
+    // ceil when 'roundUp' is set and floor otherwise. The epsilon keeps a product that is a whole
+    // number up to floating point error (e.g. 2.0000000001) from rounding past it.
+    def adjustedValue(property: String, roundUp: Boolean): Option[Int] = {
       if (ignoreRecommendation(property)) {
         None
       } else {
         val cpuValue = getPropertyValueFromSource(property).map(_.toInt)
         if (canScale) {
-          cpuValue.map(v => math.max(1, math.floor(v * adjustRatio).toInt))
+          cpuValue.map { v =>
+            val scaled = v * adjustRatio
+            val rounded = if (roundUp) math.ceil(scaled - 1e-9) else math.floor(scaled + 1e-9)
+            math.max(1, rounded.toInt)
+          }
         } else {
           cpuValue
         }
@@ -1891,7 +1900,7 @@ abstract class AutoTuner(
     // set by recommendStartingExecutorCount does not include the size of the recommended cluster.
     Seq("spark.dynamicAllocation.initialExecutors", "spark.executor.instances").foreach { prop =>
       if (!ignoreRecommendation(prop)) {
-        adjustedValue(prop) match {
+        adjustedValue(prop, roundUp = true) match {
           case Some(v) =>
             markAsAdjustedProperty(prop, v)
             appendRecommendation(prop, v)
@@ -1901,13 +1910,13 @@ abstract class AutoTuner(
       }
     }
 
-    adjustedValue("spark.dynamicAllocation.minExecutors").foreach { v =>
+    adjustedValue("spark.dynamicAllocation.minExecutors", roundUp = false).foreach { v =>
       markAsAdjustedProperty("spark.dynamicAllocation.minExecutors", v)
       appendRecommendation("spark.dynamicAllocation.minExecutors", v)
     }
 
     val maxExecutorsProp = "spark.dynamicAllocation.maxExecutors"
-    adjustedValue(maxExecutorsProp).foreach { v =>
+    adjustedValue(maxExecutorsProp, roundUp = true).foreach { v =>
       markAsAdjustedProperty(maxExecutorsProp, v)
       appendRecommendation(maxExecutorsProp, v)
     }
