@@ -20,6 +20,7 @@ import java.io.File
 
 import com.nvidia.spark.rapids.tool.{PlatformNames, ToolTestUtils}
 import com.nvidia.spark.rapids.tool.analysis.MetricCatalog
+import com.nvidia.spark.rapids.tool.analysis.util.AggAccumPhotonHelper
 import com.nvidia.spark.rapids.tool.planparser.db.PhotonParseHelper
 import com.nvidia.spark.rapids.tool.views.{ProfDataSourceView, RawMetricProfilerView}
 import org.scalatest.funsuite.AnyFunSuite
@@ -27,7 +28,7 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.apache.spark.scheduler.AccumulableInfo
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.rapids.tool.ToolUtils
-import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumInfoWithMaxAgg, AccumMetaRef}
+import org.apache.spark.sql.rapids.tool.store.{AccumInfo, AccumInfoWithMaxAgg, AccumMetaRef, TaskModel}
 import org.apache.spark.sql.types._
 
 case class TestStageDiagnosticResult(
@@ -312,6 +313,32 @@ class AnalysisSuite extends AnyFunSuite {
     assert(swWriteTimes(57) == 19330)
     assert(swWriteTimes(81) == 3)
     assert(swWriteTimes(86) == 2)
+  }
+
+  test("photon stages without a Photon peak memory metric keep the task peak memory") {
+    // In the fixtures, every task reports 0 peak execution memory, so build the tasks here
+    def task(peakExecutionMemory: Long): TaskModel = TaskModel(
+      stageId = 1, stageAttemptId = 0, taskType = "ShuffleMapTask", endReason = "Success",
+      taskId = 1L, attempt = 0, launchTime = 0L, finishTime = 0L, duration = 0L,
+      successful = true, taskStatus = "SUCCESS", executorId = "1", host = "host1",
+      taskLocality = "PROCESS_LOCAL", speculative = false, gettingResultTime = 0L,
+      executorDeserializeTime = 0L, executorDeserializeCPUTime = 0L, executorRunTime = 0L,
+      executorCPUTime = 0L, peakExecutionMemory = peakExecutionMemory, resultSize = 0L,
+      jvmGCTime = 0L, resultSerializationTime = 0L, memoryBytesSpilled = 0L,
+      diskBytesSpilled = 0L, sr_remoteBlocksFetched = 0L, sr_localBlocksFetched = 0L,
+      sr_fetchWaitTime = 0L, sr_remoteBytesRead = 0L, sr_remoteBytesReadToDisk = 0L,
+      sr_localBytesRead = 0L, sr_totalBytesRead = 0L, sw_bytesWritten = 0L, sw_writeTime = 0L,
+      sw_recordsWritten = 0L, input_bytesRead = 0L, input_recordsRead = 0L,
+      output_bytesWritten = 0L, output_recordsWritten = 0L)
+    def peakMemory(photonPeakValues: Seq[Long], tasks: Seq[TaskModel]): Long =
+      new AggAccumPhotonHelper(Seq.empty, photonPeakValues).accumPerStage(tasks)
+        .peakExecutionMemoryMax
+    // A stage with no Photon peak memory metric
+    assert(peakMemory(Seq.empty, Seq(task(1024), task(4096))) == 4096)
+    // A Photon stage, whose tasks report 0
+    assert(peakMemory(Seq(2048), Seq(task(0), task(0))) == 2048)
+    // A stage with no tasks
+    assert(peakMemory(Seq(2048), Seq.empty) == 0)
   }
 
   test("test stage-level diagnostic metrics with diagnostic views enabled") {

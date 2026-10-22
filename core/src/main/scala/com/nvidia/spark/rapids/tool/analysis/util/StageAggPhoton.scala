@@ -38,7 +38,7 @@ case class StageAggPhoton(
     // A stage that shuffles through a CPU Exchange instead of a Photon sink has no Photon shuffle
     // write metric, but its tasks report the shuffle write time, so keep the task value when
     // shuffleWriteValues is empty. A stage writes one shuffle, so it can't have both.
-    peakExecutionMemoryMax = 0
+    // Likewise, a stage with no Photon peak memory metric keeps its tasks' peak execution memory.
     if (!isEmptyAggregates) {
       // Re-calculate the photon specific fields only if the accumulator has tasks.
       // Otherwise, leave it as 0.
