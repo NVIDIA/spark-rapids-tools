@@ -1,6 +1,21 @@
 
 <br/>
 
+## Release [v26.08.4](https://github.com/NVIDIA/cudf-spark-tools/tree/v26.08.4)
+Generated on 2026-10-23
+### User Tools
+
+- update db azure models to db 17.3 ([#2202](https://github.com/NVIDIA/cudf-spark-tools/pull/2202))
+
+### Core
+
+- Match Photon peak memory exactly and keep CPU shuffle write time ([#2200](https://github.com/NVIDIA/cudf-spark-tools/pull/2200))
+- Treat RowToColumnar like ColumnarToRow in qualification ([#2193](https://github.com/NVIDIA/cudf-spark-tools/pull/2193))
+- Use the Spark version Databricks logs record as the app's Spark version ([#2197](https://github.com/NVIDIA/cudf-spark-tools/pull/2197))
+
+
+<br/>
+
 ## Release [v26.08.3](https://github.com/NVIDIA/cudf-spark-tools/tree/v26.08.3)
 Generated on 2026-10-20
 ### Autotuner
