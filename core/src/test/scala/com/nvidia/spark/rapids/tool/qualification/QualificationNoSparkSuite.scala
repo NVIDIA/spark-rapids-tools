@@ -874,8 +874,8 @@ class QualificationNoSparkSuite extends BaseNoSparkSuite {
 
     val app = createAppFromEventlog(logFile, PlatformNames.DATABRICKS_AZURE)
     assert(app.dbPlugin.isPhotonEnabled, "expected DBR 17.3 event log to enable Photon")
-    assert(app.sparkVersion == "17.3.x-photon-scala2.13",
-      s"unexpected DBR version: ${app.sparkVersion}")
+    // From DBCEventLoggingListenerMetadata, as Databricks logs have no SparkListenerLogStart.
+    assert(app.sparkVersion == "4.0.0", s"unexpected Spark version: ${app.sparkVersion}")
     val wholeStageMapping = QualSQLCodeGenView.getRawViewFromSqlProcessor(AppSQLPlanAnalyzer(app))
     val summary = app.aggregateStats().getOrElse {
       fail("expected Photon qualification summary")
